@@ -1,148 +1,109 @@
-//! For a rooted tree and structured index,
-//! the thingss I want to do are:
-//!
-//! - Traverse via index:
-//!  - Between parent and child
-//!  - Between adjacent siblings
-//! - Display tree in a structured manner
-//!
-//! I wish it could be safe, but I don't think it will be.
+//! NOTE: I wish it could be safe, but I don't think it will be.
 //! Invalid states are representable, and removing nodes might mess up everything.
-
-// use std::fmt::Debug;
-
-// /// TODO: not exactly what I want right now
-// ///
-// /// Ex: `tree!(3 => [ 1 => [], 7 => [ 8 ] ])`
-// ///
-// /// Leaf can be `item => []` or `item`
-// #[macro_export]
-// macro_rules! tree {
-//     [$tree_item:expr] => {
-//         $crate::backend::utils::TreeNode::new_leaf($tree_item)
-//     };
-
-//     [$tree_item:expr => $children:expr] => {
-//         $crate::backend::utils::TreeNode::new($tree_item, $children.into())
-//     }; // ($item:expr => []) => {
-//        //     $crate::backend::utils::TreeNode::new_leaf($item)
-//        // };
-// }
-
-// pub struct TreeNode<T> {
-//     item: T,
-//     children: Vec<TreeNode<T>>,
-// }
-// impl<T> TreeNode<T> {
-//     pub fn new(item: T, children: Vec<Self>) -> Self {
-//         Self { item, children }
-//     }
-
-//     pub fn new_leaf(item: T) -> Self {
-//         Self {
-//             item,
-//             children: Vec::new(),
-//         }
-//     }
-
-//     pub fn get_item_ref(&self) -> &T {
-//         &self.item
-//     }
-
-//     pub fn get_children_ref(&self) -> &Vec<Self> {
-//         &self.children
-//     }
-
-//     /// I don't understand lifetimes, I just did what the compiler said to do
-//     fn flattened_ref_recursive<'a, 'b: 'a>(
-//         flat: &mut Vec<(Vec<usize>, &'a Self)>,
-//         node: &'b Self,
-//         tree_index: Vec<usize>,
-//     ) {
-//         // add self
-//         flat.push((tree_index.clone(), node));
-
-//         // add children
-//         for (child_extra_index, child) in node.children.iter().enumerate() {
-//             let child_tree_index = {
-//                 let mut child_tree_index = tree_index.clone();
-//                 child_tree_index.push(child_extra_index);
-//                 child_tree_index
-//             };
-//             Self::flattened_ref_recursive(flat, child, child_tree_index);
-//         }
-//     }
-
-//     /// returns `[(index, node), ...]`
-//     /// definitely has a horrible Big O, but this is meant for small cases
-//     pub fn flattened_ref(&self) -> Vec<(Vec<usize>, &Self)> {
-//         let mut flat = Vec::new();
-
-//         Self::flattened_ref_recursive(&mut flat, self, Vec::new());
-
-//         flat
-//     }
-// }
-// impl<T: Debug> Debug for TreeNode<T> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("TreeNode")
-//             .field("item", &self.item)
-//             .field("children", &self.children)
-//             .finish()
-//     }
-// }
-
-// pub type TreeIndex = [usize];
-// impl<T> std::ops::Index<&TreeIndex> for TreeNode<T> {
-//     type Output = TreeNode<T>;
-
-//     /// This can cause an error
-//     ///
-//     /// Returns the treenode at the index, not the item
-//     fn index(&self, index: &TreeIndex) -> &Self::Output {
-//         if index.is_empty() {
-//             return self;
-//         }
-
-//         &self.children[index[0]][&index[1..]]
-//     }
-// }
-// impl<T> std::ops::IndexMut<&TreeIndex> for TreeNode<T> {
-//     /// Returns the treenode at the index, not the item
-//     fn index_mut(&mut self, index: &TreeIndex) -> &mut Self::Output {
-//         if index.is_empty() {
-//             return self;
-//         }
-
-//         &mut self.children[index[0]][&index[1..]]
-//     }
-// }
-
-// ------- above is a simple recursive tree implementation
+//! What this means that it is very easy for me to make an error in writing this.
+//! However, if I don't screw up, then it should be safe from the outside.
+//! The safest representation is to have a recursive struct that takes ownership of children, and stores only its own item and a vec of children.
+//!
+//! Terminology:
+//! - The `index` of a node refers to the usize index of the node in the vector of flattened nodes.
+//! - The `path` also corresponds to a node in a tree, but it specifies it in the context of the tree's structure.
+//! - The index and path both refer to the same thing, but in different ways. Outside of this file, the index should be inaccessible.
+//!
+//! REVIEW: not sure if the path should correspond to a tree or not. I am leaning towards having it independent.
+//!
+//! NOTE: Currently, all trees are immutable once made.
 
 #[macro_export]
 macro_rules! rooted_tree {
     [$tree_item:expr] => {
-        $crate::backend::utils::RootedTree::new()
+        $crate::backend::utils::RootedTree::from_root($tree_item)
     };
 
     [$tree_item:expr => $children:expr] => {
-        $crate::backend::utils::RootedTree::new()
+        $crate::backend::utils::RootedTree::from_root($tree_item)
     };
 }
 
-pub struct RootedTree<T>(std::marker::PhantomData<T>);
+struct Node<T> {
+    item: T,
+    // even this on its own can be contradictory
+    children_flat_indices: Vec<usize>,
+
+    // everything other than item and children are redundant
+    flat_index: usize,
+    path: TreeNodePath,
+    parent_flat_index: Option<usize>,
+}
+
+/// The rooted tree has exactly one root
+pub struct RootedTree<T> {
+    /// REVIEW: put this in some kind of order?
+    flattened_nodes: Vec<Node<T>>,
+    root_flat_index: usize,
+}
 impl<T> RootedTree<T> {
-    pub fn new() -> Self {
-        todo!()
+    pub fn from_root(root_item: T) -> Self {
+        Self {
+            flattened_nodes: vec![Node {
+                item: root_item,
+                children_flat_indices: Vec::new(),
+                flat_index: 0,
+                path: TreeNodePath::new_root(),
+                parent_flat_index: None,
+            }],
+            root_flat_index: 0,
+        }
     }
 
-    pub fn get_root_path(&self) -> TreeNodePath {
-        todo!()
+    pub fn new_test_tree(root_item: T, child_item: T) -> Self {
+        Self {
+            flattened_nodes: vec![
+                Node {
+                    item: root_item,
+                    children_flat_indices: vec![1],
+                    flat_index: 0,
+                    path: TreeNodePath::new_root(),
+                    parent_flat_index: None,
+                },
+                Node {
+                    item: child_item,
+                    children_flat_indices: vec![0],
+                    flat_index: 1,
+                    path: TreeNodePath(vec![0]),
+                    parent_flat_index: Some(1),
+                },
+            ],
+            root_flat_index: 0,
+        }
     }
+
+    // pub fn push_leaf() {}
+
+    // pub fn swap_items() {
+    //     todo!()
+    // }
 
     pub fn iter_paths_dfs(&self) -> DfsPathsIterator {
         todo!()
+    }
+
+    fn get_node_flat_index(&self, tree_node_path: &TreeNodePath) -> Option<usize> {
+        let path_vec = tree_node_path.0.clone();
+        let mut current_flat_index = self.root_flat_index;
+
+        for child_number in path_vec {
+            let current_node = &self.flattened_nodes[current_flat_index];
+
+            let next_flat_index = current_node.children_flat_indices.get(child_number);
+
+            if let Some(next_flat_index) = next_flat_index {
+                current_flat_index = *next_flat_index;
+            } else {
+                return None;
+            }
+        }
+
+        Some(current_flat_index)
     }
 }
 
@@ -158,17 +119,51 @@ impl Iterator for DfsPathsIterator {
 
 /// Like pointers but has the context of the tree structure
 /// Also like a file path
+///
+/// NOTE: Most functions for a path are better thought of as functions for the Node that the path refers to
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TreeNodePath {}
+pub struct TreeNodePath(Vec<usize>);
 impl TreeNodePath {
+    /// REVIEW should this function be a static fn for path or a rooted tree's obj method?
+    pub fn new_root() -> Self {
+        Self(Vec::new())
+    }
+
+    // For the traverse functions, some require the original tree to be safe
+
     pub fn traverse_to_parent(&self) -> Option<Self> {
-        todo!()
+        if self.0.is_empty() {
+            None
+        } else {
+            // the parent path is this path without the last element
+            let mut parent_path_vec = self.0.clone();
+            parent_path_vec.pop();
+            Some(Self(parent_path_vec))
+        }
     }
-    pub fn traverse_to_child(&self, _child_index: usize) -> Option<Self> {
-        todo!()
+    /// Needs the rooted tree to make sure that the child exists
+    pub fn traverse_to_child<T>(
+        &self,
+        rooted_tree: &RootedTree<T>,
+        child_index: usize,
+    ) -> Option<Self> {
+        let child_path = {
+            let mut child_path_vec = self.0.clone();
+
+            child_path_vec.push(child_index);
+
+            Self(child_path_vec)
+        };
+
+        if rooted_tree.get_node_flat_index(&child_path).is_some() {
+            Some(child_path)
+        } else {
+            None
+        }
     }
-    pub fn traverse_to_first_child(&self) -> Option<Self> {
-        todo!()
+    /// Needs the rooted tree to make sure that the child exists
+    pub fn traverse_to_first_child<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
+        self.traverse_to_child(rooted_tree, 0)
     }
     pub fn traverse_to_previous_sibling(&self) -> Option<Self> {
         todo!()
@@ -183,15 +178,16 @@ impl TreeNodePath {
     }
 }
 
+/// REVIEW make this output option?
 impl<T> std::ops::Index<&TreeNodePath> for RootedTree<T> {
     type Output = T;
 
-    fn index(&self, _index: &TreeNodePath) -> &Self::Output {
+    fn index(&self, _path: &TreeNodePath) -> &Self::Output {
         todo!()
     }
 }
 impl<T> std::ops::IndexMut<&TreeNodePath> for RootedTree<T> {
-    fn index_mut(&mut self, _index: &TreeNodePath) -> &mut Self::Output {
+    fn index_mut(&mut self, _path: &TreeNodePath) -> &mut Self::Output {
         todo!()
     }
 }
