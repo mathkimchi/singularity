@@ -1,3 +1,5 @@
+use std::panic::PanicInfo;
+
 pub mod backend;
 pub mod demo_cli_frontend;
 mod tests;

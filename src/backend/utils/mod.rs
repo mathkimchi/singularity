@@ -7,11 +7,14 @@
 //! Terminology:
 //! - The `index` of a node refers to the usize index of the node in the vector of flattened nodes.
 //! - The `path` also corresponds to a node in a tree, but it specifies it in the context of the tree's structure.
-//! - The index and path both refer to the same thing, but in different ways. Outside of this file, the index should be inaccessible.
+//! - The `child number` of a child relative to its parent is the index that it appears in the parent's children indices.
+//! - The index and path both refer to the same thing, but in different ways; the path is stored as a bunch of child numbers. Outside of this file, the index should be inaccessible.
 //!
 //! REVIEW: not sure if the path should correspond to a tree or not. I am leaning towards having it independent.
 //!
-//! NOTE: Currently, all trees are immutable once made.
+//! CHECK: handle mutability of structure.
+
+use std::fmt::Debug;
 
 #[macro_export]
 macro_rules! rooted_tree {
@@ -26,10 +29,11 @@ macro_rules! rooted_tree {
 
 struct Node<T> {
     item: T,
-    // even this on its own can be contradictory
+    // even this on its own can be contradictory (eg duplicates)
     children_flat_indices: Vec<usize>,
 
-    // everything other than item and children are redundant
+    // NOTE everything other than item and children are redundant
+    // REVIEW: decide which are redundant
     flat_index: usize,
     path: TreeNodePath,
     parent_flat_index: Option<usize>,
@@ -55,7 +59,8 @@ impl<T> RootedTree<T> {
         }
     }
 
-    pub fn new_test_tree(root_item: T, child_item: T) -> Self {
+    /// FIXME
+    pub fn new_test_tree_0(root_item: T, child_item: T) -> Self {
         Self {
             flattened_nodes: vec![
                 Node {
@@ -67,24 +72,86 @@ impl<T> RootedTree<T> {
                 },
                 Node {
                     item: child_item,
-                    children_flat_indices: vec![0],
+                    children_flat_indices: vec![],
                     flat_index: 1,
                     path: TreeNodePath(vec![0]),
-                    parent_flat_index: Some(1),
+                    parent_flat_index: Some(0),
                 },
             ],
             root_flat_index: 0,
         }
     }
+    /// FIXME
+    pub fn new_test_tree_1(root_item: T, first_depth_items: Vec<T>) -> Self {
+        let root_node = Node {
+            item: root_item,
+            children_flat_indices: (1..(first_depth_items.len() + 1)).collect(),
+            flat_index: 0,
+            path: TreeNodePath::new_root(),
+            parent_flat_index: None,
+        };
 
-    // pub fn push_leaf() {}
+        let mut flattened_nodes = vec![root_node];
 
-    // pub fn swap_items() {
-    //     todo!()
-    // }
+        for item in first_depth_items {
+            let node = Node {
+                item,
+                children_flat_indices: vec![],
+                flat_index: flattened_nodes.len(),
+                path: TreeNodePath(vec![flattened_nodes.len() - 1]),
+                parent_flat_index: Some(0),
+            };
 
-    pub fn iter_paths_dfs(&self) -> DfsPathsIterator {
-        todo!()
+            flattened_nodes.push(node);
+        }
+
+        Self {
+            flattened_nodes,
+            root_flat_index: 0,
+        }
+    }
+
+    /// If successful, returns the node's path. (Kind of arbitrary, I just wanted to use option)
+    pub fn add_node(&mut self, item: T, parent_path: &TreeNodePath) -> Option<TreeNodePath> {
+        // prepare parent info
+        let parent_flat_index = self.get_node_flat_index(parent_path)?;
+
+        // prepare info about the new node
+        let child_number = self.flattened_nodes[parent_flat_index]
+            .children_flat_indices
+            .len();
+        let path = {
+            let mut path_vec = parent_path.0.clone();
+            path_vec.push(child_number);
+            TreeNodePath(path_vec)
+        };
+        let flat_index = self.flattened_nodes.len();
+
+        // generate node
+        let node = Node {
+            item,
+            children_flat_indices: Vec::new(),
+            flat_index,
+            path: path.clone(),
+            parent_flat_index: Some(parent_flat_index),
+        };
+
+        // add node to flattened indices
+        self.flattened_nodes.push(node);
+
+        // update parent
+        self.flattened_nodes[parent_flat_index]
+            .children_flat_indices
+            .push(flat_index);
+
+        Some(path)
+    }
+
+    pub fn iter_paths_dfs(&self) -> DfsPathsIterator<'_, T> {
+        DfsPathsIterator {
+            tree: self,
+            tree_iterator: self.flattened_nodes.iter(),
+        }
     }
 
     fn get_node_flat_index(&self, tree_node_path: &TreeNodePath) -> Option<usize> {
@@ -107,13 +174,52 @@ impl<T> RootedTree<T> {
     }
 }
 
-/// dfs postorder
-pub struct DfsPathsIterator {}
-impl Iterator for DfsPathsIterator {
+#[cfg(test)]
+impl<T> Debug for Node<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Node")
+            .field("item", &self.item)
+            .field("children_flat_indices", &self.children_flat_indices)
+            .field("flat_index", &self.flat_index)
+            .field("path", &self.path)
+            .field("parent_flat_index", &self.parent_flat_index)
+            .finish()
+    }
+}
+#[cfg(test)]
+impl<T> Debug for RootedTree<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RootedTree")
+            .field("flattened_nodes", &self.flattened_nodes)
+            .field("root_flat_index", &self.root_flat_index)
+            .finish()
+    }
+}
+
+/// depth first search post-order
+///
+/// Eg: 1 { 2 { 3, 4 }, 5 { 6 } }
+///
+/// REVIEW: if rooted tree stores nodes in post order, this could be much simpler
+///
+/// NOTE: code is based off of the Iter for Vec
+/// FIXME: actually implement this
+pub struct DfsPathsIterator<'a, T: 'a> {
+    tree: &'a RootedTree<T>,
+    // next_path: TreeNodePath,
+    tree_iterator: std::slice::Iter<'a, Node<T>>,
+}
+impl<'a, T> Iterator for DfsPathsIterator<'a, T> {
     type Item = TreeNodePath;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        self.tree_iterator.next().map(|node| node.path.clone())
     }
 }
 
@@ -155,6 +261,7 @@ impl TreeNodePath {
             Self(child_path_vec)
         };
 
+        // check that path points to an existing node
         if rooted_tree.get_node_flat_index(&child_path).is_some() {
             Some(child_path)
         } else {
@@ -165,29 +272,53 @@ impl TreeNodePath {
     pub fn traverse_to_first_child<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
         self.traverse_to_child(rooted_tree, 0)
     }
+    /// No wrapping
     pub fn traverse_to_previous_sibling(&self) -> Option<Self> {
-        todo!()
+        let mut sibling_path_vec = self.0.clone();
+        let last_child_number = sibling_path_vec.pop()?.checked_sub(1)?;
+        sibling_path_vec.push(last_child_number);
+        Some(Self(sibling_path_vec))
     }
-    pub fn traverse_to_next_sibling(&self) -> Option<Self> {
-        todo!()
+    /// No wrapping
+    pub fn traverse_to_next_sibling<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
+        let sibling_path = {
+            let mut sibling_path_vec = self.0.clone();
+            let last_child_number = sibling_path_vec.pop()?.checked_add(1)?;
+            sibling_path_vec.push(last_child_number);
+            Self(sibling_path_vec)
+        };
+
+        // check that path points to an existing node
+        if rooted_tree.get_node_flat_index(&sibling_path).is_some() {
+            Some(sibling_path)
+        } else {
+            None
+        }
     }
 
     /// root has depth=0
     pub fn depth(&self) -> usize {
-        todo!()
+        self.0.len()
+    }
+}
+impl<const N: usize> From<[usize; N]> for TreeNodePath {
+    fn from(val: [usize; N]) -> Self {
+        TreeNodePath(val.into())
     }
 }
 
 /// REVIEW make this output option?
+/// Currently just panics if impossible
 impl<T> std::ops::Index<&TreeNodePath> for RootedTree<T> {
     type Output = T;
 
-    fn index(&self, _path: &TreeNodePath) -> &Self::Output {
-        todo!()
+    fn index(&self, tree_node_path: &TreeNodePath) -> &Self::Output {
+        &self.flattened_nodes[self.get_node_flat_index(tree_node_path).unwrap()].item
     }
 }
 impl<T> std::ops::IndexMut<&TreeNodePath> for RootedTree<T> {
-    fn index_mut(&mut self, _path: &TreeNodePath) -> &mut Self::Output {
-        todo!()
+    fn index_mut(&mut self, tree_node_path: &TreeNodePath) -> &mut Self::Output {
+        let flattened_index = self.get_node_flat_index(tree_node_path).unwrap();
+        &mut self.flattened_nodes[flattened_index].item
     }
 }

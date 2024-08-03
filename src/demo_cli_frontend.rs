@@ -1,7 +1,4 @@
-use crate::{
-    backend::utils::{RootedTree, TreeNodePath},
-    rooted_tree,
-};
+use crate::backend::utils::{RootedTree, TreeNodePath};
 use ratatui::{
     crossterm::{
         self,
@@ -38,12 +35,23 @@ struct AppState {
 }
 
 pub fn run() -> io::Result<()> {
+    // set up terminal stuff
     enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+    std::panic::set_hook(Box::new(|panic_info| {
+        // In case there is a panic, revert the terminal to its original state
+        let _ = disable_raw_mode();
+        let _ = stdout().execute(LeaveAlternateScreen);
+
+        println!("{}", panic_info);
+    }));
 
     let mut app_state: AppState = {
-        let subapps = rooted_tree!["A".to_string() => ["B".to_string(), rooted_tree!["C".to_string() => ["D".to_string()]]]];
+        let subapps = RootedTree::new_test_tree_1(
+            "A".to_string(),
+            vec!["B".to_string(), "C".to_string(), "D".to_string()],
+        );
         AppState {
             backend: BackendAppState { subapps },
             frontend: FrontendAppState {
@@ -59,7 +67,7 @@ pub fn run() -> io::Result<()> {
         handle_input(crossterm::event::read()?, &mut app_state);
     }
 
-    // Undo what has been done
+    // revert the terminal to its original state
     disable_raw_mode()?;
     stdout().execute(LeaveAlternateScreen)?;
 
@@ -124,7 +132,7 @@ fn handle_input(event: Event, app_state: &mut AppState) {
                     }
                     KeyCode::Char('s') => {
                         new_focus_index = new_focus_index
-                            .traverse_to_next_sibling()
+                            .traverse_to_next_sibling(&app_state.backend.subapps)
                             .unwrap_or(new_focus_index);
                         Some(new_focus_index)
                     }
@@ -159,28 +167,27 @@ fn handle_input(event: Event, app_state: &mut AppState) {
 }
 
 fn draw_app(frame: &mut Frame, app_state: &AppState) {
-    // frame.render_widget(Clear, frame.size());
+    frame.render_widget(Clear, frame.size());
 
-    // for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
-    //     let subapp = &app_state.backend.subapps[&subapp_path];
+    for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
+        let subapp = &app_state.backend.subapps[&subapp_path];
 
-    //     frame.render_widget(
-    //         Paragraph::new(subapp.to_string()).block(Block::bordered().title("Subapp")),
-    //         Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 5, 3),
-    //     );
+        frame.render_widget(
+            Paragraph::new(subapp.to_string()).block(Block::bordered().title("Subapp")),
+            Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 5, 3),
+        );
 
-    //     if subapp_path == app_state.frontend.focused_subapp {
-    //         frame.set_cursor(1, (3 * index + 1) as u16);
-    //     }
-    // }
+        if subapp_path == app_state.frontend.focused_subapp {
+            frame.set_cursor((2 * subapp_path.depth() + 1) as u16, (3 * index + 1) as u16);
+        }
+    }
 
-    // if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
-    //     frame.render_widget(Clear, Rect::new(13, 5, 10, 5));
-    //     frame.render_widget(
-    //         Paragraph::new(format!("{:?}", focusing_index))
-    //             .block(Block::bordered().title("Choose Subapp")),
-    //         Rect::new(13, 5, 10, 5),
-    //     );
-    // }
-    println!("{:?}", app_state.frontend.app_focuser_index);
+    if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
+        frame.render_widget(Clear, Rect::new(13, 5, 10, 5));
+        frame.render_widget(
+            Paragraph::new(format!("{:?}", focusing_index))
+                .block(Block::bordered().title("Choose Subapp")),
+            Rect::new(13, 5, 30, 5),
+        );
+    }
 }

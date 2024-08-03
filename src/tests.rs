@@ -1,36 +1,41 @@
 #![cfg(test)]
 
-use crate::demo_cli_frontend;
+use crate::{
+    backend::utils::{RootedTree, TreeNodePath},
+    demo_cli_frontend,
+};
 
 #[test]
 fn hello() {
     println!("Hello from test!");
 }
 
-// #[test]
-// fn tree_macro_test() {
-//     dbg!(tree!(1));
+#[test]
+fn tree_dbgs() {
+    dbg!(RootedTree::new_test_tree_1(
+        "A".to_string(),
+        vec!["B".to_string(), "C".to_string(), "D".to_string()],
+    ));
 
-//     dbg!(tree![1 => [tree![2 => [tree![3]]], tree![10=>[]]]]);
-// }
+    let mut tree = RootedTree::from_root("A");
 
-// #[test]
-// #[allow(clippy::useless_vec)]
-// fn tree_index_test() {
-//     let root = tree![1 => [tree![2 => [tree![3]]], tree![10=>[]]]];
-
-//     dbg!(&root);
-//     dbg!(&root[&[]]);
-//     dbg!(&root[&[0]]);
-//     dbg!(&root[&[1]]);
-
-//     // should be same
-//     dbg!(&root[&[0, 0]]);
-//     dbg!(&root[&[0]][&[0]]);
-//     dbg!(&root[&vec![0, 0]]);
-
-//     dbg!(&root.flattened_ref());
-// }
+    dbg!(&tree);
+    dbg!(tree.add_node("B", &TreeNodePath::from([])));
+    dbg!(&tree);
+    dbg!(tree.add_node("C", &TreeNodePath::from([])));
+    dbg!(&tree);
+    dbg!(tree.add_node("D", &TreeNodePath::from([])));
+    dbg!(&tree);
+    dbg!(tree.add_node("B!", &TreeNodePath::from([0])));
+    dbg!(&tree);
+    dbg!(tree.add_node("C?", &TreeNodePath::from([1])));
+    dbg!(&tree);
+    dbg!(tree.add_node("C?!", &TreeNodePath::from([1, 0])));
+    dbg!(&tree);
+    println!("Next is illegal on purpose:");
+    dbg!(tree.add_node(">:( ", &TreeNodePath::from([1, 1])));
+    dbg!(&tree);
+}
 
 #[test]
 fn run_demo_frontend() {
