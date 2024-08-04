@@ -1,9 +1,8 @@
-use std::panic::PanicInfo;
-
 pub mod backend;
+pub mod block;
 pub mod demo_cli_frontend;
 mod tests;
 
-fn main() {
-    demo_cli_frontend::run();
+fn main() -> Result<(), std::io::Error> {
+    demo_cli_frontend::run()
 }

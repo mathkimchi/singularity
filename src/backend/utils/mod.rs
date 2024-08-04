@@ -109,6 +109,11 @@ impl<T> RootedTree<T> {
 
         Some(current_flat_index)
     }
+
+    /// safe for now, but might need change
+    pub fn num_nodes(&self) -> usize {
+        self.flattened_nodes.len()
+    }
 }
 
 /// depth first search post-order

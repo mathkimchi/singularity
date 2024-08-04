@@ -1,4 +1,7 @@
-use crate::backend::utils::{RootedTree, TreeNodePath};
+use crate::{
+    backend::utils::{RootedTree, TreeNodePath},
+    block::{Block, DemoBlock},
+};
 use ratatui::{
     crossterm::{
         self,
@@ -10,7 +13,7 @@ use ratatui::{
     layout::Rect,
     prelude::CrosstermBackend,
     style::Stylize,
-    widgets::{Block, Clear, Paragraph},
+    widgets::{Clear, Paragraph},
     Frame, Terminal,
 };
 use std::{
@@ -20,7 +23,7 @@ use std::{
 };
 
 struct BackendAppState {
-    subapps: RootedTree<String>,
+    subapps: RootedTree<Box<dyn Block>>,
 }
 
 struct FrontendAppState {
@@ -50,14 +53,14 @@ pub fn run() -> io::Result<()> {
     }));
 
     let mut app_state: AppState = {
-        let mut subapps = RootedTree::from_root("E".to_string());
-        subapps.add_node("0".to_string(), &TreeNodePath::from([]));
-        subapps.add_node("00".to_string(), &TreeNodePath::from([0]));
-        subapps.add_node("1".to_string(), &TreeNodePath::from([]));
-        subapps.add_node("10".to_string(), &TreeNodePath::from([1]));
-        subapps.add_node("11".to_string(), &TreeNodePath::from([1]));
-        subapps.add_node("110".to_string(), &TreeNodePath::from([1, 1]));
-        subapps.add_node("2".to_string(), &TreeNodePath::from([]));
+        let mut subapps = RootedTree::from_root(DemoBlock::box_from_name("E"));
+        subapps.add_node(DemoBlock::box_from_name("0"), &TreeNodePath::from([]));
+        subapps.add_node(DemoBlock::box_from_name("00"), &TreeNodePath::from([0]));
+        subapps.add_node(DemoBlock::box_from_name("1"), &TreeNodePath::from([]));
+        subapps.add_node(DemoBlock::box_from_name("10"), &TreeNodePath::from([1]));
+        subapps.add_node(DemoBlock::box_from_name("11"), &TreeNodePath::from([1]));
+        subapps.add_node(DemoBlock::box_from_name("110"), &TreeNodePath::from([1, 1]));
+        subapps.add_node(DemoBlock::box_from_name("2"), &TreeNodePath::from([]));
 
         AppState {
             backend: BackendAppState { subapps },
@@ -167,8 +170,8 @@ fn handle_input(event: Event, app_state: &mut AppState) {
             println!("[Shift + {:?}] released.", code);
         }
 
-        _ => {
-            // TODO: send event to focused subapp
+        event => {
+            app_state.backend.subapps[&app_state.frontend.focused_subapp].handle_input(event);
         }
     }
 }
@@ -176,21 +179,10 @@ fn handle_input(event: Event, app_state: &mut AppState) {
 fn draw_app(frame: &mut Frame, app_state: &AppState) {
     frame.render_widget(Clear, frame.size());
 
-    // for (path, i) in app_state
-    //     .backend
-    //     .subapps
-    //     .iter_paths_dfs()
-    //     .zip([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    // {
-    //     dbg!(path);
-    //     dbg!(i);
-    // }
-
     for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
         let subapp = &app_state.backend.subapps[&subapp_path];
 
-        let mut widget =
-            Paragraph::new(subapp.to_string()).block(Block::bordered().title("Subapp"));
+        let mut widget = subapp.draw();
 
         if subapp_path == app_state.frontend.focused_subapp {
             frame.set_cursor((2 * subapp_path.depth() + 1) as u16, (3 * index + 1) as u16);
@@ -204,16 +196,43 @@ fn draw_app(frame: &mut Frame, app_state: &AppState) {
 
         frame.render_widget(
             widget,
-            Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 5, 3),
+            Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 50, 3),
         );
     }
 
     if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
-        frame.render_widget(Clear, Rect::new(13, 5, 10, 5));
+        let num_subapps = app_state.backend.subapps.num_nodes();
+
+        frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
         frame.render_widget(
-            Paragraph::new(format!("{:?}", focusing_index))
-                .block(Block::bordered().title("Choose Subapp")),
-            Rect::new(13, 5, 30, 5),
+            Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Subapp")),
+            Rect::new(13, 5, 30, (2 + num_subapps) as u16),
         );
+
+        for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
+            let subapp = &app_state.backend.subapps[&subapp_path];
+
+            let mut widget = Paragraph::new(subapp.get_name().clone());
+
+            if subapp_path == app_state.frontend.focused_subapp {
+                widget = widget.fg(Color::Yellow);
+            }
+
+            if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
+                if subapp_path == focusing_index.clone() {
+                    widget = widget.bg(Color::Cyan);
+                }
+            }
+
+            frame.render_widget(
+                widget,
+                Rect::new(
+                    (13 + 1 + 2 * subapp_path.depth()) as u16,
+                    (5 + 1 + index) as u16,
+                    subapp.get_name().len() as u16,
+                    1,
+                ),
+            );
+        }
     }
 }
