@@ -13,19 +13,8 @@
 //! REVIEW: not sure if the path should correspond to a tree or not. I am leaning towards having it independent.
 //!
 //! CHECK: handle mutability of structure.
-
-use std::fmt::Debug;
-
-#[macro_export]
-macro_rules! rooted_tree {
-    [$tree_item:expr] => {
-        $crate::backend::utils::RootedTree::from_root($tree_item)
-    };
-
-    [$tree_item:expr => $children:expr] => {
-        $crate::backend::utils::RootedTree::from_root($tree_item)
-    };
-}
+//!
+//! TODO: macro for creation
 
 struct Node<T> {
     item: T,
@@ -55,58 +44,6 @@ impl<T> RootedTree<T> {
                 path: TreeNodePath::new_root(),
                 parent_flat_index: None,
             }],
-            root_flat_index: 0,
-        }
-    }
-
-    /// FIXME
-    pub fn new_test_tree_0(root_item: T, child_item: T) -> Self {
-        Self {
-            flattened_nodes: vec![
-                Node {
-                    item: root_item,
-                    children_flat_indices: vec![1],
-                    flat_index: 0,
-                    path: TreeNodePath::new_root(),
-                    parent_flat_index: None,
-                },
-                Node {
-                    item: child_item,
-                    children_flat_indices: vec![],
-                    flat_index: 1,
-                    path: TreeNodePath(vec![0]),
-                    parent_flat_index: Some(0),
-                },
-            ],
-            root_flat_index: 0,
-        }
-    }
-    /// FIXME
-    pub fn new_test_tree_1(root_item: T, first_depth_items: Vec<T>) -> Self {
-        let root_node = Node {
-            item: root_item,
-            children_flat_indices: (1..(first_depth_items.len() + 1)).collect(),
-            flat_index: 0,
-            path: TreeNodePath::new_root(),
-            parent_flat_index: None,
-        };
-
-        let mut flattened_nodes = vec![root_node];
-
-        for item in first_depth_items {
-            let node = Node {
-                item,
-                children_flat_indices: vec![],
-                flat_index: flattened_nodes.len(),
-                path: TreeNodePath(vec![flattened_nodes.len() - 1]),
-                parent_flat_index: Some(0),
-            };
-
-            flattened_nodes.push(node);
-        }
-
-        Self {
-            flattened_nodes,
             root_flat_index: 0,
         }
     }
@@ -150,7 +87,7 @@ impl<T> RootedTree<T> {
     pub fn iter_paths_dfs(&self) -> DfsPathsIterator<'_, T> {
         DfsPathsIterator {
             tree: self,
-            tree_iterator: self.flattened_nodes.iter(),
+            next_path: Some(TreeNodePath::new_root()),
         }
     }
 
@@ -174,34 +111,6 @@ impl<T> RootedTree<T> {
     }
 }
 
-#[cfg(test)]
-impl<T> Debug for Node<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Node")
-            .field("item", &self.item)
-            .field("children_flat_indices", &self.children_flat_indices)
-            .field("flat_index", &self.flat_index)
-            .field("path", &self.path)
-            .field("parent_flat_index", &self.parent_flat_index)
-            .finish()
-    }
-}
-#[cfg(test)]
-impl<T> Debug for RootedTree<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RootedTree")
-            .field("flattened_nodes", &self.flattened_nodes)
-            .field("root_flat_index", &self.root_flat_index)
-            .finish()
-    }
-}
-
 /// depth first search post-order
 ///
 /// Eg: 1 { 2 { 3, 4 }, 5 { 6 } }
@@ -209,17 +118,72 @@ where
 /// REVIEW: if rooted tree stores nodes in post order, this could be much simpler
 ///
 /// NOTE: code is based off of the Iter for Vec
-/// FIXME: actually implement this
 pub struct DfsPathsIterator<'a, T: 'a> {
     tree: &'a RootedTree<T>,
-    // next_path: TreeNodePath,
-    tree_iterator: std::slice::Iter<'a, Node<T>>,
+    next_path: Option<TreeNodePath>,
 }
 impl<'a, T> Iterator for DfsPathsIterator<'a, T> {
     type Item = TreeNodePath;
 
+    /// # Explanation of finding the next path non-recursively:
+    ///
+    /// ## Terminology
+    /// - `visited`
+    /// - `fully explored`: node and all its children are fully visited
+    /// - `a is left of b`: a should be visited before b
+    ///
+    /// ## Properties
+    ///
+    /// The next node should:
+    /// 1. be unvisited
+    /// 2. have all ancestors visited
+    /// 3. have all older sibling fully expored
+    ///
+    /// iff fully explored:
+    /// - node's last child's last child's ... is visited
+    /// - aka node [is visited] and [[is leaf] or [node's last child is fully explored]]
+    ///
+    /// iff a visited before b:
+    /// - a is parent of b or when they first split, a stems from the older sibling
+    /// - easiest to compare the paths
+    ///
+    /// ## Cases to gain insight for generalization:
+    /// - current has child: then next should be the first child
+    /// - current is leaf but has next sibling: then current is fully explored and next is next sibling
+    /// - current is leaf and last sibling: then parent is fully explored
+    /// - parent is fully explored but has next sibling: parent's next sibling is next
+    /// - parent is fully explored and last sibling: then grandparent is fully explored if grandparent has
+    /// - ancestor D is fully explored but has next sibling: ancestor D's next sibling is next
+    /// - ancestor D(epth) is fully explored and last sibling: ancestor D-1 is fully explored
+    ///
+    /// So, once at a leaf, the youngest ancestor (or self)'s next sibling that exists is next
+    /// if none of those exist then everything is fully explored
     fn next(&mut self) -> Option<Self::Item> {
-        self.tree_iterator.next().map(|node| node.path.clone())
+        let current_path = self.next_path.clone()?;
+
+        if let Some(first_child_path) = current_path.traverse_to_first_child(self.tree) {
+            // has child
+            self.next_path = Some(first_child_path);
+        } else {
+            // current is leaf
+            // climb up (traverse to parents) until there is a next sibling or until at root
+            let mut intermediate_path = current_path.clone();
+
+            self.next_path = loop {
+                if let Some(next_path) = intermediate_path.traverse_to_next_sibling(self.tree) {
+                    break Some(next_path);
+                }
+
+                if let Some(intermediate_path_parent) = intermediate_path.traverse_to_parent() {
+                    intermediate_path = intermediate_path_parent
+                } else {
+                    // intermediate path is root
+                    break None;
+                }
+            };
+        }
+
+        Some(current_path)
     }
 }
 
@@ -233,6 +197,10 @@ impl TreeNodePath {
     /// REVIEW should this function be a static fn for path or a rooted tree's obj method?
     pub fn new_root() -> Self {
         Self(Vec::new())
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.0.is_empty()
     }
 
     // For the traverse functions, some require the original tree to be safe

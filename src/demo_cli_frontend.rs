@@ -3,11 +3,13 @@ use ratatui::{
     crossterm::{
         self,
         event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+        style::Color,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
         ExecutableCommand,
     },
     layout::Rect,
     prelude::CrosstermBackend,
+    style::Stylize,
     widgets::{Block, Clear, Paragraph},
     Frame, Terminal,
 };
@@ -48,10 +50,15 @@ pub fn run() -> io::Result<()> {
     }));
 
     let mut app_state: AppState = {
-        let subapps = RootedTree::new_test_tree_1(
-            "A".to_string(),
-            vec!["B".to_string(), "C".to_string(), "D".to_string()],
-        );
+        let mut subapps = RootedTree::from_root("E".to_string());
+        subapps.add_node("0".to_string(), &TreeNodePath::from([]));
+        subapps.add_node("00".to_string(), &TreeNodePath::from([0]));
+        subapps.add_node("1".to_string(), &TreeNodePath::from([]));
+        subapps.add_node("10".to_string(), &TreeNodePath::from([1]));
+        subapps.add_node("11".to_string(), &TreeNodePath::from([1]));
+        subapps.add_node("110".to_string(), &TreeNodePath::from([1, 1]));
+        subapps.add_node("2".to_string(), &TreeNodePath::from([]));
+
         AppState {
             backend: BackendAppState { subapps },
             frontend: FrontendAppState {
@@ -169,17 +176,36 @@ fn handle_input(event: Event, app_state: &mut AppState) {
 fn draw_app(frame: &mut Frame, app_state: &AppState) {
     frame.render_widget(Clear, frame.size());
 
+    // for (path, i) in app_state
+    //     .backend
+    //     .subapps
+    //     .iter_paths_dfs()
+    //     .zip([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    // {
+    //     dbg!(path);
+    //     dbg!(i);
+    // }
+
     for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
         let subapp = &app_state.backend.subapps[&subapp_path];
 
-        frame.render_widget(
-            Paragraph::new(subapp.to_string()).block(Block::bordered().title("Subapp")),
-            Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 5, 3),
-        );
+        let mut widget =
+            Paragraph::new(subapp.to_string()).block(Block::bordered().title("Subapp"));
 
         if subapp_path == app_state.frontend.focused_subapp {
             frame.set_cursor((2 * subapp_path.depth() + 1) as u16, (3 * index + 1) as u16);
         }
+
+        if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
+            if subapp_path == focusing_index.clone() {
+                widget = widget.bg(Color::Cyan);
+            }
+        }
+
+        frame.render_widget(
+            widget,
+            Rect::new(2 * subapp_path.depth() as u16, (3 * index) as u16, 5, 3),
+        );
     }
 
     if let Some(focusing_index) = &app_state.frontend.app_focuser_index {
