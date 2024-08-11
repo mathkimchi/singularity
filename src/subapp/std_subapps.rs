@@ -423,7 +423,12 @@ impl SubappUI for Editor {
             let logical_row = relative_row + self.scroll.1 as usize;
             let absolute_display_y = text_area.top() + relative_row as u16;
 
-            display_buffer.set_line(text_area.x, absolute_display_y, &line.to_line(), 100);
+            display_buffer.set_line(
+                text_area.x,
+                absolute_display_y,
+                &line.to_line(),
+                text_area.width,
+            );
 
             if self.cursor_logical_position.1 == logical_row {
                 // this line has the cursor
