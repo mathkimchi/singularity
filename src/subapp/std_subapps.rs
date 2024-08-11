@@ -389,6 +389,20 @@ impl Editor {
         self.cursor_logical_position.0 = 0;
         self.cursor_logical_position.1 += 1;
     }
+
+    fn save_to_temp_file(&self) {
+        std::fs::write(
+            self.file_path.to_str().unwrap().to_string()
+                + ".temp"
+                + &std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+                    .to_string(),
+            self.temp_text_lines.join("\n"),
+        )
+        .unwrap();
+    }
 }
 impl SubappUI for Editor {
     fn get_title(&self) -> String {
@@ -548,6 +562,14 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.delete_character();
+            }
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('s'),
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                self.save_to_temp_file();
             }
             _ => {}
         }
