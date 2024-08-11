@@ -1,7 +1,7 @@
 use crate::{
     backend::utils::{RootedTree, TreeNodePath},
     subapp::{
-        std_subapps::{DemoSubapp, TextReader},
+        std_subapps::{DemoSubapp, Editor, TextReader},
         Subapp, SubappData,
     },
 };
@@ -63,14 +63,14 @@ pub fn run() -> io::Result<()> {
         subapps.add_node(
             Subapp {
                 subapp_data: SubappData {},
-                user_interface: TextReader::subapp_from_file("examples/lorem_ipsum.txt"),
+                user_interface: TextReader::subapp_from_file("examples/project/lorem_ipsum.txt"),
             },
             &TreeNodePath::from([]),
         );
         subapps.add_node(
             Subapp {
                 subapp_data: SubappData {},
-                user_interface: DemoSubapp::box_from_title("some child"),
+                user_interface: Box::new(Editor::new("examples/project/file_to_edit.txt")),
             },
             &TreeNodePath::from([]),
         );
@@ -79,14 +79,14 @@ pub fn run() -> io::Result<()> {
             backend: BackendAppState { subapps },
             frontend: FrontendAppState {
                 app_focuser_index: None,
-                focused_subapp: TreeNodePath::new_root(),
+                focused_subapp: [1].into(),
                 is_running: true,
             },
         }
     };
 
     while app_state.frontend.is_running {
-        terminal.draw(|f| draw_app(f, &app_state))?;
+        terminal.draw(|f| draw_app(f, &mut app_state))?;
         handle_input(crossterm::event::read()?, &mut app_state);
     }
 
@@ -191,11 +191,17 @@ fn handle_input(event: Event, app_state: &mut AppState) {
     }
 }
 
-fn draw_app(frame: &mut Frame, app_state: &AppState) {
+fn draw_app(frame: &mut Frame, app_state: &mut AppState) {
     frame.render_widget(Clear, frame.size());
 
-    for (index, subapp_path) in app_state.backend.subapps.iter_paths_dfs().enumerate() {
-        let subapp = &app_state.backend.subapps[&subapp_path];
+    for (index, subapp_path) in app_state
+        .backend
+        .subapps
+        .iter_paths_dfs()
+        .enumerate()
+        .collect::<Vec<(usize, TreeNodePath)>>()
+    {
+        let subapp = &mut app_state.backend.subapps[&subapp_path];
 
         subapp.user_interface.render(
             Rect::new(2 * subapp_path.depth() as u16, (8 * index) as u16, 50, 8),

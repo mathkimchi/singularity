@@ -20,7 +20,7 @@ pub trait SubappUI {
     /// FIXME: currently, graphics are not agnostic
     ///
     /// FIXME: add element system, and give access to only the necessary parts of the buffer
-    fn render(&self, area: Rect, buffer: &mut Buffer, is_focused: bool);
+    fn render(&mut self, area: Rect, display_buffer: &mut Buffer, is_focused: bool);
 
     /// FIXME: currently, events are not agnostic
     fn handle_input(&mut self, event: Event);
