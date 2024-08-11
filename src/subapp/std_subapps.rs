@@ -334,6 +334,14 @@ impl Editor {
                 .saturating_sub(self.most_recent_area.height),
             self.cursor_logical_position.1 as u16,
         );
+
+        // clamp scroll x to ensure that cursor is visible
+        // sometimes, this isn't desired behavior though
+        self.scroll.0 = self.scroll.0.clamp(
+            (self.cursor_logical_position.0 as u16 + 2 + 1)
+                .saturating_sub(self.most_recent_area.width),
+            self.cursor_logical_position.0 as u16,
+        );
     }
 
     /// char can not be new line
@@ -426,7 +434,11 @@ impl SubappUI for Editor {
             display_buffer.set_line(
                 text_area.x,
                 absolute_display_y,
-                &line.to_line(),
+                &line
+                    .split_at_checked(self.scroll.0 as usize)
+                    .unwrap_or(("", ""))
+                    .1
+                    .to_line(),
                 text_area.width,
             );
 
@@ -434,7 +446,7 @@ impl SubappUI for Editor {
                 // this line has the cursor
 
                 let cursor_cell = display_buffer.get_mut(
-                    text_area.x + self.cursor_logical_position.0 as u16,
+                    text_area.x + self.cursor_logical_position.0 as u16 - self.scroll.0,
                     absolute_display_y,
                 );
                 // cursor_cell.modifier |= Modifier::SLOW_BLINK;
