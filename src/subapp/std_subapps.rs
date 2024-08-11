@@ -307,6 +307,80 @@ impl Editor {
         let content_string = std::fs::read_to_string(&file_path).unwrap();
         content_string.lines().map(|s| s.to_string()).collect()
     }
+
+    fn clamp_everything(&mut self) {
+        self.scroll.1 = self
+            .scroll
+            .1
+            .clamp(0, self.temp_text_lines.len() as u16 - 1);
+
+        {
+            // NOTE: should clamp cursor y before cursor x
+            self.cursor_logical_position.1 = self
+                .cursor_logical_position
+                .1
+                .clamp(0, self.temp_text_lines.len() - 1);
+
+            self.cursor_logical_position.0 = self.cursor_logical_position.0.clamp(
+                0,
+                self.temp_text_lines[self.cursor_logical_position.1].len(),
+            );
+        }
+
+        // clamp scroll y again, this time to ensure that cursor is visible
+        // sometimes, this isn't desired behavior though
+        self.scroll.1 = self.scroll.1.clamp(
+            (self.cursor_logical_position.1 as u16 + 2 + 1)
+                .saturating_sub(self.most_recent_area.height),
+            self.cursor_logical_position.1 as u16,
+        );
+    }
+
+    /// char can not be new line
+    /// knows location from cursor
+    fn write_character(&mut self, character: char) {
+        self.temp_text_lines[self.cursor_logical_position.1]
+            .insert(self.cursor_logical_position.0, character);
+        self.cursor_logical_position.0 += 1;
+    }
+
+    /// knows location from cursor
+    fn delete_character(&mut self) {
+        if self.cursor_logical_position.0 == 0 {
+            if self.cursor_logical_position.1 == 0 {
+                // nothing to delete
+                return;
+            }
+
+            let new_cursor_x = self.temp_text_lines[self.cursor_logical_position.1 - 1].len();
+
+            let string_to_add = self.temp_text_lines.remove(self.cursor_logical_position.1);
+            self.temp_text_lines[self.cursor_logical_position.1 - 1] =
+                self.temp_text_lines[self.cursor_logical_position.1 - 1].clone()
+                    + string_to_add.as_str();
+
+            self.cursor_logical_position.1 -= 1;
+            self.cursor_logical_position.0 = new_cursor_x;
+
+            return;
+        }
+
+        self.temp_text_lines[self.cursor_logical_position.1]
+            .remove(self.cursor_logical_position.0 - 1);
+        self.cursor_logical_position.0 -= 1;
+    }
+
+    /// knows location from cursor
+    fn write_new_line(&mut self) {
+        let remaining_text = self.temp_text_lines[self.cursor_logical_position.1]
+            .split_off(self.cursor_logical_position.0);
+
+        self.temp_text_lines
+            .insert(self.cursor_logical_position.1 + 1, remaining_text);
+
+        self.cursor_logical_position.0 = 0;
+        self.cursor_logical_position.1 += 1;
+    }
 }
 impl SubappUI for Editor {
     fn get_title(&self) -> String {
@@ -354,9 +428,6 @@ impl SubappUI for Editor {
             if self.cursor_logical_position.1 == logical_row {
                 // this line has the cursor
 
-                // clamp cursor x
-                // self.cursor_location.0 = self.cursor_location.0.clamp(0, line.len() as u16);
-
                 let cursor_cell = display_buffer.get_mut(
                     text_area.x + self.cursor_logical_position.0 as u16,
                     absolute_display_y,
@@ -392,12 +463,6 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.scroll.1 = self.scroll.1.saturating_sub(1);
-
-                // FIXME: does not work with word wrap
-                self.scroll.1 = self
-                    .scroll
-                    .1
-                    .clamp(0, self.temp_text_lines.len() as u16 - 1);
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -406,12 +471,6 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.scroll.1 += 1;
-
-                // FIXME: does not work with word wrap
-                self.scroll.1 = self
-                    .scroll
-                    .1
-                    .clamp(0, self.temp_text_lines.len() as u16 - 1);
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -420,11 +479,6 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.cursor_logical_position.1 += 1;
-
-                self.cursor_logical_position.1 = self
-                    .cursor_logical_position
-                    .1
-                    .clamp(0, self.temp_text_lines.len());
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -433,11 +487,6 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.cursor_logical_position.1 = self.cursor_logical_position.1.saturating_sub(1);
-
-                self.cursor_logical_position.1 = self
-                    .cursor_logical_position
-                    .1
-                    .clamp(0, self.temp_text_lines.len());
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -446,11 +495,6 @@ impl SubappUI for Editor {
                 ..
             }) => {
                 self.cursor_logical_position.0 += 1;
-
-                self.cursor_logical_position.0 = self.cursor_logical_position.0.clamp(
-                    0,
-                    self.temp_text_lines[self.cursor_logical_position.1].len(),
-                );
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -463,27 +507,6 @@ impl SubappUI for Editor {
                 } else {
                     // TODO wrap to prev line
                 }
-
-                self.cursor_logical_position.0 = self.cursor_logical_position.0.clamp(
-                    0,
-                    self.temp_text_lines[self.cursor_logical_position.1].len(),
-                );
-            }
-            // Event::Key(KeyEvent {
-            //     modifiers: KeyModifiers::CONTROL,
-            //     code: KeyCode::Char('r'),
-            //     kind: KeyEventKind::Press,
-            //     ..
-            // }) => {
-            //     self.temp_text = std::fs::read_to_string(&self.file_path).unwrap();
-            // }
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::NONE,
-                code: KeyCode::Enter,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                todo!()
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -491,9 +514,27 @@ impl SubappUI for Editor {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                todo!()
+                self.write_character(character);
+            }
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::NONE,
+                code: KeyCode::Enter,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                self.write_new_line();
+            }
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::NONE,
+                code: KeyCode::Backspace,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                self.delete_character();
             }
             _ => {}
         }
+
+        self.clamp_everything();
     }
 }
