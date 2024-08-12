@@ -220,14 +220,17 @@ impl SubappUI for Editor {
                     text_area.x + self.cursor_logical_position.0 as u16 - self.scroll.0,
                     absolute_display_y,
                 );
-                // cursor_cell.modifier |= Modifier::SLOW_BLINK;
-                cursor_cell.bg = Color::Yellow;
+
+                if is_focused {
+                    // cursor_cell.modifier |= Modifier::SLOW_BLINK;
+                    cursor_cell.bg = Color::Yellow;
+                }
             }
         }
 
         if self.border {
             ratatui::widgets::Block::bordered()
-                .title(self.get_title())
+                .title(format!("{} - Editor", self.get_title()))
                 .render(total_area, display_buffer);
         }
     }

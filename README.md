@@ -125,7 +125,7 @@ Short-term Development Plan:
 - Nodes in the tree are either empty (organizational groupers) or an individual window
   - I'm going to have the organization similar to the tree tab extensions
 - Subapps to do:
-  - [ ] Editor
+  - [x] Editor
   - [ ] File Manager
   - [ ] Terminal
   - [ ] Todo manager

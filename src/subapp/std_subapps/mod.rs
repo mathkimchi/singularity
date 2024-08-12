@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 pub mod editor;
+pub mod file_manager;
 
 pub struct DemoSubapp {
     pub title: String,
@@ -165,8 +166,8 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deseru
     /// rather than raggedness because in a code editor, I prefer predictability over beauty.
     fn render_text_with_wrap(
         &self,
-        text_area: ratatui::prelude::Rect,
-        buffer: &mut ratatui::prelude::Buffer,
+        _text_area: ratatui::prelude::Rect,
+        _buffer: &mut ratatui::prelude::Buffer,
     ) {
         todo!()
     }

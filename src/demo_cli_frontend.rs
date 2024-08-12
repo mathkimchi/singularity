@@ -1,7 +1,7 @@
 use crate::{
     backend::utils::{RootedTree, TreeNodePath},
     subapp::{
-        std_subapps::{editor::Editor, DemoSubapp, TextReader},
+        std_subapps::{editor::Editor, file_manager::FileManager, DemoSubapp, TextReader},
         Subapp, SubappData,
     },
 };
@@ -58,7 +58,7 @@ pub fn run() -> io::Result<()> {
     let mut app_state: AppState = {
         let mut subapps = RootedTree::from_root(Subapp {
             subapp_data: SubappData {},
-            user_interface: DemoSubapp::box_from_title("Root"),
+            user_interface: Box::new(FileManager::new("examples/project")),
         });
         subapps.add_node(
             Subapp {
@@ -79,7 +79,7 @@ pub fn run() -> io::Result<()> {
             backend: BackendAppState { subapps },
             frontend: FrontendAppState {
                 app_focuser_index: None,
-                focused_subapp: [1].into(),
+                focused_subapp: TreeNodePath::new_root(),
                 is_running: true,
             },
         }
