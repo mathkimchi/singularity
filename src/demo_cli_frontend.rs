@@ -1,7 +1,7 @@
 use crate::{
     backend::utils::{RootedTree, TreeNodePath},
     subapp::{
-        std_subapps::{DemoSubapp, Editor, TextReader},
+        std_subapps::{editor::Editor, DemoSubapp, TextReader},
         Subapp, SubappData,
     },
 };
