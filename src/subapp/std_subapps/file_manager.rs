@@ -1,6 +1,5 @@
-use ratatui::{text::ToLine, widgets::Widget};
-
 use crate::subapp::SubappUI;
+use ratatui::{text::ToLine, widgets::Widget};
 use std::path::PathBuf;
 
 pub struct FileManager {

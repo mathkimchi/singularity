@@ -1,6 +1,6 @@
-pub mod std_subapps;
-
 use ratatui::{buffer::Buffer, crossterm::event::Event, layout::Rect};
+
+pub mod std_subapps;
 
 pub struct Subapp {
     pub subapp_data: SubappData,

@@ -40,6 +40,7 @@ pub struct Editor {
     /// debug purpose
     /// TODO remove
     border: bool,
+    save_to_temp: bool,
 }
 impl Editor {
     pub fn new<P>(file_path: P) -> Self
@@ -54,6 +55,7 @@ impl Editor {
             cursor_logical_position: (0, 0),
             most_recent_area: Rect::ZERO,
             border: true,
+            save_to_temp: true,
         }
     }
 
@@ -148,17 +150,19 @@ impl Editor {
     }
 
     fn save_to_temp_file(&self) {
-        std::fs::write(
+        let new_path = if self.save_to_temp {
             self.file_path.to_str().unwrap().to_string()
                 + ".temp"
                 + &std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_millis()
-                    .to_string(),
-            self.temp_text_lines.join("\n"),
-        )
-        .unwrap();
+                    .to_string()
+        } else {
+            self.file_path.to_str().unwrap().to_string()
+        };
+
+        std::fs::write(new_path, self.temp_text_lines.join("\n")).unwrap();
     }
 }
 impl SubappUI for Editor {
