@@ -1,8 +1,10 @@
+use crate::manager::ManagerProxy;
 use ratatui::{buffer::Buffer, crossterm::event::Event, layout::Rect};
 
 pub mod std_subapps;
 
 pub struct Subapp {
+    pub manager_proxy: ManagerProxy,
     pub subapp_data: SubappData,
     pub user_interface: Box<dyn SubappUI>,
 }
@@ -20,8 +22,14 @@ pub trait SubappUI {
     /// FIXME: currently, graphics are not agnostic
     ///
     /// FIXME: add element system, and give access to only the necessary parts of the buffer
-    fn render(&mut self, area: Rect, display_buffer: &mut Buffer, is_focused: bool);
+    fn render(
+        &mut self,
+        area: Rect,
+        display_buffer: &mut Buffer,
+        manager_proxy: &mut ManagerProxy,
+        is_focused: bool,
+    );
 
     /// FIXME: currently, events are not agnostic
-    fn handle_input(&mut self, event: Event);
+    fn handle_input(&mut self, manager_proxy: &mut ManagerProxy, event: Event);
 }

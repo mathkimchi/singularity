@@ -2,7 +2,7 @@ use crate::{
     backend::utils::{RootedTree, TreeNodePath},
     subapp::{
         std_subapps::{editor::Editor, file_manager::FileManager, TextReader},
-        Subapp, SubappData,
+        Subapp, SubappData, SubappUI,
     },
 };
 use ratatui::{
@@ -31,7 +31,7 @@ pub struct Manager {
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
     app_focuser_index: Option<TreeNodePath>,
-    focused_subapp: TreeNodePath,
+    focused_subapp_path: TreeNodePath,
     is_running: bool,
 }
 impl Manager {
@@ -39,11 +39,13 @@ impl Manager {
         // create demo manager
         let manager = {
             let mut subapps = RootedTree::from_root(Subapp {
+                manager_proxy: Default::default(),
                 subapp_data: SubappData {},
                 user_interface: Box::new(FileManager::new("examples/project")),
             });
             subapps.add_node(
                 Subapp {
+                    manager_proxy: Default::default(),
                     subapp_data: SubappData {},
                     user_interface: TextReader::subapp_from_file(
                         "examples/project/lorem_ipsum.txt",
@@ -53,6 +55,7 @@ impl Manager {
             );
             subapps.add_node(
                 Subapp {
+                    manager_proxy: Default::default(),
                     subapp_data: SubappData {},
                     user_interface: Box::new(Editor::new("examples/project/file_to_edit.txt")),
                 },
@@ -62,7 +65,7 @@ impl Manager {
             Self {
                 subapps,
                 app_focuser_index: None,
-                focused_subapp: TreeNodePath::new_root(),
+                focused_subapp_path: TreeNodePath::new_root(),
                 is_running: true,
             }
         };
@@ -86,6 +89,7 @@ impl Manager {
         while self.is_running {
             terminal.draw(|f| self.draw_app(f))?;
             self.handle_input(crossterm::event::read()?);
+            self.process_subapp_commands();
         }
 
         // revert the terminal to its original state
@@ -109,7 +113,8 @@ impl Manager {
             subapp.user_interface.render(
                 Rect::new(2 * subapp_path.depth() as u16, (8 * index) as u16, 50, 8),
                 frame.buffer_mut(),
-                subapp_path == self.focused_subapp,
+                &mut subapp.manager_proxy,
+                subapp_path == self.focused_subapp_path,
             );
         }
 
@@ -128,7 +133,7 @@ impl Manager {
 
                 let mut widget = Paragraph::new(subapp.user_interface.get_title().clone());
 
-                if subapp_path == self.focused_subapp {
+                if subapp_path == self.focused_subapp_path {
                     widget = widget.fg(Color::Yellow);
                 }
 
@@ -176,12 +181,12 @@ impl Manager {
 
                     let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                    self.focused_subapp = new_focus_index;
+                    self.focused_subapp_path = new_focus_index;
                 } else {
                     let mut new_focus_index = self
                         .app_focuser_index
                         .clone()
-                        .unwrap_or(self.focused_subapp.clone());
+                        .unwrap_or(self.focused_subapp_path.clone());
 
                     self.app_focuser_index = match code {
                         KeyCode::Enter => Some(new_focus_index),
@@ -234,10 +239,55 @@ impl Manager {
             }
 
             event => {
-                self.subapps[&self.focused_subapp]
+                let focused_subapp = &mut self.subapps[&self.focused_subapp_path];
+
+                focused_subapp
                     .user_interface
-                    .handle_input(event);
+                    .handle_input(&mut focused_subapp.manager_proxy, event);
             }
         }
+    }
+
+    /// Commands from subapp to manager
+    fn process_subapp_commands(&mut self) {
+        for subapp_path in self.subapps.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+            let commands = std::mem::take(&mut self.subapps[&subapp_path].manager_proxy.commands);
+
+            for command in commands {
+                match command {
+                    ManagerCommand::SpawnSubapp(subapp_interface) => {
+                        self.focused_subapp_path = self
+                            .subapps
+                            .add_node(
+                                Subapp {
+                                    manager_proxy: Default::default(),
+                                    subapp_data: SubappData {},
+                                    user_interface: subapp_interface,
+                                },
+                                &subapp_path,
+                            )
+                            .unwrap();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// This allows subapps to request commands to the manager,
+/// but is limited.
+///
+/// REVIEW: Maybe a box or mutex is better
+#[derive(Default)]
+pub struct ManagerProxy {
+    commands: Vec<ManagerCommand>,
+}
+pub enum ManagerCommand {
+    SpawnSubapp(Box<dyn SubappUI>),
+}
+impl ManagerProxy {
+    pub fn request_spawn_child(&mut self, child_subapp_interface: Box<dyn SubappUI>) {
+        self.commands
+            .push(ManagerCommand::SpawnSubapp(child_subapp_interface));
     }
 }

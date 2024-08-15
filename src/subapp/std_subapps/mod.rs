@@ -1,3 +1,5 @@
+use crate::manager::ManagerProxy;
+
 use super::SubappUI;
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -33,6 +35,7 @@ impl SubappUI for DemoSubapp {
         &mut self,
         area: ratatui::prelude::Rect,
         buffer: &mut ratatui::prelude::Buffer,
+        _manager_proxy: &mut ManagerProxy,
         is_focused: bool,
     ) {
         Paragraph::new(self.content.clone())
@@ -50,7 +53,7 @@ impl SubappUI for DemoSubapp {
         }
     }
 
-    fn handle_input(&mut self, event: Event) {
+    fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
@@ -181,6 +184,7 @@ impl SubappUI for TextReader {
         &mut self,
         total_area: ratatui::prelude::Rect,
         buffer: &mut ratatui::prelude::Buffer,
+        _manager_proxy: &mut ManagerProxy,
         _is_focused: bool,
     ) {
         // the total area includes 1 unit thick border on all sides
@@ -203,7 +207,11 @@ impl SubappUI for TextReader {
         }
     }
 
-    fn handle_input(&mut self, event: ratatui::crossterm::event::Event) {
+    fn handle_input(
+        &mut self,
+        _manager_proxy: &mut ManagerProxy,
+        event: ratatui::crossterm::event::Event,
+    ) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,

@@ -1,5 +1,10 @@
-use crate::subapp::SubappUI;
-use ratatui::{text::ToLine, widgets::Widget};
+use super::editor::Editor;
+use crate::{manager::ManagerProxy, subapp::SubappUI};
+use ratatui::{
+    crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    text::ToLine,
+    widgets::Widget,
+};
 use std::path::PathBuf;
 
 pub struct FileManager {
@@ -31,7 +36,8 @@ impl SubappUI for FileManager {
         &mut self,
         area: ratatui::prelude::Rect,
         display_buffer: &mut ratatui::prelude::Buffer,
-        is_focused: bool,
+        _manager_proxy: &mut ManagerProxy,
+        _is_focused: bool,
     ) {
         // NOTE depth 1 for now
 
@@ -67,5 +73,20 @@ impl SubappUI for FileManager {
             .render(area, display_buffer);
     }
 
-    fn handle_input(&mut self, event: ratatui::crossterm::event::Event) {}
+    fn handle_input(&mut self, manager_proxy: &mut ManagerProxy, event: Event) {
+        match event {
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('t'),
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                // TODO: actually take care of heirarchy and stuff
+                manager_proxy.request_spawn_child(Box::new(Editor::new(
+                    "examples/project/file_to_edit.txt",
+                )));
+            }
+            _ => {}
+        }
+    }
 }

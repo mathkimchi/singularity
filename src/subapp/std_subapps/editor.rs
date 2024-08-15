@@ -1,3 +1,5 @@
+use crate::manager::ManagerProxy;
+
 use super::SubappUI;
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -180,6 +182,7 @@ impl SubappUI for Editor {
         &mut self,
         total_area: ratatui::prelude::Rect,
         display_buffer: &mut ratatui::prelude::Buffer,
+        _manager_proxy: &mut ManagerProxy,
         is_focused: bool,
     ) {
         self.most_recent_area = total_area;
@@ -239,7 +242,7 @@ impl SubappUI for Editor {
         }
     }
 
-    fn handle_input(&mut self, event: Event) {
+    fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
