@@ -190,28 +190,11 @@ impl Manager {
 
                     self.app_focuser_index = match code {
                         KeyCode::Enter => Some(new_focus_index),
-                        KeyCode::Char('a') => {
-                            new_focus_index = new_focus_index
-                                .traverse_to_parent()
-                                .unwrap_or(new_focus_index);
-                            Some(new_focus_index)
-                        }
-                        KeyCode::Char('d') => {
-                            new_focus_index = new_focus_index
-                                .traverse_to_first_child(&self.subapps)
-                                .unwrap_or(new_focus_index);
-                            Some(new_focus_index)
-                        }
-                        KeyCode::Char('w') => {
-                            new_focus_index = new_focus_index
-                                .traverse_to_previous_sibling()
-                                .unwrap_or(new_focus_index);
-                            Some(new_focus_index)
-                        }
-                        KeyCode::Char('s') => {
-                            new_focus_index = new_focus_index
-                                .traverse_to_next_sibling(&self.subapps)
-                                .unwrap_or(new_focus_index);
+                        KeyCode::Char(traverse_key)
+                            if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
+                        {
+                            new_focus_index =
+                                new_focus_index.traverse_based_on_wasd(&self.subapps, traverse_key);
                             Some(new_focus_index)
                         }
                         _ => None,

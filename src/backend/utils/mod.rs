@@ -208,70 +208,105 @@ impl TreeNodePath {
         self.0.is_empty()
     }
 
-    // For the traverse functions, some require the original tree to be safe
-
-    pub fn traverse_to_parent(&self) -> Option<Self> {
-        if self.0.is_empty() {
-            None
-        } else {
-            // the parent path is this path without the last element
-            let mut parent_path_vec = self.0.clone();
-            parent_path_vec.pop();
-            Some(Self(parent_path_vec))
-        }
-    }
-    /// Needs the rooted tree to make sure that the child exists
-    pub fn traverse_to_child<T>(
-        &self,
-        rooted_tree: &RootedTree<T>,
-        child_index: usize,
-    ) -> Option<Self> {
-        let child_path = {
-            let mut child_path_vec = self.0.clone();
-
-            child_path_vec.push(child_index);
-
-            Self(child_path_vec)
-        };
-
-        // check that path points to an existing node
-        if rooted_tree.get_node_flat_index(&child_path).is_some() {
-            Some(child_path)
-        } else {
-            None
-        }
-    }
-    /// Needs the rooted tree to make sure that the child exists
-    pub fn traverse_to_first_child<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
-        self.traverse_to_child(rooted_tree, 0)
-    }
-    /// No wrapping
-    pub fn traverse_to_previous_sibling(&self) -> Option<Self> {
-        let mut sibling_path_vec = self.0.clone();
-        let last_child_number = sibling_path_vec.pop()?.checked_sub(1)?;
-        sibling_path_vec.push(last_child_number);
-        Some(Self(sibling_path_vec))
-    }
-    /// No wrapping
-    pub fn traverse_to_next_sibling<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
-        let sibling_path = {
-            let mut sibling_path_vec = self.0.clone();
-            let last_child_number = sibling_path_vec.pop()?.checked_add(1)?;
-            sibling_path_vec.push(last_child_number);
-            Self(sibling_path_vec)
-        };
-
-        // check that path points to an existing node
-        if rooted_tree.get_node_flat_index(&sibling_path).is_some() {
-            Some(sibling_path)
-        } else {
-            None
-        }
-    }
-
     /// root has depth=0
     pub fn depth(&self) -> usize {
         self.0.len()
+    }
+}
+/// For the traverse functions, some require the original tree to be safe
+mod tree_node_path_traversal_impls {
+    use super::{RootedTree, TreeNodePath};
+    impl TreeNodePath {
+        pub fn traverse_to_parent(&self) -> Option<Self> {
+            if self.0.is_empty() {
+                None
+            } else {
+                // the parent path is this path without the last element
+                let mut parent_path_vec = self.0.clone();
+                parent_path_vec.pop();
+                Some(Self(parent_path_vec))
+            }
+        }
+
+        /// Needs the rooted tree to make sure that the child exists
+        pub fn traverse_to_child<T>(
+            &self,
+            rooted_tree: &RootedTree<T>,
+            child_index: usize,
+        ) -> Option<Self> {
+            let child_path = {
+                let mut child_path_vec = self.0.clone();
+
+                child_path_vec.push(child_index);
+
+                Self(child_path_vec)
+            };
+
+            // check that path points to an existing node
+            if rooted_tree.get_node_flat_index(&child_path).is_some() {
+                Some(child_path)
+            } else {
+                None
+            }
+        }
+
+        /// Needs the rooted tree to make sure that the child exists
+        pub fn traverse_to_first_child<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
+            self.traverse_to_child(rooted_tree, 0)
+        }
+
+        /// No wrapping
+        pub fn traverse_to_previous_sibling(&self) -> Option<Self> {
+            let mut sibling_path_vec = self.0.clone();
+            let last_child_number = sibling_path_vec.pop()?.checked_sub(1)?;
+            sibling_path_vec.push(last_child_number);
+            Some(Self(sibling_path_vec))
+        }
+
+        /// No wrapping
+        pub fn traverse_to_next_sibling<T>(&self, rooted_tree: &RootedTree<T>) -> Option<Self> {
+            let sibling_path = {
+                let mut sibling_path_vec = self.0.clone();
+                let last_child_number = sibling_path_vec.pop()?.checked_add(1)?;
+                sibling_path_vec.push(last_child_number);
+                Self(sibling_path_vec)
+            };
+
+            // check that path points to an existing node
+            if rooted_tree.get_node_flat_index(&sibling_path).is_some() {
+                Some(sibling_path)
+            } else {
+                None
+            }
+        }
+
+        /// This is a helper function, traversing trees based on wasd input
+        ///
+        /// returns None if keycode isn't wasd or if the traversal is invalid
+        ///
+        /// REVIEW: not sure if this belongs here, as it should be pure logic but this is more input handling
+        pub fn checked_traverse_based_on_wasd<T>(
+            &self,
+            rooted_tree: &RootedTree<T>,
+            traverse_key: char,
+        ) -> Option<Self> {
+            match traverse_key {
+                'a' => self.traverse_to_parent(),
+                'd' => self.traverse_to_first_child(rooted_tree),
+                'w' => self.traverse_to_previous_sibling(),
+                's' => self.traverse_to_next_sibling(rooted_tree),
+                _ => None,
+            }
+        }
+
+        pub fn traverse_based_on_wasd<T>(
+            &self,
+            rooted_tree: &RootedTree<T>,
+            traverse_key: char,
+        ) -> Self {
+            self.checked_traverse_based_on_wasd(rooted_tree, traverse_key)
+                .unwrap_or(self.clone())
+        }
     }
 }
 impl<const N: usize> From<[usize; N]> for TreeNodePath {

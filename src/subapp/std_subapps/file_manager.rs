@@ -7,14 +7,13 @@ use crate::{
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::{Style, Stylize},
-    text::ToLine,
     widgets::Widget,
 };
 use std::path::PathBuf;
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,
-    focused_path: TreeNodePath,
+    selected_path: TreeNodePath,
 }
 impl FileManager {
     pub fn new<P>(root_directory_path: P) -> Self
@@ -23,7 +22,7 @@ impl FileManager {
     {
         Self {
             directory_tree: Self::generate_directory_tree(PathBuf::from(root_directory_path)),
-            focused_path: TreeNodePath::new_root(),
+            selected_path: TreeNodePath::new_root(),
         }
     }
 
@@ -76,7 +75,7 @@ impl SubappUI for FileManager {
         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
             let mut line_style = Style::new();
 
-            if tree_node_path == self.focused_path {
+            if tree_node_path == self.selected_path {
                 line_style = line_style.on_cyan();
 
                 if is_focused {
@@ -104,6 +103,16 @@ impl SubappUI for FileManager {
 
     fn handle_input(&mut self, manager_proxy: &mut ManagerProxy, event: Event) {
         match event {
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char(traverse_key),
+                kind: KeyEventKind::Press,
+                ..
+            }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                self.selected_path = self
+                    .selected_path
+                    .traverse_based_on_wasd(&self.directory_tree, traverse_key);
+            }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
                 code: KeyCode::Char('t'),
