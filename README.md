@@ -126,6 +126,6 @@ Short-term Development Plan:
   - I'm going to have the organization similar to the tree tab extensions
 - Subapps to do:
   - [x] Editor
-  - [ ] File Manager
+  - [x] File Manager
   - [ ] Terminal
   - [ ] Todo manager

@@ -1,9 +1,6 @@
 use crate::{
     backend::utils::{RootedTree, TreeNodePath},
-    subapp::{
-        std_subapps::{editor::Editor, file_manager::FileManager, TextReader},
-        Subapp, SubappData, SubappUI,
-    },
+    subapp::{std_subapps::file_manager::FileManager, Subapp, SubappData, SubappUI},
 };
 use ratatui::{
     crossterm::{
