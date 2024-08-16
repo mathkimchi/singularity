@@ -6,6 +6,7 @@ use crate::{
 };
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    style::{Style, Stylize},
     text::ToLine,
     widgets::Widget,
 };
@@ -13,6 +14,7 @@ use std::path::PathBuf;
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,
+    focused_path: TreeNodePath,
 }
 impl FileManager {
     pub fn new<P>(root_directory_path: P) -> Self
@@ -21,6 +23,7 @@ impl FileManager {
     {
         Self {
             directory_tree: Self::generate_directory_tree(PathBuf::from(root_directory_path)),
+            focused_path: TreeNodePath::new_root(),
         }
     }
 
@@ -68,19 +71,29 @@ impl SubappUI for FileManager {
         area: ratatui::prelude::Rect,
         display_buffer: &mut ratatui::prelude::Buffer,
         _manager_proxy: &mut ManagerProxy,
-        _is_focused: bool,
+        is_focused: bool,
     ) {
         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
-            display_buffer.set_line(
+            let mut line_style = Style::new();
+
+            if tree_node_path == self.focused_path {
+                line_style = line_style.on_cyan();
+
+                if is_focused {
+                    line_style = line_style.light_yellow().bold();
+                }
+            }
+
+            display_buffer.set_stringn(
                 area.x + 1 + 2 * tree_node_path.depth() as u16,
                 area.y + 1 + index as u16,
-                &self.directory_tree[&tree_node_path]
+                self.directory_tree[&tree_node_path]
                     .file_name() // this function can return directory name
                     .unwrap()
                     .to_str()
-                    .unwrap()
-                    .to_line(),
-                area.width - 2,
+                    .unwrap(),
+                (area.width - 2) as usize,
+                line_style,
             );
         }
 

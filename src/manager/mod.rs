@@ -134,11 +134,11 @@ impl Manager {
                 let mut widget = Paragraph::new(subapp.user_interface.get_title().clone());
 
                 if subapp_path == self.focused_subapp_path {
-                    widget = widget.fg(Color::Yellow);
+                    widget = widget.light_yellow().bold();
                 }
 
                 if subapp_path == focusing_index.clone() {
-                    widget = widget.bg(Color::Cyan);
+                    widget = widget.on_cyan();
                 }
 
                 frame.render_widget(
