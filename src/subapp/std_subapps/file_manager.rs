@@ -115,14 +115,17 @@ impl SubappUI for FileManager {
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('t'),
+                code: KeyCode::Char('f'),
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                // TODO: actually take care of heirarchy and stuff
-                manager_proxy.request_spawn_child(Box::new(Editor::new(
-                    "examples/project/file_to_edit.txt",
-                )));
+                // `f` stands for open selected *F*ile
+
+                let selected_element = &self.directory_tree[&self.selected_path];
+                if selected_element.is_file() {
+                    manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
+                }
+                // if selected path isn't a file, then don't do anything
             }
             _ => {}
         }

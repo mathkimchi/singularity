@@ -285,6 +285,8 @@ mod tree_node_path_traversal_impls {
         /// returns None if keycode isn't wasd or if the traversal is invalid
         ///
         /// REVIEW: not sure if this belongs here, as it should be pure logic but this is more input handling
+        /// TODO: q and e for bfs next
+        /// TODO: seperate functions for wrapped traversal
         pub fn checked_traverse_based_on_wasd<T>(
             &self,
             rooted_tree: &RootedTree<T>,

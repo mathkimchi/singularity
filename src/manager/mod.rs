@@ -9,7 +9,6 @@ use ratatui::{
     crossterm::{
         self,
         event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-        style::Color,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
         ExecutableCommand,
     },
