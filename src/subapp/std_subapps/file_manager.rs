@@ -1,5 +1,9 @@
 use super::editor::Editor;
-use crate::{manager::ManagerProxy, subapp::SubappUI};
+use crate::{
+    backend::utils::{RootedTree, TreeNodePath},
+    manager::ManagerProxy,
+    subapp::SubappUI,
+};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     text::ToLine,
@@ -8,23 +12,38 @@ use ratatui::{
 use std::path::PathBuf;
 
 pub struct FileManager {
-    directory_path: PathBuf,
+    directory_tree: RootedTree<PathBuf>,
 }
 impl FileManager {
-    pub fn new<P>(file_path: P) -> Self
+    pub fn new<P>(root_directory_path: P) -> Self
     where
-        // P: AsRef<std::path::Path>,
         PathBuf: std::convert::From<P>,
     {
         Self {
-            // temp_text_lines: Self::get_content_from_file(&file_path),
-            directory_path: PathBuf::from(file_path),
+            directory_tree: Self::generate_directory_tree(root_directory_path),
         }
+    }
+
+    fn generate_directory_tree<P>(root_directory_path: P) -> RootedTree<PathBuf>
+    where
+        PathBuf: std::convert::From<P>,
+    {
+        let mut directory_tree = RootedTree::from_root(PathBuf::from(root_directory_path));
+
+        // TODO: max depth 1 rn
+        for child in directory_tree[&TreeNodePath::new_root()]
+            .read_dir()
+            .unwrap()
+        {
+            directory_tree.add_node(child.unwrap().path(), &TreeNodePath::new_root());
+        }
+
+        directory_tree
     }
 }
 impl SubappUI for FileManager {
     fn get_title(&self) -> String {
-        self.directory_path
+        self.directory_tree[&TreeNodePath::new_root()]
             .file_name() // this function can return directory name
             .unwrap()
             .to_str()
@@ -39,28 +58,13 @@ impl SubappUI for FileManager {
         _manager_proxy: &mut ManagerProxy,
         _is_focused: bool,
     ) {
-        // NOTE depth 1 for now
-
-        display_buffer.set_line(
-            area.x + 1,
-            area.y + 1,
-            &self
-                .directory_path
-                .file_name() // this function can return directory name
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_line(),
-            area.width - 2,
-        );
-
-        for (index, child) in self.directory_path.read_dir().unwrap().enumerate() {
+        for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
             display_buffer.set_line(
-                area.x + 1 + 1,
-                area.y + 1 + index as u16 + 1,
-                &child
-                    .unwrap()
+                area.x + 1 + 2 * tree_node_path.depth() as u16,
+                area.y + 1 + index as u16,
+                &self.directory_tree[&tree_node_path]
                     .file_name() // this function can return directory name
+                    .unwrap()
                     .to_str()
                     .unwrap()
                     .to_line(),
