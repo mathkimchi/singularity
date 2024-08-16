@@ -36,37 +36,15 @@ pub struct Manager {
 impl Manager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
-        let manager = {
-            let mut subapps = RootedTree::from_root(Subapp {
+        let manager = Self {
+            subapps: RootedTree::from_root(Subapp {
                 manager_proxy: Default::default(),
                 subapp_data: SubappData {},
                 user_interface: Box::new(FileManager::new("examples/project")),
-            });
-            subapps.add_node(
-                Subapp {
-                    manager_proxy: Default::default(),
-                    subapp_data: SubappData {},
-                    user_interface: TextReader::subapp_from_file(
-                        "examples/project/lorem_ipsum.txt",
-                    ),
-                },
-                &TreeNodePath::from([]),
-            );
-            subapps.add_node(
-                Subapp {
-                    manager_proxy: Default::default(),
-                    subapp_data: SubappData {},
-                    user_interface: Box::new(Editor::new("examples/project/file_to_edit.txt")),
-                },
-                &TreeNodePath::from([]),
-            );
-
-            Self {
-                subapps,
-                app_focuser_index: None,
-                focused_subapp_path: TreeNodePath::new_root(),
-                is_running: true,
-            }
+            }),
+            app_focuser_index: None,
+            focused_subapp_path: TreeNodePath::new_root(),
+            is_running: true,
         };
 
         manager.run()
@@ -199,25 +177,6 @@ impl Manager {
                         _ => None,
                     };
                 }
-            }
-
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::SHIFT,
-                code,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                println!("[Shift + {:?}] pressed.", code);
-            }
-
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::SHIFT,
-                code,
-                kind: KeyEventKind::Release,
-                ..
-            }) => {
-                // Doesn't work
-                println!("[Shift + {:?}] released.", code);
             }
 
             event => {
