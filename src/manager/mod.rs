@@ -111,7 +111,7 @@ impl Manager {
             let subapp = &mut self.subapps[&subapp_path];
 
             subapp.user_interface.render(
-                Rect::new(2 * subapp_path.depth() as u16, (8 * index) as u16, 50, 8),
+                Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
                 frame.buffer_mut(),
                 &mut subapp.manager_proxy,
                 subapp_path == self.focused_subapp_path,

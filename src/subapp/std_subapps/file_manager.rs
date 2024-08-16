@@ -20,22 +20,34 @@ impl FileManager {
         PathBuf: std::convert::From<P>,
     {
         Self {
-            directory_tree: Self::generate_directory_tree(root_directory_path),
+            directory_tree: Self::generate_directory_tree(PathBuf::from(root_directory_path)),
         }
     }
 
-    fn generate_directory_tree<P>(root_directory_path: P) -> RootedTree<PathBuf>
-    where
-        PathBuf: std::convert::From<P>,
-    {
-        let mut directory_tree = RootedTree::from_root(PathBuf::from(root_directory_path));
+    fn generate_directory_tree(root_directory_path: PathBuf) -> RootedTree<PathBuf> {
+        let mut directory_tree = RootedTree::from_root(root_directory_path);
 
-        // TODO: max depth 1 rn
-        for child in directory_tree[&TreeNodePath::new_root()]
-            .read_dir()
-            .unwrap()
-        {
-            directory_tree.add_node(child.unwrap().path(), &TreeNodePath::new_root());
+        // means the directory is added but its children arent
+        // only directories
+        let mut unvisited_directories = vec![TreeNodePath::new_root()];
+
+        while !unvisited_directories.is_empty() {
+            let mut new_unvisited_directories = Vec::new();
+            for directory_path in unvisited_directories {
+                for child in directory_tree[&directory_path].read_dir().unwrap() {
+                    let child_path = child.unwrap().path();
+
+                    let child_tree_path = directory_tree
+                        .add_node(child_path.clone(), &directory_path)
+                        .unwrap();
+
+                    if child_path.is_dir() {
+                        new_unvisited_directories.push(child_tree_path);
+                    }
+                }
+            }
+
+            unvisited_directories = new_unvisited_directories;
         }
 
         directory_tree
