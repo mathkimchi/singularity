@@ -23,9 +23,9 @@ struct Node<T> {
 
     // NOTE everything other than item and children are redundant
     // REVIEW: decide which are redundant
-    flat_index: usize,
-    path: TreeNodePath,
-    parent_flat_index: Option<usize>,
+    _flat_index: usize,
+    _path: TreeNodePath,
+    _parent_flat_index: Option<usize>,
 }
 
 /// The rooted tree has exactly one root
@@ -40,9 +40,9 @@ impl<T> RootedTree<T> {
             flattened_nodes: vec![Node {
                 item: root_item,
                 children_flat_indices: Vec::new(),
-                flat_index: 0,
-                path: TreeNodePath::new_root(),
-                parent_flat_index: None,
+                _flat_index: 0,
+                _path: TreeNodePath::new_root(),
+                _parent_flat_index: None,
             }],
             root_flat_index: 0,
         }
@@ -68,9 +68,9 @@ impl<T> RootedTree<T> {
         let node = Node {
             item,
             children_flat_indices: Vec::new(),
-            flat_index,
-            path: path.clone(),
-            parent_flat_index: Some(parent_flat_index),
+            _flat_index: flat_index,
+            _path: path.clone(),
+            _parent_flat_index: Some(parent_flat_index),
         };
 
         // add node to flattened indices
@@ -82,6 +82,13 @@ impl<T> RootedTree<T> {
             .push(flat_index);
 
         Some(path)
+    }
+
+    /// Same as add_node, but builder pattern for convenience
+    pub fn builder_add_node(mut self, item: T, parent_path: &TreeNodePath) -> Self {
+        self.add_node(item, parent_path);
+
+        self
     }
 
     pub fn iter_paths_dfs(&self) -> DfsPathsIterator<'_, T> {

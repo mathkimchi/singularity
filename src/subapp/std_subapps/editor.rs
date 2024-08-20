@@ -1,6 +1,5 @@
-use crate::manager::ManagerProxy;
-
 use super::SubappUI;
+use crate::manager::ManagerProxy;
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     layout::Rect,
@@ -223,10 +222,10 @@ impl SubappUI for Editor {
             if self.cursor_logical_position.1 == logical_row {
                 // this line has the cursor
 
-                let cursor_cell = display_buffer.get_mut(
+                let cursor_cell = &mut display_buffer[(
                     text_area.x + self.cursor_logical_position.0 as u16 - self.scroll.0,
                     absolute_display_y,
-                );
+                )];
 
                 if is_focused {
                     // cursor_cell.modifier |= Modifier::SLOW_BLINK;

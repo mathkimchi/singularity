@@ -8,6 +8,15 @@ pub struct Subapp {
     pub subapp_data: SubappData,
     pub user_interface: Box<dyn SubappUI>,
 }
+impl Subapp {
+    pub fn new<S: SubappUI + 'static>(user_interface: S) -> Self {
+        Self {
+            manager_proxy: Default::default(),
+            subapp_data: SubappData {},
+            user_interface: Box::new(user_interface),
+        }
+    }
+}
 
 /// Only required data, the backend is in charge of this, subapps should only view this or indirectly cause change via the backend
 /// Subapp specific data should be stored in whatever is implementing `SubappUI`

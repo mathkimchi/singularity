@@ -2,17 +2,14 @@
 
 ## What is singularity?
 
-Singularity is an app that runs and manages sub apps called blocks.
-It should roughly do the same things as emacs, just in a different way.
-Though singularity should have modular blocks and ui that anyone can write, there are simple default blocks and a ui.
-
-Blocks are managed in a tree-based heirarchy, because I believe that is a convinient way to organize most things (like file directories).
-
----
-
-TODO: get rid of this later
+Singularity is an organization tool for projects.
+It aims to be the only app needed for all things productive on a computer.
+To do this, it needs to be highly flexible and customizable, with the help of subapps.
+Though subapps should be given freedom, singularity aims to outline best practices for subapps from the perspective of users.
 
 ## Brainstorm
+
+TODO: get rid of this later
 
 Inspirations (Things too look at for reference):
 - Emacs and Vim for flexibility with subapps and extensions
@@ -44,12 +41,17 @@ Use Cases:
     - File manager
     - Terminal
     - Browser
-    - Todo manager
+    - Task organizer
+    - Brainstormer
     - Live viewer (for markup languages)
 - Note Taking
   - Need to quickly write and organize and read notes
   - Idk, look into org mode and org roam
-- Calendar and Todo
+- General Organization
+  - Calendar 
+  - Tasks
+  - Email
+  - Time
 - Music making
   - (feels like a whole can of worms I might not want to deal with)
 
@@ -128,4 +130,13 @@ Short-term Development Plan:
   - [x] Editor
   - [x] File Manager
   - [ ] Terminal
-  - [ ] Todo manager
+    - skip for now
+  - [ ] Task organizer
+- Task system:
+  - Just consider 1 file for now, no global, no references between projects, don't even care about the project directory as a whole.
+  - store in a json file, edit and view with task organizer
+  - [ ] Task
+    - [ ] Head
+    - [ ] Body
+    - [ ] Check
+  - [ ] Subtasks

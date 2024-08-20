@@ -1,6 +1,5 @@
-use crate::manager::ManagerProxy;
-
 use super::SubappUI;
+use crate::manager::ManagerProxy;
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::Color,
@@ -10,6 +9,7 @@ use ratatui::{
 
 pub mod editor;
 pub mod file_manager;
+pub mod task_organizer;
 
 pub struct DemoSubapp {
     pub title: String,
@@ -46,8 +46,7 @@ impl SubappUI for DemoSubapp {
         if is_focused {
             // FIXME: multiline
 
-            let cursor_cell =
-                buffer.get_mut(area.x + 1 + (self.cursor_location as u16), area.y + 1);
+            let cursor_cell = &mut buffer[(area.x + 1 + (self.cursor_location as u16), area.y + 1)];
             // cursor_cell.modifier |= Modifier::SLOW_BLINK;
             cursor_cell.bg = Color::Yellow;
         }

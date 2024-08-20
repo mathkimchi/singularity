@@ -1,6 +1,12 @@
 use crate::{
     backend::utils::{RootedTree, TreeNodePath},
-    subapp::{std_subapps::file_manager::FileManager, Subapp, SubappData, SubappUI},
+    subapp::{
+        std_subapps::{
+            file_manager::FileManager,
+            task_organizer::{self, TaskOrganizer},
+        },
+        Subapp, SubappData, SubappUI,
+    },
 };
 use ratatui::{
     crossterm::{
@@ -34,11 +40,11 @@ impl Manager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
         let manager = Self {
-            subapps: RootedTree::from_root(Subapp {
-                manager_proxy: Default::default(),
-                subapp_data: SubappData {},
-                user_interface: Box::new(FileManager::new("examples/project")),
-            }),
+            subapps: RootedTree::from_root(Subapp::new(FileManager::new("examples/project")))
+                .builder_add_node(
+                    Subapp::new(TaskOrganizer::new("examples/project/.project/tasks.json")),
+                    &TreeNodePath::new_root(),
+                ),
             app_focuser_index: None,
             focused_subapp_path: TreeNodePath::new_root(),
             is_running: true,
@@ -74,7 +80,7 @@ impl Manager {
     }
 
     fn draw_app(&mut self, frame: &mut Frame) {
-        frame.render_widget(Clear, frame.size());
+        frame.render_widget(Clear, frame.area());
 
         for (index, subapp_path) in self
             .subapps
