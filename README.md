@@ -124,6 +124,7 @@ Short-term Development Plan:
     - Each cell or character has the following attributes:
       - symbol (the actual character), fg color, bg color, underline color, modifiers (which is a whole bunch of new stuff, go to ratatui::style::Modifier for options, use `|` to chain multiple), skip (idk what skip is)
   - No cursor management, if needed, modify attributes to manually emulate cursors
+  - Need for proper gui feels more and more usefull
 - Nodes in the tree are either empty (organizational groupers) or an individual window
   - I'm going to have the organization similar to the tree tab extensions
 - Subapps to do:

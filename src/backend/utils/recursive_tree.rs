@@ -88,15 +88,15 @@ impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {
 }
 
 impl<T> Index<&TreeNodePath> for RecursiveTreeNode<T> {
-    type Output = Self;
+    type Output = T;
 
     fn index(&self, path: &TreeNodePath) -> &Self::Output {
-        self.safe_get(path).unwrap()
+        &self.safe_get(path).unwrap().value
     }
 }
 impl<T> IndexMut<&TreeNodePath> for RecursiveTreeNode<T> {
     fn index_mut(&mut self, path: &TreeNodePath) -> &mut Self::Output {
-        self.safe_get_mut(path).unwrap()
+        &mut self.safe_get_mut(path).unwrap().value
     }
 }
 

@@ -1,10 +1,19 @@
 [
     {
         "value": {
-            "title": "Placeholder Title",
+            "title": "Ex",
             "body": "Placeholder body.",
             "is_complete": false
         },
-        "children": []
+        "children": [
+            {
+                "value": {
+                    "title": "Ex Child",
+                    "body": "json manually written",
+                    "is_complete": false
+                },
+                "children": []
+            }
+        ]
     }
 ]

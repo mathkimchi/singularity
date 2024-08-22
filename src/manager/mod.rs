@@ -46,7 +46,7 @@ impl Manager {
                     &TreeNodePath::new_root(),
                 ),
             app_focuser_index: None,
-            focused_subapp_path: TreeNodePath::new_root(),
+            focused_subapp_path: TreeNodePath::from([0]),
             is_running: true,
         };
 

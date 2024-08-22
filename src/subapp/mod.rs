@@ -31,9 +31,11 @@ pub trait SubappUI {
     /// FIXME: currently, graphics are not agnostic
     ///
     /// FIXME: add element system, and give access to only the necessary parts of the buffer
+    ///
+    /// REVIEW: consider handling border in manager and making subapps render only content
     fn render(
         &mut self,
-        area: Rect,
+        total_area: Rect,
         display_buffer: &mut Buffer,
         manager_proxy: &mut ManagerProxy,
         is_focused: bool,
