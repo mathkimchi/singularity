@@ -1,6 +1,9 @@
 use super::editor::Editor;
 use crate::{
-    backend::utils::{RootedTree, TreeNodePath},
+    backend::utils::{
+        rooted_tree::RootedTree,
+        tree_node_path::{TraversableTree, TreeNodePath},
+    },
     manager::ManagerProxy,
     subapp::SubappUI,
 };
@@ -111,7 +114,7 @@ impl SubappUI for FileManager {
             }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
                 self.selected_path = self
                     .selected_path
-                    .traverse_based_on_wasd(&self.directory_tree, traverse_key);
+                    .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
             }
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,

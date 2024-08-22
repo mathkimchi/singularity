@@ -1,10 +1,10 @@
 use crate::{
-    backend::utils::{RootedTree, TreeNodePath},
+    backend::utils::{
+        rooted_tree::RootedTree,
+        tree_node_path::{TraversableTree, TreeNodePath},
+    },
     subapp::{
-        std_subapps::{
-            file_manager::FileManager,
-            task_organizer::{self, TaskOrganizer},
-        },
+        std_subapps::{file_manager::FileManager, task_organizer::TaskOrganizer},
         Subapp, SubappData, SubappUI,
     },
 };
@@ -173,8 +173,8 @@ impl Manager {
                         KeyCode::Char(traverse_key)
                             if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
                         {
-                            new_focus_index =
-                                new_focus_index.traverse_based_on_wasd(&self.subapps, traverse_key);
+                            new_focus_index = new_focus_index
+                                .clamped_traverse_based_on_wasd(&self.subapps, traverse_key);
                             Some(new_focus_index)
                         }
                         _ => None,
