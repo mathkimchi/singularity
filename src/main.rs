@@ -1,5 +1,6 @@
 pub mod backend;
 // pub mod demo_cli_frontend;
+pub mod elements;
 pub mod manager;
 pub mod subapp;
 mod tests;

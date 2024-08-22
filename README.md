@@ -100,7 +100,10 @@ TO REVIEW:
   - Minimizes the total distance * frequency of switch of all pairs of two nodes
   - I probably wouldn't use this, but it could be fun
   - Speaking of this, what about cool telemetry (stored locally, opt in) for fun like those graphs in obsidian or smth
-- 
+- Element
+  - Elements are displayables that subapps can use to avoid rewriting code.
+  - For example, the textbox element and tree view element
+  - Having this also makes it easier to standardize subapps
 
 Maybe the thing that I am looking for is a project management app.
 One of the things I want to change is that I don't like the way apps are organized.
@@ -141,3 +144,7 @@ Short-term Development Plan:
     - [ ] Body
     - [ ] Check
   - [ ] Subtasks
+- ui elements
+  - textbox
+  - tree view
+  - Don't need a trait for elements (at least not right now)
