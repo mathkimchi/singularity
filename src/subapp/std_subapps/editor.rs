@@ -150,7 +150,7 @@ impl Editor {
         self.cursor_logical_position.1 += 1;
     }
 
-    fn save_to_temp_file(&self) {
+    fn save_to_file(&self) {
         let new_path = if self.save_to_temp {
             self.file_path.to_str().unwrap().to_string()
                 + ".temp"
@@ -335,7 +335,7 @@ impl SubappUI for Editor {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                self.save_to_temp_file();
+                self.save_to_file();
             }
             _ => {}
         }

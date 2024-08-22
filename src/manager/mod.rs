@@ -58,23 +58,12 @@ impl Manager {
         enable_raw_mode()?;
         stdout().execute(EnterAlternateScreen)?;
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-        std::panic::set_hook(Box::new(|panic_info| {
-            // In case there is a panic, revert the terminal to its original state
-            let _ = disable_raw_mode();
-            let _ = stdout().execute(LeaveAlternateScreen);
-
-            println!("{}", panic_info);
-        }));
 
         while self.is_running {
             terminal.draw(|f| self.draw_app(f))?;
             self.handle_input(crossterm::event::read()?);
             self.process_subapp_commands();
         }
-
-        // revert the terminal to its original state
-        disable_raw_mode()?;
-        stdout().execute(LeaveAlternateScreen)?;
 
         Ok(())
     }
@@ -215,6 +204,14 @@ impl Manager {
                 }
             }
         }
+    }
+}
+impl Drop for Manager {
+    fn drop(&mut self) {
+        // revert the terminal to its original state
+        // bc of drop, this is called even on panic
+        let _ = disable_raw_mode();
+        let _ = stdout().execute(LeaveAlternateScreen);
     }
 }
 

@@ -1,1 +1,10 @@
-[]
+[
+    {
+        "value": {
+            "title": "Placeholder Title",
+            "body": "Placeholder body.",
+            "is_complete": false
+        },
+        "children": []
+    }
+]

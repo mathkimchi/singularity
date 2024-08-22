@@ -1,4 +1,6 @@
-use super::rooted_tree::RootedTree;
+use std::ops::{Index, IndexMut};
+
+use super::{rooted_tree::RootedTree, tree_node_path::TraversableTree};
 use crate::backend::utils::tree_node_path::TreeNodePath;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +44,25 @@ impl<T> RecursiveTreeNode<T> {
     pub fn push_child_node(&mut self, child_node: Self) {
         self.children.push(child_node);
     }
+
+    pub fn safe_get(&self, path: &TreeNodePath) -> Option<&Self> {
+        let mut node = self;
+
+        for index in path.0.iter() {
+            node = node.children.get(*index)?;
+        }
+
+        Some(node)
+    }
+    pub fn safe_get_mut(&mut self, path: &TreeNodePath) -> Option<&mut Self> {
+        let mut node = self;
+
+        for index in path.0.iter() {
+            node = node.children.get_mut(*index)?;
+        }
+
+        Some(node)
+    }
 }
 impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {
     fn from(recursive_tree_node: RecursiveTreeNode<T>) -> Self {
@@ -66,27 +87,21 @@ impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {
     }
 }
 
-// impl<T> Index<&TreeNodePath> for RecursiveTreeNode<T> {
-//     type Output = Self;
+impl<T> Index<&TreeNodePath> for RecursiveTreeNode<T> {
+    type Output = Self;
 
-//     fn index(&self, index: &TreeNodePath) -> &Self::Output {
-//         let mut node = self;
+    fn index(&self, path: &TreeNodePath) -> &Self::Output {
+        self.safe_get(path).unwrap()
+    }
+}
+impl<T> IndexMut<&TreeNodePath> for RecursiveTreeNode<T> {
+    fn index_mut(&mut self, path: &TreeNodePath) -> &mut Self::Output {
+        self.safe_get_mut(path).unwrap()
+    }
+}
 
-//         for i in index.0.iter() {
-//             node = &node.children[*i];
-//         }
-
-//         node
-//     }
-// }
-// impl<T> IndexMut<&TreeNodePath> for RecursiveTreeNode<T> {
-//     fn index_mut(&mut self, index: &TreeNodePath) -> &mut Self::Output {
-//         let mut node = self;
-
-//         for i in index.0.iter() {
-//             node = &mut node.children[*i];
-//         }
-
-//         node
-//     }
-// }
+impl<T> TraversableTree for RecursiveTreeNode<T> {
+    fn exists_at(&self, path: &TreeNodePath) -> bool {
+        self.safe_get(path).is_some()
+    }
+}
