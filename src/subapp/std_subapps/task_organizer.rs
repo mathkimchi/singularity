@@ -100,6 +100,7 @@ impl SubappUI for TaskOrganizer {
             .borders(Borders::LEFT)
             .render(spacers[1], display_buffer);
 
+        // list tasks
         for (running_count, (root_index, path)) in self
             .tasks
             .iter()
@@ -107,6 +108,7 @@ impl SubappUI for TaskOrganizer {
             .flat_map(|(root_index, tree)| tree.iter_paths_dfs().map(move |x| (root_index, x)))
             .enumerate()
         {
+            // TODO: style complete vs todo
             let mut line_style = Style::new();
 
             if let Some((focused_index, focused_path)) = &self.focused_task_path {
@@ -126,6 +128,22 @@ impl SubappUI for TaskOrganizer {
                 (tasks_area.width as usize) - 2 * path.depth(),
                 line_style,
             );
+        }
+
+        // draw focused task
+        if let Some((focused_index, focused_path)) = &self.focused_task_path {
+            let focused_task = &self.tasks[*focused_index][focused_path];
+
+            // draw title
+            display_buffer.set_stringn(
+                selected_task_area.x,
+                selected_task_area.y,
+                &focused_task.title,
+                selected_task_area.width as usize,
+                Style::new().underlined(),
+            );
+
+            // draw body
         }
     }
 
