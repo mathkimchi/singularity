@@ -4,11 +4,12 @@ use crate::{
         recursive_tree::RecursiveTreeNode,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
+    elements::text_box::TextBox,
     manager::ManagerProxy,
 };
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Layout, Margin, Rect},
     style::{Style, Stylize},
     widgets::{Block, Borders, Widget},
 };
@@ -43,7 +44,8 @@ pub struct TaskOrganizer {
     /// REVIEW: rooted tree or recursive tree?
     tasks: Vec<RecursiveTreeNode<IndividualTask>>,
 
-    focused_task_path: Option<(usize, TreeNodePath)>,
+    /// (root index, task path, body editor)
+    focused_task_path: Option<(usize, TreeNodePath, TextBox)>,
     /// If editing mode, there should be some focusd task
     mode: Mode,
 }
@@ -80,12 +82,7 @@ impl SubappUI for TaskOrganizer {
             .title("Tasks")
             .render(total_area, display_buffer);
 
-        let display_area = Rect::new(
-            total_area.x + 1,
-            total_area.y + 1,
-            total_area.width - 2,
-            total_area.height - 2,
-        );
+        let display_area = total_area.inner(Margin::new(1, 1));
 
         let (layout, spacers) =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -111,7 +108,7 @@ impl SubappUI for TaskOrganizer {
             // TODO: style complete vs todo
             let mut line_style = Style::new();
 
-            if let Some((focused_index, focused_path)) = &self.focused_task_path {
+            if let Some((focused_index, focused_path, _)) = &self.focused_task_path {
                 if (focused_index == &root_index) && (focused_path == &path) {
                     line_style = line_style.on_cyan();
 
@@ -131,7 +128,7 @@ impl SubappUI for TaskOrganizer {
         }
 
         // draw focused task
-        if let Some((focused_index, focused_path)) = &self.focused_task_path {
+        if let Some((focused_index, focused_path, body_text_box)) = &mut self.focused_task_path {
             let focused_task = &self.tasks[*focused_index][focused_path];
 
             // draw title
@@ -144,6 +141,13 @@ impl SubappUI for TaskOrganizer {
             );
 
             // draw body
+            let body_area = Rect::new(
+                selected_task_area.x,
+                selected_task_area.y + 1,
+                selected_task_area.width,
+                selected_task_area.height - 1,
+            );
+            body_text_box.render(body_area, display_buffer, is_focused);
         }
     }
 
@@ -172,10 +176,13 @@ impl SubappUI for TaskOrganizer {
 
                 // add a placeholder root task & focus on it
 
+                let placeholder_task = IndividualTask::default();
+                let body_editor = TextBox::from(placeholder_task.body.clone());
                 self.tasks
-                    .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+                    .push(RecursiveTreeNode::from_value(placeholder_task));
 
-                self.focused_task_path = Some((self.tasks.len() - 1, TreeNodePath::new_root()));
+                self.focused_task_path =
+                    Some((self.tasks.len() - 1, TreeNodePath::new_root(), body_editor));
                 self.mode = Mode::Editing;
             }
             Event::Key(KeyEvent {
@@ -184,15 +191,30 @@ impl SubappUI for TaskOrganizer {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                // save to file
+                // save body
+                if let Some((focused_index, focused_path, body_text_box)) = &self.focused_task_path
+                {
+                    let focused_task = &mut self.tasks[*focused_index][focused_path];
 
+                    focused_task.body = body_text_box.get_text_as_string();
+                }
+
+                // save to file
                 std::fs::write(
                     &self.task_file_path,
                     serde_json::to_string_pretty(&self.tasks).unwrap(),
                 )
                 .unwrap();
             }
-            _ => {}
+            event => {
+                if matches!(self.mode, Mode::Editing) {
+                    if let Some((_focused_index, _focused_path, body_text_box)) =
+                        &mut self.focused_task_path
+                    {
+                        body_text_box.handle_input(event);
+                    }
+                }
+            }
         }
     }
 }

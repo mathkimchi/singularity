@@ -2,9 +2,6 @@ use super::SubappUI;
 use crate::{elements::text_box::TextBox, manager::ManagerProxy};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    layout::Rect,
-    style::Color,
-    text::ToLine,
     widgets::Widget,
 };
 use std::path::PathBuf;
