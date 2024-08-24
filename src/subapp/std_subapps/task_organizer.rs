@@ -42,6 +42,17 @@ enum Mode {
 pub struct TaskOrganizer {
     task_file_path: PathBuf,
     /// REVIEW: rooted tree or recursive tree?
+    /// NOTE: making this a vec of trees allows it to be empty.
+    /// You can almost think of the task organizer as being the root
+    /// and the tasks are the children of the larger tree.
+    /// However, the fact that this isn't the standard tree means
+    /// I need to implement special cases, which is very annoying
+    /// and also means that for any change I make to trees,
+    /// I might need to make it here as well.
+    /// So, I wonder if I should simply make this a single task
+    /// and I can maybe just ignore the root task or pretend like
+    /// mandating a root task is a feature not a bug.
+    /// REVIEW: what I said above ^
     tasks: Vec<RecursiveTreeNode<IndividualTask>>,
 
     /// (root index, task path, body editor)
@@ -63,6 +74,79 @@ impl TaskOrganizer {
             tasks,
             focused_task_path: None,
             mode: Mode::Viewing,
+        }
+    }
+
+    fn set_focused_task(&mut self, root_index: usize, task_path: TreeNodePath) {
+        self.focused_task_path = Some((
+            root_index,
+            task_path.clone(),
+            TextBox::from(self.tasks[root_index][&task_path].body.clone()),
+        ));
+    }
+
+    /// Expects traverse key to be a traverse key (wasd); panics if it isn't
+    fn handle_traversal(&mut self, traverse_key: char) {
+        if let Some((root_index, task_path, _text_box)) = &self.focused_task_path {
+            match traverse_key {
+                'a' | 'd' => {
+                    // parent-child traversal works as it would normally
+
+                    self.set_focused_task(
+                        *root_index,
+                        task_path
+                            .clamped_traverse_based_on_wasd(&self.tasks[*root_index], traverse_key),
+                    );
+                }
+                'w' => {
+                    // sibling traversal needs to take care of the edge case of root
+                    if task_path.is_root() {
+                        // already root, go to previous task's root
+                        // if this is very first task, then change nothing
+                        self.set_focused_task(
+                            root_index.saturating_sub(1),
+                            TreeNodePath::new_root(),
+                        );
+                    } else {
+                        self.set_focused_task(
+                            *root_index,
+                            task_path
+                                .traverse_to_previous_sibling()
+                                .unwrap_or(task_path.clone()),
+                        );
+                    }
+                }
+                's' => {
+                    // sibling traversal needs to take care of the edge case of root
+                    if task_path.is_root() {
+                        // already root, go to next task's root
+                        // if there is no later root, then change nothing
+                        self.set_focused_task(
+                            root_index.saturating_add(1).clamp(0, self.tasks.len() - 1),
+                            TreeNodePath::new_root(),
+                        );
+                    } else {
+                        self.set_focused_task(
+                            *root_index,
+                            task_path
+                                .traverse_to_next_sibling(&self.tasks[*root_index])
+                                .unwrap_or(task_path.clone()),
+                        );
+                    }
+                }
+                _ => {
+                    panic!()
+                }
+            }
+        } else {
+            if self.tasks.is_empty() {
+                // if user tries traversing when there are no tasks, create a placeholder task
+                self.tasks
+                    .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+            }
+
+            // user tried to traverse for the first time, select first task
+            self.set_focused_task(0, TreeNodePath::new_root());
         }
     }
 }
@@ -147,74 +231,96 @@ impl SubappUI for TaskOrganizer {
                 selected_task_area.width,
                 selected_task_area.height - 1,
             );
-            body_text_box.render(body_area, display_buffer, is_focused);
+            body_text_box.render(
+                body_area,
+                display_buffer,
+                is_focused && matches!(self.mode, Mode::Editing),
+            );
         }
     }
 
     fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
-        match event {
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::NONE,
-                code: KeyCode::Up,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {}
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::NONE,
-                code: KeyCode::Down,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {}
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::NONE,
-                code: KeyCode::Char('+'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                // NOTE: Pressing: `SHIFT` and `=` is thought of as pressing `+`
-                // on its own which makes sense, but i feel icky about it
+        let standardized_event = if let Event::Key(KeyEvent {
+            code: key_code,
+            modifiers,
+            kind: KeyEventKind::Press,
+            ..
+        }) = event
+        {
+            (key_code, modifiers)
+        } else {
+            // right now, no use for any other event type
+            return;
+        };
 
-                // add a placeholder root task & focus on it
+        match self.mode {
+            Mode::Viewing => match standardized_event {
+                (KeyCode::Char('+'), KeyModifiers::NONE) => {
+                    // NOTE: Pressing: `SHIFT` and `=` is thought of as pressing `+`
+                    // on its own which makes sense, but i feel icky about it
 
-                let placeholder_task = IndividualTask::default();
-                let body_editor = TextBox::from(placeholder_task.body.clone());
-                self.tasks
-                    .push(RecursiveTreeNode::from_value(placeholder_task));
+                    // add a placeholder root task & focus on it
 
-                self.focused_task_path =
-                    Some((self.tasks.len() - 1, TreeNodePath::new_root(), body_editor));
-                self.mode = Mode::Editing;
-            }
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('s'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                // save body
-                if let Some((focused_index, focused_path, body_text_box)) = &self.focused_task_path
-                {
-                    let focused_task = &mut self.tasks[*focused_index][focused_path];
+                    self.tasks
+                        .push(RecursiveTreeNode::from_value(IndividualTask::default()));
 
-                    focused_task.body = body_text_box.get_text_as_string();
+                    self.set_focused_task(self.tasks.len() - 1, TreeNodePath::new_root());
                 }
+                (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+                    // save body
+                    if let Some((focused_index, focused_path, body_text_box)) =
+                        &self.focused_task_path
+                    {
+                        let focused_task = &mut self.tasks[*focused_index][focused_path];
 
-                // save to file
-                std::fs::write(
-                    &self.task_file_path,
-                    serde_json::to_string_pretty(&self.tasks).unwrap(),
-                )
-                .unwrap();
-            }
-            event => {
-                if matches!(self.mode, Mode::Editing) {
+                        focused_task.body = body_text_box.get_text_as_string();
+                    }
+
+                    // save to file
+                    std::fs::write(
+                        &self.task_file_path,
+                        serde_json::to_string_pretty(&self.tasks).unwrap(),
+                    )
+                    .unwrap();
+                }
+                (KeyCode::Enter, KeyModifiers::NONE) => {
+                    // NOTE: Enter+CONTROL doesn't work as an event for some reason
+                    // enter edit mode
+
+                    if self.focused_task_path.is_none() {
+                        // edit mode requires Some focused task so set one if n/a
+
+                        if self.tasks.is_empty() {
+                            // if user tries traversing when there are no tasks, create a placeholder task
+                            self.tasks
+                                .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+                        }
+
+                        // user tried to traverse for the first time, select first task
+                        self.set_focused_task(0, TreeNodePath::new_root());
+                    }
+
+                    self.mode = Mode::Editing;
+                }
+                (KeyCode::Char(traverse_key), KeyModifiers::NONE)
+                    if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
+                {
+                    self.handle_traversal(traverse_key);
+                }
+                _ => {}
+            },
+            Mode::Editing => match standardized_event {
+                (KeyCode::Esc, KeyModifiers::NONE) => {
+                    self.mode = Mode::Viewing;
+                }
+                _ => {
                     if let Some((_focused_index, _focused_path, body_text_box)) =
                         &mut self.focused_task_path
                     {
                         body_text_box.handle_input(event);
                     }
                 }
-            }
+            },
         }
     }
 }
