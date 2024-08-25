@@ -148,3 +148,129 @@ Short-term Development Plan:
   - textbox
   - tree view
   - Don't need a trait for elements (at least not right now)
+
+---
+
+2024/8/23
+
+Okay, I am at the very very early stage where I can barely say that the individual subapps (text editor, file manager, and task organizer) have enough features such that they can symbolize what they are supposed to be.
+I have so many ways of improving them right now, but I know that I will always have ways to improve the details.
+The thing I must do now is to work towards my vision of the bigger picture, and first determining what that even is.
+
+Over the past few weeks, as I implemented these subapps, I had time to specify my abstract idea of an "all in one app."
+The goal for singularity is to increase the user's productivity.
+I've thought a lot about the principle of making things customizable if they can not be perfect.
+The main feature that this aligns with this idea is allowing anyone to write subapps.
+I want singularity to provide tools for subapps so that all subapps that use those tools to be standardized to some extent.
+These tools will usually come in the form of abstraction, like abstracting the UI and organization.
+The problem is that I can't consider every single use case, so I am going to start with mine.
+My ideal version of singularity would allow me to use it for every single productive thing I can do on my computer.
+These are (with overlap):
+- coding projects
+- note taking
+- writing essays
+- brainstorming ideas
+- making music
+- email management
+- memory management
+- event reminders
+- task list
+- homework
+- small scale time management
+- logging
+- journaling
+- organizing
+- web browsing
+- reading
+- watching videos
+- writing proofs
+- searching for information (both online and on my system)
+
+The organization system goes like this:
+- every project has a specific corresponding project folder containing:
+  - core file
+    - its project id
+    - subprojects
+      - the subproject name/id
+      - where to find it
+    - subapps used
+      - subapp name/id
+      - where to find it
+      - subapp settings
+        - standard subapp settings
+          - settings that are used by the manager rather than the subapp
+          - these settings exist for all subapps
+          - ex: their file permissions
+        - subapp specific settings
+      - NOTE: subapps and their settings are extended to subprojects unless specified otherwise
+  - meta files for each subapp that requests it
+- every subapp has:
+  - subapp id
+  - the runnable
+    - haven't decided on what this is yet
+  - dependencies
+for a given user, their projects might look like this:
+- project: root project (more like user configs)
+  - meta:
+    - standard: basic color pallete
+    - code editor: format on save
+  - diary subapp data:
+    - I worked on cool coding project (link to cool coding project -> devlog subapp -> bugfix) today
+  - children:
+    - project: cool coding project
+      - devlog subapp data:
+        - bugfix
+    - project: another coding project
+      - meta: code editor: don't format on save
+    - project: physics
+      - children:
+        - project: momentum notes
+          - meta:
+            - standard: tags: archived
+        - project: collision notes
+          - notes subapp data:
+            - collision preserves momentum (link to momentum notes).
+
+I guess a project file organization standard could be a whole different thing.
+But I want to be as unintrusive as possible so people who don't use singularity won't be negatively affected because a project file organization standard does comply with this standard, and vice versa.
+Having a single folder with all the singularity stuff would be the best way to do this I think, like a shell.nix file or a .vscode folder.
+If people don't want the singularity stuff to bloat their project repository, they can .gitignore it.
+
+Speaking of seperating the roles of singularity, these are the components that are needed to make it work:
+- subapps
+  - each subapp only talks directly to the manager
+  - should not even directly access the filesystem (though I might not be able to force this)
+  - but, the manager can then talk to the UI or another subapp or the file system on behalf of the subapp
+- UI
+  - displays from `SAVDR` (standard abstract visual display representation which is like HTML, should take care of **most** usecases)
+  - turn user input into `user input events` and passes it to manager
+- manager
+  - this is what the core of singularity is; what connects all the components
+  - takes care of subapps' permission for files
+  - provides the proxy between subapp and ui
+- file system
+  - where long term data is stored
+
+I am not sure how I will implement subapps to be modified at runtime.
+It seems that I am looking for a method of [IPC](https://en.wikipedia.org/wiki/Inter-process_communication) (inter-process comunication)
+Here are some possibilities roughly ordered from ideal to horrible:
+- dynamic library
+- cli
+- Manager-subapp communication via sockets
+  - unix domain socket
+  - still have to figure out initialization
+- [Rhai](https://rhai.rs/book/start/index.html)
+- shared memory
+- wasm
+- Custom language
+  - please don't do this
+
+My ideas are still pretty broad, but I think I can make new progress based on what I wrote so far.
+The next step is:
+- [ ] implement project organization system
+  - [ ] (manually) make a test directory
+  - [ ] make project manager class
+    - [ ] each instance of project manager corresponds to exactly one project
+  - [ ] get task organizer to work with project manager
+  - [ ] add project heirarchy
+  - [ ] add linking/referencing to task organizer
