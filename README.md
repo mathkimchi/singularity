@@ -203,7 +203,7 @@ The organization system goes like this:
           - ex: their file permissions
         - subapp specific settings
       - NOTE: subapps and their settings are extended to subprojects unless specified otherwise
-  - meta files for each subapp that requests it
+  - owned files called property for each subapp that requests it
 - every subapp has:
   - subapp id
   - the runnable
@@ -268,7 +268,7 @@ Here are some possibilities roughly ordered from ideal to horrible:
 My ideas are still pretty broad, but I think I can make new progress based on what I wrote so far.
 The next step is:
 - [ ] implement project organization system
-  - [ ] (manually) make a test directory
+  - [x] (manually) make a test directory
   - [ ] make project manager class
     - [ ] each instance of project manager corresponds to exactly one project
   - [ ] get task organizer to work with project manager
