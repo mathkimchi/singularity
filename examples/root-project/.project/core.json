@@ -2,8 +2,8 @@
     "subapps": {
         "task_organizer": {
             "location": "standard_subapps/task_organizer",
-            "standard_settings": {
-                "permissions": {
+            "subapp_standard_settings": {
+                "subapp_file_system_permissions": {
                     "property": {
                         "location": "[$project_directory]/.project/tasks.json",
                         "read": true,
@@ -11,7 +11,7 @@
                     }
                 }
             },
-            "specific_settings": {
+            "subapp_specific_settings": {
                 "debug_border": false
             }
         }
