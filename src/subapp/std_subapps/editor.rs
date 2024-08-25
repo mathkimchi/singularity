@@ -1,5 +1,5 @@
 use super::SubappUI;
-use crate::{elements::text_box::TextBox, manager::ManagerProxy};
+use crate::{elements::text_box::TextBox, project_manager::ManagerProxy};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     widgets::Widget,

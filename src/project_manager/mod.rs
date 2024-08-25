@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-pub struct Manager {
+pub struct ProjectManager {
     subapps: RootedTree<Subapp>,
 
     /// App focuser is a special window
@@ -36,7 +36,7 @@ pub struct Manager {
     focused_subapp_path: TreeNodePath,
     is_running: bool,
 }
-impl Manager {
+impl ProjectManager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
         let manager = Self {
@@ -206,7 +206,7 @@ impl Manager {
         }
     }
 }
-impl Drop for Manager {
+impl Drop for ProjectManager {
     fn drop(&mut self) {
         // revert the terminal to its original state
         // bc of drop, this is called even on panic

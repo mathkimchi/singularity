@@ -1,5 +1,5 @@
 use super::SubappUI;
-use crate::manager::ManagerProxy;
+use crate::project_manager::ManagerProxy;
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::Color,

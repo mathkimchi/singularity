@@ -4,7 +4,7 @@ use crate::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
-    manager::ManagerProxy,
+    project_manager::ManagerProxy,
     subapp::SubappUI,
 };
 use ratatui::{

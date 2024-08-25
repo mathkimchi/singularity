@@ -7,5 +7,5 @@ fn hello() {
 
 #[test]
 fn run_demo() {
-    crate::manager::Manager::run_demo().unwrap();
+    crate::project_manager::ProjectManager::run_demo().unwrap();
 }

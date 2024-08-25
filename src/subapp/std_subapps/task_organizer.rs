@@ -5,7 +5,7 @@ use crate::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
     elements::text_box::TextBox,
-    manager::ManagerProxy,
+    project_manager::ManagerProxy,
 };
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},

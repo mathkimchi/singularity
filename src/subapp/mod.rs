@@ -1,4 +1,4 @@
-use crate::manager::ManagerProxy;
+use crate::project_manager::ManagerProxy;
 use ratatui::{buffer::Buffer, crossterm::event::Event, layout::Rect};
 
 pub mod std_subapps;
