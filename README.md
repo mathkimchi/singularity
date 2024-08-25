@@ -269,9 +269,10 @@ My ideas are still pretty broad, but I think I can make new progress based on wh
 The next step is:
 - [ ] implement project organization system
   - [x] (manually) make a test directory
-  - [ ] make project class and parser
-  - [ ] make project manager class
-    - [ ] each instance of project manager corresponds to exactly one project
+  - [x] make project class and parser
+  - [x] make project manager class
+    - [x] each instance of project manager corresponds to exactly one project
   - [ ] get task organizer to work with project manager
+    - [ ] add a way for tasks to talk to project manager (either replace `ManagerProxy` or make it better)
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer

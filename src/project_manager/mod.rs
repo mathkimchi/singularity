@@ -3,6 +3,7 @@ use crate::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
+    project::Project,
     subapp::{
         std_subapps::{file_manager::FileManager, task_organizer::TaskOrganizer},
         Subapp, SubappData, SubappUI,
@@ -28,7 +29,9 @@ use std::{
 };
 
 pub struct ProjectManager {
-    subapps: RootedTree<Subapp>,
+    project: Project,
+
+    running_subapps: RootedTree<Subapp>,
 
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
@@ -37,23 +40,41 @@ pub struct ProjectManager {
     is_running: bool,
 }
 impl ProjectManager {
+    pub fn new<P>(project_directory: P) -> Self
+    where
+        P: AsRef<std::path::Path> + Clone,
+        std::path::PathBuf: From<P>,
+    {
+        let project = Project::new(project_directory.clone());
+
+        Self {
+            project,
+            running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
+                project_directory,
+            ))),
+            app_focuser_index: None,
+            focused_subapp_path: TreeNodePath::new_root(),
+            is_running: false,
+        }
+    }
+
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
-        let manager = Self {
-            subapps: RootedTree::from_root(Subapp::new(FileManager::new("examples/project")))
-                .builder_add_node(
-                    Subapp::new(TaskOrganizer::new("examples/project/.project/tasks.json")),
-                    &TreeNodePath::new_root(),
-                ),
-            app_focuser_index: None,
-            focused_subapp_path: TreeNodePath::from([0]),
-            is_running: true,
-        };
+        let mut manager = Self::new("examples/root-project");
+
+        manager.running_subapps.add_node(
+            Subapp::new(TaskOrganizer::new(
+                "examples/root-project/.project/tasks.json",
+            )),
+            &TreeNodePath::new_root(),
+        );
 
         manager.run()
     }
 
     pub fn run(mut self) -> io::Result<()> {
+        self.is_running = true;
+
         // set up terminal stuff
         enable_raw_mode()?;
         stdout().execute(EnterAlternateScreen)?;
@@ -72,12 +93,12 @@ impl ProjectManager {
         frame.render_widget(Clear, frame.area());
 
         for (index, subapp_path) in self
-            .subapps
+            .running_subapps
             .iter_paths_dfs()
             .enumerate()
             .collect::<Vec<(usize, TreeNodePath)>>()
         {
-            let subapp = &mut self.subapps[&subapp_path];
+            let subapp = &mut self.running_subapps[&subapp_path];
 
             subapp.user_interface.render(
                 Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
@@ -88,7 +109,7 @@ impl ProjectManager {
         }
 
         if let Some(focusing_index) = &self.app_focuser_index {
-            let num_subapps = self.subapps.num_nodes();
+            let num_subapps = self.running_subapps.num_nodes();
 
             frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
             frame.render_widget(
@@ -97,8 +118,8 @@ impl ProjectManager {
                 Rect::new(13, 5, 30, (2 + num_subapps) as u16),
             );
 
-            for (index, subapp_path) in self.subapps.iter_paths_dfs().enumerate() {
-                let subapp = &self.subapps[&subapp_path];
+            for (index, subapp_path) in self.running_subapps.iter_paths_dfs().enumerate() {
+                let subapp = &self.running_subapps[&subapp_path];
 
                 let mut widget = Paragraph::new(subapp.user_interface.get_title().clone());
 
@@ -162,8 +183,10 @@ impl ProjectManager {
                         KeyCode::Char(traverse_key)
                             if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
                         {
-                            new_focus_index = new_focus_index
-                                .clamped_traverse_based_on_wasd(&self.subapps, traverse_key);
+                            new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
+                                &self.running_subapps,
+                                traverse_key,
+                            );
                             Some(new_focus_index)
                         }
                         _ => None,
@@ -172,7 +195,7 @@ impl ProjectManager {
             }
 
             event => {
-                let focused_subapp = &mut self.subapps[&self.focused_subapp_path];
+                let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
 
                 focused_subapp
                     .user_interface
@@ -183,14 +206,19 @@ impl ProjectManager {
 
     /// Commands from subapp to manager
     fn process_subapp_commands(&mut self) {
-        for subapp_path in self.subapps.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
-            let commands = std::mem::take(&mut self.subapps[&subapp_path].manager_proxy.commands);
+        for subapp_path in self
+            .running_subapps
+            .iter_paths_dfs()
+            .collect::<Vec<TreeNodePath>>()
+        {
+            let commands =
+                std::mem::take(&mut self.running_subapps[&subapp_path].manager_proxy.commands);
 
             for command in commands {
                 match command {
                     ManagerCommand::SpawnSubapp(subapp_interface) => {
                         self.focused_subapp_path = self
-                            .subapps
+                            .running_subapps
                             .add_node(
                                 Subapp {
                                     manager_proxy: Default::default(),
