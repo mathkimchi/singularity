@@ -261,9 +261,52 @@ Here are some possibilities roughly ordered from ideal to horrible:
   - still have to figure out initialization
 - [Rhai](https://rhai.rs/book/start/index.html)
 - shared memory
+- message queue
+  - i think this is similar to what `ManagerProxy` is doing
 - wasm
 - Custom language
   - please don't do this
+Research:
+- https://3tilley.github.io/posts/simple-ipc-ping-pong/
+  - goes over many ways of ipc between rust
+  - uses shared_memory crate for shared memory
+  - uses Commands to spawn rust
+- Search `crates.io` for ipc
+  - d-bus is a linux tool for ipc
+    - is pretty widely used
+    - i think it uses servers
+    - does not use sockets or shared memory
+    - there seem to be people who hate it, but posts about why it is bad are also often met with ppl defending it
+    - many crates for it, like `dbus` and `zbus`, both very famous
+    - is probably not fast
+  - `parity-tokio-ipc`
+    - uses unix stream for unix and named pipe for windows so it is flexible
+  - `interprocess`
+    - idk, not that popular but has a lot of features
+    - uses sockets and unix domain socket
+- Search crates.io for shared memory
+  - `rustix`
+    - very popular, has many features, including shm. But, it doesn't focus much on shm and in fact seems to lack documentation.
+    - Unless I plan on using its other features (which I might), a shm focused crate would be better
+  - `shared_memory`
+    - i mean it is called shared memory
+    - needs `raw_sync` crate
+    - hasn't been updated in a year
+- https://users.rust-lang.org/t/shared-memory-for-interprocess-communication/92408/8
+  - Use `pthread_mutex` from `libc` crate
+- https://www.youtube.com/watch?v=RtVzlk4om6U
+  - uses just the std library, std::process
+  - Command to spawn
+  - stdin, stdout, stderr pipes for communication
+- manual shared memory implementation with no crates
+  - it might not be too hard:
+  - https://stackoverflow.com/questions/66621363/can-you-cast-a-memory-address-as-a-usize-into-a-reference-with-a-lifetime
+  - it will definitely be unsafe but i think i could make it work
+For now, I am going to use Command to spawn and pipes to communicate.
+If I need speed, I will look further into shared memory, but I just want it to work right now.
+I assume pipes only lets strings or bytes through so I will use serde to send custom types.
+In terms of organization, I am going to try turning the main logic stuff into a library and each subapp into their own package with binaries.
+I think it is possible to let the manager and main logic have a library and a binary, but if not I will make manager a binary and the main logic a library.
 
 My ideas are still pretty broad, but I think I can make new progress based on what I wrote so far.
 The next step is:
@@ -274,5 +317,6 @@ The next step is:
     - [x] each instance of project manager corresponds to exactly one project
   - [ ] get task organizer to work with project manager
     - [ ] add a way for tasks to talk to project manager (either replace `ManagerProxy` or make it better)
+      - [ ] split the subapps from singularity
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer
