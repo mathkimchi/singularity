@@ -1,4 +1,3 @@
-use crate::subapp::{Subapp, SubappData, SubappUI};
 use ratatui::{
     crossterm::{
         self,
@@ -18,6 +17,7 @@ use singularity::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
     project::Project,
+    subapp::{Subapp, SubappData, SubappUI},
 };
 use std::{
     io::{self, stdout},
@@ -101,7 +101,6 @@ impl ProjectManager {
             subapp.user_interface.render(
                 Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
                 frame.buffer_mut(),
-                &mut subapp.manager_proxy,
                 subapp_path == self.focused_subapp_path,
             );
         }
@@ -195,41 +194,39 @@ impl ProjectManager {
             event => {
                 let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
 
-                focused_subapp
-                    .user_interface
-                    .handle_input(&mut focused_subapp.manager_proxy, event);
+                focused_subapp.user_interface.handle_input(event);
             }
         }
     }
 
     /// Commands from subapp to manager
     fn process_subapp_commands(&mut self) {
-        for subapp_path in self
-            .running_subapps
-            .iter_paths_dfs()
-            .collect::<Vec<TreeNodePath>>()
-        {
-            let commands =
-                std::mem::take(&mut self.running_subapps[&subapp_path].manager_proxy.commands);
+        // for subapp_path in self
+        //     .running_subapps
+        //     .iter_paths_dfs()
+        //     .collect::<Vec<TreeNodePath>>()
+        // {
+        //     let commands =
+        //         std::mem::take(&mut self.running_subapps[&subapp_path].manager_proxy.commands);
 
-            for command in commands {
-                match command {
-                    ManagerCommand::SpawnSubapp(subapp_interface) => {
-                        self.focused_subapp_path = self
-                            .running_subapps
-                            .add_node(
-                                Subapp {
-                                    manager_proxy: Default::default(),
-                                    subapp_data: SubappData {},
-                                    user_interface: subapp_interface,
-                                },
-                                &subapp_path,
-                            )
-                            .unwrap();
-                    }
-                }
-            }
-        }
+        //     for command in commands {
+        //         match command {
+        //             ManagerCommand::SpawnSubapp(subapp_interface) => {
+        //                 self.focused_subapp_path = self
+        //                     .running_subapps
+        //                     .add_node(
+        //                         Subapp {
+        //                             manager_proxy: Default::default(),
+        //                             subapp_data: SubappData {},
+        //                             user_interface: subapp_interface,
+        //                         },
+        //                         &subapp_path,
+        //                     )
+        //                     .unwrap();
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
 impl Drop for ProjectManager {
@@ -238,23 +235,5 @@ impl Drop for ProjectManager {
         // bc of drop, this is called even on panic
         let _ = disable_raw_mode();
         let _ = stdout().execute(LeaveAlternateScreen);
-    }
-}
-
-/// This allows subapps to request commands to the manager,
-/// but is limited.
-///
-/// REVIEW: Maybe a box or mutex is better
-#[derive(Default)]
-pub struct ManagerProxy {
-    commands: Vec<ManagerCommand>,
-}
-pub enum ManagerCommand {
-    SpawnSubapp(Box<dyn SubappUI>),
-}
-impl ManagerProxy {
-    pub fn request_spawn_child(&mut self, child_subapp_interface: Box<dyn SubappUI>) {
-        self.commands
-            .push(ManagerCommand::SpawnSubapp(child_subapp_interface));
     }
 }

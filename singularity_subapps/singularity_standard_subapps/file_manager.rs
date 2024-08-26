@@ -1,16 +1,14 @@
-use super::editor::Editor;
-use crate::{
-    backend::utils::{
-        rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath},
-    },
-    project_manager::ManagerProxy,
-    subapp::SubappUI,
-};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::{Style, Stylize},
     widgets::Widget,
+};
+use singularity::{
+    backend::utils::{
+        rooted_tree::RootedTree,
+        tree_node_path::{TraversableTree, TreeNodePath},
+    },
+    subapp::SubappUI,
 };
 use std::path::PathBuf;
 
@@ -72,7 +70,6 @@ impl SubappUI for FileManager {
         &mut self,
         area: ratatui::prelude::Rect,
         display_buffer: &mut ratatui::prelude::Buffer,
-        _manager_proxy: &mut ManagerProxy,
         is_focused: bool,
     ) {
         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
@@ -104,7 +101,7 @@ impl SubappUI for FileManager {
             .render(area, display_buffer);
     }
 
-    fn handle_input(&mut self, manager_proxy: &mut ManagerProxy, event: Event) {
+    fn handle_input(&mut self, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
@@ -122,15 +119,19 @@ impl SubappUI for FileManager {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                // `f` stands for open selected *F*ile
+                // // `f` stands for open selected *F*ile
 
-                let selected_element = &self.directory_tree[&self.selected_path];
-                if selected_element.is_file() {
-                    manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
-                }
-                // if selected path isn't a file, then don't do anything
+                // let selected_element = &self.directory_tree[&self.selected_path];
+                // if selected_element.is_file() {
+                //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
+                // }
+                // // if selected path isn't a file, then don't do anything
             }
             _ => {}
         }
     }
+}
+
+fn main() {
+    println!("Running file manager");
 }

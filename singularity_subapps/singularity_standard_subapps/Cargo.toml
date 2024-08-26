@@ -18,6 +18,6 @@ path = "editor.rs"
 name = "file_manager"
 path = "file_manager.rs"
 
-[[bin]]
-name = "task_organizer"
-path = "task_organizer.rs"
+# [[bin]]
+# name = "task_organizer"
+# path = "task_organizer.rs"

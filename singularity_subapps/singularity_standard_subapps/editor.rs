@@ -2,7 +2,7 @@ use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     widgets::Widget,
 };
-use singularity::{elements::text_box::TextBox, project_manager::ManagerProxy};
+use singularity::{elements::text_box::TextBox, subapp::SubappUI};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
@@ -86,7 +86,6 @@ impl SubappUI for Editor {
         &mut self,
         total_area: ratatui::prelude::Rect,
         display_buffer: &mut ratatui::prelude::Buffer,
-        _manager_proxy: &mut ManagerProxy,
         is_focused: bool,
     ) {
         // the total area includes 1 unit thick border on all sides
@@ -106,7 +105,7 @@ impl SubappUI for Editor {
         }
     }
 
-    fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
+    fn handle_input(&mut self, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
@@ -131,4 +130,8 @@ impl SubappUI for Editor {
             }
         }
     }
+}
+
+fn main() {
+    println!("Running editor");
 }
