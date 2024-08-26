@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::project::Project;
+use singularity::project::Project;
 
 #[test]
 fn hello() {

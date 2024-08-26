@@ -1,14 +1,4 @@
-use crate::{
-    backend::utils::{
-        rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath},
-    },
-    project::Project,
-    subapp::{
-        std_subapps::{file_manager::FileManager, task_organizer::TaskOrganizer},
-        Subapp, SubappData, SubappUI,
-    },
-};
+use crate::subapp::{Subapp, SubappData, SubappUI};
 use ratatui::{
     crossterm::{
         self,
@@ -21,6 +11,13 @@ use ratatui::{
     style::Stylize,
     widgets::{Clear, Paragraph},
     Frame, Terminal,
+};
+use singularity::{
+    backend::utils::{
+        rooted_tree::RootedTree,
+        tree_node_path::{TraversableTree, TreeNodePath},
+    },
+    project::Project,
 };
 use std::{
     io::{self, stdout},
@@ -49,9 +46,10 @@ impl ProjectManager {
 
         Self {
             project,
-            running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
-                project_directory,
-            ))),
+            // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
+            //     project_directory,
+            // ))),
+            running_subapps: RootedTree::from_root(todo!()),
             app_focuser_index: None,
             focused_subapp_path: TreeNodePath::new_root(),
             is_running: false,
@@ -62,12 +60,12 @@ impl ProjectManager {
         // create demo manager
         let mut manager = Self::new("examples/root-project");
 
-        manager.running_subapps.add_node(
-            Subapp::new(TaskOrganizer::new(
-                "examples/root-project/.project/tasks.json",
-            )),
-            &TreeNodePath::new_root(),
-        );
+        // manager.running_subapps.add_node(
+        //     Subapp::new(TaskOrganizer::new(
+        //         "examples/root-project/.project/tasks.json",
+        //     )),
+        //     &TreeNodePath::new_root(),
+        // );
 
         manager.run()
     }

@@ -1,8 +1,6 @@
 use crate::project_manager::ManagerProxy;
 use ratatui::{buffer::Buffer, crossterm::event::Event, layout::Rect};
 
-pub mod std_subapps;
-
 pub struct Subapp {
     pub manager_proxy: ManagerProxy,
     pub subapp_data: SubappData,

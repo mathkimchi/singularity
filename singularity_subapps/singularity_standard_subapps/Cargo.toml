@@ -1,0 +1,23 @@
+[package]
+name = "singularity_standard_subapps"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+singularity = { path = "../../singularity" }
+
+[[bin]]
+name = "editor"
+path = "editor.rs"
+
+[[bin]]
+name = "file_manager"
+path = "file_manager.rs"
+
+[[bin]]
+name = "task_organizer"
+path = "task_organizer.rs"

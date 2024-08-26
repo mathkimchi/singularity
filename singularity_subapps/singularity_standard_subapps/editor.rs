@@ -1,9 +1,8 @@
-use super::SubappUI;
-use crate::{elements::text_box::TextBox, project_manager::ManagerProxy};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     widgets::Widget,
 };
+use singularity::{elements::text_box::TextBox, project_manager::ManagerProxy};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
