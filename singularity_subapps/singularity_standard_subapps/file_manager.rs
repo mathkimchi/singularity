@@ -3,7 +3,7 @@ use ratatui::{
     style::{Style, Stylize},
     widgets::Widget,
 };
-use singularity::{
+use singularity_common::{
     backend::utils::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},

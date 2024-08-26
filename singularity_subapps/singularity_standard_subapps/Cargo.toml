@@ -8,7 +8,7 @@ ratatui = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-singularity = { path = "../../singularity" }
+singularity_common = { path = "../../singularity_common" }
 
 [[bin]]
 name = "editor"

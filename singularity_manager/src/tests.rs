@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use singularity::project::Project;
+use singularity_common::project::Project;
 
 #[test]
 fn hello() {

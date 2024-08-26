@@ -11,7 +11,7 @@ use ratatui::{
     widgets::{Clear, Paragraph},
     Frame, Terminal,
 };
-use singularity::{
+use singularity_common::{
     backend::utils::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},

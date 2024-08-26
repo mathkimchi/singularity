@@ -1,5 +1,5 @@
 [workspace]
-members = ["singularity", "singularity_manager", "singularity_subapps/*"]
+members = ["singularity_common", "singularity_manager", "singularity_subapps/*"]
 
 
 [workspace.dependencies]

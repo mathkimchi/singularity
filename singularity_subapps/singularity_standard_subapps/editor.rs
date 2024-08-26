@@ -2,7 +2,7 @@ use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     widgets::Widget,
 };
-use singularity::{elements::text_box::TextBox, subapp::SubappUI};
+use singularity_common::{elements::text_box::TextBox, subapp::SubappUI};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
