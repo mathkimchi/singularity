@@ -302,7 +302,19 @@ Research:
   - it might not be too hard:
   - https://stackoverflow.com/questions/66621363/can-you-cast-a-memory-address-as-a-usize-into-a-reference-with-a-lifetime
   - it will definitely be unsafe but i think i could make it work
-For now, I am going to use Command to spawn and pipes to communicate.
+- How x window system does client-server communication:
+  - I realized that singularity is very similar to a window manager
+  - https://en.wikipedia.org/wiki/X_Window_System_core_protocol
+  - Wayland (which i use personally) has a [similar article](https://en.wikipedia.org/wiki/Wayland_(protocol)#Wayland_core_interfaces) but it focuses on different things
+  - overview section:
+    - packets sent via network channel
+    - Four types of packets: request (client requests server to do st or requests attributes like window size), reply (server respond to request), event (server informs client about relevant event), error (server tell client that request is invalid)
+  - Graphic contexts and fonts:
+    - `The client can request a number of graphic operations, such as clearing an area, copying an area into another, drawing points, lines, rectangles, and text. Beside clearing, all operations are possible on all drawables, both windows and pixmaps.`
+    - this is pretty wild, i think this means that x window system clients do not get to directly manipulate a buffer, instead needing to request modifications
+    - I feel like this would be super super slow, if videos and games are forced to go through this as well. I assume there are other ways to do it as well.
+    - wait, i think that is what pixmaps are. I literally read the pixmaps section too, but i misinterpreted it
+For now, I am going to ucse Command to spawn and pipes to communicate.
 If I need speed, I will look further into shared memory, but I just want it to work right now.
 I assume pipes only lets strings or bytes through so I will use serde to send custom types.
 In terms of organization, I am going to try turning the main logic stuff into a library and each subapp into their own package with binaries.
@@ -317,6 +329,6 @@ The next step is:
     - [x] each instance of project manager corresponds to exactly one project
   - [ ] get task organizer to work with project manager
     - [ ] add a way for tasks to talk to project manager (either replace `ManagerProxy` or make it better)
-      - [ ] split the subapps from singularity
+      - [x] split the subapps from singularity
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer
