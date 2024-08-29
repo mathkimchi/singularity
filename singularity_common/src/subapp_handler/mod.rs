@@ -9,7 +9,7 @@ pub type Query = ();
 /// TODO
 pub type Reply = ();
 /// TODO
-pub type Request = ();
+pub type Request = String;
 /// TODO
 pub type DisplayBuffer = ();
 /// TODO

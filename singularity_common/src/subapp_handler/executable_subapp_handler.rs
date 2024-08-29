@@ -1,13 +1,26 @@
-use std::process::Child;
-
 use super::SubappHandler;
+use std::{
+    ffi::OsStr,
+    io::Read,
+    process::{Child, Command, Stdio},
+};
 
+/// Uses pipes for basic communication.
 pub struct ExecutableSubappHandler {
     subapp_process: Child,
 }
 impl ExecutableSubappHandler {
-    pub fn new() -> Self {
-        todo!()
+    pub fn from_executable_path<S>(subapp_executable_path: S) -> Self
+    where
+        S: AsRef<OsStr>,
+    {
+        let subapp_process = Command::new(subapp_executable_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn subapp process from executable path");
+
+        Self { subapp_process }
     }
 }
 impl SubappHandler for ExecutableSubappHandler {
@@ -27,6 +40,15 @@ impl SubappHandler for ExecutableSubappHandler {
     }
 
     fn dump_requests(&mut self) -> Vec<super::Request> {
-        todo!()
+        let mut output_buffer = String::new();
+
+        self.subapp_process
+            .stdout
+            .as_mut()
+            .unwrap()
+            .read_to_string(&mut output_buffer)
+            .expect("failed to read output from subapp process");
+
+        vec![output_buffer]
     }
 }
