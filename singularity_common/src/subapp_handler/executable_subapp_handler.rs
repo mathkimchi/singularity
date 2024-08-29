@@ -10,11 +10,8 @@ pub struct ExecutableSubappHandler {
     subapp_process: Child,
 }
 impl ExecutableSubappHandler {
-    pub fn from_executable_path<S>(subapp_executable_path: S) -> Self
-    where
-        S: AsRef<OsStr>,
-    {
-        let subapp_process = Command::new(subapp_executable_path)
+    pub fn from_executable_path(subapp_command: &mut Command) -> Self {
+        let subapp_process = subapp_command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
