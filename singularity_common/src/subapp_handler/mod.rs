@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+pub mod executable_subapp_handler;
+
 /// TODO
 pub type Attributes = ();
 /// TODO
@@ -29,7 +31,7 @@ pub type Event = ();
 ///
 /// The subapp handler should probably manually
 /// reimplement drop.
-pub trait SubappHandler: Drop {
+pub trait SubappHandler {
     fn give_display_buffer(&self, display_buffer: &mut Arc<Mutex<DisplayBuffer>>);
 
     fn peek_display_buffer(&self) -> &Arc<Mutex<DisplayBuffer>>;

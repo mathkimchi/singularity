@@ -14,5 +14,5 @@ fn run_demo() {
 
 #[test]
 fn project_parse() {
-    Project::new("examples/root-project");
+    Project::new("../examples/root-project");
 }
