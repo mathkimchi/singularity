@@ -11,6 +11,8 @@ fn executable_subapp_handler_test() {
     );
 
     // python's input waits until the user enters, which we simulate with `\n`
-    dbg!(subapp_handler.inform_event(b"hello from the other process\n"));
+    subapp_handler.inform_event(b"hello from the other process\n");
     dbg!(subapp_handler.dump_requests());
+
+    println!("Line after spawning executable.");
 }
