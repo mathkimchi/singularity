@@ -13,7 +13,7 @@ pub type Request = String;
 /// TODO
 pub type DisplayBuffer = ();
 /// TODO
-pub type Event = ();
+pub type Event<'a> = &'a [u8];
 
 /// Represents subapp on the manager side
 /// For those who have worked with multiple client handling,
@@ -36,7 +36,7 @@ pub trait SubappHandler {
 
     fn peek_display_buffer(&self) -> &Arc<Mutex<DisplayBuffer>>;
 
-    fn inform_event(&self, event: Event);
+    fn inform_event(&mut self, event: Event);
 
     // /// wait until there is a request
     // fn get_request(&mut self) -> Request;

@@ -1,6 +1,6 @@
 use super::SubappHandler;
 use std::{
-    io::Read,
+    io::{Read, Write},
     process::{Child, Command, Stdio},
 };
 
@@ -31,8 +31,13 @@ impl SubappHandler for ExecutableSubappHandler {
         todo!()
     }
 
-    fn inform_event(&self, event: super::Event) {
-        todo!()
+    fn inform_event(&mut self, event: super::Event) {
+        self.subapp_process
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(event)
+            .unwrap();
     }
 
     fn dump_requests(&mut self) -> Vec<super::Request> {
