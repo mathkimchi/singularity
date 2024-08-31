@@ -1,6 +1,5 @@
 use super::SubappHandler;
 use std::{
-    ffi::OsStr,
     io::Read,
     process::{Child, Command, Stdio},
 };
