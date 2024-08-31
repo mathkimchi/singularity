@@ -10,7 +10,7 @@ fn executable_subapp_handler_test() {
         Command::new("python3").arg("../examples/placeholder_executable.py"),
     );
 
-    // python's input waits until the user enters, which means we need to type \n
+    // python's input waits until the user enters, which we simulate with `\n`
     dbg!(subapp_handler.inform_event(b"hello from the other process\n"));
     dbg!(subapp_handler.dump_requests());
 }
