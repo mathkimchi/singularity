@@ -38,11 +38,11 @@ pub trait SubappHandler {
 
     fn inform_event(&mut self, event: Event);
 
-    // /// wait until there is a request
-    // fn get_request(&mut self) -> Request;
+    /// wait until there is a request
+    fn get_request(&mut self) -> Request;
 
-    /// This is better than having project manager wait for requests.
-    /// If this function doesn't require waiting, then outside of the subapp handler,
-    /// there should be no need for multithreading.
-    fn dump_requests(&mut self) -> Vec<Request>;
+    /// This should not wait until there is a message.
+    fn dump_requests(&mut self) -> Vec<Request> {
+        vec![self.get_request()]
+    }
 }

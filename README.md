@@ -288,6 +288,7 @@ Research:
   - `rustix`
     - very popular, has many features, including shm. But, it doesn't focus much on shm and in fact seems to lack documentation.
     - Unless I plan on using its other features (which I might), a shm focused crate would be better
+    - Has bad documentation
   - `shared_memory`
     - i mean it is called shared memory
     - needs `raw_sync` crate
@@ -323,6 +324,7 @@ In terms of organization, I am going to try turning the main logic stuff into a 
 I think it is possible to let the manager and main logic have a library and a binary, but if not I will make manager a binary and the main logic a library.
 
 This didn't work, new idea is to try using unix sockets with vanilla rust, but I am open to using rustix. Still spawning with Command.
+I will start every message with a length of the actual message.
 
 My ideas are still pretty broad, but I think I can make new progress based on what I wrote so far.
 The next step is:
