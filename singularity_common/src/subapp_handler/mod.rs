@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-pub mod executable_subapp_handler;
+pub mod ipc_subapp_handler;
 
 /// TODO
 pub type Attributes = ();

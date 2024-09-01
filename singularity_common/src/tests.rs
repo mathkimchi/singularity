@@ -2,7 +2,7 @@
 
 use std::process::Command;
 
-use crate::subapp_handler::{executable_subapp_handler::ExecutableSubappHandler, SubappHandler};
+use crate::subapp_handler::{ipc_subapp_handler::ExecutableSubappHandler, SubappHandler};
 
 #[test]
 fn executable_subapp_handler_test() {
