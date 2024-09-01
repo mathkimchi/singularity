@@ -4,11 +4,11 @@ use ratatui::{
     widgets::Widget,
 };
 use singularity_common::{
-    backend::utils::{
+    subapp::SubappUI,
+    utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
-    subapp::SubappUI,
 };
 use std::path::PathBuf;
 

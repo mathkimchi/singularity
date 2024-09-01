@@ -12,12 +12,12 @@ use ratatui::{
     Frame, Terminal,
 };
 use singularity_common::{
-    backend::utils::{
+    project::Project,
+    subapp::{Subapp, SubappData, SubappUI},
+    utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
-    project::Project,
-    subapp::{Subapp, SubappData, SubappUI},
 };
 use std::{
     io::{self, stdout},

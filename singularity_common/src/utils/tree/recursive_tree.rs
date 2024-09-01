@@ -1,7 +1,9 @@
 use std::ops::{Index, IndexMut};
 
-use super::{rooted_tree::RootedTree, tree_node_path::TraversableTree};
-use crate::backend::utils::tree_node_path::TreeNodePath;
+use super::{
+    rooted_tree::RootedTree,
+    tree_node_path::{TraversableTree, TreeNodePath},
+};
 use serde::{Deserialize, Serialize};
 
 /// This and `RootedTree` store the same information,
