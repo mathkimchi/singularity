@@ -1,2 +1,2 @@
-pub mod socket_stream;
+pub mod object_stream;
 pub mod tree;
