@@ -68,7 +68,7 @@ fn main() {
     // just a logged infinite loop
     // FIXME: currently, children run forever.
     for i in 0.. {
-        dbg!("Infinite loop", i);
+        dbg!("Subapp infinite loop", i);
 
         sleep(Duration::from_secs(1));
     }

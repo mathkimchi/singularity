@@ -83,3 +83,10 @@ impl SubappHandler for ExecutableSubappHandler {
         String::from_utf8(message_buffer).unwrap()
     }
 }
+impl Drop for ExecutableSubappHandler {
+    fn drop(&mut self) {
+        self.subapp_process
+            .kill()
+            .expect("command could not be killed");
+    }
+}
