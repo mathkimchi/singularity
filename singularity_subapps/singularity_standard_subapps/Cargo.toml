@@ -21,3 +21,7 @@ path = "file_manager.rs"
 # [[bin]]
 # name = "task_organizer"
 # path = "task_organizer.rs"
+
+[[bin]]
+name = "demo"
+path = "demo.rs"

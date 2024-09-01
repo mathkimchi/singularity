@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 
-print("Hi from py!")
-print("Example output.")
+"""
+I'm trying to make it like a chat between this process and the main rust process.
+Just for purposes of testing ipc.
+"""
 
-user_input = input("Please enter input: ")
+import tkinter
 
-print(f"Your input was: ``{user_input}''")
+root = tkinter.Tk()
+root.title("Subprocess UI")
 
-while True:
-    pass
+chat_log = tkinter.Text(root)
+chat_log.insert(tkinter.END, "Hi")
+
+user_input = tkinter.Entry(root)
+
+root.mainloop()
