@@ -37,7 +37,7 @@ impl SubappHandler for ExecutableSubappHandler {
             .as_mut()
             .unwrap()
             .write_all(event)
-            .unwrap();
+            .expect("failed write to subapp process");
     }
 
     fn dump_requests(&mut self) -> Vec<super::Request> {

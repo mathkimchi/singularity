@@ -314,11 +314,15 @@ Research:
     - this is pretty wild, i think this means that x window system clients do not get to directly manipulate a buffer, instead needing to request modifications
     - I feel like this would be super super slow, if videos and games are forced to go through this as well. I assume there are other ways to do it as well.
     - wait, i think that is what pixmaps are. I literally read the pixmaps section too, but i misinterpreted it
-For now, I am going to ucse Command to spawn and pipes to communicate.
+- Takeaways from Command and pipes attempt:
+  - Feels unpredictable
+For now, I am going to use Command to spawn and pipes to communicate.
 If I need speed, I will look further into shared memory, but I just want it to work right now.
 I assume pipes only lets strings or bytes through so I will use serde to send custom types.
 In terms of organization, I am going to try turning the main logic stuff into a library and each subapp into their own package with binaries.
 I think it is possible to let the manager and main logic have a library and a binary, but if not I will make manager a binary and the main logic a library.
+
+This didn't work, new idea is to try using unix sockets with vanilla rust, but I am open to using rustix. Still spawning with Command.
 
 My ideas are still pretty broad, but I think I can make new progress based on what I wrote so far.
 The next step is:
@@ -328,7 +332,7 @@ The next step is:
   - [x] make project manager class
     - [x] each instance of project manager corresponds to exactly one project
   - [ ] get task organizer to work with project manager
-    - [ ] add a way for tasks to talk to project manager (either replace `ManagerProxy` or make it better)
+    - [ ] add a way for subapps to talk to project manager (either replace `ManagerProxy` or make it better)
       - [x] split the subapps from singularity
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer
