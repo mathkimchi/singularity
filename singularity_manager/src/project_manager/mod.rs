@@ -8,12 +8,12 @@ use ratatui::{
     layout::Rect,
     prelude::CrosstermBackend,
     style::Stylize,
-    widgets::{Clear, Paragraph},
+    widgets::{Clear, Paragraph, Widget},
     Frame, Terminal,
 };
 use singularity_common::{
     project::Project,
-    subapp::{Subapp, SubappData, SubappUI},
+    subapp::{temp_interface::TempWritingBox, Request, Subapp},
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -49,7 +49,7 @@ impl ProjectManager {
             // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
             //     project_directory,
             // ))),
-            running_subapps: RootedTree::from_root(todo!()),
+            running_subapps: RootedTree::from_root(Subapp::new(TempWritingBox::new())),
             app_focuser_index: None,
             focused_subapp_path: TreeNodePath::new_root(),
             is_running: false,
@@ -81,7 +81,7 @@ impl ProjectManager {
         while self.is_running {
             terminal.draw(|f| self.draw_app(f))?;
             self.handle_input(crossterm::event::read()?);
-            self.process_subapp_commands();
+            self.process_subapp_requests();
         }
 
         Ok(())
@@ -98,11 +98,18 @@ impl ProjectManager {
         {
             let subapp = &mut self.running_subapps[&subapp_path];
 
-            subapp.user_interface.render(
-                Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
-                frame.buffer_mut(),
-                subapp_path == self.focused_subapp_path,
-            );
+            // subapp.user_interface.render(
+            //     Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
+            //     frame.buffer_mut(),
+            //     subapp_path == self.focused_subapp_path,
+            // );
+
+            ratatui::widgets::Block::bordered()
+                .title(subapp.subapp_title.clone())
+                .render(
+                    Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
+                    frame.buffer_mut(),
+                );
         }
 
         if let Some(focusing_index) = &self.app_focuser_index {
@@ -118,7 +125,7 @@ impl ProjectManager {
             for (index, subapp_path) in self.running_subapps.iter_paths_dfs().enumerate() {
                 let subapp = &self.running_subapps[&subapp_path];
 
-                let mut widget = Paragraph::new(subapp.user_interface.get_title().clone());
+                let mut widget = Paragraph::new(subapp.subapp_title.clone());
 
                 if subapp_path == self.focused_subapp_path {
                     widget = widget.light_yellow().bold();
@@ -133,7 +140,7 @@ impl ProjectManager {
                     Rect::new(
                         (13 + 1 + 2 * subapp_path.depth()) as u16,
                         (5 + 1 + index) as u16,
-                        subapp.user_interface.get_title().len() as u16,
+                        subapp.subapp_title.len() as u16,
                         1,
                     ),
                 );
@@ -192,47 +199,50 @@ impl ProjectManager {
             }
 
             event => {
-                let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
+                // let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
 
-                focused_subapp.user_interface.handle_input(event);
+                // focused_subapp.user_interface.handle_input(event);
             }
         }
     }
 
-    /// Commands from subapp to manager
-    fn process_subapp_commands(&mut self) {
-        // for subapp_path in self
-        //     .running_subapps
-        //     .iter_paths_dfs()
-        //     .collect::<Vec<TreeNodePath>>()
-        // {
-        //     let commands =
-        //         std::mem::take(&mut self.running_subapps[&subapp_path].manager_proxy.commands);
+    /// Requests from subapp to manager
+    fn process_subapp_requests(&mut self) {
+        for subapp_path in self
+            .running_subapps
+            .iter_paths_dfs()
+            .collect::<Vec<TreeNodePath>>()
+        {
+            let requestor = &mut self.running_subapps[&subapp_path];
+            let requests = requestor.subapp_interface.dump_requests();
 
-        //     for command in commands {
-        //         match command {
-        //             ManagerCommand::SpawnSubapp(subapp_interface) => {
-        //                 self.focused_subapp_path = self
-        //                     .running_subapps
-        //                     .add_node(
-        //                         Subapp {
-        //                             manager_proxy: Default::default(),
-        //                             subapp_data: SubappData {},
-        //                             user_interface: subapp_interface,
-        //                         },
-        //                         &subapp_path,
-        //                     )
-        //                     .unwrap();
-        //             }
-        //         }
-        //     }
-        // }
+            for request in requests {
+                match request {
+                    // ManagerCommand::SpawnSubapp(subapp_interface) => {
+                    //     self.focused_subapp_path = self
+                    //         .running_subapps
+                    //         .add_node(
+                    //             Subapp {
+                    //                 manager_proxy: Default::default(),
+                    //                 subapp_data: SubappData {},
+                    //                 user_interface: subapp_interface,
+                    //             },
+                    //             &subapp_path,
+                    //         )
+                    //         .unwrap();
+                    // }
+                    Request::SetName(new_name) => {
+                        requestor.subapp_title = new_name;
+                    }
+                }
+            }
+        }
     }
 }
 impl Drop for ProjectManager {
     fn drop(&mut self) {
         // revert the terminal to its original state
-        // bc of drop, this is called even on panic
+        // drop is called even on panic
         let _ = disable_raw_mode();
         let _ = stdout().execute(LeaveAlternateScreen);
     }

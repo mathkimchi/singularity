@@ -1,4 +1,4 @@
-use super::SubappHandler;
+use super::SubappInterface;
 use crate::utils::object_stream::{ObjectInputStream, ObjectOutputStream};
 use std::{
     os::unix::net::{UnixListener, UnixStream},
@@ -9,12 +9,12 @@ use std::{
 pub const SOCKET_PATH: &str = "/tmp/singularity_demo_socket.sock";
 
 /// Uses pipes for basic communication.
-pub struct ExecutableSubappHandler {
+pub struct UnixSocketSubappInterface {
     subapp_process: Child,
     unix_listener: UnixListener,
     subapp_stream: UnixStream,
 }
-impl ExecutableSubappHandler {
+impl UnixSocketSubappInterface {
     pub fn from_executable_path(subapp_command: &mut Command) -> Self {
         if Path::new(SOCKET_PATH).exists() {
             // `Path::is_file` doesn't work for some reason
@@ -42,7 +42,7 @@ impl ExecutableSubappHandler {
         }
     }
 }
-impl SubappHandler for ExecutableSubappHandler {
+impl SubappInterface for UnixSocketSubappInterface {
     fn inform_event(&mut self, event: super::Event) {
         self.subapp_stream.write_object(&event);
     }
@@ -52,7 +52,7 @@ impl SubappHandler for ExecutableSubappHandler {
         vec![self.subapp_stream.read_object()]
     }
 }
-impl Drop for ExecutableSubappHandler {
+impl Drop for UnixSocketSubappInterface {
     fn drop(&mut self) {
         self.subapp_process
             .kill()

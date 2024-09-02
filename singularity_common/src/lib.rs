@@ -3,6 +3,5 @@
 pub mod elements;
 pub mod project;
 pub mod subapp;
-pub mod subapp_handler;
 mod tests;
 pub mod utils;

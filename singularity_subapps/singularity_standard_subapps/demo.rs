@@ -1,5 +1,5 @@
 use singularity_common::{
-    subapp_handler::ipc_subapp_handler::SOCKET_PATH,
+    subapp::unix_socket_subapp_interface::SOCKET_PATH,
     utils::object_stream::{ObjectInputStream, ObjectOutputStream},
 };
 use std::{os::unix::net::UnixStream, thread::sleep, time::Duration};
