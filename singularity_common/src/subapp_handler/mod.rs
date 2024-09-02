@@ -1,18 +1,6 @@
-use std::sync::{Arc, Mutex};
-
 pub mod ipc_subapp_handler;
 
-/// TODO
-pub type Attributes = ();
-/// TODO
-pub type Query = ();
-/// TODO
-pub type Reply = ();
-/// TODO
 pub type Request = String;
-/// TODO
-pub type DisplayBuffer = ();
-/// TODO
 pub type Event<'a> = &'a [u8];
 
 /// Represents subapp on the manager side
@@ -32,17 +20,8 @@ pub type Event<'a> = &'a [u8];
 /// The subapp handler should probably manually
 /// reimplement drop.
 pub trait SubappHandler {
-    fn give_display_buffer(&self, display_buffer: &mut Arc<Mutex<DisplayBuffer>>);
-
-    fn peek_display_buffer(&self) -> &Arc<Mutex<DisplayBuffer>>;
-
     fn inform_event(&mut self, event: Event);
 
-    /// wait until there is a request
-    fn get_request(&mut self) -> Request;
-
     /// This should not wait until there is a message.
-    fn dump_requests(&mut self) -> Vec<Request> {
-        vec![self.get_request()]
-    }
+    fn dump_requests(&mut self) -> Vec<Request>;
 }

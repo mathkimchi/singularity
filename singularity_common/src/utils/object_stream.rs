@@ -30,8 +30,6 @@ impl<R: Read> ObjectInputStream for R {
         self.read_exact(&mut raw_message_buffer)
             .expect("failed to read message from subapp process");
 
-        dbg!(&raw_message_buffer);
-
         serde_json::from_slice(&raw_message_buffer).expect("failed to deserialize object")
     }
 }
@@ -42,8 +40,6 @@ pub trait ObjectOutputStream {
 impl<W: Write> ObjectOutputStream for W {
     fn write_object<T: Serialize>(&mut self, object: &T) {
         let raw_object = serde_json::to_vec(object).expect("failed to serialize object");
-
-        dbg!(&raw_object);
 
         // send raw object length
         raw_object.len();
