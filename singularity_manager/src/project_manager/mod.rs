@@ -166,7 +166,15 @@ impl ProjectManager {
                 code,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
+            }) if matches!(
+                code,
+                KeyCode::Enter
+                    | KeyCode::Char('w')
+                    | KeyCode::Char('a')
+                    | KeyCode::Char('s')
+                    | KeyCode::Char('d')
+            ) =>
+            {
                 // Alt + arrows should be like alt tab for Windows and Linux but tree based
                 // Alt + Enter either opens the subapp chooser or closes it and chooses the subapp
 
@@ -196,6 +204,20 @@ impl ProjectManager {
                         _ => None,
                     };
                 }
+            }
+
+            Event::Key(KeyEvent {
+                modifiers: KeyModifiers::NONE,
+                code: KeyCode::Char(keycode),
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                // forward the event to focused subapp
+                let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
+
+                focused_subapp
+                    .subapp_interface
+                    .inform_event(singularity_common::subapp::Event::KeyPressed { keycode });
             }
 
             event => {

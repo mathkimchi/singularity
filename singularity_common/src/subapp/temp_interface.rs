@@ -14,7 +14,11 @@ impl TempWritingBox {
     }
 }
 impl SubappInterface for TempWritingBox {
-    fn inform_event(&mut self, event: super::Event) {}
+    fn inform_event(&mut self, event: super::Event) {
+        match event {
+            super::Event::KeyPressed { keycode } => self.text.push(keycode),
+        }
+    }
 
     fn dump_requests(&mut self) -> Vec<super::Request> {
         std::mem::take(&mut self.requests)

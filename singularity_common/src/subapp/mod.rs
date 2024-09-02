@@ -7,7 +7,10 @@ pub mod unix_socket_subapp_interface;
 pub enum Request {
     SetName(String),
 }
-pub type Event<'a> = &'a [u8];
+#[derive(Serialize, Deserialize)]
+pub enum Event {
+    KeyPressed { keycode: char },
+}
 
 /// Represents the subapp process on the manager side
 /// For those who have worked with multiple client handling,
