@@ -1,6 +1,6 @@
 use super::SubappHandler;
+use crate::utils::object_stream::{ObjectInputStream, ObjectOutputStream};
 use std::{
-    io::Read,
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
     process::{Child, Command, Stdio},
@@ -55,32 +55,11 @@ impl SubappHandler for ExecutableSubappHandler {
     }
 
     fn inform_event(&mut self, event: super::Event) {
-        // self.subapp_stream
-        //     .write_all(event)
-        //     .expect("failed write to subapp process");
-        todo!()
+        self.subapp_stream.write_object(&event);
     }
 
     fn get_request(&mut self) -> super::Request {
-        let mut message_length = [0; 2];
-
-        self.subapp_stream
-            .read_exact(&mut message_length)
-            .expect("failed to read message length from subapp process");
-
-        dbg!(message_length);
-        let message_length = usize::from(u16::from_be_bytes(message_length));
-
-        let mut message_buffer = vec![0; message_length];
-
-        dbg!();
-
-        self.subapp_stream
-            .read_exact(&mut message_buffer)
-            .expect("failed to read output from subapp process");
-        dbg!();
-
-        String::from_utf8(message_buffer).unwrap()
+        self.subapp_stream.read_object()
     }
 }
 impl Drop for ExecutableSubappHandler {
