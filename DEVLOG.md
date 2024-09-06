@@ -331,3 +331,18 @@ The next step is:
       - [x] split the subapps from singularity
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer
+
+## Research
+
+2024-09-06
+
+I realized that my research on rust IPC was too specific, what I really care about is just runtime plugins in rust.
+I think I saw [this reddit post](https://www.reddit.com/r/rust/comments/144zmwk/how_can_i_add_dynamic_loading_to_do_plugins_for/) already, but I looked through it again and found a tutorial on the very thing I am looking for.
+
+Notes on [the tutorial on rust plugins](https://nullderef.com/series/rust-plugins/):
+- Goes over a bunch of ways to do rust plugins
+- Dynamic libraries
+  - libloading is the main crate, even bevy uses it
+- wasm is the other interesting option
+
+I will try libloading, and this time, I will use branches so I don't mess up the main branch.
