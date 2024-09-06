@@ -346,3 +346,15 @@ Notes on [the tutorial on rust plugins](https://nullderef.com/series/rust-plugin
 - wasm is the other interesting option
 
 I will try libloading, and this time, I will use branches so I don't mess up the main branch.
+
+Speaking of branches, my current plan for branch organization is to follow [this convention](https://medium.com/@abhay.pixolo/naming-conventions-for-git-branches-a-cheatsheet-8549feca2534):
+- `main` branch
+  - should be thoroughly tested and stable (isn't right now), if someone wanted to use the most up-to-date version of singularity, they would use this
+  - ie, this is the most recent stable release
+- `dev` branch
+  - tested, but not ready for users
+- `feature/abc-xyz-0`
+  - for new features
+
+There are also bugfix, hotfix, and documentation branches, but I won't use them because it is just me.
+In other words, all new branches will be in the form `feature/some-description`
