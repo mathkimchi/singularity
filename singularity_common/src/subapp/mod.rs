@@ -1,10 +1,6 @@
-use std::any::Any;
-
 use serde::{Deserialize, Serialize};
 
-pub mod dynamic_loader;
 pub mod temp_interface;
-pub mod unix_socket_subapp_interface;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
@@ -31,7 +27,7 @@ pub enum Event {
 ///
 /// The subapp interface should probably manually
 /// reimplement drop.
-pub trait SubappInterface: Any + Send + Sync + Drop {
+pub trait SubappInterface {
     fn inform_event(&mut self, event: Event);
 
     /// This should not wait until there is a message.

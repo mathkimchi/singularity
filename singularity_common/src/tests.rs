@@ -1,13 +1,11 @@
 #![cfg(test)]
 
-use crate::subapp::dynamic_loader::load_subapp;
-
 #[test]
 fn dylib_test() {
-    dbg!("Hi0");
-    let mut subapp = load_subapp("../target/release/libdylib_demo.so");
+    // dbg!("Hi0");
+    // let mut subapp = load_subapp("../target/release/libdylib_demo.so");
 
-    dbg!("Hi1");
+    // dbg!("Hi1");
 
     // dbg!(subapp.subapp_interface.dump_requests());
 }
