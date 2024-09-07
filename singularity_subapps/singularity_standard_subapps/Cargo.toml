@@ -10,13 +10,13 @@ serde_json = { workspace = true }
 
 singularity_common = { path = "../../singularity_common" }
 
-[[bin]]
-name = "editor"
-path = "editor.rs"
+# [[bin]]
+# name = "editor"
+# path = "editor.rs"
 
-[[bin]]
-name = "file_manager"
-path = "file_manager.rs"
+# [[bin]]
+# name = "file_manager"
+# path = "file_manager.rs"
 
 # [[bin]]
 # name = "task_organizer"

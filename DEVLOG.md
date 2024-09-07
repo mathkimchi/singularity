@@ -358,3 +358,15 @@ Speaking of branches, my current plan for branch organization is to follow [this
 
 There are also bugfix, hotfix, and documentation branches, but I won't use them because it is just me.
 In other words, all new branches will be in the form `feature/some-description`
+
+I trust bevy, and its [code for dynamic loading](https://github.com/bevyengine/bevy/blob/v0.5.0/crates/bevy_dynamic_plugin/src/loader.rs) is extremely simple (just 25 lines), so I will try following it.
+
+---
+
+2024-09-07
+
+Wait, NOOOO, bevy's dynamic plugin loading is deprecated and will be removed in the next version (0.15)!
+
+You know what, I have had just about enough of the errors and dead-ends with dynamic plugins,
+and in trying to do dynamic plugins, I learned that as long as I have a trait for plugins (in my case subapps),
+then adding dynamic loaders for those won't require modifying the existing code much.

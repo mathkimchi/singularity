@@ -13,6 +13,9 @@ impl TempWritingBox {
         }
     }
 }
+impl Drop for TempWritingBox {
+    fn drop(&mut self) {}
+}
 impl SubappInterface for TempWritingBox {
     fn inform_event(&mut self, event: super::Event) {
         match event {
