@@ -57,7 +57,7 @@ pub struct TabHandler {
     /// I realized I can't kill threads anyways
     _tab_thread: JoinHandle<()>,
 
-    tab_name: String,
+    pub tab_name: String,
 }
 impl TabHandler {
     pub fn new<F: 'static + TabCreator>(tab_creator: F) -> Self {
@@ -73,14 +73,15 @@ impl TabHandler {
         }
     }
 
-    pub fn get_name(&self) -> &String {
-        &self.tab_name
-    }
-
     pub fn send_event(&mut self, event: Event) {
         self.tab_channels
             .event_tx
             .send(event)
             .expect("Failed to send event to tab");
+    }
+
+    pub fn dump_requests(&mut self) -> mpsc::TryIter<Request> {
+        // returns all pending requests (I assume that means this ends instead of waiting)
+        self.tab_channels.request_rx.try_iter()
     }
 }

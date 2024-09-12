@@ -13,7 +13,7 @@ use ratatui::{
 };
 use singularity_common::{
     project::Project,
-    tab::{temp_tab::TempTab, TabChannels, TabHandler},
+    tab::{temp_tab::TempTab, TabHandler},
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -79,7 +79,7 @@ impl ProjectManager {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         while self.is_running {
-            // terminal.draw(|f| self.draw_app(f))?;
+            terminal.draw(|f| self.draw_app(f))?;
             self.handle_input(crossterm::event::read()?);
             self.process_tab_requests();
         }
@@ -105,7 +105,7 @@ impl ProjectManager {
             // );
 
             ratatui::widgets::Block::bordered()
-                .title(tab.get_name().clone())
+                .title(tab.tab_name.clone())
                 .render(
                     Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12),
                     frame.buffer_mut(),
@@ -124,7 +124,7 @@ impl ProjectManager {
             for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
                 let tab = &self.tabs[&tab_path];
 
-                let mut widget = Paragraph::new(tab.get_name().clone());
+                let mut widget = Paragraph::new(tab.tab_name.clone());
 
                 if tab_path == self.focused_tab_path {
                     widget = widget.light_yellow().bold();
@@ -139,7 +139,7 @@ impl ProjectManager {
                     Rect::new(
                         (13 + 1 + 2 * tab_path.depth()) as u16,
                         (5 + 1 + index) as u16,
-                        tab.get_name().len() as u16,
+                        tab.tab_name.len() as u16,
                         1,
                     ),
                 );

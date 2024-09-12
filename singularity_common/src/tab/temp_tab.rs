@@ -11,26 +11,18 @@ impl TabCreator for TempTab {
             .send(Request::ChangeName("Hi".to_string()))
             .expect("Failed to send request.");
 
-        // for event in manager_channel.event_rx.iter() {
-        //     match event {
-        //         Event::KeyPress(c) => {
-        //             dbg!(c);
-        //         }
-        //         Event::Close => break,
-        //     }
-        // }
-
         loop {
             thread::sleep(Duration::from_secs(1));
 
-            dbg!("Hello from loop");
+            dbg!("Tab Loop tick");
 
-            match manager_channel.event_rx.try_recv() {
-                Ok(Event::KeyPress(c)) => {
-                    dbg!(format!("Keypress: {}", c));
+            for event in manager_channel.event_rx.try_iter() {
+                match event {
+                    Event::KeyPress(c) => {
+                        dbg!(format!("Keypress: {}", c));
+                    }
+                    Event::Close => break,
                 }
-                Ok(Event::Close) => break,
-                Err(_) => {}
             }
         }
     }
