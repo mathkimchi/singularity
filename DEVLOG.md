@@ -332,7 +332,7 @@ The next step is:
   - [ ] add project heirarchy
   - [ ] add linking/referencing to task organizer
 
-## Research
+## Dynamic Subapps Research
 
 2024-09-06
 
@@ -370,3 +370,63 @@ Wait, NOOOO, bevy's dynamic plugin loading is deprecated and will be removed in 
 You know what, I have had just about enough of the errors and dead-ends with dynamic plugins,
 and in trying to do dynamic plugins, I learned that as long as I have a trait for plugins (in my case subapps),
 then adding dynamic loaders for those won't require modifying the existing code much.
+
+## Tabs
+
+2024-09-07
+
+I am going to use the term `tab` for a plugin/subapp/extension/feature that is in charge of exactly one thing being displayed.
+For now, I will rename all subapp to tab, because subapp is hard to define.
+Tabs will have a corresponding buffer, and tabs can run on their own threads.
+
+I want to ensure that the manager itself never has to wait when the tab is doing something,
+and I will do that by making a tab handler that will talk to the tab, which will run on a different thread.
+So, the manager will have to just wait for the tab handler, which will be written in either the core or the manager crate.
+But, I don't particularly care if the tabs are forced to wait for the manager.
+
+I don't really want to annoy myself with the specifics of IPC again, so I will use a simple and plain message queue.
+
+The mutex might require waiting for it, I am actually not sure.
+
+2024-09-08
+
+I actually love rust, it turns out there is a [chapter in the rust book](https://doc.rust-lang.org/book/ch16-00-concurrency.html) about what I want to do.
+Here are my notes:
+- Send messages between threads
+  - mpsc
+    - multiple producer, single consumer
+  - multiple tx (transmitter)
+  - single rx (reciever)
+- Shared state concurrency
+  - Share data, with `Arc<Mutex<T>>`
+
+There is also the `async` keyword, which I forgot about.
+This also seems usefull.
+There is a whole [book](https://rust-lang.github.io/async-book/) on it.
+
+2024-09-10
+
+To recap my problem, what I want is to send:
+
+- Events (Enum) from server to client
+- Requests (Enum) from client to server
+- Query (Enum) from client to server
+  - Response from server to client, want this to correspond to each query
+  - Ideally, there would be a way to enforce the type of corresponding query-responses. Like, if there were two queries: GetFloat and GetInteger
+
+I learned that:
+```rust
+enum Enum {
+    A = 0,
+    B = 1,
+}
+```
+is a thing.
+It only works with isize values, and I think it just has to do with how rust stores enums.
+Associated consts are also kind of similar.
+But, these aren't exactly what I want so for now, I am going to keep it simple and not enforce type correspondance.
+If I am to do this later, I might have an enum for Query-Response type, Query, and Response.
+Or, I could have a Query trait with the `T=` thing.
+
+The most ooga booga way of doing this would be to have a mpsc pair for each of the packet types (Event, Request, Query, Response).
+I am going to do the ooga booga way, because the logic is going to be abstracted anyways, so I can easily change it later.

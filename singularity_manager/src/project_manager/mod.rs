@@ -13,7 +13,7 @@ use ratatui::{
 };
 use singularity_common::{
     project::Project,
-    subapp::{temp_interface::TempWritingBox, Request, Subapp},
+    tab::{temp_tab::TempTab, TabChannels, TabHandler},
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -28,12 +28,12 @@ use std::{
 pub struct ProjectManager {
     project: Project,
 
-    running_subapps: RootedTree<Subapp>,
+    tabs: RootedTree<TabHandler>,
 
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
     app_focuser_index: Option<TreeNodePath>,
-    focused_subapp_path: TreeNodePath,
+    focused_tab_path: TreeNodePath,
     is_running: bool,
 }
 impl ProjectManager {
@@ -49,9 +49,9 @@ impl ProjectManager {
             // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
             //     project_directory,
             // ))),
-            running_subapps: RootedTree::from_root(Subapp::new(TempWritingBox::new())),
+            tabs: RootedTree::from_root(TabHandler::new(TempTab {})),
             app_focuser_index: None,
-            focused_subapp_path: TreeNodePath::new_root(),
+            focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
         }
     }
@@ -79,9 +79,9 @@ impl ProjectManager {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         while self.is_running {
-            terminal.draw(|f| self.draw_app(f))?;
+            // terminal.draw(|f| self.draw_app(f))?;
             self.handle_input(crossterm::event::read()?);
-            self.process_subapp_requests();
+            self.process_tab_requests();
         }
 
         Ok(())
@@ -90,13 +90,13 @@ impl ProjectManager {
     fn draw_app(&mut self, frame: &mut Frame) {
         frame.render_widget(Clear, frame.area());
 
-        for (index, subapp_path) in self
-            .running_subapps
+        for (index, tab_path) in self
+            .tabs
             .iter_paths_dfs()
             .enumerate()
             .collect::<Vec<(usize, TreeNodePath)>>()
         {
-            let subapp = &mut self.running_subapps[&subapp_path];
+            let tab = &mut self.tabs[&tab_path];
 
             // subapp.user_interface.render(
             //     Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
@@ -105,42 +105,41 @@ impl ProjectManager {
             // );
 
             ratatui::widgets::Block::bordered()
-                .title(subapp.subapp_title.clone())
+                .title(tab.get_name().clone())
                 .render(
-                    Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
+                    Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12),
                     frame.buffer_mut(),
                 );
         }
 
         if let Some(focusing_index) = &self.app_focuser_index {
-            let num_subapps = self.running_subapps.num_nodes();
+            let num_subapps = self.tabs.num_nodes();
 
             frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
             frame.render_widget(
-                Paragraph::new("")
-                    .block(ratatui::widgets::Block::bordered().title("Choose Subapp")),
+                Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
                 Rect::new(13, 5, 30, (2 + num_subapps) as u16),
             );
 
-            for (index, subapp_path) in self.running_subapps.iter_paths_dfs().enumerate() {
-                let subapp = &self.running_subapps[&subapp_path];
+            for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
+                let tab = &self.tabs[&tab_path];
 
-                let mut widget = Paragraph::new(subapp.subapp_title.clone());
+                let mut widget = Paragraph::new(tab.get_name().clone());
 
-                if subapp_path == self.focused_subapp_path {
+                if tab_path == self.focused_tab_path {
                     widget = widget.light_yellow().bold();
                 }
 
-                if subapp_path == focusing_index.clone() {
+                if tab_path == focusing_index.clone() {
                     widget = widget.on_cyan();
                 }
 
                 frame.render_widget(
                     widget,
                     Rect::new(
-                        (13 + 1 + 2 * subapp_path.depth()) as u16,
+                        (13 + 1 + 2 * tab_path.depth()) as u16,
                         (5 + 1 + index) as u16,
-                        subapp.subapp_title.len() as u16,
+                        tab.get_name().len() as u16,
                         1,
                     ),
                 );
@@ -176,29 +175,27 @@ impl ProjectManager {
             ) =>
             {
                 // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                // Alt + Enter either opens the subapp chooser or closes it and chooses the subapp
+                // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
                 if code == KeyCode::Enter && self.app_focuser_index.is_some() {
                     // save tree index and close window
 
                     let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                    self.focused_subapp_path = new_focus_index;
+                    self.focused_tab_path = new_focus_index;
                 } else {
                     let mut new_focus_index = self
                         .app_focuser_index
                         .clone()
-                        .unwrap_or(self.focused_subapp_path.clone());
+                        .unwrap_or(self.focused_tab_path.clone());
 
                     self.app_focuser_index = match code {
                         KeyCode::Enter => Some(new_focus_index),
                         KeyCode::Char(traverse_key)
                             if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
                         {
-                            new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
-                                &self.running_subapps,
-                                traverse_key,
-                            );
+                            new_focus_index = new_focus_index
+                                .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
                             Some(new_focus_index)
                         }
                         _ => None,
@@ -212,12 +209,10 @@ impl ProjectManager {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                // forward the event to focused subapp
-                let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
+                // forward the event to focused tab
+                let focused_tab = &mut self.tabs[&self.focused_tab_path];
 
-                focused_subapp
-                    .subapp_interface
-                    .inform_event(singularity_common::subapp::Event::KeyPressed { keycode });
+                focused_tab.send_event(singularity_common::tab::Event::KeyPress(keycode));
             }
 
             event => {
@@ -228,37 +223,33 @@ impl ProjectManager {
         }
     }
 
-    /// Requests from subapp to manager
-    fn process_subapp_requests(&mut self) {
-        for subapp_path in self
-            .running_subapps
-            .iter_paths_dfs()
-            .collect::<Vec<TreeNodePath>>()
-        {
-            let requestor = &mut self.running_subapps[&subapp_path];
-            let requests = requestor.subapp_interface.dump_requests();
+    /// Requests from tab to manager
+    fn process_tab_requests(&mut self) {
+        // for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+        //     let requestor = &mut self.tabs[&tab_path];
+        //     let requests = requestor.subapp_interface.dump_requests();
 
-            for request in requests {
-                match request {
-                    // ManagerCommand::SpawnSubapp(subapp_interface) => {
-                    //     self.focused_subapp_path = self
-                    //         .running_subapps
-                    //         .add_node(
-                    //             Subapp {
-                    //                 manager_proxy: Default::default(),
-                    //                 subapp_data: SubappData {},
-                    //                 user_interface: subapp_interface,
-                    //             },
-                    //             &subapp_path,
-                    //         )
-                    //         .unwrap();
-                    // }
-                    Request::SetName(new_name) => {
-                        requestor.subapp_title = new_name;
-                    }
-                }
-            }
-        }
+        //     for request in requests {
+        //         match request {
+        //             // ManagerCommand::SpawnSubapp(subapp_interface) => {
+        //             //     self.focused_subapp_path = self
+        //             //         .running_subapps
+        //             //         .add_node(
+        //             //             Subapp {
+        //             //                 manager_proxy: Default::default(),
+        //             //                 subapp_data: SubappData {},
+        //             //                 user_interface: subapp_interface,
+        //             //             },
+        //             //             &subapp_path,
+        //             //         )
+        //             //         .unwrap();
+        //             // }
+        //             Request::SetName(new_name) => {
+        //                 requestor.subapp_title = new_name;
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
 impl Drop for ProjectManager {
