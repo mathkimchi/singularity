@@ -13,7 +13,7 @@ use ratatui::{
 };
 use singularity_common::{
     project::Project,
-    tab::{temp_tab::TempTab, TabHandler},
+    tab::{temp_tab::TempTab, Request, TabHandler},
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -58,7 +58,7 @@ impl ProjectManager {
 
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
-        let mut manager = Self::new("examples/root-project");
+        let manager = Self::new("examples/root-project");
 
         // manager.running_subapps.add_node(
         //     Subapp::new(TaskOrganizer::new(
@@ -80,7 +80,7 @@ impl ProjectManager {
 
         while self.is_running {
             terminal.draw(|f| self.draw_app(f))?;
-            self.handle_input(crossterm::event::read()?);
+            self.handle_input();
             self.process_tab_requests();
         }
 
@@ -147,7 +147,13 @@ impl ProjectManager {
         }
     }
 
-    fn handle_input(&mut self, event: Event) {
+    fn handle_input(&mut self) {
+        if crossterm::event::poll(Duration::ZERO).unwrap() {
+            self.process_input(crossterm::event::read().unwrap());
+        }
+    }
+
+    fn process_input(&mut self, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
@@ -215,7 +221,7 @@ impl ProjectManager {
                 focused_tab.send_event(singularity_common::tab::Event::KeyPress(keycode));
             }
 
-            event => {
+            _event => {
                 // let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
 
                 // focused_subapp.user_interface.handle_input(event);
@@ -225,31 +231,31 @@ impl ProjectManager {
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
-        // for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
-        //     let requestor = &mut self.tabs[&tab_path];
-        //     let requests = requestor.subapp_interface.dump_requests();
+        for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+            let requestor = &mut self.tabs[&tab_path];
+            let requests = requestor.collect_requests();
 
-        //     for request in requests {
-        //         match request {
-        //             // ManagerCommand::SpawnSubapp(subapp_interface) => {
-        //             //     self.focused_subapp_path = self
-        //             //         .running_subapps
-        //             //         .add_node(
-        //             //             Subapp {
-        //             //                 manager_proxy: Default::default(),
-        //             //                 subapp_data: SubappData {},
-        //             //                 user_interface: subapp_interface,
-        //             //             },
-        //             //             &subapp_path,
-        //             //         )
-        //             //         .unwrap();
-        //             // }
-        //             Request::SetName(new_name) => {
-        //                 requestor.subapp_title = new_name;
-        //             }
-        //         }
-        //     }
-        // }
+            for request in requests {
+                match request {
+                    // ManagerCommand::SpawnSubapp(subapp_interface) => {
+                    //     self.focused_subapp_path = self
+                    //         .running_subapps
+                    //         .add_node(
+                    //             Subapp {
+                    //                 manager_proxy: Default::default(),
+                    //                 subapp_data: SubappData {},
+                    //                 user_interface: subapp_interface,
+                    //             },
+                    //             &subapp_path,
+                    //         )
+                    //         .unwrap();
+                    // }
+                    Request::ChangeName(new_name) => {
+                        requestor.tab_name = new_name;
+                    }
+                }
+            }
+        }
     }
 }
 impl Drop for ProjectManager {

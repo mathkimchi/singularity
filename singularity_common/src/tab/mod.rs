@@ -80,8 +80,8 @@ impl TabHandler {
             .expect("Failed to send event to tab");
     }
 
-    pub fn dump_requests(&mut self) -> mpsc::TryIter<Request> {
+    pub fn collect_requests(&mut self) -> Vec<Request> {
         // returns all pending requests (I assume that means this ends instead of waiting)
-        self.tab_channels.request_rx.try_iter()
+        self.tab_channels.request_rx.try_iter().collect()
     }
 }
