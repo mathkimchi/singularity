@@ -40,7 +40,27 @@ where
     move |mut manager_handler: ManagerHandler| {
         let mut tab: Tab = initializer(init_args, &manager_handler);
 
-        loop {
+        // TODO: there's gotta be a better way
+        'mainloop: loop {
+            // don't render until size has been set
+            for event in manager_handler.collect_events() {
+                match event {
+                    Event::Close => {
+                        return;
+                    }
+                    Event::Resize(inner_area) => {
+                        manager_handler.inner_area = inner_area;
+                        event_handler(&mut tab, event, &manager_handler);
+                        break 'mainloop;
+                    }
+                    event => {
+                        event_handler(&mut tab, event, &manager_handler);
+                    }
+                }
+            }
+        }
+
+        'mainloop: loop {
             if let Some(new_display_buffer) = renderer(&mut tab, &manager_handler) {
                 manager_handler.update_display_buffer(new_display_buffer);
             };
@@ -48,7 +68,7 @@ where
             for event in manager_handler.collect_events() {
                 match event {
                     Event::Close => {
-                        break;
+                        break 'mainloop;
                     }
                     Event::Resize(inner_area) => {
                         manager_handler.inner_area = inner_area;

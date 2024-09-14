@@ -1,10 +1,8 @@
-use ratatui::{
-    crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    style::{Style, Stylize},
-    widgets::Widget,
-};
 use singularity_common::{
-    subapp::SubappUI,
+    tab::{
+        packets::{DisplayBuffer, Event, Request},
+        ManagerHandler,
+    },
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -17,14 +15,18 @@ pub struct FileManager {
     selected_path: TreeNodePath,
 }
 impl FileManager {
-    pub fn new<P>(root_directory_path: P) -> Self
+    pub fn new<P>(root_directory_path: P, manager_handler: &ManagerHandler) -> Self
     where
         PathBuf: std::convert::From<P>,
     {
-        Self {
+        let file_manager = Self {
             directory_tree: Self::generate_directory_tree(PathBuf::from(root_directory_path)),
             selected_path: TreeNodePath::new_root(),
-        }
+        };
+
+        manager_handler.send_request(Request::ChangeName(file_manager.get_directory_name()));
+
+        file_manager
     }
 
     fn generate_directory_tree(root_directory_path: PathBuf) -> RootedTree<PathBuf> {
@@ -55,9 +57,8 @@ impl FileManager {
 
         directory_tree
     }
-}
-impl SubappUI for FileManager {
-    fn get_title(&self) -> String {
+
+    fn get_directory_name(&self) -> String {
         self.directory_tree[&TreeNodePath::new_root()]
             .file_name() // this function can return directory name
             .unwrap()
@@ -66,12 +67,16 @@ impl SubappUI for FileManager {
             .to_string()
     }
 
-    fn render(
-        &mut self,
-        area: ratatui::prelude::Rect,
-        display_buffer: &mut ratatui::prelude::Buffer,
-        is_focused: bool,
-    ) {
+    pub fn render(&mut self, manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
+        use ratatui::{
+            buffer::Buffer,
+            style::{Style, Stylize},
+        };
+
+        let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
+        // TODO
+        let is_focused = true;
+
         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
             let mut line_style = Style::new();
 
@@ -83,55 +88,132 @@ impl SubappUI for FileManager {
                 }
             }
 
-            display_buffer.set_stringn(
-                area.x + 1 + 2 * tree_node_path.depth() as u16,
-                area.y + 1 + index as u16,
+            ratatui_buffer.set_stringn(
+                manager_handler.inner_area.x + 2 * tree_node_path.depth() as u16,
+                manager_handler.inner_area.y + index as u16,
                 self.directory_tree[&tree_node_path]
                     .file_name() // this function can return directory name
                     .unwrap()
                     .to_str()
                     .unwrap(),
-                (area.width - 2) as usize,
+                (manager_handler.inner_area.width - 2) as usize,
                 line_style,
             );
         }
 
-        ratatui::widgets::Block::bordered()
-            .title(format!("{} - File Manager", self.get_title()))
-            .render(area, display_buffer);
+        Some(ratatui_buffer.content)
     }
 
-    fn handle_input(&mut self, event: Event) {
-        match event {
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char(traverse_key),
-                kind: KeyEventKind::Press,
-                ..
-            }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-                self.selected_path = self
-                    .selected_path
-                    .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
-            }
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('f'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                // // `f` stands for open selected *F*ile
+    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+        use ratatui::crossterm::event::{
+            Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+        };
 
-                // let selected_element = &self.directory_tree[&self.selected_path];
-                // if selected_element.is_file() {
-                //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
-                // }
-                // // if selected path isn't a file, then don't do anything
-            }
-            _ => {}
+        match event {
+            Event::TUIEvent(tui_event) => match tui_event {
+                TUIEvent::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char(traverse_key),
+                    kind: KeyEventKind::Press,
+                    ..
+                }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                    self.selected_path = self
+                        .selected_path
+                        .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
+                }
+                TUIEvent::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('f'),
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    // // `f` stands for open selected *F*ile
+
+                    // let selected_element = &self.directory_tree[&self.selected_path];
+                    // if selected_element.is_file() {
+                    //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
+                    // }
+                    // // if selected path isn't a file, then don't do anything
+                }
+                _ => {}
+            },
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
         }
     }
 }
+// impl SubappUI for FileManager {
+//     fn get_title(&self) -> String {
+//         self.directory_tree[&TreeNodePath::new_root()]
+//             .file_name() // this function can return directory name
+//             .unwrap()
+//             .to_str()
+//             .unwrap()
+//             .to_string()
+//     }
 
-fn main() {
-    println!("Running file manager");
-}
+//     fn render(
+//         &mut self,
+//         area: ratatui::prelude::Rect,
+//         display_buffer: &mut ratatui::prelude::Buffer,
+//         is_focused: bool,
+//     ) {
+//         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
+//             let mut line_style = Style::new();
+
+//             if tree_node_path == self.selected_path {
+//                 line_style = line_style.on_cyan();
+
+//                 if is_focused {
+//                     line_style = line_style.light_yellow().bold();
+//                 }
+//             }
+
+//             display_buffer.set_stringn(
+//                 area.x + 1 + 2 * tree_node_path.depth() as u16,
+//                 area.y + 1 + index as u16,
+//                 self.directory_tree[&tree_node_path]
+//                     .file_name() // this function can return directory name
+//                     .unwrap()
+//                     .to_str()
+//                     .unwrap(),
+//                 (area.width - 2) as usize,
+//                 line_style,
+//             );
+//         }
+
+//         ratatui::widgets::Block::bordered()
+//             .title(format!("{} - File Manager", self.get_title()))
+//             .render(area, display_buffer);
+//     }
+
+//     fn handle_input(&mut self, event: Event) {
+//         match event {
+//             Event::Key(KeyEvent {
+//                 modifiers: KeyModifiers::CONTROL,
+//                 code: KeyCode::Char(traverse_key),
+//                 kind: KeyEventKind::Press,
+//                 ..
+//             }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+//                 self.selected_path = self
+//                     .selected_path
+//                     .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
+//             }
+//             Event::Key(KeyEvent {
+//                 modifiers: KeyModifiers::CONTROL,
+//                 code: KeyCode::Char('f'),
+//                 kind: KeyEventKind::Press,
+//                 ..
+//             }) => {
+//                 // // `f` stands for open selected *F*ile
+
+//                 // let selected_element = &self.directory_tree[&self.selected_path];
+//                 // if selected_element.is_file() {
+//                 //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
+//                 // }
+//                 // // if selected path isn't a file, then don't do anything
+//             }
+//             _ => {}
+//         }
+//     }
+// }
