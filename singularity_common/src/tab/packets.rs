@@ -4,6 +4,7 @@ pub type DisplayBuffer = Vec<ratatui::buffer::Cell>;
 
 pub enum Event {
     KeyPress(char),
+    Resize(ratatui::layout::Rect),
     /// TODO: close forcibly
     Close,
 }

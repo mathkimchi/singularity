@@ -1,4 +1,5 @@
 use packets::{DisplayBuffer, Event, Query, Request, Response};
+use ratatui::layout::Rect;
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -12,14 +13,14 @@ pub mod packets;
 /// REVIEW: name this tab runner?
 pub trait TabCreator: Send {
     /// Create and start running the create_tab
-    fn create_tab(self, manager_channels: ManagerChannels);
+    fn create_tab(self, manager_handler: ManagerHandler);
 }
 impl<F, O> TabCreator for F
 where
-    F: FnOnce(ManagerChannels) -> O + Send,
+    F: FnOnce(ManagerHandler) -> O + Send,
 {
-    fn create_tab(self, manager_channels: ManagerChannels) {
-        self(manager_channels);
+    fn create_tab(self, manager_handler: ManagerHandler) {
+        self(manager_handler);
     }
 }
 
@@ -32,24 +33,31 @@ pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
 ) -> impl TabCreator
 where
     InitArgs: Send,
-    Initializer: FnOnce(InitArgs, &ManagerChannels) -> Tab + Send,
-    Renderer: FnMut(&mut Tab, &ManagerChannels) -> Option<DisplayBuffer> + Send,
-    EventHandler: FnMut(&mut Tab, Event, &ManagerChannels) + Send,
+    Initializer: FnOnce(InitArgs, &ManagerHandler) -> Tab + Send,
+    Renderer: FnMut(&mut Tab, &ManagerHandler) -> Option<DisplayBuffer> + Send,
+    EventHandler: FnMut(&mut Tab, Event, &ManagerHandler) + Send,
 {
-    move |mut manager_channels: ManagerChannels| {
-        let mut tab: Tab = initializer(init_args, &manager_channels);
+    move |mut manager_handler: ManagerHandler| {
+        let mut tab: Tab = initializer(init_args, &manager_handler);
 
         loop {
-            if let Some(new_display_buffer) = renderer(&mut tab, &manager_channels) {
-                manager_channels.update_display_buffer(new_display_buffer);
+            if let Some(new_display_buffer) = renderer(&mut tab, &manager_handler) {
+                manager_handler.update_display_buffer(new_display_buffer);
             };
 
-            for event in manager_channels.event_rx.try_iter() {
-                if matches!(event, Event::Close) {
-                    break;
+            for event in manager_handler.collect_events() {
+                match event {
+                    Event::Close => {
+                        break;
+                    }
+                    Event::Resize(inner_area) => {
+                        manager_handler.inner_area = inner_area;
+                        event_handler(&mut tab, event, &manager_handler);
+                    }
+                    event => {
+                        event_handler(&mut tab, event, &manager_handler);
+                    }
                 }
-
-                event_handler(&mut tab, event, &manager_channels);
             }
         }
     }
@@ -67,33 +75,13 @@ struct TabChannels {
 }
 
 /// Represents communication with manager on tab side
-/// REVIEW: make a wrapper for this like TabHandler?
-pub struct ManagerChannels {
-    pub event_rx: Receiver<Event>,
-    pub request_tx: Sender<Request>,
+struct ManagerChannels {
+    event_rx: Receiver<Event>,
+    request_tx: Sender<Request>,
     query_tx: Sender<Query>,
     response_rx: Receiver<Response>,
 
     display_buffer: Arc<Mutex<DisplayBuffer>>,
-}
-impl ManagerChannels {
-    pub fn send_request(&self, request: Request) {
-        self.request_tx
-            .send(request)
-            .expect("failed to send request")
-    }
-
-    pub fn query(&self, query: Query) -> Response {
-        self.query_tx.send(query).expect("failed to send query");
-
-        self.response_rx.recv().expect("failed to get response")
-    }
-
-    pub fn update_display_buffer(&mut self, new_display_buffer: DisplayBuffer) {
-        *self.display_buffer.lock().unwrap() =
-            // std::mem::take(&mut self.intermediate_display_buffer);
-            new_display_buffer;
-    }
 }
 
 fn create_channels() -> (TabChannels, ManagerChannels) {
@@ -136,7 +124,12 @@ impl TabHandler {
         let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
-        let tab_thread = thread::spawn(move || tab_creator.create_tab(manager_channels));
+        let tab_thread = thread::spawn(move || {
+            tab_creator.create_tab(ManagerHandler {
+                manager_channels,
+                inner_area: Rect::default(),
+            })
+        });
 
         Self {
             tab_channels,
@@ -174,5 +167,46 @@ impl TabHandler {
         }
 
         display_buffer
+    }
+}
+
+/// Represents manager on tab side, is a wrapper for ManagerChannels
+pub struct ManagerHandler {
+    manager_channels: ManagerChannels,
+
+    pub inner_area: Rect,
+}
+impl ManagerHandler {
+    pub fn send_request(&self, request: Request) {
+        self.manager_channels
+            .request_tx
+            .send(request)
+            .expect("failed to send request")
+    }
+
+    pub fn query(&self, query: Query) -> Response {
+        self.manager_channels
+            .query_tx
+            .send(query)
+            .expect("failed to send query");
+
+        self.manager_channels
+            .response_rx
+            .recv()
+            .expect("failed to get response")
+    }
+
+    pub fn update_display_buffer(&mut self, new_display_buffer: DisplayBuffer) {
+        *self.manager_channels.display_buffer.lock().unwrap() =
+            // std::mem::take(&mut self.intermediate_display_buffer);
+            new_display_buffer;
+    }
+
+    pub fn get_event_rx(&self) -> &Receiver<Event> {
+        &self.manager_channels.event_rx
+    }
+
+    pub fn collect_events(&self) -> Vec<Event> {
+        self.get_event_rx().try_iter().collect()
     }
 }

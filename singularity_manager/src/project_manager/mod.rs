@@ -1,7 +1,7 @@
 use ratatui::{
     crossterm::{
         self,
-        event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+        event::{Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
         ExecutableCommand,
     },
@@ -15,7 +15,7 @@ use singularity_common::{
     project::Project,
     tab::{
         basic_tab_creator,
-        packets::{Query, Request, Response},
+        packets::{Event, Query, Request, Response},
         TabHandler,
     },
     utils::tree::{
@@ -117,6 +117,8 @@ impl ProjectManager {
                 Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
             let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
 
+            tab.send_event(Event::Resize(inner_tab_area));
+
             // subapp.user_interface.render(
             //     Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
             //     frame.buffer_mut(),
@@ -176,9 +178,9 @@ impl ProjectManager {
         }
     }
 
-    fn process_input(&mut self, event: Event) {
+    fn process_input(&mut self, event: TUIEvent) {
         match event {
-            Event::Key(KeyEvent {
+            TUIEvent::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
                 code: KeyCode::Char('q'),
                 kind: KeyEventKind::Press,
@@ -189,7 +191,7 @@ impl ProjectManager {
                 self.is_running = false;
             }
 
-            Event::Key(KeyEvent {
+            TUIEvent::Key(KeyEvent {
                 modifiers: KeyModifiers::ALT,
                 code,
                 kind: KeyEventKind::Press,
@@ -232,7 +234,7 @@ impl ProjectManager {
                 }
             }
 
-            Event::Key(KeyEvent {
+            TUIEvent::Key(KeyEvent {
                 modifiers: KeyModifiers::NONE,
                 code: KeyCode::Char(keycode),
                 kind: KeyEventKind::Press,

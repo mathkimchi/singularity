@@ -2,7 +2,7 @@ use singularity_common::{
     elements::text_box::TextBox,
     tab::{
         packets::{DisplayBuffer, Event, Request},
-        ManagerChannels,
+        ManagerHandler,
     },
 };
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ pub struct Editor {
     save_to_temp: bool,
 }
 impl Editor {
-    pub fn new<P>(file_path: P, manager_channels: &ManagerChannels) -> Self
+    pub fn new<P>(file_path: P, manager_handler: &ManagerHandler) -> Self
     where
         P: AsRef<std::path::Path>,
         PathBuf: std::convert::From<P>,
@@ -44,7 +44,7 @@ impl Editor {
         let text_box = Self::generate_textbox(&file_path);
         let file_path = PathBuf::from(file_path);
 
-        manager_channels.send_request(Request::ChangeName(
+        manager_handler.send_request(Request::ChangeName(
             file_path.file_name().unwrap().to_str().unwrap().to_string(),
         ));
 
@@ -80,13 +80,13 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 
-    pub fn render(&mut self, manager_channels: &ManagerChannels) -> Option<DisplayBuffer> {
+    pub fn render(&mut self, manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
         let cells = Vec::new();
 
         Some(cells)
     }
 
-    pub fn handle_event(&mut self, event: Event, manager_channels: &ManagerChannels) {}
+    pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {}
 }
 
 // impl SubappUI for Editor {
