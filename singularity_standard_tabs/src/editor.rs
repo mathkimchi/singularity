@@ -32,7 +32,6 @@ pub struct Editor {
 
     /// debug purpose
     /// TODO remove
-    border: bool,
     save_to_temp: bool,
 }
 impl Editor {
@@ -51,7 +50,6 @@ impl Editor {
         Self {
             text_box,
             file_path,
-            border: true,
             save_to_temp: true,
         }
     }
@@ -81,12 +79,39 @@ impl Editor {
     }
 
     pub fn render(&mut self, manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
-        let cells = Vec::new();
+        use ratatui::buffer::Buffer;
 
-        Some(cells)
+        let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
+
+        self.text_box
+            .render(manager_handler.inner_area, &mut ratatui_buffer, true);
+
+        Some(ratatui_buffer.content)
     }
 
-    pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {}
+    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+        use ratatui::crossterm::event::{
+            Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+        };
+
+        match event {
+            Event::TUIEvent(tui_event) => match tui_event {
+                TUIEvent::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('s'),
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.save_to_file();
+                }
+                tui_event => {
+                    self.text_box.handle_input(tui_event);
+                }
+            },
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
+        }
+    }
 }
 
 // impl SubappUI for Editor {

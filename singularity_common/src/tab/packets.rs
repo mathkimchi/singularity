@@ -3,7 +3,7 @@ use crate::utils::tree::tree_node_path::TreeNodePath;
 pub type DisplayBuffer = Vec<ratatui::buffer::Cell>;
 
 pub enum Event {
-    KeyPress(char),
+    TUIEvent(ratatui::crossterm::event::Event),
     Resize(ratatui::layout::Rect),
     /// TODO: close forcibly
     Close,

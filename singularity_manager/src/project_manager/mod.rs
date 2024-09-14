@@ -117,13 +117,8 @@ impl ProjectManager {
                 Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
             let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
 
+            // TODO: only send on actual resize
             tab.send_event(Event::Resize(inner_tab_area));
-
-            // subapp.user_interface.render(
-            //     Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
-            //     frame.buffer_mut(),
-            //     subapp_path == self.focused_subapp_path,
-            // );
 
             frame.buffer_mut().merge(&ratatui::buffer::Buffer {
                 area: inner_tab_area,
@@ -234,22 +229,11 @@ impl ProjectManager {
                 }
             }
 
-            TUIEvent::Key(KeyEvent {
-                modifiers: KeyModifiers::NONE,
-                code: KeyCode::Char(keycode),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
+            event => {
                 // forward the event to focused tab
                 let focused_tab = &mut self.tabs[&self.focused_tab_path];
 
-                focused_tab.send_event(singularity_common::tab::packets::Event::KeyPress(keycode));
-            }
-
-            _event => {
-                // let focused_subapp = &mut self.running_subapps[&self.focused_subapp_path];
-
-                // focused_subapp.user_interface.handle_input(event);
+                focused_tab.send_event(singularity_common::tab::packets::Event::TUIEvent(event));
             }
         }
     }
