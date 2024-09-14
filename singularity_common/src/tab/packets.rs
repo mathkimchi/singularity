@@ -1,5 +1,7 @@
 use crate::utils::tree::tree_node_path::TreeNodePath;
 
+pub type DisplayBuffer = Vec<ratatui::buffer::Cell>;
+
 pub enum Event {
     KeyPress(char),
     /// TODO: close forcibly

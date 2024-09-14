@@ -1,6 +1,9 @@
-use packets::{Event, Query, Request, Response};
+use packets::{DisplayBuffer, Event, Query, Request, Response};
 use std::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Arc, Mutex,
+    },
     thread::{self, JoinHandle},
 };
 
@@ -20,21 +23,26 @@ where
     }
 }
 
-/// Represents tab channels on manager side
+/// Represents communication with tab on manager side
 /// TODO: think of better name
-pub struct TabChannels {
-    pub event_tx: Sender<Event>,
-    pub request_rx: Receiver<Request>,
-    pub query_rx: Receiver<Query>,
-    pub response_tx: Sender<Response>,
+struct TabChannels {
+    event_tx: Sender<Event>,
+    request_rx: Receiver<Request>,
+    query_rx: Receiver<Query>,
+    response_tx: Sender<Response>,
+
+    display_buffer: Arc<Mutex<DisplayBuffer>>,
 }
 
-/// Represents manager channels on tab side
+/// Represents communication with manager on tab side
+/// REVIEW: make a wrapper for this like TabHandler?
 pub struct ManagerChannels {
     pub event_rx: Receiver<Event>,
     pub request_tx: Sender<Request>,
     query_tx: Sender<Query>,
     response_rx: Receiver<Response>,
+
+    display_buffer: Arc<Mutex<DisplayBuffer>>,
 }
 impl ManagerChannels {
     pub fn send_request(&self, request: Request) {
@@ -48,13 +56,20 @@ impl ManagerChannels {
 
         self.response_rx.recv().expect("failed to get response")
     }
+
+    pub fn update_display_buffer(&mut self, new_display_buffer: DisplayBuffer) {
+        *self.display_buffer.lock().unwrap() =
+            // std::mem::take(&mut self.intermediate_display_buffer);
+            new_display_buffer;
+    }
 }
 
-fn create_tab_manager_channels() -> (TabChannels, ManagerChannels) {
+fn create_channels() -> (TabChannels, ManagerChannels) {
     let (event_tx, event_rx) = mpsc::channel();
     let (request_tx, request_rx) = mpsc::channel();
     let (query_tx, query_rx) = mpsc::channel();
     let (response_tx, response_rx) = mpsc::channel();
+    let display_buffer: Arc<Mutex<DisplayBuffer>> = Arc::new(Mutex::new(DisplayBuffer::new()));
 
     (
         TabChannels {
@@ -62,17 +77,19 @@ fn create_tab_manager_channels() -> (TabChannels, ManagerChannels) {
             request_rx,
             query_rx,
             response_tx,
+            display_buffer: display_buffer.clone(),
         },
         ManagerChannels {
             event_rx,
             request_tx,
             query_tx,
             response_rx,
+            display_buffer,
         },
     )
 }
 
-/// Represents tab on manager side
+/// Represents tab on manager side, is a wrapper for TabChannels
 pub struct TabHandler {
     tab_channels: TabChannels,
 
@@ -84,7 +101,7 @@ pub struct TabHandler {
 }
 impl TabHandler {
     pub fn new<F: 'static + TabCreator>(tab_creator: F) -> Self {
-        let (tab_channels, manager_channels) = create_tab_manager_channels();
+        let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
         let tab_thread = thread::spawn(move || tab_creator.create_tab(manager_channels));
@@ -115,5 +132,15 @@ impl TabHandler {
                 .send(f(query))
                 .expect("failed to send response");
         }
+    }
+
+    pub fn get_display_buffer(&self, min_area: usize) -> DisplayBuffer {
+        let mut display_buffer = self.tab_channels.display_buffer.lock().unwrap().to_owned();
+
+        if display_buffer.len() < min_area {
+            display_buffer.resize(min_area, ratatui::buffer::Cell::EMPTY);
+        }
+
+        display_buffer
     }
 }

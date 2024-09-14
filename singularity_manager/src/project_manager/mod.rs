@@ -5,7 +5,7 @@ use ratatui::{
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
         ExecutableCommand,
     },
-    layout::Rect,
+    layout::{Margin, Rect},
     prelude::CrosstermBackend,
     style::Stylize,
     widgets::{Clear, Paragraph, Widget},
@@ -25,7 +25,7 @@ use singularity_common::{
 };
 use std::{
     io::{self, stdout},
-    thread::sleep,
+    thread,
     time::Duration,
 };
 
@@ -98,18 +98,26 @@ impl ProjectManager {
         for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
+            let total_tab_area =
+                Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
+            let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
+
             // subapp.user_interface.render(
             //     Rect::new(2 * subapp_path.depth() as u16, (12 * index) as u16, 50, 12),
             //     frame.buffer_mut(),
             //     subapp_path == self.focused_subapp_path,
             // );
 
+            frame.buffer_mut().merge(&ratatui::buffer::Buffer {
+                area: inner_tab_area,
+                // REVIEW: not sure about the cost of this
+                // NOTE: the vec length needs to be at least the area and is allowed to be more
+                content: tab.get_display_buffer(inner_tab_area.area() as usize),
+            });
+
             ratatui::widgets::Block::bordered()
                 .title(tab.tab_name.clone())
-                .render(
-                    Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12),
-                    frame.buffer_mut(),
-                );
+                .render(total_tab_area, frame.buffer_mut());
         }
 
         if let Some(focusing_index) = &self.app_focuser_index {
@@ -162,7 +170,7 @@ impl ProjectManager {
                 ..
             }) => {
                 println!("Sayonara!");
-                sleep(Duration::from_secs_f32(0.2));
+                thread::sleep(Duration::from_secs_f32(0.2));
                 self.is_running = false;
             }
 

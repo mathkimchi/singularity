@@ -439,3 +439,17 @@ I just realized that I might need to have a seperate function and channel for ea
 You know what, I am just going to try doing whatever works, and try not to think about it too hard.
 
 Later on, I might make a macro to automatically make a function for each query-request.
+
+---
+
+2024/9/14
+
+Today, I will work on acually letting tabs display stuff.
+Here are the ways I thought of:
+- Plain mutex of display buffer without extra logic
+  - Works, but if a tab writes for a really long time, then the manager will be stuck. (I am assuming)
+- Mutex of display buffer and the manager only updates if the mutex is currently not locked
+  - I assume this is possible
+  - Is better, but is kind of bad if the tab locks for a long time and unlocks for a short time repeatedly
+- Enforce some form of double buffer
+  - Only problem I can think of right now is changing the size of the double buffer on manager side
