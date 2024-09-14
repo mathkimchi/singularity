@@ -95,12 +95,7 @@ impl ProjectManager {
     fn draw_app(&mut self, frame: &mut Frame) {
         frame.render_widget(Clear, frame.area());
 
-        for (index, tab_path) in self
-            .tabs
-            .iter_paths_dfs()
-            .enumerate()
-            .collect::<Vec<(usize, TreeNodePath)>>()
-        {
+        for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
             // subapp.user_interface.render(
@@ -236,7 +231,7 @@ impl ProjectManager {
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
-        for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+        for tab_path in self.tabs.collect_paths_dfs() {
             let requestor = &mut self.tabs[&tab_path];
             let requests = requestor.collect_requests();
 
@@ -264,7 +259,7 @@ impl ProjectManager {
     }
 
     fn answer_tab_queries(&self) {
-        for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+        for tab_path in self.tabs.collect_paths_dfs() {
             let inquieror = &self.tabs[&tab_path];
             inquieror.answer_query(move |query| match query {
                 Query::Path => Response::Path(tab_path.clone()),

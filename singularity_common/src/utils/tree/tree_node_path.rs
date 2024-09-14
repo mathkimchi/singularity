@@ -36,6 +36,13 @@ pub trait TraversableTree {
             next_path: Some(TreeNodePath::new_root()),
         }
     }
+
+    fn collect_paths_dfs(&self) -> Vec<TreeNodePath>
+    where
+        Self: std::marker::Sized,
+    {
+        self.iter_paths_dfs().collect()
+    }
 }
 /// For the traverse functions, some require the original tree to be safe
 mod tree_node_path_traversal_impls {
