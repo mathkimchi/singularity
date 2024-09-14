@@ -56,14 +56,14 @@ impl TextBox {
         // clamp scroll y again, this time to ensure that cursor is visible
         // sometimes, this isn't desired behavior though
         self.scroll.1 = self.scroll.1.clamp(
-            (self.cursor_logical_position.1 as u16 + 2 + 1).saturating_sub(display_area.height),
+            (self.cursor_logical_position.1 as u16 + 1).saturating_sub(display_area.height),
             self.cursor_logical_position.1 as u16,
         );
 
         // clamp scroll x to ensure that cursor is visible
         // sometimes, this isn't desired behavior though
         self.scroll.0 = self.scroll.0.clamp(
-            (self.cursor_logical_position.0 as u16 + 2 + 1).saturating_sub(display_area.width),
+            (self.cursor_logical_position.0 as u16 + 1).saturating_sub(display_area.width),
             self.cursor_logical_position.0 as u16,
         );
     }

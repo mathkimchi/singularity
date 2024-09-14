@@ -50,7 +50,7 @@ impl Editor {
         Self {
             text_box,
             file_path,
-            save_to_temp: true,
+            save_to_temp: false,
         }
     }
 
