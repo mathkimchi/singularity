@@ -14,6 +14,7 @@ use ratatui::{
 use singularity_common::{
     project::Project,
     tab::{
+        basic_tab_creator,
         packets::{Query, Request, Response},
         TabHandler,
     },
@@ -74,8 +75,11 @@ impl ProjectManager {
 
         let manager = Self {
             project: Project::new("examples/root-project"),
-            tabs: RootedTree::from_root(TabHandler::new(Editor::editor_creator(
+            tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
                 "examples/root-project/file_to_edit.txt",
+                Editor::new,
+                Editor::render,
+                Editor::handle_event,
             ))),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),

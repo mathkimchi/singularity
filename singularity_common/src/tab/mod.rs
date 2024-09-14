@@ -23,9 +23,7 @@ where
     }
 }
 
-/// I don't know if this is code is good or an abomination
-///
-/// You know what, this could have - should have been a trait but I don't want to lose this so I'll commit
+/// REVIEW: I don't know if this is code is good or an abomination
 pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
     init_args: InitArgs,
     initializer: Initializer,
