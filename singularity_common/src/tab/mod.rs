@@ -1,4 +1,4 @@
-use packets::{Event, Query, Request};
+use packets::{Event, Query, Request, Response};
 use std::{
     sync::mpsc::{self, Receiver, Sender},
     thread::{self, JoinHandle},
@@ -17,34 +17,43 @@ pub trait TabCreator: Send {
 pub struct TabChannels {
     pub event_tx: Sender<Event>,
     pub request_rx: Receiver<Request>,
+    pub query_rx: Receiver<Query>,
+    pub response_tx: Sender<Response>,
 }
 
 /// Represents manager channels on tab side
 pub struct ManagerChannels {
     pub event_rx: Receiver<Event>,
     pub request_tx: Sender<Request>,
-    pub query_tx: Sender<Box<dyn Query>>,
+    query_tx: Sender<Query>,
+    response_rx: Receiver<Response>,
 }
 impl ManagerChannels {
-    // pub fn query<T>(&mut self, query: Box<dyn Query<Response = T>>) {}
+    pub fn query(&self, query: Query) -> Response {
+        self.query_tx.send(query).expect("failed to send query");
 
-    pub fn query<R, Q: Query<Response = R>>(&mut self, query: Q) -> R {
-        todo!()
+        self.response_rx.recv().expect("failed to get response")
     }
 }
 
 fn create_tab_manager_channels() -> (TabChannels, ManagerChannels) {
     let (event_tx, event_rx) = mpsc::channel();
     let (request_tx, request_rx) = mpsc::channel();
+    let (query_tx, query_rx) = mpsc::channel();
+    let (response_tx, response_rx) = mpsc::channel();
 
     (
         TabChannels {
             event_tx,
             request_rx,
+            query_rx,
+            response_tx,
         },
         ManagerChannels {
             event_rx,
             request_tx,
+            query_tx,
+            response_rx,
         },
     )
 }
@@ -73,15 +82,24 @@ impl TabHandler {
         }
     }
 
-    pub fn send_event(&mut self, event: Event) {
+    pub fn send_event(&self, event: Event) {
         self.tab_channels
             .event_tx
             .send(event)
             .expect("Failed to send event to tab");
     }
 
-    pub fn collect_requests(&mut self) -> Vec<Request> {
+    pub fn collect_requests(&self) -> Vec<Request> {
         // returns all pending requests (I assume that means this ends instead of waiting)
         self.tab_channels.request_rx.try_iter().collect()
+    }
+
+    pub fn answer_query<F: FnOnce(Query) -> Response>(&self, f: F) {
+        if let Ok(query) = self.tab_channels.query_rx.try_recv() {
+            self.tab_channels
+                .response_tx
+                .send(f(query))
+                .expect("failed to send response");
+        }
     }
 }

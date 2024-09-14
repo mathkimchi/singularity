@@ -13,7 +13,11 @@ use ratatui::{
 };
 use singularity_common::{
     project::Project,
-    tab::{packets::Request, temp_tab::TempTab, TabHandler},
+    tab::{
+        packets::{Query, Request, Response},
+        temp_tab::TempTab,
+        TabHandler,
+    },
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -82,6 +86,7 @@ impl ProjectManager {
             terminal.draw(|f| self.draw_app(f))?;
             self.handle_input();
             self.process_tab_requests();
+            self.answer_tab_queries();
         }
 
         Ok(())
@@ -255,6 +260,16 @@ impl ProjectManager {
                     }
                 }
             }
+        }
+    }
+
+    fn answer_tab_queries(&self) {
+        for tab_path in self.tabs.iter_paths_dfs().collect::<Vec<TreeNodePath>>() {
+            let inquieror = &self.tabs[&tab_path];
+            inquieror.answer_query(move |query| match query {
+                Query::Path => Response::Path(tab_path.clone()),
+                Query::Name => Response::Name(inquieror.tab_name.clone()),
+            });
         }
     }
 }

@@ -1,5 +1,3 @@
-use serde::Deserialize;
-
 use crate::utils::tree::tree_node_path::TreeNodePath;
 
 pub enum Event {
@@ -12,11 +10,14 @@ pub enum Request {
     ChangeName(String),
 }
 
-pub trait Query: Send {
-    /// TODO: learn `for<'a>` notation
-    type Response: for<'a> Deserialize<'a>;
+/// TODO: auto generate this with macro
+pub enum Query {
+    Path,
+    Name,
 }
-pub struct PathQuery {}
-impl Query for PathQuery {
-    type Response = TreeNodePath;
+
+#[derive(Debug)]
+pub enum Response {
+    Path(TreeNodePath),
+    Name(String),
 }
