@@ -2,7 +2,10 @@ use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     widgets::Widget,
 };
-use singularity_common::{elements::text_box::TextBox, subapp::SubappUI};
+use singularity_common::{
+    elements::text_box::TextBox,
+    tab::{packets::Request, ManagerChannels},
+};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
@@ -24,6 +27,8 @@ use std::path::PathBuf;
 /// - logical position: where it would be on temp_text_lines[row]'s column-th character
 /// - relative position: depends on what it is relative to, probably relative to text area
 pub struct Editor {
+    manager_channel: ManagerChannels,
+
     file_path: PathBuf,
 
     text_box: TextBox,
@@ -34,14 +39,22 @@ pub struct Editor {
     save_to_temp: bool,
 }
 impl Editor {
-    pub fn new<P>(file_path: P) -> Self
+    pub fn new<P>(file_path: P, manager_channel: ManagerChannels) -> Self
     where
         P: AsRef<std::path::Path>,
         PathBuf: std::convert::From<P>,
     {
+        let text_box = Self::generate_textbox(&file_path);
+        let file_path = PathBuf::from(file_path);
+
+        manager_channel.send_request(Request::ChangeName(
+            file_path.file_name().unwrap().to_str().unwrap().to_string(),
+        ));
+
         Self {
-            text_box: Self::generate_textbox(&file_path),
-            file_path: PathBuf::from(file_path),
+            manager_channel,
+            text_box,
+            file_path,
             border: true,
             save_to_temp: true,
         }
@@ -71,67 +84,68 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 }
-impl SubappUI for Editor {
-    fn get_title(&self) -> String {
-        self.file_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    }
 
-    /// TODO: rn now no wrap
-    fn render(
-        &mut self,
-        total_area: ratatui::prelude::Rect,
-        display_buffer: &mut ratatui::prelude::Buffer,
-        is_focused: bool,
-    ) {
-        // the total area includes 1 unit thick border on all sides
-        let text_area = ratatui::prelude::Rect::new(
-            total_area.x + 1,
-            total_area.y + 1,
-            total_area.width - 2,
-            total_area.height - 2,
-        );
+// impl SubappUI for Editor {
+//     fn get_title(&self) -> String {
+//         self.file_path
+//             .file_name()
+//             .unwrap()
+//             .to_str()
+//             .unwrap()
+//             .to_string()
+//     }
 
-        self.text_box.render(text_area, display_buffer, is_focused);
+//     /// TODO: rn now no wrap
+//     fn render(
+//         &mut self,
+//         total_area: ratatui::prelude::Rect,
+//         display_buffer: &mut ratatui::prelude::Buffer,
+//         is_focused: bool,
+//     ) {
+//         // the total area includes 1 unit thick border on all sides
+//         let text_area = ratatui::prelude::Rect::new(
+//             total_area.x + 1,
+//             total_area.y + 1,
+//             total_area.width - 2,
+//             total_area.height - 2,
+//         );
 
-        if self.border {
-            ratatui::widgets::Block::bordered()
-                .title(format!("{} - Editor", self.get_title()))
-                .render(total_area, display_buffer);
-        }
-    }
+//         self.text_box.render(text_area, display_buffer, is_focused);
 
-    fn handle_input(&mut self, event: Event) {
-        match event {
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('b'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                // toggle border (debug purposes)
+//         if self.border {
+//             ratatui::widgets::Block::bordered()
+//                 .title(format!("{} - Editor", self.get_title()))
+//                 .render(total_area, display_buffer);
+//         }
+//     }
 
-                self.border = !self.border;
-            }
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('s'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                self.save_to_file();
-            }
-            event => {
-                self.text_box.handle_input(event);
-            }
-        }
-    }
-}
+//     fn handle_input(&mut self, event: Event) {
+//         match event {
+//             Event::Key(KeyEvent {
+//                 modifiers: KeyModifiers::CONTROL,
+//                 code: KeyCode::Char('b'),
+//                 kind: KeyEventKind::Press,
+//                 ..
+//             }) => {
+//                 // toggle border (debug purposes)
 
-fn main() {
-    println!("Running editor");
-}
+//                 self.border = !self.border;
+//             }
+//             Event::Key(KeyEvent {
+//                 modifiers: KeyModifiers::CONTROL,
+//                 code: KeyCode::Char('s'),
+//                 kind: KeyEventKind::Press,
+//                 ..
+//             }) => {
+//                 self.save_to_file();
+//             }
+//             event => {
+//                 self.text_box.handle_input(event);
+//             }
+//         }
+//     }
+// }
+
+// fn main() {
+//     println!("Running editor");
+// }

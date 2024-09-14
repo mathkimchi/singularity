@@ -11,6 +11,14 @@ pub trait TabCreator: Send {
     /// Create and start running the create_tab
     fn create_tab(self, manager_channel: ManagerChannels);
 }
+impl<F> TabCreator for F
+where
+    F: FnOnce(ManagerChannels) + Send,
+{
+    fn create_tab(self, manager_channel: ManagerChannels) {
+        self(manager_channel)
+    }
+}
 
 /// Represents tab channels on manager side
 /// TODO: think of better name
@@ -29,6 +37,12 @@ pub struct ManagerChannels {
     response_rx: Receiver<Response>,
 }
 impl ManagerChannels {
+    pub fn send_request(&self, request: Request) {
+        self.request_tx
+            .send(request)
+            .expect("failed to send request")
+    }
+
     pub fn query(&self, query: Query) -> Response {
         self.query_tx.send(query).expect("failed to send query");
 
