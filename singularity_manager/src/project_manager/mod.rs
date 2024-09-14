@@ -13,7 +13,7 @@ use ratatui::{
 };
 use singularity_common::{
     project::Project,
-    tab::{temp_tab::TempTab, Request, TabHandler},
+    tab::{packets::Request, temp_tab::TempTab, TabHandler},
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -218,7 +218,7 @@ impl ProjectManager {
                 // forward the event to focused tab
                 let focused_tab = &mut self.tabs[&self.focused_tab_path];
 
-                focused_tab.send_event(singularity_common::tab::Event::KeyPress(keycode));
+                focused_tab.send_event(singularity_common::tab::packets::Event::KeyPress(keycode));
             }
 
             _event => {

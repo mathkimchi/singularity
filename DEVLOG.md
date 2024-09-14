@@ -430,3 +430,12 @@ Or, I could have a Query trait with the `T=` thing.
 
 The most ooga booga way of doing this would be to have a mpsc pair for each of the packet types (Event, Request, Query, Response).
 I am going to do the ooga booga way, because the logic is going to be abstracted anyways, so I can easily change it later.
+
+---
+
+2024/9/13
+
+I just realized that I might need to have a seperate function and channel for each possible query if I want it to be all type safe.
+You know what, I am just going to try doing whatever works, and try not to think about it too hard.
+
+Later on, I might make a macro to automatically make a function for each query-request.

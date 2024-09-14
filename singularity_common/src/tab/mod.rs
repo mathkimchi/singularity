@@ -1,19 +1,11 @@
+use packets::{Event, Query, Request};
 use std::{
     sync::mpsc::{self, Receiver, Sender},
     thread::{self, JoinHandle},
 };
 
+pub mod packets;
 pub mod temp_tab;
-
-pub enum Event {
-    KeyPress(char),
-    /// TODO: close forcibly
-    Close,
-}
-
-pub enum Request {
-    ChangeName(String),
-}
 
 pub trait TabCreator: Send {
     /// Create and start running the create_tab
@@ -31,6 +23,14 @@ pub struct TabChannels {
 pub struct ManagerChannels {
     pub event_rx: Receiver<Event>,
     pub request_tx: Sender<Request>,
+    pub query_tx: Sender<Box<dyn Query>>,
+}
+impl ManagerChannels {
+    // pub fn query<T>(&mut self, query: Box<dyn Query<Response = T>>) {}
+
+    pub fn query<R, Q: Query<Response = R>>(&mut self, query: Q) -> R {
+        todo!()
+    }
 }
 
 fn create_tab_manager_channels() -> (TabChannels, ManagerChannels) {
