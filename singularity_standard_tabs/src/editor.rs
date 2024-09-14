@@ -4,7 +4,7 @@ use ratatui::{
 };
 use singularity_common::{
     elements::text_box::TextBox,
-    tab::{packets::Request, ManagerChannels},
+    tab::{packets::Request, ManagerChannels, TabCreator},
 };
 use std::path::PathBuf;
 

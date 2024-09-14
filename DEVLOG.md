@@ -453,3 +453,4 @@ Here are the ways I thought of:
   - Is better, but is kind of bad if the tab locks for a long time and unlocks for a short time repeatedly
 - Enforce some form of double buffer
   - Only problem I can think of right now is changing the size of the double buffer on manager side
+  - I did this, and it works for now.

@@ -8,18 +8,52 @@ use std::{
 };
 
 pub mod packets;
-pub mod temp_tab;
 
+/// REVIEW: name this tab runner?
 pub trait TabCreator: Send {
     /// Create and start running the create_tab
-    fn create_tab(self, manager_channel: ManagerChannels);
+    fn create_tab(self, manager_channels: ManagerChannels);
 }
-impl<F> TabCreator for F
+impl<F, O> TabCreator for F
 where
-    F: FnOnce(ManagerChannels) + Send,
+    F: FnOnce(ManagerChannels) -> O + Send,
 {
-    fn create_tab(self, manager_channel: ManagerChannels) {
-        self(manager_channel)
+    fn create_tab(self, manager_channels: ManagerChannels) {
+        self(manager_channels);
+    }
+}
+
+/// I don't know if this is code is good or an abomination
+///
+/// You know what, this could have - should have been a trait but I don't want to lose this so I'll commit
+pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
+    init_args: InitArgs,
+    initializer: Initializer,
+    mut renderer: Renderer,
+    mut event_handler: EventHandler,
+) -> impl TabCreator
+where
+    InitArgs: Send,
+    Initializer: FnOnce(InitArgs, &ManagerChannels) -> Tab + Send,
+    Renderer: FnMut(&mut Tab, &ManagerChannels) -> Option<DisplayBuffer> + Send,
+    EventHandler: FnMut(&mut Tab, Event, &ManagerChannels) + Send,
+{
+    move |mut manager_channels: ManagerChannels| {
+        let mut tab: Tab = initializer(init_args, &manager_channels);
+
+        loop {
+            if let Some(new_display_buffer) = renderer(&mut tab, &manager_channels) {
+                manager_channels.update_display_buffer(new_display_buffer);
+            };
+
+            for event in manager_channels.event_rx.try_iter() {
+                if matches!(event, Event::Close) {
+                    break;
+                }
+
+                event_handler(&mut tab, event, &manager_channels);
+            }
+        }
     }
 }
 

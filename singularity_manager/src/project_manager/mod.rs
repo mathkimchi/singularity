@@ -15,7 +15,6 @@ use singularity_common::{
     project::Project,
     tab::{
         packets::{Query, Request, Response},
-        temp_tab::TempTab,
         TabHandler,
     },
     utils::tree::{
@@ -23,6 +22,7 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
+use singularity_standard_tabs::editor::Editor;
 use std::{
     io::{self, stdout},
     thread,
@@ -43,7 +43,7 @@ pub struct ProjectManager {
 impl ProjectManager {
     pub fn new<P>(project_directory: P) -> Self
     where
-        P: AsRef<std::path::Path> + Clone,
+        P: AsRef<std::path::Path> + Clone + Send,
         std::path::PathBuf: From<P>,
     {
         let project = Project::new(project_directory.clone());
@@ -53,7 +53,7 @@ impl ProjectManager {
             // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
             //     project_directory,
             // ))),
-            tabs: RootedTree::from_root(TabHandler::new(TempTab {})),
+            tabs: RootedTree::from_root(todo!()),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
@@ -62,7 +62,8 @@ impl ProjectManager {
 
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
-        let manager = Self::new("examples/root-project");
+
+        // let manager = Self::new("examples/root-project");
 
         // manager.running_subapps.add_node(
         //     Subapp::new(TaskOrganizer::new(
@@ -70,6 +71,16 @@ impl ProjectManager {
         //     )),
         //     &TreeNodePath::new_root(),
         // );
+
+        let manager = Self {
+            project: Project::new("examples/root-project"),
+            tabs: RootedTree::from_root(TabHandler::new(Editor::editor_creator(
+                "examples/root-project/file_to_edit.txt",
+            ))),
+            app_focuser_index: None,
+            focused_tab_path: TreeNodePath::new_root(),
+            is_running: false,
+        };
 
         manager.run()
     }
