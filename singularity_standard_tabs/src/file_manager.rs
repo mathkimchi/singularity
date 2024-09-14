@@ -1,5 +1,6 @@
 use singularity_common::{
     tab::{
+        basic_tab_creator,
         packets::{DisplayBuffer, Event, Request},
         ManagerHandler,
     },
@@ -9,6 +10,8 @@ use singularity_common::{
     },
 };
 use std::path::PathBuf;
+
+use crate::editor::Editor;
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,
@@ -104,7 +107,7 @@ impl FileManager {
         Some(ratatui_buffer.content)
     }
 
-    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+    pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
         use ratatui::crossterm::event::{
             Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
         };
@@ -127,13 +130,21 @@ impl FileManager {
                     kind: KeyEventKind::Press,
                     ..
                 }) => {
-                    // // `f` stands for open selected *F*ile
+                    // `f` stands for open selected *F*ile
 
-                    // let selected_element = &self.directory_tree[&self.selected_path];
-                    // if selected_element.is_file() {
-                    //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
-                    // }
-                    // // if selected path isn't a file, then don't do anything
+                    let selected_element = &self.directory_tree[&self.selected_path];
+                    if selected_element.is_file() {
+                        manager_handler.send_request(Request::SpawnChildTab(Box::new(
+                            // Editor::new(selected_element),
+                            basic_tab_creator(
+                                selected_element.clone(),
+                                Editor::new,
+                                Editor::render,
+                                Editor::handle_event,
+                            ),
+                        )));
+                    }
+                    // if selected path isn't a file, then don't do anything
                 }
                 _ => {}
             },

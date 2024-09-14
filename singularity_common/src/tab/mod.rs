@@ -30,7 +30,8 @@ pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
     initializer: Initializer,
     mut renderer: Renderer,
     mut event_handler: EventHandler,
-) -> impl TabCreator
+    // ) -> impl TabCreator
+) -> impl FnOnce(ManagerHandler) + Send
 where
     InitArgs: Send,
     Initializer: FnOnce(InitArgs, &ManagerHandler) -> Tab + Send,
@@ -157,6 +158,10 @@ impl TabHandler {
             tab_name: String::new(),
         }
     }
+
+    // pub fn new_from_box(tab_creator: Box<dyn FnOnce(ManagerHandler) + Send>) -> Self {
+    //     Self::new(tab_creator)
+    // }
 
     pub fn send_event(&self, event: Event) {
         self.tab_channels

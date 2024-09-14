@@ -1,3 +1,4 @@
+use super::ManagerHandler;
 use crate::utils::tree::tree_node_path::TreeNodePath;
 
 pub type DisplayBuffer = Vec<ratatui::buffer::Cell>;
@@ -11,6 +12,8 @@ pub enum Event {
 
 pub enum Request {
     ChangeName(String),
+    /// FIXME: Box<dyn TabCreator> didn't work for some reason, get it to work
+    SpawnChildTab(Box<dyn FnOnce(ManagerHandler) + Send>),
 }
 
 /// TODO: auto generate this with macro

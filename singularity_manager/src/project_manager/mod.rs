@@ -253,27 +253,19 @@ impl ProjectManager {
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
-        for tab_path in self.tabs.collect_paths_dfs() {
-            let requestor = &mut self.tabs[&tab_path];
-            let requests = requestor.collect_requests();
+        for requestor_path in self.tabs.collect_paths_dfs() {
+            let requests = self.tabs[&requestor_path].collect_requests();
 
             for request in requests {
                 match request {
-                    // ManagerCommand::SpawnSubapp(subapp_interface) => {
-                    //     self.focused_subapp_path = self
-                    //         .running_subapps
-                    //         .add_node(
-                    //             Subapp {
-                    //                 manager_proxy: Default::default(),
-                    //                 subapp_data: SubappData {},
-                    //                 user_interface: subapp_interface,
-                    //             },
-                    //             &subapp_path,
-                    //         )
-                    //         .unwrap();
-                    // }
                     Request::ChangeName(new_name) => {
-                        requestor.tab_name = new_name;
+                        self.tabs[&requestor_path].tab_name = new_name;
+                    }
+                    Request::SpawnChildTab(tab_creator) => {
+                        self.focused_tab_path = self
+                            .tabs
+                            .add_node(TabHandler::new(tab_creator), &requestor_path)
+                            .unwrap();
                     }
                 }
             }
