@@ -1,19 +1,11 @@
-use super::SubappUI;
-use crate::{
-    backend::utils::{
+use serde::{Deserialize, Serialize};
+use singularity_common::{
+    elements::text_box::TextBox,
+    utils::tree::{
         recursive_tree::RecursiveTreeNode,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
-    elements::text_box::TextBox,
-    project_manager::ManagerProxy,
 };
-use ratatui::{
-    crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    layout::{Constraint, Layout, Margin, Rect},
-    style::{Style, Stylize},
-    widgets::{Block, Borders, Widget},
-};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
@@ -150,177 +142,177 @@ impl TaskOrganizer {
         }
     }
 }
-impl SubappUI for TaskOrganizer {
-    fn get_title(&self) -> String {
-        "Task Organizer".to_string()
-    }
+// impl SubappUI for TaskOrganizer {
+//     fn get_title(&self) -> String {
+//         "Task Organizer".to_string()
+//     }
 
-    fn render(
-        &mut self,
-        total_area: Rect,
-        display_buffer: &mut ratatui::prelude::Buffer,
-        _manager_proxy: &mut ManagerProxy,
-        is_focused: bool,
-    ) {
-        ratatui::widgets::Block::bordered()
-            .title("Tasks")
-            .render(total_area, display_buffer);
+//     fn render(
+//         &mut self,
+//         total_area: Rect,
+//         display_buffer: &mut ratatui::prelude::Buffer,
+//         _manager_proxy: &mut ManagerProxy,
+//         is_focused: bool,
+//     ) {
+//         ratatui::widgets::Block::bordered()
+//             .title("Tasks")
+//             .render(total_area, display_buffer);
 
-        let display_area = total_area.inner(Margin::new(1, 1));
+//         let display_area = total_area.inner(Margin::new(1, 1));
 
-        let (layout, spacers) =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .spacing(1)
-                .split_with_spacers(display_area);
+//         let (layout, spacers) =
+//             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+//                 .spacing(1)
+//                 .split_with_spacers(display_area);
 
-        let tasks_area = layout[0];
-        let selected_task_area = layout[1];
+//         let tasks_area = layout[0];
+//         let selected_task_area = layout[1];
 
-        // Draw divider between the two areas
-        Block::bordered()
-            .borders(Borders::LEFT)
-            .render(spacers[1], display_buffer);
+//         // Draw divider between the two areas
+//         Block::bordered()
+//             .borders(Borders::LEFT)
+//             .render(spacers[1], display_buffer);
 
-        // list tasks
-        for (running_count, (root_index, path)) in self
-            .tasks
-            .iter()
-            .enumerate()
-            .flat_map(|(root_index, tree)| tree.iter_paths_dfs().map(move |x| (root_index, x)))
-            .enumerate()
-        {
-            // TODO: style complete vs todo
-            let mut line_style = Style::new();
+//         // list tasks
+//         for (running_count, (root_index, path)) in self
+//             .tasks
+//             .iter()
+//             .enumerate()
+//             .flat_map(|(root_index, tree)| tree.iter_paths_dfs().map(move |x| (root_index, x)))
+//             .enumerate()
+//         {
+//             // TODO: style complete vs todo
+//             let mut line_style = Style::new();
 
-            if let Some((focused_index, focused_path, _)) = &self.focused_task_path {
-                if (focused_index == &root_index) && (focused_path == &path) {
-                    line_style = line_style.on_cyan();
+//             if let Some((focused_index, focused_path, _)) = &self.focused_task_path {
+//                 if (focused_index == &root_index) && (focused_path == &path) {
+//                     line_style = line_style.on_cyan();
 
-                    if is_focused {
-                        line_style = line_style.light_yellow().bold();
-                    }
-                }
-            }
+//                     if is_focused {
+//                         line_style = line_style.light_yellow().bold();
+//                     }
+//                 }
+//             }
 
-            display_buffer.set_stringn(
-                tasks_area.x + 2 * path.depth() as u16,
-                tasks_area.y + running_count as u16,
-                &self.tasks[root_index][&path].title,
-                (tasks_area.width as usize) - 2 * path.depth(),
-                line_style,
-            );
-        }
+//             display_buffer.set_stringn(
+//                 tasks_area.x + 2 * path.depth() as u16,
+//                 tasks_area.y + running_count as u16,
+//                 &self.tasks[root_index][&path].title,
+//                 (tasks_area.width as usize) - 2 * path.depth(),
+//                 line_style,
+//             );
+//         }
 
-        // draw focused task
-        if let Some((focused_index, focused_path, body_text_box)) = &mut self.focused_task_path {
-            let focused_task = &self.tasks[*focused_index][focused_path];
+//         // draw focused task
+//         if let Some((focused_index, focused_path, body_text_box)) = &mut self.focused_task_path {
+//             let focused_task = &self.tasks[*focused_index][focused_path];
 
-            // draw title
-            display_buffer.set_stringn(
-                selected_task_area.x,
-                selected_task_area.y,
-                &focused_task.title,
-                selected_task_area.width as usize,
-                Style::new().underlined(),
-            );
+//             // draw title
+//             display_buffer.set_stringn(
+//                 selected_task_area.x,
+//                 selected_task_area.y,
+//                 &focused_task.title,
+//                 selected_task_area.width as usize,
+//                 Style::new().underlined(),
+//             );
 
-            // draw body
-            let body_area = Rect::new(
-                selected_task_area.x,
-                selected_task_area.y + 1,
-                selected_task_area.width,
-                selected_task_area.height - 1,
-            );
-            body_text_box.render(
-                body_area,
-                display_buffer,
-                is_focused && matches!(self.mode, Mode::Editing),
-            );
-        }
-    }
+//             // draw body
+//             let body_area = Rect::new(
+//                 selected_task_area.x,
+//                 selected_task_area.y + 1,
+//                 selected_task_area.width,
+//                 selected_task_area.height - 1,
+//             );
+//             body_text_box.render(
+//                 body_area,
+//                 display_buffer,
+//                 is_focused && matches!(self.mode, Mode::Editing),
+//             );
+//         }
+//     }
 
-    fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
-        let standardized_event = if let Event::Key(KeyEvent {
-            code: key_code,
-            modifiers,
-            kind: KeyEventKind::Press,
-            ..
-        }) = event
-        {
-            (key_code, modifiers)
-        } else {
-            // right now, no use for any other event type
-            return;
-        };
+//     fn handle_input(&mut self, _manager_proxy: &mut ManagerProxy, event: Event) {
+//         let standardized_event = if let Event::Key(KeyEvent {
+//             code: key_code,
+//             modifiers,
+//             kind: KeyEventKind::Press,
+//             ..
+//         }) = event
+//         {
+//             (key_code, modifiers)
+//         } else {
+//             // right now, no use for any other event type
+//             return;
+//         };
 
-        match self.mode {
-            Mode::Viewing => match standardized_event {
-                (KeyCode::Char('+'), KeyModifiers::NONE) => {
-                    // NOTE: Pressing: `SHIFT` and `=` is thought of as pressing `+`
-                    // on its own which makes sense, but i feel icky about it
+//         match self.mode {
+//             Mode::Viewing => match standardized_event {
+//                 (KeyCode::Char('+'), KeyModifiers::NONE) => {
+//                     // NOTE: Pressing: `SHIFT` and `=` is thought of as pressing `+`
+//                     // on its own which makes sense, but i feel icky about it
 
-                    // add a placeholder root task & focus on it
+//                     // add a placeholder root task & focus on it
 
-                    self.tasks
-                        .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+//                     self.tasks
+//                         .push(RecursiveTreeNode::from_value(IndividualTask::default()));
 
-                    self.set_focused_task(self.tasks.len() - 1, TreeNodePath::new_root());
-                }
-                (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                    // save body
-                    if let Some((focused_index, focused_path, body_text_box)) =
-                        &self.focused_task_path
-                    {
-                        let focused_task = &mut self.tasks[*focused_index][focused_path];
+//                     self.set_focused_task(self.tasks.len() - 1, TreeNodePath::new_root());
+//                 }
+//                 (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+//                     // save body
+//                     if let Some((focused_index, focused_path, body_text_box)) =
+//                         &self.focused_task_path
+//                     {
+//                         let focused_task = &mut self.tasks[*focused_index][focused_path];
 
-                        focused_task.body = body_text_box.get_text_as_string();
-                    }
+//                         focused_task.body = body_text_box.get_text_as_string();
+//                     }
 
-                    // save to file
-                    std::fs::write(
-                        &self.task_file_path,
-                        serde_json::to_string_pretty(&self.tasks).unwrap(),
-                    )
-                    .unwrap();
-                }
-                (KeyCode::Enter, KeyModifiers::NONE) => {
-                    // NOTE: Enter+CONTROL doesn't work as an event for some reason
-                    // enter edit mode
+//                     // save to file
+//                     std::fs::write(
+//                         &self.task_file_path,
+//                         serde_json::to_string_pretty(&self.tasks).unwrap(),
+//                     )
+//                     .unwrap();
+//                 }
+//                 (KeyCode::Enter, KeyModifiers::NONE) => {
+//                     // NOTE: Enter+CONTROL doesn't work as an event for some reason
+//                     // enter edit mode
 
-                    if self.focused_task_path.is_none() {
-                        // edit mode requires Some focused task so set one if n/a
+//                     if self.focused_task_path.is_none() {
+//                         // edit mode requires Some focused task so set one if n/a
 
-                        if self.tasks.is_empty() {
-                            // if user tries traversing when there are no tasks, create a placeholder task
-                            self.tasks
-                                .push(RecursiveTreeNode::from_value(IndividualTask::default()));
-                        }
+//                         if self.tasks.is_empty() {
+//                             // if user tries traversing when there are no tasks, create a placeholder task
+//                             self.tasks
+//                                 .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+//                         }
 
-                        // user tried to traverse for the first time, select first task
-                        self.set_focused_task(0, TreeNodePath::new_root());
-                    }
+//                         // user tried to traverse for the first time, select first task
+//                         self.set_focused_task(0, TreeNodePath::new_root());
+//                     }
 
-                    self.mode = Mode::Editing;
-                }
-                (KeyCode::Char(traverse_key), KeyModifiers::NONE)
-                    if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-                {
-                    self.handle_traversal(traverse_key);
-                }
-                _ => {}
-            },
-            Mode::Editing => match standardized_event {
-                (KeyCode::Esc, KeyModifiers::NONE) => {
-                    self.mode = Mode::Viewing;
-                }
-                _ => {
-                    if let Some((_focused_index, _focused_path, body_text_box)) =
-                        &mut self.focused_task_path
-                    {
-                        body_text_box.handle_input(event);
-                    }
-                }
-            },
-        }
-    }
-}
+//                     self.mode = Mode::Editing;
+//                 }
+//                 (KeyCode::Char(traverse_key), KeyModifiers::NONE)
+//                     if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
+//                 {
+//                     self.handle_traversal(traverse_key);
+//                 }
+//                 _ => {}
+//             },
+//             Mode::Editing => match standardized_event {
+//                 (KeyCode::Esc, KeyModifiers::NONE) => {
+//                     self.mode = Mode::Viewing;
+//                 }
+//                 _ => {
+//                     if let Some((_focused_index, _focused_path, body_text_box)) =
+//                         &mut self.focused_task_path
+//                     {
+//                         body_text_box.handle_input(event);
+//                     }
+//                 }
+//             },
+//         }
+//     }
+// }

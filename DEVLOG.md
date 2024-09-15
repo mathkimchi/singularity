@@ -454,3 +454,6 @@ Here are the ways I thought of:
 - Enforce some form of double buffer
   - Only problem I can think of right now is changing the size of the double buffer on manager side
   - I did this, and it works for now.
+
+I think I am done with the tab backend.
+The next big category of things to work on is figuring out how projects will work.

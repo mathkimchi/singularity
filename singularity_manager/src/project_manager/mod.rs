@@ -23,7 +23,7 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_standard_tabs::{editor::Editor, file_manager::FileManager};
+use singularity_standard_tabs::file_manager::FileManager;
 use std::{
     io::{self, stdout},
     thread,
