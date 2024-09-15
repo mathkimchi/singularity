@@ -457,3 +457,62 @@ Here are the ways I thought of:
 
 I think I am done with the tab backend.
 The next big category of things to work on is figuring out how projects will work.
+
+<!-- ## Project Organization
+
+2024/9/14
+
+I've already decided on organizing by projects, but within that, I am not sure how to further organize.
+
+So, I am going to start by exploring how other apps do this.
+
+- Nixos
+- Obsidian Vaults
+  - I've used obsidian for school notes, I liked a lot of things about it and it is a pretty good productivity app
+  - Markdown files can link to each other, though I've never done it
+  - Tbh, I don't know how Obsidian actually does this stuff
+- `.vscode`
+  - When you change a setting for a specific project in VSCode, it stores the new settings in `.vscode/settings.json` or something like that
+  - This is simple and gets the job done
+- Org mode
+  - I tried to use Emacs before but I didn't like it (which is partially why I am making this). From what I've heard, one of the key selling points of Emacs is something called Org mode. -->
+
+## Improving UI
+
+2024/9/14
+
+Never mind, I think I should improve the UI first.
+The reason why I want to do this is because when I thought about actually using singularity, I realized that I would need to improve the UI (mostly display rather than input) but I could still use singularity if it didn't have project organization.
+
+So, I am going to either look into actual GUIs in rust, or just make a really good TUI.
+(Later, I want singularity to have an agnostic UI though.)
+
+### Researching Rust GUIs
+
+2024/9/14
+
+I am not sure if I should do a full GUI or improve the current TUI, but I will research my options.
+
+I want something that easily allows me to designate certain rectangles to different tabs.
+Currently, for the TUI, I give a buffer to each tab.
+
+- `wgpu`
+  - very fast, might be overkill
+    - Looked at code for displaying triangle, definitely overkill
+  - bevy uses this
+- `gtk` and `glib`
+  - made by gnome
+  - rust is on their [home page](https://www.gtk.org/), so it probably has relatively good support
+  - I might need to install gtk if i want to develop or run this
+- `egui`
+  - Supposedly the easiest rust gui
+- `iced`
+  - Compared a lot to egui
+- `glutin`
+  - BIG ADVANTAGE: can embed Servo, a rust browser engine
+- `wayland-client` or `smithay`
+  - both surprisingly popular (~10mil downloads)
+  - I use wayland and no one else will use singularity anytime soon, but I still want it to be as cross-platform as possible
+  - pretty low level
+
+I'm just going to try doing egui and see what happens.
