@@ -1,9 +1,10 @@
 use singularity_common::{
     elements::text_box::TextBox,
     tab::{
-        packets::{DisplayBuffer, Event, Request},
+        packets::{Event, Request},
         ManagerHandler,
     },
+    ui::DisplayBuffer,
 };
 use std::path::PathBuf;
 
@@ -78,38 +79,38 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 
-    pub fn render(&mut self, manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
-        use ratatui::buffer::Buffer;
+    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
+        // let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
 
-        let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
+        // self.text_box
+        //     .render(manager_handler.inner_area, &mut ratatui_buffer, true);
 
-        self.text_box
-            .render(manager_handler.inner_area, &mut ratatui_buffer, true);
+        // Some(ratatui_buffer.content)
 
-        Some(ratatui_buffer.content)
+        todo!()
     }
 
-    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
-        use ratatui::crossterm::event::{
-            Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
-        };
+    pub fn handle_event(&mut self, _event: Event, _manager_handler: &ManagerHandler) {
+        // use ratatui::crossterm::event::{
+        //     Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+        // };
 
-        match event {
-            Event::TUIEvent(tui_event) => match tui_event {
-                TUIEvent::Key(KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('s'),
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
-                    self.save_to_file();
-                }
-                tui_event => {
-                    self.text_box.handle_input(tui_event);
-                }
-            },
-            Event::Resize(_) => {}
-            Event::Close => panic!("Event::Close should not have been forwarded"),
-        }
+        // match event {
+        //     Event::TUIEvent(tui_event) => match tui_event {
+        //         TUIEvent::Key(KeyEvent {
+        //             modifiers: KeyModifiers::CONTROL,
+        //             code: KeyCode::Char('s'),
+        //             kind: KeyEventKind::Press,
+        //             ..
+        //         }) => {
+        //             self.save_to_file();
+        //         }
+        //         tui_event => {
+        //             self.text_box.handle_input(tui_event);
+        //         }
+        //     },
+        //     Event::Resize(_) => {}
+        //     Event::Close => panic!("Event::Close should not have been forwarded"),
+        // }
     }
 }

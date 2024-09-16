@@ -1,5 +1,5 @@
-use packets::{DisplayBuffer, Event, Query, Request, Response};
-use ratatui::layout::Rect;
+use crate::ui::{DisplayArea, DisplayBuffer};
+use packets::{Event, Query, Request, Response};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -148,7 +148,7 @@ impl TabHandler {
         let tab_thread = thread::spawn(move || {
             tab_creator.create_tab(ManagerHandler {
                 manager_channels,
-                inner_area: Rect::default(),
+                inner_area: DisplayArea::default(),
             })
         });
 
@@ -185,13 +185,7 @@ impl TabHandler {
     }
 
     pub fn get_display_buffer(&self, min_area: usize) -> DisplayBuffer {
-        let mut display_buffer = self.tab_channels.display_buffer.lock().unwrap().to_owned();
-
-        if display_buffer.len() < min_area {
-            display_buffer.resize(min_area, ratatui::buffer::Cell::EMPTY);
-        }
-
-        display_buffer
+        self.tab_channels.display_buffer.lock().unwrap().to_owned()
     }
 }
 
@@ -199,7 +193,7 @@ impl TabHandler {
 pub struct ManagerHandler {
     manager_channels: ManagerChannels,
 
-    pub inner_area: Rect,
+    pub inner_area: DisplayArea,
 }
 impl ManagerHandler {
     pub fn send_request(&self, request: Request) {

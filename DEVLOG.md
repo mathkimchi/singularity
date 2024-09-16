@@ -516,3 +516,27 @@ Currently, for the TUI, I give a buffer to each tab.
   - pretty low level
 
 I'm just going to try doing egui and see what happens.
+
+Egui allows custom widgets, so I might be able to use that to split areas for tabs.
+
+---
+
+2024/9/15
+
+Egui isn't really hard, but I feel like it is too much boilerplate and it doesn't have a lot of examples.
+
+I came across `winit` which seems to be a bare-bones thing, and that might actually be better for this purpose so I am going to try that.
+
+Running the most basic winit code: `EventLoop::new().unwrap()` returns an error `error: WaylandError(Connection(NoWaylandLib))`, probably because of some Nixos thing.
+An `egui` and Nixos user had [a similar issue](https://github.com/emilk/egui/discussions/1587) and they fixed it with a flake.
+
+Tbh, I don't really feel like actually learning how to use nix flakes right now, so I am going to try changing my entire configuration to fix this.
+
+---
+
+2024/9/16
+
+I couldn't change my entire configuration to fix this, so I just added the flake from github and then did `nix develop`.
+I promise I will learn nix flakes, and when I do, I will make my own flake.nix for singularity.
+
+But, the good news is that winit works now on my machine, my code right now doesn't, but I know winit works because when I do `nix develop` on this directory and then go to the directory storing winit then run `cargo run --example window`, then it shows a blank window.

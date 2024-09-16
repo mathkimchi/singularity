@@ -1,16 +1,3 @@
-use ratatui::{
-    crossterm::{
-        self,
-        event::{Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    },
-    layout::{Margin, Rect},
-    prelude::CrosstermBackend,
-    style::Stylize,
-    widgets::{Clear, Paragraph, Widget},
-    Frame, Terminal,
-};
 use singularity_common::{
     project::Project,
     tab::{
@@ -29,6 +16,7 @@ use std::{
     thread,
     time::Duration,
 };
+use winit::event_loop::EventLoop;
 
 pub struct ProjectManager {
     project: Project,
@@ -86,7 +74,7 @@ impl ProjectManager {
         //     is_running: false,
         // };
 
-        let manager = Self {
+        let mut manager = Self {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
                 "examples/root-project",
@@ -99,157 +87,159 @@ impl ProjectManager {
             is_running: false,
         };
 
+        let event_loop = EventLoop::new().unwrap();
+        // event_loop.set_control_flow(Co)
+        dbg!("will run app");
+        event_loop.run_app(&mut manager).unwrap();
+
+        dbg!("ran app");
+
         manager.run()
     }
 
     pub fn run(mut self) -> io::Result<()> {
         self.is_running = true;
 
-        // set up terminal stuff
-        enable_raw_mode()?;
-        stdout().execute(EnterAlternateScreen)?;
-        let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-
-        while self.is_running {
-            terminal.draw(|f| self.draw_app(f))?;
-            self.handle_input();
-            self.process_tab_requests();
-            self.answer_tab_queries();
-        }
+        // while self.is_running {
+        //     // terminal.draw(|f| self.draw_app(f))?;
+        //     self.handle_input();
+        //     self.process_tab_requests();
+        //     self.answer_tab_queries();
+        // }
 
         Ok(())
     }
 
-    fn draw_app(&mut self, frame: &mut Frame) {
-        frame.render_widget(Clear, frame.area());
+    // fn draw_app(&mut self, frame: &mut Frame) {
+    //     frame.render_widget(Clear, frame.area());
 
-        for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
-            let tab = &mut self.tabs[&tab_path];
+    //     for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
+    //         let tab = &mut self.tabs[&tab_path];
 
-            let total_tab_area =
-                Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
-            let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
+    //         let total_tab_area =
+    //             Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
+    //         let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
 
-            // TODO: only send on actual resize
-            tab.send_event(Event::Resize(inner_tab_area));
+    //         // TODO: only send on actual resize
+    //         tab.send_event(Event::Resize(inner_tab_area));
 
-            frame.buffer_mut().merge(&ratatui::buffer::Buffer {
-                area: inner_tab_area,
-                // REVIEW: not sure about the cost of this
-                // NOTE: the vec length needs to be at least the area and is allowed to be more
-                content: tab.get_display_buffer(inner_tab_area.area() as usize),
-            });
+    //         frame.buffer_mut().merge(&ratatui::buffer::Buffer {
+    //             area: inner_tab_area,
+    //             // REVIEW: not sure about the cost of this
+    //             // NOTE: the vec length needs to be at least the area and is allowed to be more
+    //             content: tab.get_display_buffer(inner_tab_area.area() as usize),
+    //         });
 
-            ratatui::widgets::Block::bordered()
-                .title(tab.tab_name.clone())
-                .render(total_tab_area, frame.buffer_mut());
-        }
+    //         ratatui::widgets::Block::bordered()
+    //             .title(tab.tab_name.clone())
+    //             .render(total_tab_area, frame.buffer_mut());
+    //     }
 
-        if let Some(focusing_index) = &self.app_focuser_index {
-            let num_subapps = self.tabs.num_nodes();
+    //     if let Some(focusing_index) = &self.app_focuser_index {
+    //         let num_subapps = self.tabs.num_nodes();
 
-            frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
-            frame.render_widget(
-                Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
-                Rect::new(13, 5, 30, (2 + num_subapps) as u16),
-            );
+    //         frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
+    //         frame.render_widget(
+    //             Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
+    //             Rect::new(13, 5, 30, (2 + num_subapps) as u16),
+    //         );
 
-            for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
-                let tab = &self.tabs[&tab_path];
+    //         for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
+    //             let tab = &self.tabs[&tab_path];
 
-                let mut widget = Paragraph::new(tab.tab_name.clone());
+    //             let mut widget = Paragraph::new(tab.tab_name.clone());
 
-                if tab_path == self.focused_tab_path {
-                    widget = widget.light_yellow().bold();
-                }
+    //             if tab_path == self.focused_tab_path {
+    //                 widget = widget.light_yellow().bold();
+    //             }
 
-                if tab_path == focusing_index.clone() {
-                    widget = widget.on_cyan();
-                }
+    //             if tab_path == focusing_index.clone() {
+    //                 widget = widget.on_cyan();
+    //             }
 
-                frame.render_widget(
-                    widget,
-                    Rect::new(
-                        (13 + 1 + 2 * tab_path.depth()) as u16,
-                        (5 + 1 + index) as u16,
-                        tab.tab_name.len() as u16,
-                        1,
-                    ),
-                );
-            }
-        }
-    }
+    //             frame.render_widget(
+    //                 widget,
+    //                 Rect::new(
+    //                     (13 + 1 + 2 * tab_path.depth()) as u16,
+    //                     (5 + 1 + index) as u16,
+    //                     tab.tab_name.len() as u16,
+    //                     1,
+    //                 ),
+    //             );
+    //         }
+    //     }
+    // }
 
-    fn handle_input(&mut self) {
-        if crossterm::event::poll(Duration::ZERO).unwrap() {
-            self.process_input(crossterm::event::read().unwrap());
-        }
-    }
+    // fn handle_input(&mut self) {
+    //     if crossterm::event::poll(Duration::ZERO).unwrap() {
+    //         self.process_input(crossterm::event::read().unwrap());
+    //     }
+    // }
 
-    fn process_input(&mut self, event: TUIEvent) {
-        match event {
-            TUIEvent::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('q'),
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                println!("Sayonara!");
-                thread::sleep(Duration::from_secs_f32(0.2));
-                self.is_running = false;
-            }
+    // fn process_input(&mut self, event: TUIEvent) {
+    //     match event {
+    //         TUIEvent::Key(KeyEvent {
+    //             modifiers: KeyModifiers::CONTROL,
+    //             code: KeyCode::Char('q'),
+    //             kind: KeyEventKind::Press,
+    //             ..
+    //         }) => {
+    //             println!("Sayonara!");
+    //             thread::sleep(Duration::from_secs_f32(0.2));
+    //             self.is_running = false;
+    //         }
 
-            TUIEvent::Key(KeyEvent {
-                modifiers: KeyModifiers::ALT,
-                code,
-                kind: KeyEventKind::Press,
-                ..
-            }) if matches!(
-                code,
-                KeyCode::Enter
-                    | KeyCode::Char('w')
-                    | KeyCode::Char('a')
-                    | KeyCode::Char('s')
-                    | KeyCode::Char('d')
-            ) =>
-            {
-                // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+    //         TUIEvent::Key(KeyEvent {
+    //             modifiers: KeyModifiers::ALT,
+    //             code,
+    //             kind: KeyEventKind::Press,
+    //             ..
+    //         }) if matches!(
+    //             code,
+    //             KeyCode::Enter
+    //                 | KeyCode::Char('w')
+    //                 | KeyCode::Char('a')
+    //                 | KeyCode::Char('s')
+    //                 | KeyCode::Char('d')
+    //         ) =>
+    //         {
+    //             // Alt + arrows should be like alt tab for Windows and Linux but tree based
+    //             // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                if code == KeyCode::Enter && self.app_focuser_index.is_some() {
-                    // save tree index and close window
+    //             if code == KeyCode::Enter && self.app_focuser_index.is_some() {
+    //                 // save tree index and close window
 
-                    let new_focus_index = self.app_focuser_index.take().unwrap();
+    //                 let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                    self.focused_tab_path = new_focus_index;
-                } else {
-                    let mut new_focus_index = self
-                        .app_focuser_index
-                        .clone()
-                        .unwrap_or(self.focused_tab_path.clone());
+    //                 self.focused_tab_path = new_focus_index;
+    //             } else {
+    //                 let mut new_focus_index = self
+    //                     .app_focuser_index
+    //                     .clone()
+    //                     .unwrap_or(self.focused_tab_path.clone());
 
-                    self.app_focuser_index = match code {
-                        KeyCode::Enter => Some(new_focus_index),
-                        KeyCode::Char(traverse_key)
-                            if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-                        {
-                            new_focus_index = new_focus_index
-                                .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
-                            Some(new_focus_index)
-                        }
-                        _ => None,
-                    };
-                }
-            }
+    //                 self.app_focuser_index = match code {
+    //                     KeyCode::Enter => Some(new_focus_index),
+    //                     KeyCode::Char(traverse_key)
+    //                         if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
+    //                     {
+    //                         new_focus_index = new_focus_index
+    //                             .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
+    //                         Some(new_focus_index)
+    //                     }
+    //                     _ => None,
+    //                 };
+    //             }
+    //         }
 
-            event => {
-                // forward the event to focused tab
-                let focused_tab = &mut self.tabs[&self.focused_tab_path];
+    //         event => {
+    //             // forward the event to focused tab
+    //             let focused_tab = &mut self.tabs[&self.focused_tab_path];
 
-                focused_tab.send_event(singularity_common::tab::packets::Event::TUIEvent(event));
-            }
-        }
-    }
+    //             focused_tab.send_event(singularity_common::tab::packets::Event::UIEvent(event));
+    //         }
+    //     }
+    // }
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
@@ -282,11 +272,35 @@ impl ProjectManager {
         }
     }
 }
+impl winit::application::ApplicationHandler for ProjectManager {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        dbg!("Resumed");
+
+        let window = event_loop
+            .create_window(winit::window::WindowAttributes::default())
+            .unwrap();
+
+        dbg!("created window");
+
+        loop {
+            thread::sleep(Duration::from_secs(1));
+            dbg!("loopin");
+            window.request_redraw();
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        dbg!(event);
+    }
+}
 impl Drop for ProjectManager {
     fn drop(&mut self) {
         // revert the terminal to its original state
         // drop is called even on panic
-        let _ = disable_raw_mode();
-        let _ = stdout().execute(LeaveAlternateScreen);
     }
 }

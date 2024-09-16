@@ -1,11 +1,12 @@
 use super::ManagerHandler;
-use crate::utils::tree::tree_node_path::TreeNodePath;
-
-pub type DisplayBuffer = Vec<ratatui::buffer::Cell>;
+use crate::{
+    ui::{DisplayArea, UIEvent},
+    utils::tree::tree_node_path::TreeNodePath,
+};
 
 pub enum Event {
-    TUIEvent(ratatui::crossterm::event::Event),
-    Resize(ratatui::layout::Rect),
+    UIEvent(UIEvent),
+    Resize(DisplayArea),
     /// TODO: close forcibly
     Close,
 }
