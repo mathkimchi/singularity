@@ -540,3 +540,14 @@ I couldn't change my entire configuration to fix this, so I just added the flake
 I promise I will learn nix flakes, and when I do, I will make my own flake.nix for singularity.
 
 But, the good news is that winit works now on my machine, my code right now doesn't, but I know winit works because when I do `nix develop` on this directory and then go to the directory storing winit then run `cargo run --example window`, then it shows a blank window.
+
+I guess nothing is showing on my code because of [this](https://github.com/rust-windowing/winit/issues/776) bug involving wayland.
+Apparently the change to fix this was closed.
+The bug is that wayland doesn't show windows until something is drawn on it.
+
+I was trying to draw something really simple just so I could see the window, but as it turns out, that is really hard to do with juset winit.
+I guess I will use wgpu then to draw stuff.
+
+Honestly, I might need to make another crate just to abstract all the UI nonsense.
+I am hoping this will make development easier, and that it will also help when I make singularity agnostic down the line.
+So, I will do that after committing to save progress.
