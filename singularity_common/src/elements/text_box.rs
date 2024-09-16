@@ -252,7 +252,7 @@
 //     }
 // }
 
-use crate::ui::{DisplayArea, DisplayBuffer, UIEvent};
+use singularity_ui::{DisplayArea, DisplayBuffer, UIEvent};
 
 pub struct TextBox;
 #[allow(unused)]

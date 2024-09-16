@@ -16,11 +16,8 @@ use std::{
     thread,
     time::Duration,
 };
-use winit::{event::WindowEvent, event_loop::EventLoop, window::Window};
 
 pub struct ProjectManager {
-    window: Option<Window>,
-
     project: Project,
 
     tabs: RootedTree<TabHandler>,
@@ -40,7 +37,6 @@ impl ProjectManager {
         let project = Project::new(project_directory.clone());
 
         Self {
-            window: None,
             project,
             // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
             //     project_directory,
@@ -78,7 +74,6 @@ impl ProjectManager {
         // };
 
         let mut manager = Self {
-            window: None,
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
                 "examples/root-project",
@@ -91,12 +86,12 @@ impl ProjectManager {
             is_running: false,
         };
 
-        let event_loop = EventLoop::new().unwrap();
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-        dbg!("will run app");
-        event_loop.run_app(&mut manager).unwrap();
+        // let event_loop = EventLoop::new().unwrap();
+        // event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+        // dbg!("will run app");
+        // event_loop.run_app(&mut manager).unwrap();
 
-        dbg!("ran app");
+        // dbg!("ran app");
 
         manager.run()
     }
@@ -273,43 +268,6 @@ impl ProjectManager {
                 Query::Path => Response::Path(tab_path.clone()),
                 Query::Name => Response::Name(inquieror.tab_name.clone()),
             });
-        }
-    }
-}
-impl winit::application::ApplicationHandler for ProjectManager {
-    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        dbg!("Resumed");
-
-        self.window = Some(
-            event_loop
-                .create_window(
-                    winit::window::WindowAttributes::default()
-                        .with_title("Fantastic window number one!")
-                        .with_inner_size(winit::dpi::LogicalSize::new(128.0, 128.0))
-                        .with_visible(true),
-                )
-                .unwrap(),
-        );
-
-        dbg!("created window");
-    }
-
-    fn window_event(
-        &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-        window_id: winit::window::WindowId,
-        event: WindowEvent,
-    ) {
-        match event {
-            WindowEvent::CloseRequested => {
-                event_loop.exit();
-            }
-            WindowEvent::RedrawRequested => {
-                self.window.as_ref().unwrap().request_redraw();
-            }
-            _ => {
-                dbg!(&event);
-            }
         }
     }
 }

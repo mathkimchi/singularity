@@ -4,8 +4,8 @@ use singularity_common::{
         packets::{Event, Request},
         ManagerHandler,
     },
-    ui::DisplayBuffer,
 };
+use singularity_ui::DisplayBuffer;
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.

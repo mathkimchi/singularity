@@ -1,8 +1,6 @@
 use super::ManagerHandler;
-use crate::{
-    ui::{DisplayArea, UIEvent},
-    utils::tree::tree_node_path::TreeNodePath,
-};
+use crate::utils::tree::tree_node_path::TreeNodePath;
+use singularity_ui::{DisplayArea, UIEvent};
 
 pub enum Event {
     UIEvent(UIEvent),

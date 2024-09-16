@@ -1,5 +1,5 @@
-use crate::ui::{DisplayArea, DisplayBuffer};
 use packets::{Event, Query, Request, Response};
+use singularity_ui::{DisplayArea, DisplayBuffer};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},

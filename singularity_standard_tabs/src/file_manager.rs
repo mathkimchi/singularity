@@ -1,18 +1,17 @@
+use crate::editor::Editor;
 use singularity_common::{
     tab::{
         basic_tab_creator,
         packets::{Event, Request},
         ManagerHandler,
     },
-    ui::DisplayBuffer,
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
+use singularity_ui::DisplayBuffer;
 use std::path::PathBuf;
-
-use crate::editor::Editor;
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,

@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+singularity_common = { path = "../singularity_common" }
+singularity_ui = { path = "../singularity_ui" }
+
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-singularity_common = { path = "../singularity_common" }
 
 # [[bin]]
 # name = "editor"

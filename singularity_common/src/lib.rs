@@ -5,5 +5,4 @@ pub mod elements;
 pub mod project;
 pub mod tab;
 mod tests;
-pub mod ui;
 pub mod utils;
