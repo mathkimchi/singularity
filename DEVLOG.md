@@ -551,3 +551,5 @@ I guess I will use wgpu then to draw stuff.
 Honestly, I might need to make another crate just to abstract all the UI nonsense.
 I am hoping this will make development easier, and that it will also help when I make singularity agnostic down the line.
 So, I will do that after committing to save progress.
+
+Apparently Cosmic DE uses iced, so I am going to see what iced is like.

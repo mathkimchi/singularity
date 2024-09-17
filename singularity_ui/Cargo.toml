@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# winit = { workspace = true }
+iced = "0.12"
+
+[[bin]]
+name = "demo"
+path = "src/demo.rs"
