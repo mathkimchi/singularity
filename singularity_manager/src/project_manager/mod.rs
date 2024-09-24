@@ -10,7 +10,7 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_standard_tabs::file_manager::FileManager;
+use singularity_standard_tabs::editor::Editor;
 use std::{
     io::{self, stdout},
     thread,
@@ -77,9 +77,9 @@ impl ProjectManager {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
                 "examples/root-project",
-                FileManager::new,
-                FileManager::render,
-                FileManager::handle_event,
+                Editor::new,
+                Editor::render,
+                Editor::handle_event,
             ))),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),

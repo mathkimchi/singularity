@@ -6,6 +6,10 @@ edition = "2021"
 [dependencies]
 iced = "0.12"
 
+[features]
+default = ["iced_backend"]
+iced_backend = []
+
 [[bin]]
 name = "demo"
 path = "src/demo.rs"

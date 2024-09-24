@@ -252,7 +252,7 @@
 //     }
 // }
 
-use singularity_ui::{DisplayArea, DisplayBuffer, UIEvent};
+use singularity_ui::{DisplayArea, UIEvent};
 
 pub struct TextBox;
 #[allow(unused)]
@@ -292,7 +292,7 @@ impl TextBox {
     pub fn render(
         &mut self,
         _display_area: DisplayArea,
-        _display_buffer: &mut DisplayBuffer,
+        // _display_buffer: &mut DisplayBuffer,
         _is_focused: bool,
     ) {
         todo!()

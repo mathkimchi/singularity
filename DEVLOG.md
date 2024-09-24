@@ -553,3 +553,38 @@ I am hoping this will make development easier, and that it will also help when I
 So, I will do that after committing to save progress.
 
 Apparently Cosmic DE uses iced, so I am going to see what iced is like.
+
+### UI Abstraction
+
+2024/9/18
+
+I want there to be a display, which is like the os window.
+With a display, I want to be able to be able to split rectangular sections out of it and give those sections to each tab.
+
+Because of rust's mutability safety restrictions, I am considering a system where modifying the a rectangular region doesn't update the display until the display's `fn update(&mut self, region: Region)` is called.
+I am not entirely sure what methods are fast enough, so if this is noticably slow, I might have to rewrite everything.
+
+Another way might be to utilize the graphics package (iced)'s existing systems like widgets.
+
+2024/9/20
+
+I am considering an element system, something similar to HTML.
+Instead of giving subapps buffers and giving them elements as a tool to modify the buffer, I can force them to use elements by making them return elements or modify elements.
+
+2024/9/23
+
+...it is actually not as simple as I thought.
+The three ways I can think of doing elements is:
+- Element is data, and shared with mutex. To update, just change data. Could possibly also notify element updates
+  - Feels like it should be faster than having immutable data, but ultimately, I am not sure if this much faster. Suppose there is a large nested element and a small part of it is changed. Updating this would be no different than 
+- Element is immutable and the tabs need to send a new element every time they want to update
+  - Don't like this one
+- Element is trait, and shared with box (maybe mutex is also needed)
+  - If owned by main app
+    - Main app can call an update function of element, and when this is called, it somehow gets data from the tab (reciever, or the main app passes data from tab to the element when calling the function)
+    - I assume this is how iced does it
+  - If mutex
+    - Send data by modifying element
+
+After considering all my options, I am considering either the element is data or element is trait and owned by main app.
+I am going to try the data mutex one, and if it doesn't work I will try the trait one.

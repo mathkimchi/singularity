@@ -5,7 +5,7 @@ use singularity_common::{
         ManagerHandler,
     },
 };
-use singularity_ui::DisplayBuffer;
+use singularity_ui::UIElement;
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
@@ -79,7 +79,7 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 
-    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
+    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
         // let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
 
         // self.text_box

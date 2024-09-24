@@ -1,5 +1,5 @@
 use packets::{Event, Query, Request, Response};
-use singularity_ui::{DisplayArea, DisplayBuffer};
+use singularity_ui::{DisplayArea, UIElement};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -35,7 +35,7 @@ pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
 where
     InitArgs: Send,
     Initializer: FnOnce(InitArgs, &ManagerHandler) -> Tab + Send,
-    Renderer: FnMut(&mut Tab, &ManagerHandler) -> Option<DisplayBuffer> + Send,
+    Renderer: FnMut(&mut Tab, &ManagerHandler) -> Option<UIElement> + Send,
     EventHandler: FnMut(&mut Tab, Event, &ManagerHandler) + Send,
 {
     move |mut manager_handler: ManagerHandler| {
@@ -92,7 +92,7 @@ struct TabChannels {
     query_rx: Receiver<Query>,
     response_tx: Sender<Response>,
 
-    display_buffer: Arc<Mutex<DisplayBuffer>>,
+    display_buffer: Arc<Mutex<UIElement>>,
 }
 
 /// Represents communication with manager on tab side
@@ -102,7 +102,7 @@ struct ManagerChannels {
     query_tx: Sender<Query>,
     response_rx: Receiver<Response>,
 
-    display_buffer: Arc<Mutex<DisplayBuffer>>,
+    display_buffer: Arc<Mutex<UIElement>>,
 }
 
 fn create_channels() -> (TabChannels, ManagerChannels) {
@@ -110,7 +110,7 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
     let (request_tx, request_rx) = mpsc::channel();
     let (query_tx, query_rx) = mpsc::channel();
     let (response_tx, response_rx) = mpsc::channel();
-    let display_buffer: Arc<Mutex<DisplayBuffer>> = Arc::new(Mutex::new(DisplayBuffer::new()));
+    let display_buffer: Arc<Mutex<UIElement>> = Arc::new(Mutex::new(UIElement::Div(Vec::new())));
 
     (
         TabChannels {
@@ -184,7 +184,7 @@ impl TabHandler {
         }
     }
 
-    pub fn get_display_buffer(&self, min_area: usize) -> DisplayBuffer {
+    pub fn get_display_buffer(&self, min_area: usize) -> UIElement {
         self.tab_channels.display_buffer.lock().unwrap().to_owned()
     }
 }
@@ -215,7 +215,7 @@ impl ManagerHandler {
             .expect("failed to get response")
     }
 
-    pub fn update_display_buffer(&mut self, new_display_buffer: DisplayBuffer) {
+    pub fn update_display_buffer(&mut self, new_display_buffer: UIElement) {
         *self.manager_channels.display_buffer.lock().unwrap() =
             // std::mem::take(&mut self.intermediate_display_buffer);
             new_display_buffer;
