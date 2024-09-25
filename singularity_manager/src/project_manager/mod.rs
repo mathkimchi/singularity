@@ -11,7 +11,10 @@ use singularity_common::{
     },
 };
 use singularity_standard_tabs::demo::DemoTab;
-use singularity_ui::{DisplayArea, UIDisplay, UIElement, UIEvent};
+use singularity_ui::{
+    ui_event::{Key, KeyModifiers, UIEvent},
+    DisplayArea, UIDisplay, UIElement,
+};
 use std::{
     io::{self},
     sync::{Arc, Mutex},
@@ -195,17 +198,17 @@ impl ProjectManager {
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             match ui_event {
-                UIEvent::KeyPress {
-                    key_char: 'q',
-                    ctrl: true,
+                UIEvent::Key {
+                    key: Key::Q,
+                    modifiers,
                     ..
-                } => {
+                } if modifiers.command_only() => {
                     dbg!("Goodbye!");
                     self.is_running = false;
                 }
-                UIEvent::KeyPress {
-                    key_char: 'w' | 'a' | 's' | 'd',
-                    alt: true,
+                UIEvent::Key {
+                    key: Key::Enter | Key::W | Key::A | Key::S | Key::D,
+                    modifiers: KeyModifiers::ALT,
                     ..
                 } => {
                     // // Alt + arrows should be like alt tab for Windows and Linux but tree based
@@ -237,6 +240,10 @@ impl ProjectManager {
                     // }
                 }
                 ui_event => {
+                    if let UIEvent::Key { .. } = ui_event {
+                        dbg!(&ui_event);
+                    }
+
                     // forward the event to focused tab
                     let focused_tab = &mut self.tabs[&self.focused_tab_path];
 

@@ -242,7 +242,7 @@
 //     }
 // }
 
-use singularity_ui::{DisplayArea, UIEvent};
+use singularity_ui::{ui_event::UIEvent, DisplayArea};
 
 /// just plaintext
 pub struct TextBox {

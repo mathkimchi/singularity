@@ -1,4 +1,4 @@
-use crate::{UIElement, UIEvent};
+use crate::{ui_event::UIEvent, UIElement};
 use egui::Widget;
 use std::sync::{Arc, Mutex};
 
@@ -76,66 +76,8 @@ impl eframe::App for UIDisplay {
             self.root_element.lock().unwrap().ui(ui);
         });
 
-        for new_event in ctx.input(|i| i.events.clone()) {
-            #[allow(clippy::single_match)]
-            match new_event {
-                egui::Event::Key {
-                    key,
-                    pressed: true,
-                    repeat: false,
-                    modifiers,
-                    ..
-                } => match match key {
-                    egui::Key::Num0 => Some('0'),
-                    egui::Key::Num1 => Some('1'),
-                    egui::Key::Num2 => Some('2'),
-                    egui::Key::Num3 => Some('3'),
-                    egui::Key::Num4 => Some('4'),
-                    egui::Key::Num5 => Some('5'),
-                    egui::Key::Num6 => Some('6'),
-                    egui::Key::Num7 => Some('7'),
-                    egui::Key::Num8 => Some('8'),
-                    egui::Key::Num9 => Some('9'),
-                    egui::Key::A => Some('a'),
-                    egui::Key::B => Some('b'),
-                    egui::Key::C => Some('c'),
-                    egui::Key::D => Some('d'),
-                    egui::Key::E => Some('e'),
-                    egui::Key::F => Some('f'),
-                    egui::Key::G => Some('g'),
-                    egui::Key::H => Some('h'),
-                    egui::Key::I => Some('i'),
-                    egui::Key::J => Some('j'),
-                    egui::Key::K => Some('k'),
-                    egui::Key::L => Some('l'),
-                    egui::Key::M => Some('m'),
-                    egui::Key::N => Some('n'),
-                    egui::Key::O => Some('o'),
-                    egui::Key::P => Some('p'),
-                    egui::Key::Q => Some('q'),
-                    egui::Key::R => Some('r'),
-                    egui::Key::S => Some('s'),
-                    egui::Key::T => Some('t'),
-                    egui::Key::U => Some('u'),
-                    egui::Key::V => Some('v'),
-                    egui::Key::W => Some('w'),
-                    egui::Key::X => Some('x'),
-                    egui::Key::Y => Some('y'),
-                    egui::Key::Z => Some('z'),
-                    _ => None,
-                } {
-                    Some(c) => {
-                        self.event_queue.lock().unwrap().push(UIEvent::KeyPress {
-                            key_char: c,
-                            alt: modifiers.alt,
-                            ctrl: modifiers.ctrl,
-                            shift: modifiers.shift,
-                        });
-                    }
-                    None => {}
-                },
-                _ => {}
-            }
+        for event in ctx.input(|i| i.events.clone()) {
+            self.event_queue.lock().unwrap().push(event);
         }
 
         ctx.request_repaint_after_secs(FRAME_DELTA_SECONDS);

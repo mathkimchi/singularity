@@ -2,7 +2,10 @@ use singularity_common::tab::{
     packets::{Event, Request},
     ManagerHandler,
 };
-use singularity_ui::UIElement;
+use singularity_ui::{
+    ui_event::{Key, KeyModifiers, KeyTrait},
+    UIElement,
+};
 
 pub struct DemoTab {
     string: String,
@@ -21,10 +24,28 @@ impl DemoTab {
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
-                singularity_ui::UIEvent::KeyPress { key_char: key, .. } => {
-                    dbg!(key);
-                    self.string.push(key);
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: Key::Backspace,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } => {
+                    self.string.pop();
                 }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } => {
+                    dbg!(key);
+                    if let Some(c) = key.to_alphabet() {
+                        self.string.push(c);
+                    }
+                }
+                _ => {}
             },
             Event::Resize(_) => {
                 // dbg!("resized");
