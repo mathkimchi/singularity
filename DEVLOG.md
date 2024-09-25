@@ -597,3 +597,5 @@ The loser way would be to run all the other stuff in a seperate thread, but that
 Apparently winit has a way of allowing non-main thread execution, but the problem with that is that I don't care.
 
 I might actually need to switch to egui, so I am going to commit before I go any further.
+
+Okay, egui also uses winit, BUT, apparently egui [allows me to easily allow non-main thread running](https://github.com/emilk/egui/discussions/1489).

@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = "0.12"
-egui = "0.28"
-# winit = "0.30"
+egui = "^0.28"
+eframe = "^0.28"
+winit = "^0.29"
+# iced = "0.12"
 
 [features]
 default = ["egui_backend"]

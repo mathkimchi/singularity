@@ -241,24 +241,27 @@
 //         self.clamp_everything(self.most_recent_area);
 //     }
 // }
-// impl Default for TextBox {
-//     fn default() -> Self {
-//         Self::new(Vec::new())
-//     }
-// }
-// impl From<String> for TextBox {
-//     fn from(value: String) -> Self {
-//         Self::new(value.lines().map(|s| s.to_string()).collect())
-//     }
-// }
 
 use singularity_ui::{DisplayArea, UIEvent};
 
-pub struct TextBox;
+/// just plaintext
+pub struct TextBox {
+    /// storing by lines makes operations easier
+    text_lines: Vec<String>,
+
+    /// (x, y) or (col, row)
+    scroll: (u16, u16),
+    /// (x, y) or (col, row)
+    cursor_logical_position: (usize, usize),
+}
 #[allow(unused)]
 impl TextBox {
     pub fn new(text_lines: Vec<String>) -> Self {
-        todo!()
+        Self {
+            text_lines,
+            scroll: (0, 0),
+            cursor_logical_position: (0, 0),
+        }
     }
 
     pub fn get_text_lines(&self) -> &Vec<String> {
@@ -304,11 +307,11 @@ impl TextBox {
 }
 impl Default for TextBox {
     fn default() -> Self {
-        todo!()
+        Self::new(Vec::new())
     }
 }
 impl From<String> for TextBox {
-    fn from(_value: String) -> Self {
-        todo!()
+    fn from(value: String) -> Self {
+        Self::new(value.lines().map(|s| s.to_string()).collect())
     }
 }

@@ -83,7 +83,7 @@ impl ProjectManager {
         let mut manager = Self {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-                "examples/root-project",
+                "examples/root-project/file_to_edit.txt",
                 Editor::new,
                 Editor::render,
                 Editor::handle_event,
@@ -104,17 +104,18 @@ impl ProjectManager {
         // manager.ui_element.lock()
 
         let ui_element_clone = manager.ui_element.clone();
-        let running_thread_handle = thread::spawn(move || {
-            UIDisplay::run_display(ui_element_clone);
-        });
+        // let running_thread_handle = thread::spawn(move || {
+        UIDisplay::run_display(ui_element_clone);
+        // });
 
         *(manager.ui_element.lock().unwrap()) = UIElement::Letter('h');
 
         dbg!("Waitin");
 
-        running_thread_handle.join().unwrap();
+        // running_thread_handle.join().unwrap();
 
-        manager.run()
+        // manager.run()
+        loop {}
     }
 
     pub fn run(mut self) -> io::Result<()> {

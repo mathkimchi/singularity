@@ -25,11 +25,14 @@ impl UIDisplay {
         UIDisplay { root_element }
     }
 
-    // pub fn render_display_buffer(&self, display_area: DisplayArea, display_buffer: DisplayBuffer) {}
-
     pub fn try_iter_events(&self) -> Vec<UIEvent> {
         todo!()
     }
 
-    pub fn run_display(root_element: Arc<Mutex<UIElement>>) {}
+    pub fn run_display(root_element: Arc<Mutex<UIElement>>) {
+        #[cfg(feature = "egui_backend")]
+        {
+            egui_backend::run_display(root_element);
+        }
+    }
 }
