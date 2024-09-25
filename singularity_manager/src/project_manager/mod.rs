@@ -11,7 +11,7 @@ use singularity_common::{
     },
 };
 use singularity_standard_tabs::demo::DemoTab;
-use singularity_ui::{DisplayArea, UIDisplay, UIElement};
+use singularity_ui::{DisplayArea, UIDisplay, UIElement, UIEvent};
 use std::{
     io::{self},
     sync::{Arc, Mutex},
@@ -31,26 +31,28 @@ pub struct ProjectManager {
 
     /// gui
     ui_element: Arc<Mutex<UIElement>>,
+    ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
 }
 impl ProjectManager {
-    pub fn new<P>(project_directory: P) -> Self
+    pub fn new<P>(_project_directory: P) -> Self
     where
         P: AsRef<std::path::Path> + Clone + Send,
         std::path::PathBuf: From<P>,
     {
-        let project = Project::new(project_directory.clone());
+        // let project = Project::new(project_directory.clone());
 
-        Self {
-            project,
-            // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
-            //     project_directory,
-            // ))),
-            tabs: RootedTree::from_root(todo!()),
-            app_focuser_index: None,
-            focused_tab_path: TreeNodePath::new_root(),
-            is_running: false,
-            ui_element: todo!(),
-        }
+        // Self {
+        //     project,
+        //     // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
+        //     //     project_directory,
+        //     // ))),
+        //     tabs: RootedTree::from_root(todo!()),
+        //     app_focuser_index: None,
+        //     focused_tab_path: TreeNodePath::new_root(),
+        //     is_running: false,
+        //     ui_element: todo!(),
+        // }
+        todo!()
     }
 
     pub fn run_demo() -> io::Result<()> {
@@ -90,6 +92,7 @@ impl ProjectManager {
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
+            ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         };
         manager.tabs.add_node(
             TabHandler::new(basic_tab_creator(
@@ -111,8 +114,9 @@ impl ProjectManager {
         // manager.ui_element.lock()
 
         let ui_element_clone = manager.ui_element.clone();
+        let ui_event_queue_clone = manager.ui_event_queue.clone();
         let ui_thread_handle = thread::spawn(move || {
-            UIDisplay::run_display(ui_element_clone);
+            UIDisplay::run_display(ui_element_clone, ui_event_queue_clone);
         });
 
         manager.run().unwrap();
@@ -126,7 +130,7 @@ impl ProjectManager {
 
         while self.is_running {
             self.draw_app();
-            // self.handle_input();
+            self.handle_input();
             self.process_tab_requests();
             self.answer_tab_queries();
         }
@@ -188,11 +192,52 @@ impl ProjectManager {
         //     }
     }
 
-    // fn handle_input(&mut self) {
-    //     if crossterm::event::poll(Duration::ZERO).unwrap() {
-    //         self.process_input(crossterm::event::read().unwrap());
-    //     }
-    // }
+    fn handle_input(&mut self) {
+        for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
+            match ui_event {
+                UIEvent::KeyPress('q') => {
+                    dbg!("Goodbye!");
+                    self.is_running = false;
+                }
+                UIEvent::KeyPress('w' | 'a' | 's' | 'd') => {
+                    // // Alt + arrows should be like alt tab for Windows and Linux but tree based
+                    // // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+
+                    // if code == KeyCode::Enter && self.app_focuser_index.is_some() {
+                    //     // save tree index and close window
+
+                    //     let new_focus_index = self.app_focuser_index.take().unwrap();
+
+                    //     self.focused_tab_path = new_focus_index;
+                    // } else {
+                    //     let mut new_focus_index = self
+                    //         .app_focuser_index
+                    //         .clone()
+                    //         .unwrap_or(self.focused_tab_path.clone());
+
+                    //     self.app_focuser_index = match code {
+                    //         KeyCode::Enter => Some(new_focus_index),
+                    //         KeyCode::Char(traverse_key)
+                    //             if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
+                    //         {
+                    //             new_focus_index = new_focus_index
+                    //                 .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
+                    //             Some(new_focus_index)
+                    //         }
+                    //         _ => None,
+                    //     };
+                    // }
+                }
+                ui_event => {
+                    // forward the event to focused tab
+                    let focused_tab = &mut self.tabs[&self.focused_tab_path];
+
+                    focused_tab
+                        .send_event(singularity_common::tab::packets::Event::UIEvent(ui_event));
+                }
+            }
+        }
+    }
 
     // fn process_input(&mut self, event: TUIEvent) {
     //     match event {

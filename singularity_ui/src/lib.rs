@@ -10,7 +10,9 @@ pub use egui_backend::UIDisplay;
 
 pub type DisplayArea = (usize, usize);
 // pub type DisplayBuffer = Vec<u8>;
-pub type UIEvent = ();
+pub enum UIEvent {
+    KeyPress(char),
+}
 
 #[derive(Debug, Clone)]
 pub enum UIElement {
