@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 iced = "0.12"
+egui = "0.28"
 # winit = "0.30"
 
 [features]
-default = ["iced_backend"]
+default = ["egui_backend"]
 iced_backend = []
+egui_backend = []
 
 # [[bin]]
 # name = "demo"
