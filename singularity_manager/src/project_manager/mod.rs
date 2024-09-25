@@ -11,8 +11,11 @@ use singularity_common::{
     },
 };
 use singularity_standard_tabs::editor::Editor;
+use singularity_ui::{UIDisplay, UIElement};
 use std::{
     io::{self, stdout},
+    path::Display,
+    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -27,6 +30,9 @@ pub struct ProjectManager {
     app_focuser_index: Option<TreeNodePath>,
     focused_tab_path: TreeNodePath,
     is_running: bool,
+
+    /// gui
+    ui_element: Arc<Mutex<UIElement>>,
 }
 impl ProjectManager {
     pub fn new<P>(project_directory: P) -> Self
@@ -45,6 +51,7 @@ impl ProjectManager {
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
+            ui_element: todo!(),
         }
     }
 
@@ -84,6 +91,7 @@ impl ProjectManager {
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
+            ui_element: Arc::new(Mutex::new(UIElement::Letter('E'))),
         };
 
         // let event_loop = EventLoop::new().unwrap();
@@ -92,6 +100,19 @@ impl ProjectManager {
         // event_loop.run_app(&mut manager).unwrap();
 
         // dbg!("ran app");
+
+        // manager.ui_element.lock()
+
+        let ui_element_clone = manager.ui_element.clone();
+        let running_thread_handle = thread::spawn(move || {
+            UIDisplay::run_display(ui_element_clone);
+        });
+
+        *(manager.ui_element.lock().unwrap()) = UIElement::Letter('h');
+
+        dbg!("Waitin");
+
+        running_thread_handle.join().unwrap();
 
         manager.run()
     }

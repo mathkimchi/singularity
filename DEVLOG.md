@@ -588,3 +588,12 @@ The three ways I can think of doing elements is:
 
 After considering all my options, I am considering either the element is data or element is trait and owned by main app.
 I am going to try the data mutex one, and if it doesn't work I will try the trait one.
+
+2024/9/24
+
+Running the UI pauses the thread until the UI is exited, and I can't run winit stuff in a seperate thread either because Mac forces all UI calls to be in the main thread.
+
+The loser way would be to run all the other stuff in a seperate thread, but that is so lame that I would rather just switch back to egui.
+Apparently winit has a way of allowing non-main thread execution, but the problem with that is that I don't care.
+
+I might actually need to switch to egui, so I am going to commit before I go any further.
