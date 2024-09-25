@@ -8,12 +8,10 @@ pub struct DemoTab {
     string: String,
 }
 impl DemoTab {
-    pub fn new(_: (), manager_handler: &ManagerHandler) -> Self {
+    pub fn new(string: String, manager_handler: &ManagerHandler) -> Self {
         manager_handler.send_request(Request::ChangeName("Hi".to_string()));
 
-        Self {
-            string: String::from("DEMO"),
-        }
+        Self { string }
     }
 
     pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {

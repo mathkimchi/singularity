@@ -13,7 +13,8 @@ pub type UIEvent = ();
 
 #[derive(Debug, Clone)]
 pub enum UIElement {
-    Div(Vec<UIElement>),
+    Container(Vec<(UIElement, DisplayArea)>),
+    Bordered(Box<UIElement>),
     Text(String),
 }
 

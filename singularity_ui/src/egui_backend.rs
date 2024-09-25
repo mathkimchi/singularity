@@ -1,20 +1,28 @@
 use crate::{UIDisplay, UIElement};
+use egui::Widget;
 use std::sync::{Arc, Mutex};
 
 pub const FRAME_RATE: f32 = 5.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 
-impl UIElement {
-    fn draw(&self, ui: &mut egui::Ui) {
+impl egui::Widget for &UIElement {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         match self {
-            UIElement::Div(children) => {
-                for child in children {
-                    child.draw(ui);
-                }
+            UIElement::Container(children) => {
+                ui.horizontal(move |ui| {
+                    for (child, size) in children {
+                        ui.add_sized((size.0 as f32, size.1 as f32), child);
+                    }
+                })
+                .response
             }
-            UIElement::Text(s) => {
-                ui.heading(s);
+            UIElement::Bordered(inner) => {
+                egui::Frame::none()
+                    .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+                    .show(ui, move |ui| inner.ui(ui))
+                    .response
             }
+            UIElement::Text(s) => ui.label(s),
         }
     }
 }
@@ -22,7 +30,7 @@ impl UIElement {
 impl eframe::App for UIDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.root_element.lock().unwrap().draw(ui);
+            self.root_element.lock().unwrap().ui(ui);
         });
 
         ctx.request_repaint_after_secs(FRAME_DELTA_SECONDS);

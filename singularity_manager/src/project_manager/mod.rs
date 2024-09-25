@@ -81,7 +81,7 @@ impl ProjectManager {
         let mut manager = Self {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-                (),
+                "DEMO ROOT".to_string(),
                 DemoTab::new,
                 DemoTab::render,
                 DemoTab::handle_event,
@@ -89,8 +89,17 @@ impl ProjectManager {
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
-            ui_element: Arc::new(Mutex::new(UIElement::Text("Hi".to_string()))),
+            ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
         };
+        manager.tabs.add_node(
+            TabHandler::new(basic_tab_creator(
+                "DEMO ROOT 2".to_string(),
+                DemoTab::new,
+                DemoTab::render,
+                DemoTab::handle_event,
+            )),
+            &TreeNodePath::new_root(),
+        );
 
         // let event_loop = EventLoop::new().unwrap();
         // event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
@@ -131,15 +140,18 @@ impl ProjectManager {
         for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
-            let tab_inner_area: DisplayArea = (20, 20);
+            let tab_inner_area: DisplayArea = (50, 50);
 
             // TODO: only send on actual resize
             tab.send_event(Event::Resize(tab_inner_area));
 
-            tab_elements.push(tab.get_ui_element());
+            tab_elements.push((
+                UIElement::Bordered(Box::new(tab.get_ui_element())),
+                tab_inner_area,
+            ));
         }
 
-        *(self.ui_element.lock().unwrap()) = UIElement::Div(tab_elements);
+        *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
 
         //     if let Some(focusing_index) = &self.app_focuser_index {
         //         let num_subapps = self.tabs.num_nodes();

@@ -110,7 +110,8 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
     let (request_tx, request_rx) = mpsc::channel();
     let (query_tx, query_rx) = mpsc::channel();
     let (response_tx, response_rx) = mpsc::channel();
-    let display_buffer: Arc<Mutex<UIElement>> = Arc::new(Mutex::new(UIElement::Div(Vec::new())));
+    let display_buffer: Arc<Mutex<UIElement>> =
+        Arc::new(Mutex::new(UIElement::Container(Vec::new())));
 
     (
         TabChannels {
