@@ -104,18 +104,19 @@ impl ProjectManager {
         // manager.ui_element.lock()
 
         let ui_element_clone = manager.ui_element.clone();
-        // let running_thread_handle = thread::spawn(move || {
-        UIDisplay::run_display(ui_element_clone);
-        // });
+        let running_thread_handle = thread::spawn(move || {
+            UIDisplay::run_display(ui_element_clone);
+        });
 
         *(manager.ui_element.lock().unwrap()) = UIElement::Letter('h');
 
         dbg!("Waitin");
 
-        // running_thread_handle.join().unwrap();
+        running_thread_handle.join().unwrap();
 
         // manager.run()
-        loop {}
+
+        Ok(())
     }
 
     pub fn run(mut self) -> io::Result<()> {

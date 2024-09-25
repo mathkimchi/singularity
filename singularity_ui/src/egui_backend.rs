@@ -1,10 +1,25 @@
 use crate::{UIDisplay, UIElement};
 use std::sync::{Arc, Mutex};
 
+impl UIElement {
+    fn draw(&self, ui: &mut egui::Ui) {
+        match self {
+            UIElement::Div(children) => {
+                for child in children {
+                    child.draw(ui);
+                }
+            }
+            UIElement::Letter(c) => {
+                ui.heading(c.to_string());
+            }
+        }
+    }
+}
+
 impl eframe::App for UIDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My egui Application");
+            self.root_element.lock().unwrap().draw(ui);
         });
     }
 }

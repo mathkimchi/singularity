@@ -599,3 +599,4 @@ Apparently winit has a way of allowing non-main thread execution, but the proble
 I might actually need to switch to egui, so I am going to commit before I go any further.
 
 Okay, egui also uses winit, BUT, apparently egui [allows me to easily allow non-main thread running](https://github.com/emilk/egui/discussions/1489).
+But, I need to use winit, and eframe 0.28 and winit 0.30 are incompatible or something.
