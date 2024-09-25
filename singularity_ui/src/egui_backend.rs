@@ -1,6 +1,9 @@
 use crate::{UIDisplay, UIElement};
 use std::sync::{Arc, Mutex};
 
+pub const FRAME_RATE: f32 = 5.;
+pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
+
 impl UIElement {
     fn draw(&self, ui: &mut egui::Ui) {
         match self {
@@ -21,6 +24,8 @@ impl eframe::App for UIDisplay {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.root_element.lock().unwrap().draw(ui);
         });
+
+        ctx.request_repaint_after_secs(FRAME_DELTA_SECONDS);
     }
 }
 

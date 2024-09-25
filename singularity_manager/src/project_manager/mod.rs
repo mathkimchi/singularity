@@ -108,15 +108,18 @@ impl ProjectManager {
             UIDisplay::run_display(ui_element_clone);
         });
 
-        *(manager.ui_element.lock().unwrap()) = UIElement::Letter('h');
+        for i in 0..10 {
+            *(manager.ui_element.lock().unwrap()) =
+                UIElement::Letter(i.to_string().chars().next().unwrap());
+
+            thread::sleep(Duration::from_secs(1));
+        }
 
         dbg!("Waitin");
 
         running_thread_handle.join().unwrap();
 
-        // manager.run()
-
-        Ok(())
+        manager.run()
     }
 
     pub fn run(mut self) -> io::Result<()> {
