@@ -80,7 +80,11 @@ impl eframe::App for UIDisplay {
             #[allow(clippy::single_match)]
             match new_event {
                 egui::Event::Key {
-                    key, pressed: true, ..
+                    key,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                    ..
                 } => match match key {
                     egui::Key::Num0 => Some('0'),
                     egui::Key::Num1 => Some('1'),
@@ -121,7 +125,12 @@ impl eframe::App for UIDisplay {
                     _ => None,
                 } {
                     Some(c) => {
-                        self.event_queue.lock().unwrap().push(UIEvent::KeyPress(c));
+                        self.event_queue.lock().unwrap().push(UIEvent::KeyPress {
+                            key_char: c,
+                            alt: modifiers.alt,
+                            ctrl: modifiers.ctrl,
+                            shift: modifiers.shift,
+                        });
                     }
                     None => {}
                 },

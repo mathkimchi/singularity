@@ -195,11 +195,19 @@ impl ProjectManager {
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             match ui_event {
-                UIEvent::KeyPress('q') => {
+                UIEvent::KeyPress {
+                    key_char: 'q',
+                    ctrl: true,
+                    ..
+                } => {
                     dbg!("Goodbye!");
                     self.is_running = false;
                 }
-                UIEvent::KeyPress('w' | 'a' | 's' | 'd') => {
+                UIEvent::KeyPress {
+                    key_char: 'w' | 'a' | 's' | 'd',
+                    alt: true,
+                    ..
+                } => {
                     // // Alt + arrows should be like alt tab for Windows and Linux but tree based
                     // // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 

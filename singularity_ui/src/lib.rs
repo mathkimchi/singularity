@@ -1,7 +1,7 @@
 #[cfg(feature = "egui_backend")]
-pub mod egui_backend;
+mod egui_backend;
 #[cfg(feature = "iced_backend")]
-pub mod iced_backend;
+mod iced_backend;
 #[cfg(not(any(feature = "egui_backend", feature = "iced_backend")))]
 compile_error!("need to choose a gui backend");
 
@@ -11,7 +11,12 @@ pub use egui_backend::UIDisplay;
 pub type DisplayArea = (usize, usize);
 // pub type DisplayBuffer = Vec<u8>;
 pub enum UIEvent {
-    KeyPress(char),
+    KeyPress {
+        key_char: char,
+        alt: bool,
+        ctrl: bool,
+        shift: bool,
+    },
 }
 
 #[derive(Debug, Clone)]

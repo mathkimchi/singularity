@@ -21,9 +21,9 @@ impl DemoTab {
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
-                singularity_ui::UIEvent::KeyPress(c) => {
-                    dbg!(c);
-                    self.string.push(c);
+                singularity_ui::UIEvent::KeyPress { key_char: key, .. } => {
+                    dbg!(key);
+                    self.string.push(key);
                 }
             },
             Event::Resize(_) => {

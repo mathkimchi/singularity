@@ -605,3 +605,17 @@ But, I need to use winit, and eframe 0.28 and winit 0.30 are incompatible or som
 
 I added active updates, but currently you need to give it an event to make it update.
 I can jankily do continuous updates by just requesting updates on every update.
+
+The basic foundations for all the features (ui elements, ui events) have been implemented, so I am going to implement the following, and as I do that, I can add necessary features:
+
+- [ ] text editor
+  - [ ] more variety of keyboard input
+    - [x] modifiers
+    - [ ] more characters
+  - [ ] char grid element
+    - [ ] more or less a tui display, with monospace font and possibly basic visual features like colors
+- [ ] tab traversal
+- [ ] tab selection with mouse
+  - [ ] for the prototype, just make it so that mouse is used only to select a tab
+- [ ] window management with tabs
+  - [ ] able to move tabs around
