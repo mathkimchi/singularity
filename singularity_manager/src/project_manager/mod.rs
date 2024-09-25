@@ -10,14 +10,12 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_standard_tabs::editor::Editor;
-use singularity_ui::{UIDisplay, UIElement};
+use singularity_standard_tabs::demo::DemoTab;
+use singularity_ui::{DisplayArea, UIDisplay, UIElement};
 use std::{
-    io::{self, stdout},
-    path::Display,
+    io::{self},
     sync::{Arc, Mutex},
     thread,
-    time::Duration,
 };
 
 pub struct ProjectManager {
@@ -83,15 +81,15 @@ impl ProjectManager {
         let mut manager = Self {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-                "examples/root-project/file_to_edit.txt",
-                Editor::new,
-                Editor::render,
-                Editor::handle_event,
+                (),
+                DemoTab::new,
+                DemoTab::render,
+                DemoTab::handle_event,
             ))),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
-            ui_element: Arc::new(Mutex::new(UIElement::Letter('E'))),
+            ui_element: Arc::new(Mutex::new(UIElement::Text("Hi".to_string()))),
         };
 
         // let event_loop = EventLoop::new().unwrap();
@@ -104,96 +102,79 @@ impl ProjectManager {
         // manager.ui_element.lock()
 
         let ui_element_clone = manager.ui_element.clone();
-        let running_thread_handle = thread::spawn(move || {
+        let ui_thread_handle = thread::spawn(move || {
             UIDisplay::run_display(ui_element_clone);
         });
 
-        for i in 0..10 {
-            *(manager.ui_element.lock().unwrap()) =
-                UIElement::Letter(i.to_string().chars().next().unwrap());
+        manager.run().unwrap();
+        ui_thread_handle.join().unwrap();
 
-            thread::sleep(Duration::from_secs(1));
-        }
-
-        dbg!("Waitin");
-
-        running_thread_handle.join().unwrap();
-
-        manager.run()
+        Ok(())
     }
 
     pub fn run(mut self) -> io::Result<()> {
         self.is_running = true;
 
-        // while self.is_running {
-        //     // terminal.draw(|f| self.draw_app(f))?;
-        //     self.handle_input();
-        //     self.process_tab_requests();
-        //     self.answer_tab_queries();
-        // }
+        while self.is_running {
+            self.draw_app();
+            // self.handle_input();
+            self.process_tab_requests();
+            self.answer_tab_queries();
+        }
 
         Ok(())
     }
 
-    // fn draw_app(&mut self, frame: &mut Frame) {
-    //     frame.render_widget(Clear, frame.area());
+    fn draw_app(&mut self) {
+        let mut tab_elements = Vec::new();
 
-    //     for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
-    //         let tab = &mut self.tabs[&tab_path];
+        for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
+            let tab = &mut self.tabs[&tab_path];
 
-    //         let total_tab_area =
-    //             Rect::new(2 * tab_path.depth() as u16, (12 * index) as u16, 50, 12);
-    //         let inner_tab_area = total_tab_area.inner(Margin::new(1, 1));
+            let tab_inner_area: DisplayArea = (20, 20);
 
-    //         // TODO: only send on actual resize
-    //         tab.send_event(Event::Resize(inner_tab_area));
+            // TODO: only send on actual resize
+            tab.send_event(Event::Resize(tab_inner_area));
 
-    //         frame.buffer_mut().merge(&ratatui::buffer::Buffer {
-    //             area: inner_tab_area,
-    //             // REVIEW: not sure about the cost of this
-    //             // NOTE: the vec length needs to be at least the area and is allowed to be more
-    //             content: tab.get_display_buffer(inner_tab_area.area() as usize),
-    //         });
+            tab_elements.push(tab.get_ui_element());
+        }
 
-    //         ratatui::widgets::Block::bordered()
-    //             .title(tab.tab_name.clone())
-    //             .render(total_tab_area, frame.buffer_mut());
-    //     }
+        *(self.ui_element.lock().unwrap()) = UIElement::Div(tab_elements);
 
-    //     if let Some(focusing_index) = &self.app_focuser_index {
-    //         let num_subapps = self.tabs.num_nodes();
+        //     if let Some(focusing_index) = &self.app_focuser_index {
+        //         let num_subapps = self.tabs.num_nodes();
 
-    //         frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
-    //         frame.render_widget(
-    //             Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
-    //             Rect::new(13, 5, 30, (2 + num_subapps) as u16),
-    //         );
+        //         frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
+        //         frame.render_widget(
+        //             Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
+        //             Rect::new(13, 5, 30, (2 + num_subapps) as u16),
+        //         );
 
-    //         for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
-    //             let tab = &self.tabs[&tab_path];
+        //         for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
+        //             let tab = &self.tabs[&tab_path];
 
-    //             let mut widget = Paragraph::new(tab.tab_name.clone());
+        //             let mut widget = Paragraph::new(tab.tab_name.clone());
 
-    //             if tab_path == self.focused_tab_path {
-    //                 widget = widget.light_yellow().bold();
-    //             }
+        //             if tab_path == self.focused_tab_path {
+        //                 widget = widget.light_yellow().bold();
+        //             }
 
-    //             if tab_path == focusing_index.clone() {
-    //                 widget = widget.on_cyan();
-    //             }
+        //             if tab_path == focusing_index.clone() {
+        //                 widget = widget.on_cyan();
+        //             }
 
-    //             frame.render_widget(
-    //                 widget,
-    //                 Rect::new(
-    //                     (13 + 1 + 2 * tab_path.depth()) as u16,
-    //                     (5 + 1 + index) as u16,
-    //                     tab.tab_name.len() as u16,
-    //                     1,
-    //                 ),
-    //             );
-    //         }
-    //     }
-    // }
+        //             frame.render_widget(
+        //                 widget,
+        //                 Rect::new(
+        //                     (13 + 1 + 2 * tab_path.depth()) as u16,
+        //                     (5 + 1 + index) as u16,
+        //                     tab.tab_name.len() as u16,
+        //                     1,
+        //                 ),
+        //             );
+        //         }
+        //     }
+    }
 
     // fn handle_input(&mut self) {
     //     if crossterm::event::poll(Duration::ZERO).unwrap() {

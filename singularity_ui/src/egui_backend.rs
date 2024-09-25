@@ -12,8 +12,8 @@ impl UIElement {
                     child.draw(ui);
                 }
             }
-            UIElement::Letter(c) => {
-                ui.heading(c.to_string());
+            UIElement::Text(s) => {
+                ui.heading(s);
             }
         }
     }

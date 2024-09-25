@@ -14,7 +14,7 @@ pub type UIEvent = ();
 #[derive(Debug, Clone)]
 pub enum UIElement {
     Div(Vec<UIElement>),
-    Letter(char),
+    Text(String),
 }
 
 pub struct UIDisplay {

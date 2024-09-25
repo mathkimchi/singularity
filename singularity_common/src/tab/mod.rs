@@ -63,7 +63,7 @@ where
 
         'mainloop: loop {
             if let Some(new_display_buffer) = renderer(&mut tab, &manager_handler) {
-                manager_handler.update_display_buffer(new_display_buffer);
+                manager_handler.update_ui_element(new_display_buffer);
             };
 
             for event in manager_handler.collect_events() {
@@ -92,7 +92,7 @@ struct TabChannels {
     query_rx: Receiver<Query>,
     response_tx: Sender<Response>,
 
-    display_buffer: Arc<Mutex<UIElement>>,
+    ui_element: Arc<Mutex<UIElement>>,
 }
 
 /// Represents communication with manager on tab side
@@ -102,7 +102,7 @@ struct ManagerChannels {
     query_tx: Sender<Query>,
     response_rx: Receiver<Response>,
 
-    display_buffer: Arc<Mutex<UIElement>>,
+    ui_element: Arc<Mutex<UIElement>>,
 }
 
 fn create_channels() -> (TabChannels, ManagerChannels) {
@@ -118,14 +118,14 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
             request_rx,
             query_rx,
             response_tx,
-            display_buffer: display_buffer.clone(),
+            ui_element: display_buffer.clone(),
         },
         ManagerChannels {
             event_rx,
             request_tx,
             query_tx,
             response_rx,
-            display_buffer,
+            ui_element: display_buffer,
         },
     )
 }
@@ -184,8 +184,8 @@ impl TabHandler {
         }
     }
 
-    pub fn get_display_buffer(&self, min_area: usize) -> UIElement {
-        self.tab_channels.display_buffer.lock().unwrap().to_owned()
+    pub fn get_ui_element(&self) -> UIElement {
+        self.tab_channels.ui_element.lock().unwrap().clone()
     }
 }
 
@@ -215,10 +215,10 @@ impl ManagerHandler {
             .expect("failed to get response")
     }
 
-    pub fn update_display_buffer(&mut self, new_display_buffer: UIElement) {
-        *self.manager_channels.display_buffer.lock().unwrap() =
+    pub fn update_ui_element(&mut self, ui_element: UIElement) {
+        *self.manager_channels.ui_element.lock().unwrap() =
             // std::mem::take(&mut self.intermediate_display_buffer);
-            new_display_buffer;
+            ui_element;
     }
 
     pub fn get_event_rx(&self) -> &Receiver<Event> {
