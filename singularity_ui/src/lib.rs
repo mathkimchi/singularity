@@ -75,7 +75,7 @@ pub enum UIElement {
     ///
     /// most important feature is that each character is the same size
     CharGrid {
-        content: Vec<Vec<(char, Color32)>>,
+        content: Vec<Vec<(char, Color32, Color32)>>,
     },
 }
 impl UIElement {
@@ -84,7 +84,7 @@ impl UIElement {
         for line_str in raw_content.to_string().split('\n') {
             let mut line = Vec::new();
             for c in line_str.chars() {
-                line.push((c, Color32::LIGHT_BLUE));
+                line.push((c, Color32::LIGHT_BLUE, Color32::DARK_RED));
             }
             content.push(line);
         }

@@ -34,24 +34,30 @@ impl egui::Widget for &UIElement {
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 ui.spacing_mut().window_margin = egui::Margin::ZERO;
                 ui.spacing_mut().indent = 0.0;
-                ui.vertical(|ui| {
-                    for line in content {
-                        ui.horizontal(|ui| {
-                            for &(c, color) in line {
-                                dbg!(ui.spacing());
+
+                egui::Grid::new(content)
+                    .min_col_width(CHAR_SIZE.0 as f32)
+                    .max_col_width(CHAR_SIZE.0 as f32)
+                    .spacing(egui::Vec2::ZERO)
+                    .show(ui, |ui| {
+                        for line in content {
+                            for &(c, color, bg_color) in line {
+                                // dbg!(ui.spacing());
                                 ui.add_sized(
                                     egui::Vec2::new(CHAR_SIZE.0 as f32, CHAR_SIZE.1 as f32),
                                     egui::Label::new(
                                         widget_text::RichText::monospace(c.to_string().into())
                                             .size(CHAR_SIZE.1 as f32)
-                                            .color(color),
+                                            .color(color)
+                                            .background_color(bg_color)
+                                            .extra_letter_spacing(0.0),
                                     ),
                                 );
                             }
-                        });
-                    }
-                })
-                .response
+                            ui.end_row();
+                        }
+                    })
+                    .response
             }
         }
     }

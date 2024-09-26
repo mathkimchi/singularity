@@ -99,7 +99,7 @@ impl ProjectManager {
         };
         manager.tabs.add_node(
             TabHandler::new(basic_tab_creator(
-                "DEMO ROOT 2".to_string(),
+                "DEMO ROOT 2\nnextline".to_string(),
                 DemoTab::new,
                 DemoTab::render,
                 DemoTab::handle_event,
