@@ -1,5 +1,5 @@
-use crate::{ui_event::UIEvent, UIElement};
-use egui::Widget;
+use crate::{ui_event::UIEvent, DisplayArea, UIElement};
+use egui::{widget_text, Widget};
 use std::sync::{Arc, Mutex};
 
 pub const FRAME_RATE: f32 = 5.;
@@ -9,6 +9,7 @@ impl egui::Widget for &UIElement {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         match self {
             UIElement::Container(children) => {
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 ui.horizontal(move |ui| {
                     for (child, size) in children {
                         ui.add_sized((size.0 as f32, size.1 as f32), child);
@@ -17,12 +18,41 @@ impl egui::Widget for &UIElement {
                 .response
             }
             UIElement::Bordered(inner) => {
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 egui::Frame::none()
                     .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
                     .show(ui, move |ui| inner.ui(ui))
                     .response
             }
-            UIElement::Text(s) => ui.label(s),
+            UIElement::Text(s) => {
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+                ui.label(s)
+            }
+            UIElement::CharGrid { content } => {
+                // FIXME: heights not constant for some reason
+                const CHAR_SIZE: DisplayArea = (8, 16);
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+                ui.spacing_mut().window_margin = egui::Margin::ZERO;
+                ui.spacing_mut().indent = 0.0;
+                ui.vertical(|ui| {
+                    for line in content {
+                        ui.horizontal(|ui| {
+                            for &(c, color) in line {
+                                dbg!(ui.spacing());
+                                ui.add_sized(
+                                    egui::Vec2::new(CHAR_SIZE.0 as f32, CHAR_SIZE.1 as f32),
+                                    egui::Label::new(
+                                        widget_text::RichText::monospace(c.to_string().into())
+                                            .size(CHAR_SIZE.1 as f32)
+                                            .color(color),
+                                    ),
+                                );
+                            }
+                        });
+                    }
+                })
+                .response
+            }
         }
     }
 }

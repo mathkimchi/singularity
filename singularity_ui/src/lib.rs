@@ -5,6 +5,7 @@ mod iced_backend;
 #[cfg(not(any(feature = "egui_backend", feature = "iced_backend")))]
 compile_error!("need to choose a gui backend");
 
+use egui::Color32;
 #[cfg(feature = "egui_backend")]
 pub use egui_backend::UIDisplay;
 
@@ -69,4 +70,25 @@ pub enum UIElement {
     Container(Vec<(UIElement, DisplayArea)>),
     Bordered(Box<UIElement>),
     Text(String),
+
+    /// should display like a terminal
+    ///
+    /// most important feature is that each character is the same size
+    CharGrid {
+        content: Vec<Vec<(char, Color32)>>,
+    },
+}
+impl UIElement {
+    pub fn char_grid(raw_content: impl ToString) -> Self {
+        let mut content = Vec::new();
+        for line_str in raw_content.to_string().split('\n') {
+            let mut line = Vec::new();
+            for c in line_str.chars() {
+                line.push((c, Color32::LIGHT_BLUE));
+            }
+            content.push(line);
+        }
+
+        UIElement::CharGrid { content }
+    }
 }

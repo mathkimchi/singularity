@@ -18,7 +18,7 @@ impl DemoTab {
     }
 
     pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
-        Some(UIElement::Text(self.string.clone()))
+        Some(UIElement::char_grid(&self.string))
     }
 
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {

@@ -147,7 +147,7 @@ impl ProjectManager {
         for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
-            let tab_inner_area: DisplayArea = (50, 50);
+            let tab_inner_area: DisplayArea = (100, 100);
 
             // TODO: only send on actual resize
             tab.send_event(Event::Resize(tab_inner_area));
