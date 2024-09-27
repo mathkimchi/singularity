@@ -41,7 +41,7 @@ impl DemoTab {
                     ..
                 } => {
                     dbg!(key);
-                    if let Some(c) = key.to_alphabet() {
+                    if let Some(c) = key.to_char() {
                         self.string.push(c);
                     }
                 }

@@ -613,7 +613,7 @@ The basic foundations for all the features (ui elements, ui events) have been im
     - [x] ~~modifiers~~
     - [x] ~~more characters~~
     - I just exposed egui's stuff to anything using singularity ui
-  - [ ] char grid element
+  - [x] char grid element
     - more or less a tui display, with monospace font and possibly basic visual features like colors
 - [ ] tab traversal
 - [ ] tab selection with mouse
