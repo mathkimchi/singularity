@@ -1,4 +1,4 @@
-use crate::{ui_event::UIEvent, DisplayArea, UIElement};
+use crate::{ui_event::UIEvent, CharGrid, DisplayArea, UIElement};
 use egui::{widget_text, Widget};
 use std::sync::{Arc, Mutex};
 
@@ -28,7 +28,7 @@ impl egui::Widget for &UIElement {
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 ui.label(s)
             }
-            UIElement::CharGrid { content } => {
+            UIElement::CharGrid(CharGrid { content }) => {
                 // FIXME: heights not constant for some reason
                 const CHAR_SIZE: DisplayArea = (8, 16);
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
@@ -41,16 +41,18 @@ impl egui::Widget for &UIElement {
                     .spacing(egui::Vec2::ZERO)
                     .show(ui, |ui| {
                         for line in content {
-                            for &(c, color, bg_color) in line {
+                            for c in line.iter() {
                                 // dbg!(ui.spacing());
                                 ui.add_sized(
                                     egui::Vec2::new(CHAR_SIZE.0 as f32, CHAR_SIZE.1 as f32),
                                     egui::Label::new(
-                                        widget_text::RichText::monospace(c.to_string().into())
-                                            .size(CHAR_SIZE.1 as f32)
-                                            .color(color)
-                                            .background_color(bg_color)
-                                            .extra_letter_spacing(0.0),
+                                        widget_text::RichText::monospace(
+                                            c.character.to_string().into(),
+                                        )
+                                        .size(CHAR_SIZE.1 as f32)
+                                        .color(c.fg)
+                                        .background_color(c.bg)
+                                        .extra_letter_spacing(0.0),
                                     ),
                                 );
                             }

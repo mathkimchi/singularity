@@ -5,7 +5,6 @@ mod iced_backend;
 #[cfg(not(any(feature = "egui_backend", feature = "iced_backend")))]
 compile_error!("need to choose a gui backend");
 
-use egui::Color32;
 #[cfg(feature = "egui_backend")]
 pub use egui_backend::UIDisplay;
 
@@ -122,21 +121,55 @@ pub enum UIElement {
     /// should display like a terminal
     ///
     /// most important feature is that each character is the same size
-    CharGrid {
-        content: Vec<Vec<(char, Color32, Color32)>>,
-    },
+    CharGrid(CharGrid),
 }
-impl UIElement {
-    pub fn char_grid(raw_content: impl ToString) -> Self {
+
+pub use egui::Color32;
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct CharCell {
+    pub character: char,
+    pub fg: Color32,
+    pub bg: Color32,
+}
+impl CharCell {
+    pub fn new(character: char) -> Self {
+        CharCell {
+            character,
+            fg: Color32::BLUE,
+            bg: Color32::TRANSPARENT,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct CharGrid {
+    pub content: Vec<Vec<CharCell>>,
+}
+impl From<String> for CharGrid {
+    fn from(raw_content: String) -> Self {
         let mut content = Vec::new();
-        for line_str in raw_content.to_string().split('\n') {
+        for line_str in raw_content.split('\n') {
             let mut line = Vec::new();
             for c in line_str.chars() {
-                line.push((c, Color32::LIGHT_BLUE, Color32::DARK_RED));
+                line.push(CharCell::new(c));
             }
             content.push(line);
         }
 
-        UIElement::CharGrid { content }
+        CharGrid { content }
+    }
+}
+impl CharGrid {
+    pub fn get_text_as_string(&self) -> String {
+        self.content
+            .iter()
+            .map(|line| {
+                line.iter()
+                    .map(|c| c.character.to_string())
+                    .collect::<Vec<_>>()
+                    .join("")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }

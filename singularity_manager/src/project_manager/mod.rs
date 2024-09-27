@@ -10,7 +10,7 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_standard_tabs::demo::DemoTab;
+use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
     ui_event::{Key, KeyModifiers, UIEvent},
     DisplayArea, UIDisplay, UIElement,
@@ -86,10 +86,10 @@ impl ProjectManager {
         let mut manager = Self {
             project: Project::new("examples/root-project"),
             tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-                "DEMO ROOT".to_string(),
-                DemoTab::new,
-                DemoTab::render,
-                DemoTab::handle_event,
+                "examples/root-project/file_to_edit.txt",
+                Editor::new,
+                Editor::render,
+                Editor::handle_event,
             ))),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
@@ -97,15 +97,6 @@ impl ProjectManager {
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         };
-        manager.tabs.add_node(
-            TabHandler::new(basic_tab_creator(
-                "DEMO ROOT 2\nnextline".to_string(),
-                DemoTab::new,
-                DemoTab::render,
-                DemoTab::handle_event,
-            )),
-            &TreeNodePath::new_root(),
-        );
 
         // let event_loop = EventLoop::new().unwrap();
         // event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
@@ -201,6 +192,7 @@ impl ProjectManager {
                 UIEvent::Key {
                     key: Key::Q,
                     modifiers,
+                    pressed: true,
                     ..
                 } if modifiers.command_only() => {
                     dbg!("Goodbye!");
@@ -209,6 +201,7 @@ impl ProjectManager {
                 UIEvent::Key {
                     key: Key::Enter | Key::W | Key::A | Key::S | Key::D,
                     modifiers: KeyModifiers::ALT,
+                    pressed: true,
                     ..
                 } => {
                     // // Alt + arrows should be like alt tab for Windows and Linux but tree based

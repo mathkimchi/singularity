@@ -1,11 +1,11 @@
-use singularity_common::{
-    elements::text_box::TextBox,
-    tab::{
-        packets::{Event, Request},
-        ManagerHandler,
-    },
+use singularity_common::tab::{
+    packets::{Event, Request},
+    ManagerHandler,
 };
-use singularity_ui::UIElement;
+use singularity_ui::{
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+    CharCell, CharGrid, Color32, UIElement,
+};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
@@ -29,7 +29,10 @@ use std::path::PathBuf;
 pub struct Editor {
     file_path: PathBuf,
 
-    text_box: TextBox,
+    text: CharGrid,
+
+    /// (x, y) or (col, row)
+    cursor_logical_position: (usize, usize),
 
     /// debug purpose
     /// TODO remove
@@ -41,7 +44,7 @@ impl Editor {
         P: AsRef<std::path::Path>,
         PathBuf: std::convert::From<P>,
     {
-        let text_box = Self::generate_textbox(&file_path);
+        let text = Self::get_content(&file_path);
         let file_path = PathBuf::from(file_path);
 
         manager_handler.send_request(Request::ChangeName(
@@ -49,18 +52,19 @@ impl Editor {
         ));
 
         Self {
-            text_box,
+            text,
             file_path,
+            cursor_logical_position: (0, 0),
             save_to_temp: false,
         }
     }
 
-    pub fn generate_textbox<P>(file_path: P) -> TextBox
+    fn get_content<P>(file_path: P) -> CharGrid
     where
         P: AsRef<std::path::Path>,
     {
         let content_string = std::fs::read_to_string(&file_path).unwrap();
-        TextBox::from(content_string)
+        CharGrid::from(content_string)
     }
 
     fn save_to_file(&self) {
@@ -76,41 +80,163 @@ impl Editor {
             self.file_path.to_str().unwrap().to_string()
         };
 
-        std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
+        std::fs::write(new_path, self.text.get_text_as_string()).unwrap();
+    }
+
+    fn clamp_everything(&mut self) {
+        {
+            // clamp cursor
+            // NOTE: should clamp cursor y before cursor x
+            self.cursor_logical_position.1 = self
+                .cursor_logical_position
+                .1
+                .clamp(0, self.text.content.len() - 1);
+
+            self.cursor_logical_position.0 = self
+                .cursor_logical_position
+                .0
+                .clamp(0, self.text.content[self.cursor_logical_position.1].len());
+        }
+    }
+
+    /// char can not be new line
+    /// knows location from cursor
+    fn write_character(&mut self, character: singularity_ui::CharCell) {
+        self.text.content[self.cursor_logical_position.1]
+            .insert(self.cursor_logical_position.0, character);
+        self.cursor_logical_position.0 += 1;
+    }
+
+    /// knows location from cursor
+    fn delete_character(&mut self) {
+        if self.cursor_logical_position.0 == 0 {
+            if self.cursor_logical_position.1 == 0 {
+                // nothing to delete
+                return;
+            }
+
+            let new_cursor_x = self.text.content[self.cursor_logical_position.1 - 1].len();
+
+            let mut string_to_add = self.text.content.remove(self.cursor_logical_position.1);
+            self.text.content[self.cursor_logical_position.1 - 1].append(&mut string_to_add);
+
+            self.cursor_logical_position.1 -= 1;
+            self.cursor_logical_position.0 = new_cursor_x;
+
+            return;
+        }
+
+        self.text.content[self.cursor_logical_position.1]
+            .remove(self.cursor_logical_position.0 - 1);
+        self.cursor_logical_position.0 -= 1;
+    }
+
+    /// knows location from cursor
+    fn write_new_line(&mut self) {
+        let remaining_text = self.text.content[self.cursor_logical_position.1]
+            .split_off(self.cursor_logical_position.0);
+
+        self.text
+            .content
+            .insert(self.cursor_logical_position.1 + 1, remaining_text);
+
+        self.cursor_logical_position.0 = 0;
+        self.cursor_logical_position.1 += 1;
     }
 
     pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
-        // let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
+        let mut text_clone = self.text.clone();
 
-        // self.text_box
-        //     .render(manager_handler.inner_area, &mut ratatui_buffer, true);
-
-        // Some(ratatui_buffer.content)
-
-        todo!()
+        // highlight cursor
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
+            Color32::LIGHT_YELLOW;
+        Some(UIElement::CharGrid(text_clone))
     }
 
-    pub fn handle_event(&mut self, _event: Event, _manager_handler: &ManagerHandler) {
-        // use ratatui::crossterm::event::{
-        //     Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
-        // };
+    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+        match event {
+            Event::UIEvent(ui_event) => match ui_event {
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::S,
+                    modifiers,
+                    pressed: true,
+                    ..
+                } if modifiers.command_only() => {
+                    self.save_to_file();
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::ArrowDown,
+                    modifiers: KeyModifiers::NONE,
+                    pressed: true,
+                    ..
+                } => {
+                    self.cursor_logical_position.1 += 1;
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::ArrowUp,
+                    modifiers: KeyModifiers::NONE,
+                    pressed: true,
+                    ..
+                } => {
+                    self.cursor_logical_position.1 =
+                        self.cursor_logical_position.1.saturating_sub(1);
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::ArrowRight,
+                    modifiers: KeyModifiers::NONE,
+                    pressed: true,
+                    ..
+                } => {
+                    self.cursor_logical_position.0 += 1;
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::ArrowLeft,
+                    modifiers: KeyModifiers::NONE,
+                    pressed: true,
+                    ..
+                } => {
+                    if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
+                        self.cursor_logical_position.0 = new_cursor_x;
+                    } else {
+                        // TODO wrap to prev line
+                    }
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::Backspace,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } => {
+                    self.delete_character();
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key: singularity_ui::ui_event::Key::Enter,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } => {
+                    self.write_new_line();
+                }
+                singularity_ui::ui_event::UIEvent::Key {
+                    key,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } if key.to_char().is_some() => {
+                    // NOTE: I wish rust will soon implement if let within matches
+                    if let Some(c) = key.to_char() {
+                        self.write_character(CharCell::new(c));
+                    }
+                }
+                _ => {}
+            },
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
+        }
 
-        // match event {
-        //     Event::TUIEvent(tui_event) => match tui_event {
-        //         TUIEvent::Key(KeyEvent {
-        //             modifiers: KeyModifiers::CONTROL,
-        //             code: KeyCode::Char('s'),
-        //             kind: KeyEventKind::Press,
-        //             ..
-        //         }) => {
-        //             self.save_to_file();
-        //         }
-        //         tui_event => {
-        //             self.text_box.handle_input(tui_event);
-        //         }
-        //     },
-        //     Event::Resize(_) => {}
-        //     Event::Close => panic!("Event::Close should not have been forwarded"),
-        // }
+        self.clamp_everything();
     }
 }
