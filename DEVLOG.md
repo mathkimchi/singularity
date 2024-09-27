@@ -620,3 +620,13 @@ The basic foundations for all the features (ui elements, ui events) have been im
   - for the prototype, just make it so that mouse is used only to select a tab
 - [ ] window management with tabs
   - [ ] able to move tabs around
+
+---
+
+2024/9/27
+
+I was going to implement tab traversal, but egui's philosophy is getting in my way.
+I want to know how Zed does gui, so I am reading a [blog from Zed](https://zed.dev/blog/videogame).
+- the blog actually mainly goes over gpu programming, and singularity is not ready for that yet.
+
+I guess I will continue using egui, but I will just try to have the backend not matter as much as possible.
