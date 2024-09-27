@@ -608,7 +608,7 @@ I can jankily do continuous updates by just requesting updates on every update.
 
 The basic foundations for all the features (ui elements, ui events) have been implemented, so I am going to implement the following, and as I do that, I can add necessary features:
 
-- [ ] text editor
+- [x] text editor
   - [x] more variety of keyboard input
     - [x] ~~modifiers~~
     - [x] ~~more characters~~

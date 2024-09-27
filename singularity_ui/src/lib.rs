@@ -135,7 +135,7 @@ impl CharCell {
     pub fn new(character: char) -> Self {
         CharCell {
             character,
-            fg: Color32::BLUE,
+            fg: Color32::LIGHT_YELLOW,
             bg: Color32::TRANSPARENT,
         }
     }

@@ -147,9 +147,15 @@ impl Editor {
     pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
         let mut text_clone = self.text.clone();
 
+        // add this in case the cursor is rightmost
+        text_clone.content[self.cursor_logical_position.1].push(CharCell::new(' '));
+
         // highlight cursor
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
             Color32::LIGHT_YELLOW;
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
+            Color32::BLACK;
+
         Some(UIElement::CharGrid(text_clone))
     }
 
