@@ -8,16 +8,37 @@ compile_error!("need to choose a gui backend");
 #[cfg(feature = "egui_backend")]
 pub use egui_backend::UIDisplay;
 
-pub type DisplayArea = (usize, usize);
-// pub type DisplayBuffer = Vec<u8>;
-// pub enum UIEvent {
-//     KeyPress {
-//         key_char: char,
-//         alt: bool,
-//         ctrl: bool,
-//         shift: bool,
-//     },
-// }
+pub mod display_units {
+    pub type DisplayUnits = f32;
+    #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+    pub struct DisplaySize {
+        pub width: DisplayUnits,
+        pub height: DisplayUnits,
+    }
+    impl DisplaySize {
+        pub const fn new(width: DisplayUnits, height: DisplayUnits) -> Self {
+            DisplaySize { width, height }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+    pub struct DisplayCoord {
+        pub x: DisplayUnits,
+        pub y: DisplayUnits,
+    }
+
+    /// technically, any opposite extremes should work,
+    /// but usually do (upper left, lower right)
+    #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+    pub struct DisplayArea(pub DisplayCoord, pub DisplayCoord);
+
+    #[cfg(feature = "egui_backend")]
+    impl From<DisplaySize> for egui::Vec2 {
+        fn from(value: DisplaySize) -> Self {
+            egui::Vec2::new(value.width, value.height)
+        }
+    }
+}
 
 pub mod ui_event {
     /// FIXME: not great that I am reexporting egui's event, given that the goal is to be backend agnostic.
@@ -114,7 +135,7 @@ pub mod ui_event {
 
 #[derive(Debug, Clone)]
 pub enum UIElement {
-    Container(Vec<(UIElement, DisplayArea)>),
+    Container(Vec<(UIElement, display_units::DisplaySize)>),
     Bordered(Box<UIElement>),
     Text(String),
 

@@ -1,4 +1,4 @@
-use crate::{ui_event::UIEvent, CharGrid, DisplayArea, UIElement};
+use crate::{display_units::DisplaySize, ui_event::UIEvent, CharGrid, UIElement};
 use egui::{widget_text, Widget};
 use std::sync::{Arc, Mutex};
 
@@ -12,7 +12,7 @@ impl egui::Widget for &UIElement {
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 ui.horizontal(move |ui| {
                     for (child, size) in children {
-                        ui.add_sized((size.0 as f32, size.1 as f32), child);
+                        ui.add_sized(*size, child);
                     }
                 })
                 .response
@@ -30,26 +30,26 @@ impl egui::Widget for &UIElement {
             }
             UIElement::CharGrid(CharGrid { content }) => {
                 // FIXME: heights not constant for some reason
-                const CHAR_SIZE: DisplayArea = (8, 16);
+                const CHAR_SIZE: DisplaySize = DisplaySize::new(8.0, 16.0);
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 ui.spacing_mut().window_margin = egui::Margin::ZERO;
                 ui.spacing_mut().indent = 0.0;
 
                 egui::Grid::new(content)
-                    .min_col_width(CHAR_SIZE.0 as f32)
-                    .max_col_width(CHAR_SIZE.0 as f32)
+                    .min_col_width(CHAR_SIZE.width)
+                    .max_col_width(CHAR_SIZE.width)
                     .spacing(egui::Vec2::ZERO)
                     .show(ui, |ui| {
                         for line in content {
                             for c in line.iter() {
                                 // dbg!(ui.spacing());
                                 ui.add_sized(
-                                    egui::Vec2::new(CHAR_SIZE.0 as f32, CHAR_SIZE.1 as f32),
+                                    egui::Vec2::new(CHAR_SIZE.width, CHAR_SIZE.height),
                                     egui::Label::new(
                                         widget_text::RichText::monospace(
                                             c.character.to_string().into(),
                                         )
-                                        .size(CHAR_SIZE.1 as f32)
+                                        .size(CHAR_SIZE.height)
                                         .color(c.fg)
                                         .background_color(c.bg)
                                         .extra_letter_spacing(0.0),

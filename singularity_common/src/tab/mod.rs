@@ -1,5 +1,5 @@
 use packets::{Event, Query, Request, Response};
-use singularity_ui::{DisplayArea, UIElement};
+use singularity_ui::{display_units::DisplaySize, UIElement};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -149,7 +149,7 @@ impl TabHandler {
         let tab_thread = thread::spawn(move || {
             tab_creator.create_tab(ManagerHandler {
                 manager_channels,
-                inner_area: DisplayArea::default(),
+                inner_area: DisplaySize::new(0.0, 0.0),
             })
         });
 
@@ -194,7 +194,7 @@ impl TabHandler {
 pub struct ManagerHandler {
     manager_channels: ManagerChannels,
 
-    pub inner_area: DisplayArea,
+    pub inner_area: DisplaySize,
 }
 impl ManagerHandler {
     pub fn send_request(&self, request: Request) {

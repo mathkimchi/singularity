@@ -3,7 +3,7 @@ use singularity_common::tab::{
     ManagerHandler,
 };
 use singularity_ui::{
-    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+    ui_event::{KeyModifiers, KeyTrait},
     CharCell, CharGrid, Color32, UIElement,
 };
 use std::path::PathBuf;

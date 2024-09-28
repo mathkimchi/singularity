@@ -12,8 +12,9 @@ use singularity_common::{
 };
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
-    ui_event::{Key, KeyModifiers, UIEvent},
-    DisplayArea, UIDisplay, UIElement,
+    display_units::DisplaySize,
+    ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
+    UIDisplay, UIElement,
 };
 use std::{
     io::{self},
@@ -98,14 +99,15 @@ impl ProjectManager {
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         };
 
-        // let event_loop = EventLoop::new().unwrap();
-        // event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-        // dbg!("will run app");
-        // event_loop.run_app(&mut manager).unwrap();
-
-        // dbg!("ran app");
-
-        // manager.ui_element.lock()
+        manager.tabs.add_node(
+            TabHandler::new(basic_tab_creator(
+                "examples/root-project/lorem_ipsum.txt",
+                Editor::new,
+                Editor::render,
+                Editor::handle_event,
+            )),
+            &TreeNodePath::new_root(),
+        );
 
         let ui_element_clone = manager.ui_element.clone();
         let ui_event_queue_clone = manager.ui_event_queue.clone();
@@ -138,7 +140,7 @@ impl ProjectManager {
         for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
-            let tab_inner_area: DisplayArea = (100, 100);
+            let tab_inner_area = DisplaySize::new(100.0, 100.0);
 
             // TODO: only send on actual resize
             tab.send_event(Event::Resize(tab_inner_area));
@@ -151,39 +153,39 @@ impl ProjectManager {
 
         *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
 
-        //     if let Some(focusing_index) = &self.app_focuser_index {
-        //         let num_subapps = self.tabs.num_nodes();
+        // if let Some(focusing_index) = &self.app_focuser_index {
+        //     let num_subapps = self.tabs.num_nodes();
 
-        //         frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
-        //         frame.render_widget(
-        //             Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
-        //             Rect::new(13, 5, 30, (2 + num_subapps) as u16),
-        //         );
+        //     frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
+        //     frame.render_widget(
+        //         Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
+        //         Rect::new(13, 5, 30, (2 + num_subapps) as u16),
+        //     );
 
-        //         for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
-        //             let tab = &self.tabs[&tab_path];
+        //     for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
+        //         let tab = &self.tabs[&tab_path];
 
-        //             let mut widget = Paragraph::new(tab.tab_name.clone());
+        //         let mut widget = Paragraph::new(tab.tab_name.clone());
 
-        //             if tab_path == self.focused_tab_path {
-        //                 widget = widget.light_yellow().bold();
-        //             }
-
-        //             if tab_path == focusing_index.clone() {
-        //                 widget = widget.on_cyan();
-        //             }
-
-        //             frame.render_widget(
-        //                 widget,
-        //                 Rect::new(
-        //                     (13 + 1 + 2 * tab_path.depth()) as u16,
-        //                     (5 + 1 + index) as u16,
-        //                     tab.tab_name.len() as u16,
-        //                     1,
-        //                 ),
-        //             );
+        //         if tab_path == self.focused_tab_path {
+        //             widget = widget.light_yellow().bold();
         //         }
+
+        //         if tab_path == focusing_index.clone() {
+        //             widget = widget.on_cyan();
+        //         }
+
+        //         frame.render_widget(
+        //             widget,
+        //             Rect::new(
+        //                 (13 + 1 + 2 * tab_path.depth()) as u16,
+        //                 (5 + 1 + index) as u16,
+        //                 tab.tab_name.len() as u16,
+        //                 1,
+        //             ),
+        //         );
         //     }
+        // }
     }
 
     fn handle_input(&mut self) {
@@ -199,44 +201,40 @@ impl ProjectManager {
                     self.is_running = false;
                 }
                 UIEvent::Key {
-                    key: Key::Enter | Key::W | Key::A | Key::S | Key::D,
+                    key,
                     modifiers: KeyModifiers::ALT,
                     pressed: true,
                     ..
-                } => {
-                    // // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                    // // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+                } if matches!(key, Key::Enter | Key::W | Key::A | Key::S | Key::D) => {
+                    // Alt + arrows should be like alt tab for Windows and Linux but tree based
+                    // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                    // if code == KeyCode::Enter && self.app_focuser_index.is_some() {
-                    //     // save tree index and close window
+                    if key == Key::Enter && self.app_focuser_index.is_some() {
+                        // save tree index and close window
 
-                    //     let new_focus_index = self.app_focuser_index.take().unwrap();
+                        let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                    //     self.focused_tab_path = new_focus_index;
-                    // } else {
-                    //     let mut new_focus_index = self
-                    //         .app_focuser_index
-                    //         .clone()
-                    //         .unwrap_or(self.focused_tab_path.clone());
+                        self.focused_tab_path = new_focus_index;
+                    } else {
+                        let mut new_focus_index = self
+                            .app_focuser_index
+                            .clone()
+                            .unwrap_or(self.focused_tab_path.clone());
 
-                    //     self.app_focuser_index = match code {
-                    //         KeyCode::Enter => Some(new_focus_index),
-                    //         KeyCode::Char(traverse_key)
-                    //             if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-                    //         {
-                    //             new_focus_index = new_focus_index
-                    //                 .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
-                    //             Some(new_focus_index)
-                    //         }
-                    //         _ => None,
-                    //     };
-                    // }
+                        self.app_focuser_index = match key.to_char() {
+                            Some('\n') => Some(new_focus_index),
+                            Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                                new_focus_index = new_focus_index
+                                    .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
+                                Some(new_focus_index)
+                            }
+                            _ => panic!(),
+                        };
+                    }
+                    dbg!(&self.app_focuser_index);
+                    dbg!(&self.focused_tab_path);
                 }
                 ui_event => {
-                    if let UIEvent::Key { .. } = ui_event {
-                        dbg!(&ui_event);
-                    }
-
                     // forward the event to focused tab
                     let focused_tab = &mut self.tabs[&self.focused_tab_path];
 
@@ -246,71 +244,6 @@ impl ProjectManager {
             }
         }
     }
-
-    // fn process_input(&mut self, event: TUIEvent) {
-    //     match event {
-    //         TUIEvent::Key(KeyEvent {
-    //             modifiers: KeyModifiers::CONTROL,
-    //             code: KeyCode::Char('q'),
-    //             kind: KeyEventKind::Press,
-    //             ..
-    //         }) => {
-    //             println!("Sayonara!");
-    //             thread::sleep(Duration::from_secs_f32(0.2));
-    //             self.is_running = false;
-    //         }
-
-    //         TUIEvent::Key(KeyEvent {
-    //             modifiers: KeyModifiers::ALT,
-    //             code,
-    //             kind: KeyEventKind::Press,
-    //             ..
-    //         }) if matches!(
-    //             code,
-    //             KeyCode::Enter
-    //                 | KeyCode::Char('w')
-    //                 | KeyCode::Char('a')
-    //                 | KeyCode::Char('s')
-    //                 | KeyCode::Char('d')
-    //         ) =>
-    //         {
-    //             // Alt + arrows should be like alt tab for Windows and Linux but tree based
-    //             // Alt + Enter either opens the tab chooser or closes it and chooses the tab
-
-    //             if code == KeyCode::Enter && self.app_focuser_index.is_some() {
-    //                 // save tree index and close window
-
-    //                 let new_focus_index = self.app_focuser_index.take().unwrap();
-
-    //                 self.focused_tab_path = new_focus_index;
-    //             } else {
-    //                 let mut new_focus_index = self
-    //                     .app_focuser_index
-    //                     .clone()
-    //                     .unwrap_or(self.focused_tab_path.clone());
-
-    //                 self.app_focuser_index = match code {
-    //                     KeyCode::Enter => Some(new_focus_index),
-    //                     KeyCode::Char(traverse_key)
-    //                         if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-    //                     {
-    //                         new_focus_index = new_focus_index
-    //                             .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
-    //                         Some(new_focus_index)
-    //                     }
-    //                     _ => None,
-    //                 };
-    //             }
-    //         }
-
-    //         event => {
-    //             // forward the event to focused tab
-    //             let focused_tab = &mut self.tabs[&self.focused_tab_path];
-
-    //             focused_tab.send_event(singularity_common::tab::packets::Event::UIEvent(event));
-    //         }
-    //     }
-    // }
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
