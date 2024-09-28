@@ -26,6 +26,11 @@ pub mod display_units {
         pub x: DisplayUnits,
         pub y: DisplayUnits,
     }
+    impl DisplayCoord {
+        pub const fn new(x: DisplayUnits, y: DisplayUnits) -> Self {
+            DisplayCoord { x, y }
+        }
+    }
 
     /// technically, any opposite extremes should work,
     /// but usually do (upper left, lower right)
@@ -36,6 +41,20 @@ pub mod display_units {
     impl From<DisplaySize> for egui::Vec2 {
         fn from(value: DisplaySize) -> Self {
             egui::Vec2::new(value.width, value.height)
+        }
+    }
+
+    #[cfg(feature = "egui_backend")]
+    impl From<DisplayCoord> for egui::Pos2 {
+        fn from(value: DisplayCoord) -> Self {
+            egui::Pos2::new(value.x, value.y)
+        }
+    }
+
+    #[cfg(feature = "egui_backend")]
+    impl From<DisplayArea> for egui::Rect {
+        fn from(value: DisplayArea) -> Self {
+            egui::Rect::from_two_pos(value.0.into(), value.1.into())
         }
     }
 }
@@ -135,7 +154,8 @@ pub mod ui_event {
 
 #[derive(Debug, Clone)]
 pub enum UIElement {
-    Container(Vec<(UIElement, display_units::DisplaySize)>),
+    Container(Vec<(UIElement, display_units::DisplayArea)>),
+    Horizontal(Vec<UIElement>),
     Bordered(Box<UIElement>),
     Text(String),
 

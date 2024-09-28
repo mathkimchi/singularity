@@ -12,7 +12,7 @@ use singularity_common::{
 };
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
-    display_units::DisplaySize,
+    display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
     UIDisplay, UIElement,
 };
@@ -140,7 +140,19 @@ impl ProjectManager {
         for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
             let tab = &mut self.tabs[&tab_path];
 
-            let tab_inner_area = DisplaySize::new(100.0, 100.0);
+            const TAB_DELTA_Y: f32 = 200.0;
+
+            let display_area = DisplayArea(
+                DisplayCoord::new(
+                    20.0 * (tab_path.depth() as f32),
+                    TAB_DELTA_Y * (index as f32),
+                ),
+                DisplayCoord::new(
+                    20.0 * (tab_path.depth() as f32) + 50.0,
+                    TAB_DELTA_Y * (index as f32) + (TAB_DELTA_Y - 10.0),
+                ),
+            );
+            let tab_inner_area = display_area;
 
             // TODO: only send on actual resize
             tab.send_event(Event::Resize(tab_inner_area));
@@ -150,8 +162,6 @@ impl ProjectManager {
                 tab_inner_area,
             ));
         }
-
-        *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
 
         // if let Some(focusing_index) = &self.app_focuser_index {
         //     let num_subapps = self.tabs.num_nodes();
@@ -186,6 +196,8 @@ impl ProjectManager {
         //         );
         //     }
         // }
+
+        *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
     }
 
     fn handle_input(&mut self) {

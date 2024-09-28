@@ -10,9 +10,25 @@ impl egui::Widget for &UIElement {
         match self {
             UIElement::Container(children) => {
                 ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                ui.horizontal(move |ui| {
-                    for (child, size) in children {
-                        ui.add_sized(*size, child);
+
+                // idk the point of response
+                let mut response = ui.interact(
+                    ui.available_rect_before_wrap(),
+                    ui.id(),
+                    egui::Sense::hover(),
+                );
+
+                for (child, rect) in children {
+                    response = response.union(ui.put((*rect).into(), child));
+                }
+
+                response
+            }
+            UIElement::Horizontal(children) => {
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+                ui.horizontal(|ui| {
+                    for child in children {
+                        ui.add(child);
                     }
                 })
                 .response

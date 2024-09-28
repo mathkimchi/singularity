@@ -1,10 +1,10 @@
 use super::ManagerHandler;
 use crate::utils::tree::tree_node_path::TreeNodePath;
-use singularity_ui::{display_units::DisplaySize, ui_event::UIEvent};
+use singularity_ui::{display_units::DisplayArea, ui_event::UIEvent};
 
 pub enum Event {
     UIEvent(UIEvent),
-    Resize(DisplaySize),
+    Resize(DisplayArea),
     /// TODO: close forcibly
     Close,
 }
