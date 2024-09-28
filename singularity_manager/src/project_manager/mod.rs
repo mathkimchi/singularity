@@ -14,7 +14,7 @@ use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
-    UIDisplay, UIElement,
+    CharCell, CharGrid, Color32, UIDisplay, UIElement,
 };
 use std::{
     io::{self},
@@ -157,45 +157,51 @@ impl ProjectManager {
             // TODO: only send on actual resize
             tab.send_event(Event::Resize(tab_inner_area));
 
-            tab_elements.push((
-                UIElement::Bordered(Box::new(tab.get_ui_element())),
-                tab_inner_area,
-            ));
+            tab_elements.push((tab.get_ui_element().bordered(), tab_inner_area));
         }
 
-        // if let Some(focusing_index) = &self.app_focuser_index {
-        //     let num_subapps = self.tabs.num_nodes();
+        if let Some(focusing_index) = &self.app_focuser_index {
+            let mut subapps_focuser_display = CharGrid::default();
 
-        //     frame.render_widget(Clear, Rect::new(13, 5, 30, (2 + num_subapps) as u16));
-        //     frame.render_widget(
-        //         Paragraph::new("").block(ratatui::widgets::Block::bordered().title("Choose Tab")),
-        //         Rect::new(13, 5, 30, (2 + num_subapps) as u16),
-        //     );
+            for tab_path in self.tabs.iter_paths_dfs() {
+                let tab = &self.tabs[&tab_path];
 
-        //     for (index, tab_path) in self.tabs.iter_paths_dfs().enumerate() {
-        //         let tab = &self.tabs[&tab_path];
+                let fg = if tab_path == self.focused_tab_path {
+                    Color32::LIGHT_YELLOW
+                } else {
+                    Color32::LIGHT_GREEN
+                };
 
-        //         let mut widget = Paragraph::new(tab.tab_name.clone());
+                let bg = if tab_path == focusing_index.clone() {
+                    Color32::LIGHT_BLUE
+                } else {
+                    Color32::TRANSPARENT
+                };
 
-        //         if tab_path == self.focused_tab_path {
-        //             widget = widget.light_yellow().bold();
-        //         }
+                let mut subapp_title_display = vec![
+                    CharCell {
+                        character: ' ',
+                        fg: Color32::TRANSPARENT,
+                        bg: Color32::TRANSPARENT
+                    };
+                    2 * tab_path.depth()
+                ];
 
-        //         if tab_path == focusing_index.clone() {
-        //             widget = widget.on_cyan();
-        //         }
+                for character in tab.tab_name.chars() {
+                    subapp_title_display.push(CharCell { character, fg, bg });
+                }
 
-        //         frame.render_widget(
-        //             widget,
-        //             Rect::new(
-        //                 (13 + 1 + 2 * tab_path.depth()) as u16,
-        //                 (5 + 1 + index) as u16,
-        //                 tab.tab_name.len() as u16,
-        //                 1,
-        //             ),
-        //         );
-        //     }
-        // }
+                subapps_focuser_display.content.push(subapp_title_display);
+            }
+
+            tab_elements.push((
+                UIElement::CharGrid(subapps_focuser_display).bordered(),
+                DisplayArea::from_coord_size(
+                    DisplayCoord::new(400.0, 400.0),
+                    DisplaySize::new(100.0, 100.0),
+                ),
+            ));
+        }
 
         *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
     }

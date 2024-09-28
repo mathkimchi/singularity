@@ -57,6 +57,14 @@ pub mod display_units {
             egui::Rect::from_two_pos(value.0.into(), value.1.into())
         }
     }
+    impl DisplayArea {
+        pub fn from_coord_size(coord: DisplayCoord, size: DisplaySize) -> Self {
+            Self(
+                coord,
+                DisplayCoord::new(coord.x + size.width, coord.y + size.height),
+            )
+        }
+    }
 }
 
 pub mod ui_event {
@@ -164,6 +172,11 @@ pub enum UIElement {
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
 }
+impl UIElement {
+    pub fn bordered(self) -> Self {
+        Self::Bordered(Box::new(self))
+    }
+}
 
 pub use egui::Color32;
 #[derive(Debug, Clone, Copy, Hash)]
@@ -182,7 +195,7 @@ impl CharCell {
     }
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Default)]
 pub struct CharGrid {
     pub content: Vec<Vec<CharCell>>,
 }

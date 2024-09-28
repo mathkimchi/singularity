@@ -615,7 +615,7 @@ The basic foundations for all the features (ui elements, ui events) have been im
     - I just exposed egui's stuff to anything using singularity ui
   - [x] char grid element
     - more or less a tui display, with monospace font and possibly basic visual features like colors
-- [ ] tab traversal
+- [x] tab traversal
 - [ ] tab selection with mouse
   - for the prototype, just make it so that mouse is used only to select a tab
 - [ ] window management with tabs
