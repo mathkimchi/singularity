@@ -618,8 +618,15 @@ The basic foundations for all the features (ui elements, ui events) have been im
 - [x] tab traversal
 - [ ] tab selection with mouse
   - for the prototype, just make it so that mouse is used only to select a tab
+  - SKIP for now
 - [ ] window management with tabs
-  - [ ] able to move tabs around
+  - [x] tab's tree hierarchy should not define position
+  - [ ] tab tree hierarchy should not define display order
+  - [ ] make tabs able to overlap
+  - [ ] able to move tabs around with keyboard
+    - [ ] maximize active tab with `Ctrl+Shift+Up`
+    - [ ] minimize active tab with `Ctrl+Shift+Down` (and change focus?)
+    - [ ] move active tab with `Ctrl+Shift+<Direction>`
 
 ---
 

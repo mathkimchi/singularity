@@ -2,7 +2,7 @@ use singularity_common::{
     project::Project,
     tab::{
         basic_tab_creator,
-        packets::{Event, Query, Request, Response},
+        packets::{Query, Request, Response},
         TabHandler,
     },
     utils::tree::{
@@ -86,12 +86,15 @@ impl ProjectManager {
 
         let mut manager = Self {
             project: Project::new("examples/root-project"),
-            tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-                "examples/root-project/file_to_edit.txt",
-                Editor::new,
-                Editor::render,
-                Editor::handle_event,
-            ))),
+            tabs: RootedTree::from_root(TabHandler::new(
+                basic_tab_creator(
+                    "examples/root-project/file_to_edit.txt",
+                    Editor::new,
+                    Editor::render,
+                    Editor::handle_event,
+                ),
+                Self::generate_tab_area(0, 0),
+            )),
             app_focuser_index: None,
             focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
@@ -100,12 +103,15 @@ impl ProjectManager {
         };
 
         manager.tabs.add_node(
-            TabHandler::new(basic_tab_creator(
-                "examples/root-project/lorem_ipsum.txt",
-                Editor::new,
-                Editor::render,
-                Editor::handle_event,
-            )),
+            TabHandler::new(
+                basic_tab_creator(
+                    "examples/root-project/lorem_ipsum.txt",
+                    Editor::new,
+                    Editor::render,
+                    Editor::handle_event,
+                ),
+                Self::generate_tab_area(1, 1),
+            ),
             &TreeNodePath::new_root(),
         );
 
@@ -137,29 +143,13 @@ impl ProjectManager {
     fn draw_app(&mut self) {
         let mut tab_elements = Vec::new();
 
-        for (index, tab_path) in self.tabs.collect_paths_dfs().into_iter().enumerate() {
+        for tab_path in self.tabs.collect_paths_dfs().into_iter() {
             let tab = &mut self.tabs[&tab_path];
 
-            const TAB_DELTA_Y: f32 = 200.0;
-
-            let display_area = DisplayArea(
-                DisplayCoord::new(
-                    20.0 * (tab_path.depth() as f32),
-                    TAB_DELTA_Y * (index as f32),
-                ),
-                DisplayCoord::new(
-                    20.0 * (tab_path.depth() as f32) + 50.0,
-                    TAB_DELTA_Y * (index as f32) + (TAB_DELTA_Y - 10.0),
-                ),
-            );
-            let tab_inner_area = display_area;
-
-            // TODO: only send on actual resize
-            tab.send_event(Event::Resize(tab_inner_area));
-
-            tab_elements.push((tab.get_ui_element().bordered(), tab_inner_area));
+            tab_elements.push((tab.get_ui_element().bordered(), *tab.get_area()));
         }
 
+        // display the tab focuser/selector
         if let Some(focusing_index) = &self.app_focuser_index {
             let mut subapps_focuser_display = CharGrid::default();
 
@@ -276,7 +266,16 @@ impl ProjectManager {
                     Request::SpawnChildTab(tab_creator) => {
                         self.focused_tab_path = self
                             .tabs
-                            .add_node(TabHandler::new(tab_creator), &requestor_path)
+                            .add_node(
+                                TabHandler::new(
+                                    tab_creator,
+                                    // NOTE: the argument child index: 0 is technically incorrect,
+                                    // but the purpose of the generator is to generally prevent all
+                                    // tabs from being spawned all in one place.
+                                    Self::generate_tab_area(0, requestor_path.depth() + 1),
+                                ),
+                                &requestor_path,
+                            )
                             .unwrap();
                     }
                 }
@@ -292,6 +291,18 @@ impl ProjectManager {
                 Query::Name => Response::Name(inquieror.tab_name.clone()),
             });
         }
+    }
+
+    fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
+        const TAB_DELTA_Y: f32 = 200.0;
+
+        DisplayArea(
+            DisplayCoord::new(20.0 * (depth as f32), TAB_DELTA_Y * (child_index as f32)),
+            DisplayCoord::new(
+                20.0 * (depth as f32) + 50.0,
+                TAB_DELTA_Y * (child_index as f32) + (TAB_DELTA_Y - 10.0),
+            ),
+        )
     }
 }
 impl Drop for ProjectManager {

@@ -1,8 +1,5 @@
 use packets::{Event, Query, Request, Response};
-use singularity_ui::{
-    display_units::{DisplayArea, DisplayCoord, DisplaySize},
-    UIElement,
-};
+use singularity_ui::{display_units::DisplayArea, UIElement};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -43,26 +40,6 @@ where
 {
     move |mut manager_handler: ManagerHandler| {
         let mut tab: Tab = initializer(init_args, &manager_handler);
-
-        // TODO: there's gotta be a better way
-        'mainloop: loop {
-            // don't render until size has been set
-            for event in manager_handler.collect_events() {
-                match event {
-                    Event::Close => {
-                        return;
-                    }
-                    Event::Resize(inner_area) => {
-                        manager_handler.inner_area = inner_area;
-                        event_handler(&mut tab, event, &manager_handler);
-                        break 'mainloop;
-                    }
-                    event => {
-                        event_handler(&mut tab, event, &manager_handler);
-                    }
-                }
-            }
-        }
 
         'mainloop: loop {
             if let Some(new_display_buffer) = renderer(&mut tab, &manager_handler) {
@@ -135,6 +112,8 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
 }
 
 /// Represents tab on manager side, is a wrapper for TabChannels
+///
+/// REVIEW: Shall I transport this to the manager?
 pub struct TabHandler {
     tab_channels: TabChannels,
 
@@ -143,16 +122,17 @@ pub struct TabHandler {
     _tab_thread: JoinHandle<()>,
 
     pub tab_name: String,
+    tab_area: DisplayArea,
 }
 impl TabHandler {
-    pub fn new<F: 'static + TabCreator>(tab_creator: F) -> Self {
+    pub fn new<F: 'static + TabCreator>(tab_creator: F, tab_area: DisplayArea) -> Self {
         let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
         let tab_thread = thread::spawn(move || {
             tab_creator.create_tab(ManagerHandler {
                 manager_channels,
-                inner_area: DisplayArea(DisplayCoord::new(0.0, 0.0), DisplayCoord::new(0.0, 0.0)),
+                inner_area: tab_area,
             })
         });
 
@@ -160,6 +140,7 @@ impl TabHandler {
             tab_channels,
             _tab_thread: tab_thread,
             tab_name: String::new(),
+            tab_area,
         }
     }
 
@@ -190,6 +171,16 @@ impl TabHandler {
 
     pub fn get_ui_element(&self) -> UIElement {
         self.tab_channels.ui_element.lock().unwrap().clone()
+    }
+
+    pub fn get_area(&self) -> &DisplayArea {
+        &self.tab_area
+    }
+
+    pub fn set_area(&mut self, new_area: DisplayArea) {
+        self.tab_area = new_area;
+
+        self.send_event(Event::Resize(new_area));
     }
 }
 
