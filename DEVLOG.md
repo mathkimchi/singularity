@@ -661,3 +661,28 @@ I will try looking into Zed's gpui, but if I start feeling like it isn't much be
 
 I tried it, but there was a very long error message ending with `cannot find -lxcb: No such file or directory collect2: error: ld returned 1 exit status`
 and it probably has something to do with Nixos, but I will keep true to my word and abort this tangent before it consumes any more of my time.
+
+---
+
+2024/9/29
+
+Here is a cool snippet: `find . -name "*.rs" -type f -not -path "./target/*" | xargs wc -l`:
+- `find .`: list all items in the directory with the following conditions:
+  - `-name "*.rs"`: ends with `.rs`
+  - `-type f`: is a regular file
+  - `-not -path "./target/*"`: is not under the `target` directory
+- `xargs`: changes one type of input to another (not rly sure about this one, it just works) in this case, stdin to argument
+- `wc`: displays line count, word count, and char count
+  - `-l` displays line count only
+- In short, this displays how many lines I've written in this directory.
+
+I wrote 3057 lines, 9083 words, and 101606 characters of rust.
+The top three biggest files are:
+
+| file            | lc  | wc   | cc    |
+| --------------- | --- | ---- | ----- |
+| task organizer  | 318 | 1083 | 11996 |
+| text box        | 317 | 1006 | 10381 |
+| project manager | 313 | 773  | 10997 |
+
+and the top two of these are currently not being used, so my line count is pretty inflated.
