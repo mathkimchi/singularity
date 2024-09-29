@@ -622,7 +622,7 @@ The basic foundations for all the features (ui elements, ui events) have been im
 - [ ] window management with tabs
   - [x] tab's tree hierarchy should not define position
   - [ ] tab tree hierarchy should not define display order
-  - [ ] make tabs able to overlap
+  - [x] make tabs able to overlap
   - [ ] able to move tabs around with keyboard
     - [ ] maximize active tab with `Ctrl+Shift+Up`
     - [ ] minimize active tab with `Ctrl+Shift+Down` (and change focus?)
