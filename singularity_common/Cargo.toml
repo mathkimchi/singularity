@@ -8,4 +8,4 @@ singularity_ui = { path = "../singularity_ui" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
-libloading = { workspace = true }
+uuid = { workspace = true }

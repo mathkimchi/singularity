@@ -7,6 +7,7 @@ use std::{
     },
     thread::{self, JoinHandle},
 };
+use uuid::Uuid;
 
 pub mod packets;
 
@@ -66,13 +67,13 @@ where
 
 /// Represents communication with tab on manager side
 /// TODO: think of better name
-struct TabChannels {
-    event_tx: Sender<Event>,
-    request_rx: Receiver<Request>,
-    query_rx: Receiver<Query>,
-    response_tx: Sender<Response>,
+pub struct TabChannels {
+    pub event_tx: Sender<Event>,
+    pub request_rx: Receiver<Request>,
+    pub query_rx: Receiver<Query>,
+    pub response_tx: Sender<Response>,
 
-    ui_element: Arc<Mutex<UIElement>>,
+    pub ui_element: Arc<Mutex<UIElement>>,
 }
 
 /// Represents communication with manager on tab side
@@ -115,14 +116,16 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
 ///
 /// REVIEW: Shall I transport this to the manager?
 pub struct TabHandler {
+    uuid: Uuid,
+
     tab_channels: TabChannels,
+
+    pub tab_name: String,
+    tab_area: DisplayArea,
 
     /// REVIEW: idk if this will ever be used
     /// I realized I can't kill threads anyways
     _tab_thread: JoinHandle<()>,
-
-    pub tab_name: String,
-    tab_area: DisplayArea,
 }
 impl TabHandler {
     pub fn new<F: 'static + TabCreator>(tab_creator: F, tab_area: DisplayArea) -> Self {
@@ -137,6 +140,7 @@ impl TabHandler {
         });
 
         Self {
+            uuid: uuid::Uuid::new_v4(),
             tab_channels,
             _tab_thread: tab_thread,
             tab_name: String::new(),
@@ -173,14 +177,41 @@ impl TabHandler {
         self.tab_channels.ui_element.lock().unwrap().clone()
     }
 
-    pub fn get_area(&self) -> &DisplayArea {
-        &self.tab_area
+    pub fn get_area(&self) -> DisplayArea {
+        self.tab_area
     }
 
     pub fn set_area(&mut self, new_area: DisplayArea) {
         self.tab_area = new_area;
 
         self.send_event(Event::Resize(new_area));
+    }
+
+    pub fn get_uuid(&self) -> Uuid {
+        self.uuid
+    }
+}
+mod tab_handler_uuid_impls {
+    //! implement partial eq and order for tab handler
+    //! via uuid
+
+    use super::*;
+
+    impl PartialEq for TabHandler {
+        fn eq(&self, other: &Self) -> bool {
+            self.uuid == other.uuid
+        }
+    }
+    impl PartialOrd for TabHandler {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+    impl Eq for TabHandler {}
+    impl Ord for TabHandler {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.uuid.cmp(&other.uuid)
+        }
     }
 }
 

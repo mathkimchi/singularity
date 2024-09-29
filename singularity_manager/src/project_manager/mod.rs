@@ -5,10 +5,7 @@ use singularity_common::{
         packets::{Query, Request, Response},
         TabHandler,
     },
-    utils::tree::{
-        rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath},
-    },
+    utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
@@ -21,18 +18,18 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+use tabs::Tabs;
 
 pub mod tabs;
 
 pub struct ProjectManager {
     project: Project,
 
-    tabs: RootedTree<TabHandler>,
+    tabs: Tabs,
 
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
     app_focuser_index: Option<TreeNodePath>,
-    focused_tab_path: TreeNodePath,
     is_running: bool,
 
     /// gui
@@ -88,7 +85,7 @@ impl ProjectManager {
 
         let mut manager = Self {
             project: Project::new("examples/root-project"),
-            tabs: RootedTree::from_root(TabHandler::new(
+            tabs: Tabs::new(TabHandler::new(
                 basic_tab_creator(
                     "examples/root-project/file_to_edit.txt",
                     Editor::new,
@@ -98,13 +95,12 @@ impl ProjectManager {
                 Self::generate_tab_area(0, 0),
             )),
             app_focuser_index: None,
-            focused_tab_path: TreeNodePath::new_root(),
             is_running: false,
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         };
 
-        manager.tabs.add_node(
+        manager.tabs.add(
             TabHandler::new(
                 basic_tab_creator(
                     "examples/root-project/lorem_ipsum.txt",
@@ -145,20 +141,20 @@ impl ProjectManager {
     fn draw_app(&mut self) {
         let mut tab_elements = Vec::new();
 
-        for tab_path in self.tabs.collect_paths_dfs().into_iter() {
+        for tab_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
             let tab = &mut self.tabs[&tab_path];
 
-            tab_elements.push((tab.get_ui_element().bordered(), *tab.get_area()));
+            tab_elements.push((tab.get_ui_element().bordered(), tab.get_area()));
         }
 
         // display the tab focuser/selector
         if let Some(focusing_index) = &self.app_focuser_index {
             let mut subapps_focuser_display = CharGrid::default();
 
-            for tab_path in self.tabs.iter_paths_dfs() {
+            for tab_path in self.tabs.get_organizational_hierarchy().iter_paths_dfs() {
                 let tab = &self.tabs[&tab_path];
 
-                let fg = if tab_path == self.focused_tab_path {
+                let fg = if tab.get_uuid() == self.tabs.get_focused_tab_id() {
                     Color32::LIGHT_YELLOW
                 } else {
                     Color32::LIGHT_GREEN
@@ -224,29 +220,31 @@ impl ProjectManager {
 
                         let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                        self.focused_tab_path = new_focus_index;
+                        self.tabs.set_focused_tab_path(new_focus_index);
                     } else {
                         let mut new_focus_index = self
                             .app_focuser_index
                             .clone()
-                            .unwrap_or(self.focused_tab_path.clone());
+                            .unwrap_or(self.tabs.get_tab_path(self.tabs.get_focused_tab_id()));
 
                         self.app_focuser_index = match key.to_char() {
                             Some('\n') => Some(new_focus_index),
                             Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-                                new_focus_index = new_focus_index
-                                    .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
+                                new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
+                                    self.tabs.get_organizational_hierarchy(),
+                                    traverse_key,
+                                );
                                 Some(new_focus_index)
                             }
                             _ => panic!(),
                         };
                     }
                     dbg!(&self.app_focuser_index);
-                    dbg!(&self.focused_tab_path);
+                    // dbg!(&self.focused_tab_path);
                 }
                 ui_event => {
                     // forward the event to focused tab
-                    let focused_tab = &mut self.tabs[&self.focused_tab_path];
+                    let focused_tab = self.tabs.get_focused_tab_mut();
 
                     focused_tab
                         .send_event(singularity_common::tab::packets::Event::UIEvent(ui_event));
@@ -257,7 +255,7 @@ impl ProjectManager {
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
-        for requestor_path in self.tabs.collect_paths_dfs() {
+        for requestor_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
             let requests = self.tabs[&requestor_path].collect_requests();
 
             for request in requests {
@@ -266,19 +264,16 @@ impl ProjectManager {
                         self.tabs[&requestor_path].tab_name = new_name;
                     }
                     Request::SpawnChildTab(tab_creator) => {
-                        self.focused_tab_path = self
-                            .tabs
-                            .add_node(
-                                TabHandler::new(
-                                    tab_creator,
-                                    // NOTE: the argument child index: 0 is technically incorrect,
-                                    // but the purpose of the generator is to generally prevent all
-                                    // tabs from being spawned all in one place.
-                                    Self::generate_tab_area(0, requestor_path.depth() + 1),
-                                ),
-                                &requestor_path,
-                            )
-                            .unwrap();
+                        self.tabs.add(
+                            TabHandler::new(
+                                tab_creator,
+                                // NOTE: the argument child index: 0 is technically incorrect,
+                                // but the purpose of the generator is to generally prevent all
+                                // tabs from being spawned all in one place.
+                                Self::generate_tab_area(0, requestor_path.depth() + 1),
+                            ),
+                            &requestor_path,
+                        );
                     }
                 }
             }
@@ -286,7 +281,7 @@ impl ProjectManager {
     }
 
     fn answer_tab_queries(&self) {
-        for tab_path in self.tabs.collect_paths_dfs() {
+        for tab_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
             let inquieror = &self.tabs[&tab_path];
             inquieror.answer_query(move |query| match query {
                 Query::Path => Response::Path(tab_path.clone()),
