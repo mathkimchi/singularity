@@ -224,10 +224,12 @@ impl ProjectManager {
 
                         self.tabs.set_focused_tab_path(new_focus_index);
                     } else {
-                        let mut new_focus_index = self
-                            .app_focuser_index
-                            .clone()
-                            .unwrap_or(self.tabs.get_tab_path(self.tabs.get_focused_tab_id()));
+                        let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
+                            self.tabs
+                                .get_tab_path(&self.tabs.get_focused_tab_id())
+                                .unwrap()
+                                .clone(),
+                        );
 
                         self.app_focuser_index = match key.to_char() {
                             Some('\n') => Some(new_focus_index),

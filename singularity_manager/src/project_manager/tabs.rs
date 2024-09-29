@@ -15,7 +15,7 @@ use uuid::Uuid;
 /// Then, things like tree node path or display order index
 /// can be found from the uuid.
 pub struct Tabs {
-    tabs: BTreeMap<Uuid, TabHandler>,
+    tabs: BTreeMap<Uuid, (TabHandler, TreeNodePath)>,
 
     focused_tab: Uuid,
 
@@ -28,7 +28,7 @@ impl Tabs {
     pub fn new(root_tab: TabHandler) -> Self {
         let root_id = Uuid::new_v4();
         let mut tabs = BTreeMap::new();
-        tabs.insert(root_id, root_tab);
+        tabs.insert(root_id, (root_tab, TreeNodePath::new_root()));
 
         Self {
             tabs,
@@ -42,17 +42,20 @@ impl Tabs {
     pub fn add(&mut self, new_tab: TabHandler, parent_path: &TreeNodePath) {
         let uuid = Uuid::new_v4();
 
-        self.organizational_hierarchy.add_node(uuid, parent_path);
+        let path = self
+            .organizational_hierarchy
+            .add_node(uuid, parent_path)
+            .unwrap();
         self.display_order.push(uuid);
-        self.tabs.insert(uuid, new_tab);
+        self.tabs.insert(uuid, (new_tab, path));
     }
 
     pub fn get(&self, uuid: Uuid) -> Option<&TabHandler> {
-        self.tabs.get(&uuid)
+        self.tabs.get(&uuid).map(|(tab, _)| tab)
     }
 
     pub fn get_mut(&mut self, uuid: Uuid) -> Option<&mut TabHandler> {
-        self.tabs.get_mut(&uuid)
+        self.tabs.get_mut(&uuid).map(|(tab, _)| tab)
     }
 
     pub fn get_organizational_hierarchy(&self) -> &RootedTree<Uuid> {
@@ -75,8 +78,8 @@ impl Tabs {
         self.focused_tab = self.organizational_hierarchy[&focused_tab_path];
     }
 
-    pub fn get_tab_path(&mut self, tab_uuid: Uuid) -> TreeNodePath {
-        todo!()
+    pub fn get_tab_path(&mut self, tab_uuid: &Uuid) -> Option<&TreeNodePath> {
+        self.tabs.get(tab_uuid).map(|(_tab, path)| path)
     }
 }
 impl std::ops::Index<Uuid> for Tabs {
