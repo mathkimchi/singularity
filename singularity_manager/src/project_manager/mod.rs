@@ -141,8 +141,8 @@ impl ProjectManager {
     fn draw_app(&mut self) {
         let mut tab_elements = Vec::new();
 
-        for tab_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
-            let tab = &mut self.tabs[&tab_path];
+        for tab_id in self.tabs.get_display_order().clone() {
+            let tab = &mut self.tabs[tab_id];
 
             tab_elements.push((tab.get_ui_element().bordered(), tab.get_area()));
         }
