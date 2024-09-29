@@ -649,3 +649,8 @@ Smithay's `Environment`s seems to have been removed since version 0.17, and 0.19
 This is not very reassuring, especially the fact a feature so widely used that it was in the tutorial could be removed in an update.
 
 I feel like this is going to be a whole can of worms, so I don't think I should implement wayland and smithay at this stage.
+
+I will try looking into Zed's gpui, but if I start feeling like it isn't much better than egui, or that it is just too complicated, I am going to commit then undo asap.
+
+I tried it, but there was a very long error message ending with `cannot find -lxcb: No such file or directory collect2: error: ld returned 1 exit status`
+and it probably has something to do with Nixos, but I will keep true to my word and abort this tangent before it consumes any more of my time.
