@@ -627,6 +627,7 @@ The basic foundations for all the features (ui elements, ui events) have been im
     - [ ] maximize active tab with `Ctrl+Shift+Up`
     - [ ] minimize active tab with `Ctrl+Shift+Down` (and change focus?)
     - [ ] move active tab with `Ctrl+Shift+<Direction>`
+  - [ ] close tabs
 
 ---
 
@@ -686,3 +687,21 @@ The top three biggest files are:
 | project manager | 313 | 773  | 10997 |
 
 and the top two of these are currently not being used, so my line count is pretty inflated.
+
+### Decoupling Tabs
+
+2024/9/29
+
+In order to seperate the tab tree hierarchy from the view, I will need to redo how I store tabs.
+
+The current way is to only use rooted trees.
+This worked when the tree hierarchy determined how things were viewed, but now I also want to set an order to rendering.
+
+My ideas are:
+- Store tabs + z-order in tree
+  - Sort by this before every render
+- Store tabs in tree+store a seperate vector of paths to tabs in order.
+- Store tabs in vec, store seperate vector of indices pointing to the tabs for render order, also store the tree hierarchy with tree of indices
+  - I like the idea of this, but there is just one change to make this better
+  - The problem is that any modification to the order (caused by closing a tab) would mess up everything
+- Each instance of a tab has an immutable uid, store tabs in a vec/btreemap, store hierarchy and render order via the id

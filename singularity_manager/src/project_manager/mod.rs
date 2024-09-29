@@ -22,6 +22,8 @@ use std::{
     thread,
 };
 
+pub mod tabs;
+
 pub struct ProjectManager {
     project: Project,
 

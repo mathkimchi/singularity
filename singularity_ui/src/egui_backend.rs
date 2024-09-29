@@ -1,5 +1,5 @@
 use crate::{display_units::DisplaySize, ui_event::UIEvent, CharGrid, UIElement};
-use egui::{widget_text, Color32, Widget};
+use egui::{widget_text, Widget};
 use std::sync::{Arc, Mutex};
 
 pub const FRAME_RATE: f32 = 5.;
