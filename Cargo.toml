@@ -6,7 +6,6 @@ members = [
     "singularity_ui",
 ]
 resolver = "2"
-exclude = ["testing"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
