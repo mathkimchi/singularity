@@ -630,3 +630,22 @@ I want to know how Zed does gui, so I am reading a [blog from Zed](https://zed.d
 - the blog actually mainly goes over gpu programming, and singularity is not ready for that yet.
 
 I guess I will continue using egui, but I will just try to have the backend not matter as much as possible.
+
+---
+
+2024/9/28
+
+Since my philosophies on gui seems to not be shared by other gui frameworks, I will try to go lower level until I can just implement it myself.
+
+Right now, I created a new directory called testing which is completely unrelated to everything else, I am just using it to test how it would be to use wayland-client. If this doesn't work, I might need to do winit+some gpu programming.
+
+Okay, so with just wayland-client (no smithay client toolkit), it definitely feels possible but I think if I tried to rawdog it, I would be wasting my time.
+I was looking at [this example](https://github.com/Smithay/wayland-rs/blob/master/wayland-client/examples/simple_window.rs) for wayland client.
+Anyways, I am now going to try out smithay client toolkit, and luckily for me, there is an actual [tutorial](https://smithay.github.io/book/client/sctk/environment.html) on this, which I have learned not to expect from most rust crates.
+
+I had to add a few dependencies to even get it to compile, but that is not a big deal.
+However, the code from the tutorial is not actually working, and links to the actual documentation in the tutorial are also not working, so I assume that the tutorial is outdated.
+Smithay's `Environment`s seems to have been removed since version 0.17, and 0.19 is the current newest.
+This is not very reassuring, especially the fact a feature so widely used that it was in the tutorial could be removed in an update.
+
+I feel like this is going to be a whole can of worms, so I don't think I should implement wayland and smithay at this stage.
