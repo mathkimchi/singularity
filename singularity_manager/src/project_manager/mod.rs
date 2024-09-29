@@ -154,7 +154,9 @@ impl ProjectManager {
             for tab_path in self.tabs.get_organizational_hierarchy().iter_paths_dfs() {
                 let tab = &self.tabs[&tab_path];
 
-                let fg = if tab.get_uuid() == self.tabs.get_focused_tab_id() {
+                let fg = if self.tabs.get_organizational_hierarchy()[&tab_path]
+                    == self.tabs.get_focused_tab_id()
+                {
                     Color32::LIGHT_YELLOW
                 } else {
                     Color32::LIGHT_GREEN

@@ -15,8 +15,6 @@ use uuid::Uuid;
 /// Then, things like tree node path or display order index
 /// can be found from the uuid.
 pub struct Tabs {
-    /// FIXME: Since tab handler stores uuid, storing the key as well
-    /// is kind of redundant.
     tabs: BTreeMap<Uuid, TabHandler>,
 
     focused_tab: Uuid,
@@ -28,7 +26,7 @@ pub struct Tabs {
 }
 impl Tabs {
     pub fn new(root_tab: TabHandler) -> Self {
-        let root_id = root_tab.get_uuid();
+        let root_id = Uuid::new_v4();
         let mut tabs = BTreeMap::new();
         tabs.insert(root_id, root_tab);
 
@@ -42,10 +40,11 @@ impl Tabs {
 
     /// NOTE: Currently doesn't change focus
     pub fn add(&mut self, new_tab: TabHandler, parent_path: &TreeNodePath) {
-        self.organizational_hierarchy
-            .add_node(new_tab.get_uuid(), parent_path);
-        self.display_order.push(new_tab.get_uuid());
-        self.tabs.insert(new_tab.get_uuid(), new_tab);
+        let uuid = Uuid::new_v4();
+
+        self.organizational_hierarchy.add_node(uuid, parent_path);
+        self.display_order.push(uuid);
+        self.tabs.insert(uuid, new_tab);
     }
 
     pub fn get(&self, uuid: Uuid) -> Option<&TabHandler> {

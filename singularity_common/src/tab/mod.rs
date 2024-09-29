@@ -7,7 +7,6 @@ use std::{
     },
     thread::{self, JoinHandle},
 };
-use uuid::Uuid;
 
 pub mod packets;
 
@@ -116,8 +115,6 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
 ///
 /// REVIEW: Shall I transport this to the manager?
 pub struct TabHandler {
-    uuid: Uuid,
-
     tab_channels: TabChannels,
 
     pub tab_name: String,
@@ -140,7 +137,6 @@ impl TabHandler {
         });
 
         Self {
-            uuid: uuid::Uuid::new_v4(),
             tab_channels,
             _tab_thread: tab_thread,
             tab_name: String::new(),
@@ -185,33 +181,6 @@ impl TabHandler {
         self.tab_area = new_area;
 
         self.send_event(Event::Resize(new_area));
-    }
-
-    pub fn get_uuid(&self) -> Uuid {
-        self.uuid
-    }
-}
-mod tab_handler_uuid_impls {
-    //! implement partial eq and order for tab handler
-    //! via uuid
-
-    use super::*;
-
-    impl PartialEq for TabHandler {
-        fn eq(&self, other: &Self) -> bool {
-            self.uuid == other.uuid
-        }
-    }
-    impl PartialOrd for TabHandler {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            Some(self.cmp(other))
-        }
-    }
-    impl Eq for TabHandler {}
-    impl Ord for TabHandler {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.uuid.cmp(&other.uuid)
-        }
     }
 }
 
