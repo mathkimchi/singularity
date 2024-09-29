@@ -246,6 +246,32 @@ impl ProjectManager {
                     dbg!(&self.app_focuser_index);
                     // dbg!(&self.focused_tab_path);
                 }
+                UIEvent::Key {
+                    key: Key::ArrowUp,
+                    modifiers,
+                    pressed: true,
+                    ..
+                } if modifiers.command_only() => {
+                    // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+
+                    // maximize focused tab
+                    let focused_tab = self.tabs.get_focused_tab_mut();
+
+                    // TODO: actual fullscreen
+                    // FIXME: doesn't even work, egui completely ignores sizing
+                    focused_tab.set_area(DisplayArea::from_coord_size(
+                        DisplayCoord::new(0.0, 0.0),
+                        DisplaySize::new(1600.0, 1200.0),
+                    ));
+                }
+                UIEvent::Key {
+                    key: Key::ArrowDown,
+                    modifiers,
+                    pressed: true,
+                    ..
+                } if modifiers.command_only() => {
+                    self.tabs.minimize_focused_tab();
+                }
                 ui_event => {
                     // forward the event to focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();

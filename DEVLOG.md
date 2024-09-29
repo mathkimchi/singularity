@@ -621,13 +621,13 @@ The basic foundations for all the features (ui elements, ui events) have been im
   - SKIP for now
 - [ ] window management with tabs
   - [x] tab's tree hierarchy should not define position
-  - [ ] tab tree hierarchy should not define display order
+  - [x] tab tree hierarchy should not define display order
   - [x] make tabs able to overlap
   - [ ] able to move tabs around with keyboard
-    - [ ] maximize active tab with `Ctrl+Shift+Up`
-    - [ ] minimize active tab with `Ctrl+Shift+Down` (and change focus?)
-    - [ ] move active tab with `Ctrl+Shift+<Direction>`
-  - [ ] close tabs
+    - [ ] maximize focused tab with `Ctrl+Shift+Up`
+    - [x] minimize focused tab with `Ctrl+Shift+Down` (and change focus?)
+    - [ ] move focused tab to the side with `Ctrl+Shift+<Right/Left>`
+  - [ ] close tabs with `Ctrl+Shift+W`
 
 ---
 

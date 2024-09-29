@@ -90,6 +90,19 @@ impl Tabs {
     pub fn get_tab_path(&mut self, tab_uuid: &Uuid) -> Option<&TreeNodePath> {
         self.tabs.get(tab_uuid).map(|(_tab, path)| path)
     }
+
+    pub fn minimize_focused_tab(&mut self) {
+        // remove the focused tab from the display order as to not render it
+
+        self.display_order
+            .retain(|tab_id| tab_id != &self.focused_tab);
+
+        // REVIEW: is this good?
+        // make the topmost tab the new focused tab
+        if let Some(uuid) = self.display_order.last() {
+            self.focused_tab = *uuid;
+        }
+    }
 }
 impl std::ops::Index<Uuid> for Tabs {
     type Output = TabHandler;
