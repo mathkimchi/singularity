@@ -1,5 +1,3 @@
-use std::{convert::TryInto, time::Duration};
-
 use font_kit::family_name::FamilyName;
 use font_kit::properties::{Properties, Weight};
 use font_kit::source::SystemSource;
@@ -32,6 +30,9 @@ use smithay_client_toolkit::{
         Shm, ShmHandler,
     },
 };
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 use wayland_client::{
     globals::registry_queue_init,
     protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
@@ -41,103 +42,119 @@ use wayland_client::{
 fn main() {
     env_logger::init();
 
-    // All Wayland apps start by connecting the compositor (server).
-    let conn = Connection::connect_to_env().unwrap();
+    let counter = Arc::new(Mutex::new(0));
 
-    // Enumerate the list of globals to get the protocols the server implements.
-    let (globals, event_queue) = registry_queue_init(&conn).unwrap();
-    let qh = event_queue.handle();
-    let mut event_loop: EventLoop<SimpleWindow> =
-        EventLoop::try_new().expect("Failed to initialize the event loop!");
-    let loop_handle = event_loop.handle();
-    WaylandSource::new(conn.clone(), event_queue)
-        .insert(loop_handle)
-        .unwrap();
+    let counter_clone = counter.clone();
+    let ui_handle = thread::spawn(move || {
+        // All Wayland apps start by connecting the compositor (server).
+        let conn = Connection::connect_to_env().unwrap();
 
-    // The compositor (not to be confused with the server which is commonly called the compositor) allows
-    // configuring surfaces to be presented.
-    let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
-    // For desktop platforms, the XDG shell is the standard protocol for creating desktop windows.
-    let xdg_shell = XdgShell::bind(&globals, &qh).expect("xdg shell is not available");
-    // Since we are not using the GPU in this example, we use wl_shm to allow software rendering to a buffer
-    // we share with the compositor process.
-    let shm = Shm::bind(&globals, &qh).expect("wl shm is not available.");
-    // If the compositor supports xdg-activation it probably wants us to use it to get focus
-    let xdg_activation = ActivationState::bind(&globals, &qh).ok();
-
-    // A window is created from a surface.
-    let surface = compositor.create_surface(&qh);
-    // And then we can create the window.
-    let window = xdg_shell.create_window(surface, WindowDecorations::RequestServer, &qh);
-    // Configure the window, this may include hints to the compositor about the desired minimum size of the
-    // window, app id for WM identification, the window title, etc.
-    window.set_title("A wayland window");
-    // GitHub does not let projects use the `org.github` domain but the `io.github` domain is fine.
-    window.set_app_id("io.github.smithay.client-toolkit.SimpleWindow");
-    window.set_min_size(Some((256, 256)));
-
-    // In order for the window to be mapped, we need to perform an initial commit with no attached buffer.
-    // For more info, see WaylandSurface::commit
-    //
-    // The compositor will respond with an initial configure that we can then use to present to the window with
-    // the correct options.
-    window.commit();
-
-    // To request focus, we first need to request a token
-    if let Some(activation) = xdg_activation.as_ref() {
-        activation.request_token(
-            &qh,
-            RequestData {
-                seat_and_serial: None,
-                surface: Some(window.wl_surface().clone()),
-                app_id: Some(String::from(
-                    "io.github.smithay.client-toolkit.SimpleWindow",
-                )),
-            },
-        )
-    }
-
-    // We don't know how large the window will be yet, so lets assume the minimum size we suggested for the
-    // initial memory allocation.
-    let pool = SlotPool::new(256 * 256 * 4, &shm).expect("Failed to create pool");
-
-    let mut simple_window = SimpleWindow {
-        // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
-        // listen for seats and outputs.
-        registry_state: RegistryState::new(&globals),
-        seat_state: SeatState::new(&globals, &qh),
-        output_state: OutputState::new(&globals, &qh),
-        shm,
-        xdg_activation,
-
-        exit: false,
-        first_configure: true,
-        pool,
-        width: 256,
-        height: 256,
-        shift: None,
-        buffer: None,
-        window,
-        keyboard: None,
-        keyboard_focus: false,
-        pointer: None,
-        loop_handle: event_loop.handle(),
-    };
-
-    // We don't draw immediately, the configure will notify us when to first draw.
-    loop {
-        event_loop
-            .dispatch(Duration::from_millis(16), &mut simple_window)
+        // Enumerate the list of globals to get the protocols the server implements.
+        let (globals, event_queue) = registry_queue_init(&conn).unwrap();
+        let qh = event_queue.handle();
+        let mut event_loop: EventLoop<SimpleWindow> =
+            EventLoop::try_new().expect("Failed to initialize the event loop!");
+        let loop_handle = event_loop.handle();
+        WaylandSource::new(conn.clone(), event_queue)
+            .insert(loop_handle)
             .unwrap();
 
-        if simple_window.exit {
-            println!("exiting example");
-            break;
+        // The compositor (not to be confused with the server which is commonly called the compositor) allows
+        // configuring surfaces to be presented.
+        let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
+        // For desktop platforms, the XDG shell is the standard protocol for creating desktop windows.
+        let xdg_shell = XdgShell::bind(&globals, &qh).expect("xdg shell is not available");
+        // Since we are not using the GPU in this example, we use wl_shm to allow software rendering to a buffer
+        // we share with the compositor process.
+        let shm = Shm::bind(&globals, &qh).expect("wl shm is not available.");
+        // If the compositor supports xdg-activation it probably wants us to use it to get focus
+        let xdg_activation = ActivationState::bind(&globals, &qh).ok();
+
+        // A window is created from a surface.
+        let surface = compositor.create_surface(&qh);
+        // And then we can create the window.
+        let window = xdg_shell.create_window(surface, WindowDecorations::RequestServer, &qh);
+        // Configure the window, this may include hints to the compositor about the desired minimum size of the
+        // window, app id for WM identification, the window title, etc.
+        window.set_title("A wayland window");
+        // GitHub does not let projects use the `org.github` domain but the `io.github` domain is fine.
+        window.set_app_id("io.github.smithay.client-toolkit.SimpleWindow");
+        window.set_min_size(Some((256, 256)));
+
+        // In order for the window to be mapped, we need to perform an initial commit with no attached buffer.
+        // For more info, see WaylandSurface::commit
+        //
+        // The compositor will respond with an initial configure that we can then use to present to the window with
+        // the correct options.
+        window.commit();
+
+        // To request focus, we first need to request a token
+        if let Some(activation) = xdg_activation.as_ref() {
+            activation.request_token(
+                &qh,
+                RequestData {
+                    seat_and_serial: None,
+                    surface: Some(window.wl_surface().clone()),
+                    app_id: Some(String::from(
+                        "io.github.smithay.client-toolkit.SimpleWindow",
+                    )),
+                },
+            )
         }
+
+        // We don't know how large the window will be yet, so lets assume the minimum size we suggested for the
+        // initial memory allocation.
+        let pool = SlotPool::new(256 * 256 * 4, &shm).expect("Failed to create pool");
+
+        let mut simple_window = SimpleWindow {
+            counter: counter_clone,
+
+            // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
+            // listen for seats and outputs.
+            registry_state: RegistryState::new(&globals),
+            seat_state: SeatState::new(&globals, &qh),
+            output_state: OutputState::new(&globals, &qh),
+            shm,
+            xdg_activation,
+
+            exit: false,
+            first_configure: true,
+            pool,
+            width: 256,
+            height: 256,
+            shift: None,
+            buffer: None,
+            window,
+            keyboard: None,
+            keyboard_focus: false,
+            pointer: None,
+            loop_handle: event_loop.handle(),
+        };
+
+        // We don't draw immediately, the configure will notify us when to first draw.
+        loop {
+            event_loop
+                .dispatch(Duration::from_millis(16), &mut simple_window)
+                .unwrap();
+
+            if simple_window.exit {
+                println!("exiting example");
+                break;
+            }
+        }
+    });
+
+    for _ in 0..20 {
+        *counter.lock().unwrap() += 1;
+        thread::sleep(Duration::from_secs(1));
     }
+
+    ui_handle.join().unwrap();
 }
 
 struct SimpleWindow {
+    counter: Arc<Mutex<u8>>,
+
     registry_state: RegistryState,
     seat_state: SeatState,
     output_state: OutputState,
@@ -473,7 +490,7 @@ impl SimpleWindow {
                 .0
         });
 
-        let mut canvas = match self.pool.canvas(buffer) {
+        let canvas = match self.pool.canvas(buffer) {
             Some(canvas) => canvas,
             None => {
                 // This should be rare, but if the compositor has not released the previous
@@ -496,6 +513,20 @@ impl SimpleWindow {
         {
             let mut dt = DrawTarget::new(width as i32, height as i32);
 
+            dt.fill_rect(
+                0.,
+                0.,
+                dt.width() as f32,
+                dt.height() as f32,
+                &Source::Solid(SolidSource {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0xff,
+                }),
+                &DrawOptions::new(),
+            );
+
             dt.draw_text(
                 &SystemSource::new()
                     .select_best_match(
@@ -506,7 +537,7 @@ impl SimpleWindow {
                     .load()
                     .unwrap(),
                 24.,
-                "Helo",
+                &self.counter.lock().unwrap().to_string(),
                 Point::new(30., 30.),
                 &Source::Solid(SolidSource {
                     r: 0,
