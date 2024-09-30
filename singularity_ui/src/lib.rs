@@ -51,6 +51,19 @@ pub mod display_units {
         }
     }
 
+    #[cfg(feature = "wayland_backend")]
+    impl From<DisplayArea> for raqote::IntRect {
+        fn from(value: DisplayArea) -> Self {
+            Self::new(value.0.into(), value.1.into())
+        }
+    }
+    #[cfg(feature = "wayland_backend")]
+    impl From<DisplayCoord> for raqote::IntPoint {
+        fn from(value: DisplayCoord) -> Self {
+            Self::new(value.x as i32, value.y as i32)
+        }
+    }
+
     #[cfg(feature = "egui_backend")]
     impl From<DisplaySize> for egui::Vec2 {
         fn from(value: DisplaySize) -> Self {
@@ -84,7 +97,7 @@ pub mod display_units {
 #[derive(Debug, Clone)]
 pub enum UIElement {
     Container(Vec<(UIElement, display_units::DisplayArea)>),
-    Horizontal(Vec<UIElement>),
+    // Horizontal(Vec<UIElement>),
     Bordered(Box<UIElement>),
     Text(String),
 

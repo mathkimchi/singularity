@@ -167,7 +167,200 @@ impl UIDisplay {
         }
     }
 }
-pub mod ui_display_wayland_impls {
+mod drawing_impls {
+    use super::UIDisplay;
+    use crate::UIElement;
+    use font_kit::{
+        family_name::FamilyName,
+        properties::{Properties, Weight},
+        source::SystemSource,
+    };
+    use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
+    use smithay_client_toolkit::shell::WaylandSurface;
+    use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
+
+    impl UIElement {
+        pub fn draw(&self, dt: &mut DrawTarget) {
+            match self {
+                UIElement::Container(children) => {
+                    for (ui_element, area) in children {
+                        // draw the inner widget
+                        let mut inner_dt =
+                            DrawTarget::new(area.size().width as i32, area.size().height as i32);
+                        ui_element.draw(&mut inner_dt);
+                        dt.copy_surface(
+                            &inner_dt,
+                            raqote::IntRect::from_size(
+                                (inner_dt.width(), inner_dt.height()).into(),
+                            ),
+                            area.0.into(),
+                        );
+                    }
+                }
+                UIElement::Bordered(inner_element) => {
+                    // draw the border
+                    dt.fill_rect(
+                        0.,
+                        0.,
+                        dt.width() as f32,
+                        dt.height() as f32,
+                        &Source::Solid(SolidSource {
+                            r: 0,
+                            g: 0x80,
+                            b: 0,
+                            a: 0xFF,
+                        }),
+                        &DrawOptions::new(),
+                    );
+                    // clear the inside of the border
+                    dt.fill_rect(
+                        1.,
+                        1.,
+                        dt.width() as f32 - 2.,
+                        dt.height() as f32 - 2.,
+                        &Source::Solid(SolidSource {
+                            r: 0,
+                            g: 0,
+                            b: 0,
+                            a: 0xFF,
+                        }),
+                        &DrawOptions::new(),
+                    );
+
+                    // draw the inner widget
+                    let mut inner_dt = DrawTarget::new(dt.width() - 2, dt.height() - 2);
+                    inner_element.draw(&mut inner_dt);
+                    dt.copy_surface(
+                        &inner_dt,
+                        raqote::IntRect::from_size((inner_dt.width(), inner_dt.height()).into()),
+                        raqote::IntPoint::new(1, 1),
+                    );
+                }
+                UIElement::Text(text) => {
+                    dt.draw_text(
+                        &SystemSource::new()
+                            .select_best_match(
+                                &[FamilyName::Monospace],
+                                Properties::new().weight(Weight::MEDIUM),
+                            )
+                            .unwrap()
+                            .load()
+                            .unwrap(),
+                        24.,
+                        text,
+                        Point::new(0., 0.),
+                        &Source::Solid(SolidSource {
+                            r: 0,
+                            g: 0,
+                            b: 0xff,
+                            a: 0xff,
+                        }),
+                        &DrawOptions::new(),
+                    );
+                }
+                UIElement::CharGrid(char_grid) => {
+                    // for line in &char_grid.content {
+                    //     for CharCell { character, fg, bg } in line {
+                    dt.draw_text(
+                        &SystemSource::new()
+                            .select_best_match(
+                                &[FamilyName::Monospace],
+                                Properties::new().weight(Weight::MEDIUM),
+                            )
+                            .unwrap()
+                            .load()
+                            .unwrap(),
+                        24.,
+                        "&character.to_string()",
+                        Point::new(0., 0.),
+                        &raqote::Source::Solid(SolidSource {
+                            r: 0,
+                            g: 0,
+                            b: 0xFF,
+                            a: 0xFF,
+                        }),
+                        &DrawOptions::new(),
+                    );
+                    //     }
+                    // }
+                }
+            }
+        }
+    }
+
+    impl UIDisplay {
+        pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
+            let stride = self.width as i32 * 4;
+
+            let buffer = self.buffer.get_or_insert_with(|| {
+                dbg!(("creating buffer:", self.width, self.height));
+                self.pool
+                    .create_buffer(
+                        self.width as i32,
+                        self.height as i32,
+                        stride,
+                        wl_shm::Format::Argb8888,
+                    )
+                    .expect("create buffer")
+                    .0
+            });
+
+            let canvas = match self.pool.canvas(buffer) {
+                Some(canvas) => canvas,
+                None => {
+                    dbg!(("creating canvas:", self.width, self.height));
+
+                    // This should be rare, but if the compositor has not released the previous
+                    // buffer, we need double-buffering.
+                    let (second_buffer, canvas) = self
+                        .pool
+                        .create_buffer(
+                            self.width as i32,
+                            self.height as i32,
+                            stride,
+                            wl_shm::Format::Argb8888,
+                        )
+                        .expect("create buffer");
+                    *buffer = second_buffer;
+                    dbg!((
+                        "created canvas:",
+                        canvas.len(),
+                        canvas.len() as u32 - (4 * self.width * self.height)
+                    ));
+                    canvas
+                }
+            };
+
+            // Draw to the window:
+            {
+                let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
+                self.root_element.lock().unwrap().draw(&mut dt);
+                dbg!(canvas.len());
+                dbg!(4 * dt.width() * dt.height());
+                dbg!((self.width, self.height));
+                dbg!((dt.width(), dt.height()));
+                canvas.copy_from_slice(dt.get_data_u8());
+            }
+
+            // Damage the entire window
+            self.window
+                .wl_surface()
+                .damage_buffer(0, 0, self.width as i32, self.height as i32);
+
+            // Request our next frame
+            self.window
+                .wl_surface()
+                .frame(qh, self.window.wl_surface().clone());
+
+            // Attach and commit to present.
+            buffer
+                .attach_to(self.window.wl_surface())
+                .expect("buffer attach");
+            self.window.commit();
+        }
+    }
+}
+mod ui_display_wayland_impls {
     use super::{
         ui_event::{Key, KeyModifiers},
         UIDisplay,
@@ -193,7 +386,7 @@ pub mod ui_display_wayland_impls {
         shm::{Shm, ShmHandler},
     };
     use wayland_client::{
-        protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
+        protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_surface},
         Connection, QueueHandle,
     };
 
@@ -292,8 +485,6 @@ pub mod ui_display_wayland_impls {
             configure: WindowConfigure,
             _serial: u32,
         ) {
-            println!("Window configured to: {:?}", configure);
-
             self.buffer = None;
             self.width = configure.new_size.0.map(|v| v.get()).unwrap_or(256);
             self.height = configure.new_size.1.map(|v| v.get()).unwrap_or(256);
@@ -487,103 +678,6 @@ pub mod ui_display_wayland_impls {
     impl ShmHandler for UIDisplay {
         fn shm_state(&mut self) -> &mut Shm {
             &mut self.shm
-        }
-    }
-
-    impl UIDisplay {
-        pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
-            let width = self.width;
-            let height = self.height;
-            let stride = self.width as i32 * 4;
-
-            let buffer = self.buffer.get_or_insert_with(|| {
-                self.pool
-                    .create_buffer(
-                        width as i32,
-                        height as i32,
-                        stride,
-                        wl_shm::Format::Argb8888,
-                    )
-                    .expect("create buffer")
-                    .0
-            });
-
-            let canvas = match self.pool.canvas(buffer) {
-                Some(canvas) => canvas,
-                None => {
-                    // This should be rare, but if the compositor has not released the previous
-                    // buffer, we need double-buffering.
-                    let (second_buffer, canvas) = self
-                        .pool
-                        .create_buffer(
-                            self.width as i32,
-                            self.height as i32,
-                            stride,
-                            wl_shm::Format::Argb8888,
-                        )
-                        .expect("create buffer");
-                    *buffer = second_buffer;
-                    canvas
-                }
-            };
-
-            // Draw to the window:
-            {
-                // let mut dt = DrawTarget::new(width as i32, height as i32);
-
-                // dt.fill_rect(
-                //     0.,
-                //     0.,
-                //     dt.width() as f32,
-                //     dt.height() as f32,
-                //     &Source::Solid(SolidSource {
-                //         r: 0,
-                //         g: 0,
-                //         b: 0,
-                //         a: 0xff,
-                //     }),
-                //     &DrawOptions::new(),
-                // );
-
-                // dt.draw_text(
-                //     &SystemSource::new()
-                //         .select_best_match(
-                //             &[FamilyName::Monospace],
-                //             Properties::new().weight(Weight::MEDIUM),
-                //         )
-                //         .unwrap()
-                //         .load()
-                //         .unwrap(),
-                //     24.,
-                //     &self.counter.lock().unwrap().to_string(),
-                //     Point::new(30., 30.),
-                //     &Source::Solid(SolidSource {
-                //         r: 0,
-                //         g: 0,
-                //         b: 0xff,
-                //         a: 0xff,
-                //     }),
-                //     &DrawOptions::new(),
-                // );
-
-                // canvas.copy_from_slice(dt.get_data_u8());
-            }
-
-            // Damage the entire window
-            self.window
-                .wl_surface()
-                .damage_buffer(0, 0, self.width as i32, self.height as i32);
-
-            // Request our next frame
-            self.window
-                .wl_surface()
-                .frame(qh, self.window.wl_surface().clone());
-
-            // Attach and commit to present.
-            buffer
-                .attach_to(self.window.wl_surface())
-                .expect("buffer attach");
-            self.window.commit();
         }
     }
 

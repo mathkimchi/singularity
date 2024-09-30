@@ -717,3 +717,17 @@ I couldn't get the example itself to work, but it uses a crate called raqote and
 I previously could not write actual text, but I guess these crates can render text for me.
 
 For their window example, they use minifb, and the minifb looks very simple and good, but it isn't super widely used, so I'll only look into it if wayland doesn't work.
+
+So right now, for nested items like Containers and Borders, I create an entirely new buffer to store data for it, then I try to copy it onto the parent buffer.
+As you can imagine, this is not great for speed.
+Actually, nvm the real problem seems to lie with the text, so I was going to optimize the buffer thing but I will fix the text first.
+
+
+Also, every once in a while, the lengths of the canvas and draw target (which I am using as the buffer) don't match, even though they should be the same thing.
+- I think this happens when I resize, but it is non-deterministic.
+- Okay, I think it happens when a double buffer is created.
+  - All crashes happen on double buffer creation, but double buffers can be created without crashing
+- Hmm... a consistent way to crash is by resizing it to the left or right extremes.
+  - When breaking this way, it breaks on the time it creates a double buffer
+  - Can happen on other resizes though
+- The canvas is slightly longer than the draw target. The draw target matches `4*width*height` which is same even when canvas is created. The canvas is greater by a multiple of 4 (from around +4 to +36)
