@@ -4,7 +4,7 @@ use singularity_common::tab::{
 };
 use singularity_ui::{
     ui_event::{KeyModifiers, KeyTrait},
-    CharCell, CharGrid, Color32, UIElement,
+    CharCell, CharGrid, Color, UIElement,
 };
 use std::path::PathBuf;
 
@@ -152,9 +152,9 @@ impl Editor {
 
         // highlight cursor
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
-            Color32::LIGHT_YELLOW;
+            Color::LIGHT_YELLOW;
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
-            Color32::BLACK;
+            Color::BLACK;
 
         Some(UIElement::CharGrid(text_clone))
     }
@@ -162,81 +162,81 @@ impl Editor {
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::S,
-                    modifiers,
-                    pressed: true,
-                    ..
-                } if modifiers.command_only() => {
-                    self.save_to_file();
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::ArrowDown,
-                    modifiers: KeyModifiers::NONE,
-                    pressed: true,
-                    ..
-                } => {
-                    self.cursor_logical_position.1 += 1;
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::ArrowUp,
-                    modifiers: KeyModifiers::NONE,
-                    pressed: true,
-                    ..
-                } => {
-                    self.cursor_logical_position.1 =
-                        self.cursor_logical_position.1.saturating_sub(1);
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::ArrowRight,
-                    modifiers: KeyModifiers::NONE,
-                    pressed: true,
-                    ..
-                } => {
-                    self.cursor_logical_position.0 += 1;
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::ArrowLeft,
-                    modifiers: KeyModifiers::NONE,
-                    pressed: true,
-                    ..
-                } => {
-                    if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
-                        self.cursor_logical_position.0 = new_cursor_x;
-                    } else {
-                        // TODO wrap to prev line
-                    }
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::Backspace,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    self.delete_character();
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: singularity_ui::ui_event::Key::Enter,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    self.write_new_line();
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } if key.to_char().is_some() => {
-                    // NOTE: I wish rust will soon implement if let within matches
-                    if let Some(c) = key.to_char() {
-                        self.write_character(CharCell::new(c));
-                    }
-                }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::S,
+                //     modifiers,
+                //     pressed: true,
+                //     ..
+                // } if modifiers.command_only() => {
+                //     self.save_to_file();
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::ArrowDown,
+                //     modifiers: KeyModifiers::NONE,
+                //     pressed: true,
+                //     ..
+                // } => {
+                //     self.cursor_logical_position.1 += 1;
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::ArrowUp,
+                //     modifiers: KeyModifiers::NONE,
+                //     pressed: true,
+                //     ..
+                // } => {
+                //     self.cursor_logical_position.1 =
+                //         self.cursor_logical_position.1.saturating_sub(1);
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::ArrowRight,
+                //     modifiers: KeyModifiers::NONE,
+                //     pressed: true,
+                //     ..
+                // } => {
+                //     self.cursor_logical_position.0 += 1;
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::ArrowLeft,
+                //     modifiers: KeyModifiers::NONE,
+                //     pressed: true,
+                //     ..
+                // } => {
+                //     if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
+                //         self.cursor_logical_position.0 = new_cursor_x;
+                //     } else {
+                //         // TODO wrap to prev line
+                //     }
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::Backspace,
+                //     pressed: true,
+                //     repeat: false,
+                //     modifiers: KeyModifiers::NONE,
+                //     ..
+                // } => {
+                //     self.delete_character();
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key: singularity_ui::ui_event::Key::Enter,
+                //     pressed: true,
+                //     repeat: false,
+                //     modifiers: KeyModifiers::NONE,
+                //     ..
+                // } => {
+                //     self.write_new_line();
+                // }
+                // singularity_ui::ui_event::UIEvent::Key {
+                //     key,
+                //     pressed: true,
+                //     repeat: false,
+                //     modifiers: KeyModifiers::NONE,
+                //     ..
+                // } if key.to_char().is_some() => {
+                //     // NOTE: I wish rust will soon implement if let within matches
+                //     if let Some(c) = key.to_char() {
+                //         self.write_character(CharCell::new(c));
+                //     }
+                // }
                 _ => {}
             },
             Event::Resize(_) => {}

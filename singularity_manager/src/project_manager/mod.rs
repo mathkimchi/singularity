@@ -11,7 +11,7 @@ use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
-    CharCell, CharGrid, Color32, UIDisplay, UIElement,
+    CharCell, CharGrid, Color, UIDisplay, UIElement,
 };
 use std::{
     io::{self},
@@ -157,22 +157,22 @@ impl ProjectManager {
                 let fg = if self.tabs.get_organizational_hierarchy()[&tab_path]
                     == self.tabs.get_focused_tab_id()
                 {
-                    Color32::LIGHT_YELLOW
+                    Color::LIGHT_YELLOW
                 } else {
-                    Color32::LIGHT_GREEN
+                    Color::LIGHT_GREEN
                 };
 
                 let bg = if tab_path == focusing_index.clone() {
-                    Color32::LIGHT_BLUE
+                    Color::LIGHT_BLUE
                 } else {
-                    Color32::TRANSPARENT
+                    Color::TRANSPARENT
                 };
 
                 let mut subapp_title_display = vec![
                     CharCell {
                         character: ' ',
-                        fg: Color32::TRANSPARENT,
-                        bg: Color32::TRANSPARENT
+                        fg: Color::TRANSPARENT,
+                        bg: Color::TRANSPARENT
                     };
                     2 * tab_path.depth()
                 ];
@@ -199,79 +199,79 @@ impl ProjectManager {
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             match ui_event {
-                UIEvent::Key {
-                    key: Key::Q,
-                    modifiers,
-                    pressed: true,
-                    ..
-                } if modifiers.command_only() => {
-                    dbg!("Goodbye!");
-                    self.is_running = false;
-                }
-                UIEvent::Key {
-                    key,
-                    modifiers: KeyModifiers::ALT,
-                    pressed: true,
-                    ..
-                } if matches!(key, Key::Enter | Key::W | Key::A | Key::S | Key::D) => {
-                    // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                    // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+                // UIEvent::Key {
+                //     key: Key::Q,
+                //     modifiers,
+                //     pressed: true,
+                //     ..
+                // } if modifiers.command_only() => {
+                //     dbg!("Goodbye!");
+                //     self.is_running = false;
+                // }
+                // UIEvent::Key {
+                //     key,
+                //     modifiers: KeyModifiers::ALT,
+                //     pressed: true,
+                //     ..
+                // } if matches!(key, Key::Enter | Key::W | Key::A | Key::S | Key::D) => {
+                //     // Alt + arrows should be like alt tab for Windows and Linux but tree based
+                //     // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                    if key == Key::Enter && self.app_focuser_index.is_some() {
-                        // save tree index and close window
+                //     if key == Key::Enter && self.app_focuser_index.is_some() {
+                //         // save tree index and close window
 
-                        let new_focus_index = self.app_focuser_index.take().unwrap();
+                //         let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                        self.tabs.set_focused_tab_path(new_focus_index);
-                    } else {
-                        let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
-                            self.tabs
-                                .get_tab_path(&self.tabs.get_focused_tab_id())
-                                .unwrap()
-                                .clone(),
-                        );
+                //         self.tabs.set_focused_tab_path(new_focus_index);
+                //     } else {
+                //         let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
+                //             self.tabs
+                //                 .get_tab_path(&self.tabs.get_focused_tab_id())
+                //                 .unwrap()
+                //                 .clone(),
+                //         );
 
-                        self.app_focuser_index = match key.to_char() {
-                            Some('\n') => Some(new_focus_index),
-                            Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-                                new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
-                                    self.tabs.get_organizational_hierarchy(),
-                                    traverse_key,
-                                );
-                                Some(new_focus_index)
-                            }
-                            _ => panic!(),
-                        };
-                    }
-                    dbg!(&self.app_focuser_index);
-                    // dbg!(&self.focused_tab_path);
-                }
-                UIEvent::Key {
-                    key: Key::ArrowUp,
-                    modifiers,
-                    pressed: true,
-                    ..
-                } if modifiers.command_only() => {
-                    // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+                //         self.app_focuser_index = match key.to_char() {
+                //             Some('\n') => Some(new_focus_index),
+                //             Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                //                 new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
+                //                     self.tabs.get_organizational_hierarchy(),
+                //                     traverse_key,
+                //                 );
+                //                 Some(new_focus_index)
+                //             }
+                //             _ => panic!(),
+                //         };
+                //     }
+                //     dbg!(&self.app_focuser_index);
+                //     // dbg!(&self.focused_tab_path);
+                // }
+                // UIEvent::Key {
+                //     key: Key::ArrowUp,
+                //     modifiers,
+                //     pressed: true,
+                //     ..
+                // } if modifiers.command_only() => {
+                //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
 
-                    // maximize focused tab
-                    let focused_tab = self.tabs.get_focused_tab_mut();
+                //     // maximize focused tab
+                //     let focused_tab = self.tabs.get_focused_tab_mut();
 
-                    // TODO: actual fullscreen
-                    // FIXME: doesn't even work, egui completely ignores sizing
-                    focused_tab.set_area(DisplayArea::from_coord_size(
-                        DisplayCoord::new(0.0, 0.0),
-                        DisplaySize::new(1600.0, 1200.0),
-                    ));
-                }
-                UIEvent::Key {
-                    key: Key::ArrowDown,
-                    modifiers,
-                    pressed: true,
-                    ..
-                } if modifiers.command_only() => {
-                    self.tabs.minimize_focused_tab();
-                }
+                //     // TODO: actual fullscreen
+                //     // FIXME: doesn't even work, egui completely ignores sizing
+                //     focused_tab.set_area(DisplayArea::from_coord_size(
+                //         DisplayCoord::new(0.0, 0.0),
+                //         DisplaySize::new(1600.0, 1200.0),
+                //     ));
+                // }
+                // UIEvent::Key {
+                //     key: Key::ArrowDown,
+                //     modifiers,
+                //     pressed: true,
+                //     ..
+                // } if modifiers.command_only() => {
+                //     self.tabs.minimize_focused_tab();
+                // }
                 ui_event => {
                     // forward the event to focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();

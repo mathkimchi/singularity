@@ -13,14 +13,16 @@ wayland-protocols = { version = "^0.32", features = [
     "client",
 ], optional = true }
 smithay-client-toolkit = { version = "^0.19", optional = true }
+raqote = { version = "^0.8", optional = true }
 
 [features]
-default = ["egui_backend", "wayland_backend"]
+default = ["wayland_backend"]
 iced_backend = []
 wayland_backend = [
     "wayland-client",
     "wayland-protocols",
     "smithay-client-toolkit",
+    "raqote",
 ]
 egui_backend = ["egui", "eframe", "winit"]
 

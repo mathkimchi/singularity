@@ -1,5 +1,5 @@
 use crate::{display_units::DisplaySize, ui_event::UIEvent, CharGrid, UIElement};
-use egui::{widget_text, Widget};
+use egui::{widget_text, Color32, Widget};
 use std::sync::{Arc, Mutex};
 
 pub const FRAME_RATE: f32 = 5.;
@@ -176,3 +176,98 @@ impl eframe::App for UIDisplay {
         ctx.request_repaint_after_secs(FRAME_DELTA_SECONDS);
     }
 }
+
+pub mod ui_event {
+    /// FIXME: not great that I am reexporting egui's event, given that the goal is to be backend agnostic.
+    /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
+    pub type UIEvent = egui::Event;
+    pub type KeyModifiers = egui::Modifiers;
+    pub type Key = egui::Key;
+
+    pub trait KeyTrait {
+        fn to_alphabet(&self) -> Option<char>;
+        fn to_digit(&self) -> Option<u8>;
+        fn to_char(&self) -> Option<char>;
+    }
+    impl KeyTrait for Key {
+        fn to_alphabet(&self) -> Option<char> {
+            match self {
+                egui::Key::A => Some('a'),
+                egui::Key::B => Some('b'),
+                egui::Key::C => Some('c'),
+                egui::Key::D => Some('d'),
+                egui::Key::E => Some('e'),
+                egui::Key::F => Some('f'),
+                egui::Key::G => Some('g'),
+                egui::Key::H => Some('h'),
+                egui::Key::I => Some('i'),
+                egui::Key::J => Some('j'),
+                egui::Key::K => Some('k'),
+                egui::Key::L => Some('l'),
+                egui::Key::M => Some('m'),
+                egui::Key::N => Some('n'),
+                egui::Key::O => Some('o'),
+                egui::Key::P => Some('p'),
+                egui::Key::Q => Some('q'),
+                egui::Key::R => Some('r'),
+                egui::Key::S => Some('s'),
+                egui::Key::T => Some('t'),
+                egui::Key::U => Some('u'),
+                egui::Key::V => Some('v'),
+                egui::Key::W => Some('w'),
+                egui::Key::X => Some('x'),
+                egui::Key::Y => Some('y'),
+                egui::Key::Z => Some('z'),
+                _ => None,
+            }
+        }
+
+        fn to_digit(&self) -> Option<u8> {
+            match self {
+                egui::Key::Num0 => Some(0),
+                egui::Key::Num1 => Some(1),
+                egui::Key::Num2 => Some(2),
+                egui::Key::Num3 => Some(3),
+                egui::Key::Num4 => Some(4),
+                egui::Key::Num5 => Some(5),
+                egui::Key::Num6 => Some(6),
+                egui::Key::Num7 => Some(7),
+                egui::Key::Num8 => Some(8),
+                egui::Key::Num9 => Some(9),
+                _ => None,
+            }
+        }
+
+        fn to_char(&self) -> Option<char> {
+            if let Some(c) = self.to_alphabet() {
+                Some(c)
+            } else if let Some(d) = self.to_digit() {
+                Some(d.to_string().pop().unwrap())
+            } else {
+                // special characters
+                match self {
+                    egui::Key::Enter => Some('\n'),
+                    egui::Key::Space => Some(' '),
+                    egui::Key::Colon => Some(':'),
+                    egui::Key::Comma => Some(','),
+                    egui::Key::Backslash => Some('\\'),
+                    egui::Key::Slash => Some('/'),
+                    egui::Key::Pipe => Some('|'),
+                    egui::Key::Questionmark => Some('?'),
+                    egui::Key::OpenBracket => Some('['),
+                    egui::Key::CloseBracket => Some(']'),
+                    egui::Key::Backtick => Some('`'),
+                    egui::Key::Minus => Some('-'),
+                    egui::Key::Period => Some('.'),
+                    egui::Key::Plus => Some('+'),
+                    egui::Key::Equals => Some('='),
+                    egui::Key::Semicolon => Some(';'),
+                    egui::Key::Quote => Some('\''),
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+
+pub type Color = Color32;
