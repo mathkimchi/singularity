@@ -19,7 +19,45 @@ impl egui::Widget for &UIElement {
                 );
 
                 for (child, rect) in children {
-                    response = response.union(ui.put((*rect).into(), child));
+                    // NOTE: I am jankily generating a new idea based on the rectangle to avoid clash
+                    // TODO: figure out an actual way to do ids, or just don't do ids
+
+                    response = egui::containers::Window::new(
+                        ui.next_auto_id()
+                            .with(rect.0.x.to_bits())
+                            .with(rect.0.y.to_bits())
+                            .with(rect.1.x.to_bits())
+                            .with(rect.1.y.to_bits())
+                            .value()
+                            .to_string(),
+                    )
+                    .collapsible(false)
+                    .title_bar(false)
+                    .scroll(false)
+                    .fixed_rect((*rect).into())
+                    .show(ui.ctx(), |ui| {
+                        egui::ScrollArea::new(false).show(ui, |ui| child.ui(ui))
+                    })
+                    .unwrap()
+                    .response;
+
+                    // response = egui::containers::Window::new(
+                    //     ui.next_auto_id()
+                    //         .with(rect.0.x.to_bits())
+                    //         .with(rect.0.y.to_bits())
+                    //         .with(rect.1.x.to_bits())
+                    //         .with(rect.1.y.to_bits())
+                    //         .value()
+                    //         .to_string(),
+                    // )
+                    // .collapsible(false)
+                    // .title_bar(false)
+                    // .scroll(false)
+                    // .fixed_rect((*rect).into())
+                    // .show(ui.ctx(), |ui| child.ui(ui))
+                    // .unwrap()
+                    // .response;
+                    // response = response.union(ui.put((*rect).into(), child));
                 }
 
                 response

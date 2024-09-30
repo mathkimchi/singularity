@@ -19,14 +19,18 @@
             libxkbcommon
             libGL
 
+            # for smithay client toolkit
+            pkg-config
+            fontconfig
+
             # WINIT_UNIX_BACKEND=wayland
             wayland
 
-              # # WINIT_UNIX_BACKEND=x11
-              # xorg.libXcursor
-              # xorg.libXrandr
-              # xorg.libXi
-              # xorg.libX11
+            # # WINIT_UNIX_BACKEND=x11
+            # xorg.libXcursor
+            # xorg.libXrandr
+            # xorg.libXi
+            # xorg.libX11
           ];
           LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
         };

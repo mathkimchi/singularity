@@ -705,3 +705,15 @@ My ideas are:
   - I like the idea of this, but there is just one change to make this better
   - The problem is that any modification to the order (caused by closing a tab) would mess up everything
 - Each instance of a tab has an immutable uid, store tabs in a vec/btreemap, store hierarchy and render order via the id
+
+### Exploring Alternative Frameworks
+
+Egui is not letting me manually set the sizes of widgets.
+
+I am going to try wayland client once more.
+
+In the sctk (smithay client toolkit), there is an example called relative pointer.
+I couldn't get the example itself to work, but it uses a crate called raqote and font kit.
+I previously could not write actual text, but I guess these crates can render text for me.
+
+For their window example, they use minifb, and the minifb looks very simple and good, but it isn't super widely used, so I'll only look into it if wayland doesn't work.

@@ -36,6 +36,11 @@ pub mod display_units {
     /// but usually do (upper left, lower right)
     #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
     pub struct DisplayArea(pub DisplayCoord, pub DisplayCoord);
+    impl DisplayArea {
+        pub fn size(&self) -> DisplaySize {
+            DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
+        }
+    }
 
     #[cfg(feature = "egui_backend")]
     impl From<DisplaySize> for egui::Vec2 {
