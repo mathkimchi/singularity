@@ -10,7 +10,7 @@ use singularity_common::{
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
-    ui_event::{KeyModifiers, UIEvent},
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
     CharCell, CharGrid, Color, UIDisplay, UIElement,
 };
 use std::{
@@ -208,44 +208,41 @@ impl ProjectManager {
                     dbg!("Goodbye!");
                     *self.is_running.write().unwrap() = false;
                 }
-                // UIEvent::Key {
-                //     key,
-                //     modifiers: KeyModifiers::ALT,
-                //     pressed: true,
-                //     ..
-                // } if matches!(key, Key::Enter | Key::W | Key::A | Key::S | Key::D) => {
-                //     // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                //     // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
+                    if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
+                {
+                    // Alt + arrows should be like alt tab for Windows and Linux but tree based
+                    // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                //     if key == Key::Enter && self.app_focuser_index.is_some() {
-                //         // save tree index and close window
+                    if key.to_char() == Some('\n') && self.app_focuser_index.is_some() {
+                        // save tree index and close window
 
-                //         let new_focus_index = self.app_focuser_index.take().unwrap();
+                        let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                //         self.tabs.set_focused_tab_path(new_focus_index);
-                //     } else {
-                //         let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
-                //             self.tabs
-                //                 .get_tab_path(&self.tabs.get_focused_tab_id())
-                //                 .unwrap()
-                //                 .clone(),
-                //         );
+                        self.tabs.set_focused_tab_path(new_focus_index);
+                    } else {
+                        let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
+                            self.tabs
+                                .get_tab_path(&self.tabs.get_focused_tab_id())
+                                .unwrap()
+                                .clone(),
+                        );
 
-                //         self.app_focuser_index = match key.to_char() {
-                //             Some('\n') => Some(new_focus_index),
-                //             Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-                //                 new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
-                //                     self.tabs.get_organizational_hierarchy(),
-                //                     traverse_key,
-                //                 );
-                //                 Some(new_focus_index)
-                //             }
-                //             _ => panic!(),
-                //         };
-                //     }
-                //     dbg!(&self.app_focuser_index);
-                //     // dbg!(&self.focused_tab_path);
-                // }
+                        self.app_focuser_index = match key.to_char() {
+                            Some('\n') => Some(new_focus_index),
+                            Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                                new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
+                                    self.tabs.get_organizational_hierarchy(),
+                                    traverse_key,
+                                );
+                                Some(new_focus_index)
+                            }
+                            _ => panic!(),
+                        };
+                    }
+                    dbg!(&self.app_focuser_index);
+                    // dbg!(&self.focused_tab_path);
+                }
                 singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
                     if key.raw_code == 103 =>
                 {

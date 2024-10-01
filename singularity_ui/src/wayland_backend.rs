@@ -772,6 +772,9 @@ pub mod ui_event {
         }
 
         fn to_char(&self) -> Option<char> {
+            if self.raw_code == 28 {
+                return Some('\n');
+            }
             self.keysym.key_char()
         }
     }
