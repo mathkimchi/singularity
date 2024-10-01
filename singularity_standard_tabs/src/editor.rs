@@ -162,14 +162,11 @@ impl Editor {
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::S,
-                //     modifiers,
-                //     pressed: true,
-                //     ..
-                // } if modifiers.command_only() => {
-                //     self.save_to_file();
-                // }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                    if key.raw_code == 31 =>
+                {
+                    self.save_to_file();
+                }
                 singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
                     if key.raw_code == 108 =>
                 {

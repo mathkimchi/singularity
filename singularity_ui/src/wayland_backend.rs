@@ -787,6 +787,24 @@ pub mod ui_event {
             logo: false,
             num_lock: false,
         };
+
+        pub const CTRL: Self = KeyModifiers {
+            ctrl: true,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            num_lock: false,
+        };
+
+        pub const ALT: Self = KeyModifiers {
+            ctrl: false,
+            alt: true,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            num_lock: false,
+        };
     }
     impl From<keyboard::Modifiers> for KeyModifiers {
         fn from(
