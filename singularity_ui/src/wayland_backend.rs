@@ -101,6 +101,7 @@ impl UIDisplay {
         // GitHub does not let projects use the `org.github` domain but the `io.github` domain is fine.
         window.set_app_id("io.github.smithay.client-toolkit.SimpleWindow");
         window.set_min_size(Some((256, 256)));
+        window.set_maximized();
 
         // In order for the window to be mapped, we need to perform an initial commit with no attached buffer.
         // For more info, see WaylandSurface::commit
