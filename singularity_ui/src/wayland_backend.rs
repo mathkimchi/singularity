@@ -206,7 +206,7 @@ mod drawing_impls {
                         dt.height() as f32,
                         &Source::Solid(SolidSource {
                             r: 0,
-                            g: 0x80,
+                            g: 0x7F,
                             b: 0,
                             a: 0xFF,
                         }),
@@ -252,8 +252,8 @@ mod drawing_impls {
                         &Source::Solid(SolidSource {
                             r: 0,
                             g: 0,
-                            b: 0xff,
-                            a: 0xff,
+                            b: 0xFF,
+                            a: 0xFF,
                         }),
                         &DrawOptions::new(),
                     );
@@ -293,7 +293,6 @@ mod drawing_impls {
             let stride = self.width as i32 * 4;
 
             let buffer = self.buffer.get_or_insert_with(|| {
-                dbg!(("creating buffer:", self.width, self.height));
                 self.pool
                     .create_buffer(
                         self.width as i32,
@@ -308,8 +307,6 @@ mod drawing_impls {
             let canvas = match self.pool.canvas(buffer) {
                 Some(canvas) => canvas,
                 None => {
-                    dbg!(("creating canvas:", self.width, self.height));
-
                     // This should be rare, but if the compositor has not released the previous
                     // buffer, we need double-buffering.
                     let (second_buffer, canvas) = self
@@ -322,23 +319,15 @@ mod drawing_impls {
                         )
                         .expect("create buffer");
                     *buffer = second_buffer;
-                    dbg!((
-                        "created canvas:",
-                        canvas.len(),
-                        canvas.len() as u32 - (4 * self.width * self.height)
-                    ));
                     canvas
                 }
             };
 
             // Draw to the window:
-            {
+            // FIXME find an actual fix to the height difference
+            if canvas.len() as u32 == 4 * self.width * self.height {
                 let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
                 self.root_element.lock().unwrap().draw(&mut dt);
-                dbg!(canvas.len());
-                dbg!(4 * dt.width() * dt.height());
-                dbg!((self.width, self.height));
-                dbg!((dt.width(), dt.height()));
                 canvas.copy_from_slice(dt.get_data_u8());
             }
 
