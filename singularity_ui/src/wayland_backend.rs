@@ -23,7 +23,7 @@ use smithay_client_toolkit::{
 };
 use std::{
     sync::{Arc, Mutex, RwLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use ui_event::{KeyModifiers, UIEvent};
 use wayland_client::{
@@ -48,6 +48,7 @@ pub struct UIDisplay {
 
     /// REVIEW: make sure rwlock is good for this
     is_running: Arc<RwLock<bool>>,
+    most_recent_draw_finish_time: Instant,
     first_configure: bool,
     pool: SlotPool,
     width: u32,
@@ -141,6 +142,7 @@ impl UIDisplay {
             xdg_activation,
 
             is_running,
+            most_recent_draw_finish_time: Instant::now(),
             first_configure: true,
             pool,
             width: 256,
@@ -167,6 +169,8 @@ impl UIDisplay {
     }
 }
 mod drawing_impls {
+    use std::time::Instant;
+
     use super::{Color, UIDisplay};
     use crate::{
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
@@ -314,6 +318,18 @@ mod drawing_impls {
 
     impl UIDisplay {
         pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
+            macro_rules! log_time {
+                // hoping that this has no reprecussions
+                ($current_task:expr) => {
+                    println!(
+                        "{}. {:?} elapsed since last finished drawing.",
+                        $current_task,
+                        self.most_recent_draw_finish_time.elapsed()
+                    );
+                };
+            }
+            log_time!("Starting drawing");
+
             let stride = self.width as i32 * 4;
 
             let buffer = self.buffer.get_or_insert_with(|| {
@@ -347,16 +363,20 @@ mod drawing_impls {
                 }
             };
 
+            log_time!("Starting rendering");
             // Draw to the window:
             // FIXME find an actual fix to the height difference
             if canvas.len() as u32 == 4 * self.width * self.height {
                 let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
+                log_time!("Started drawing elements");
                 self.root_element
                     .lock()
                     .unwrap()
                     .draw(&mut dt, DisplayArea::FULL);
+                log_time!("Finished drawing elements, starting copy");
                 canvas.copy_from_slice(dt.get_data_u8());
             }
+            log_time!("Finished rendering");
 
             // Damage the entire window
             self.window
@@ -373,6 +393,9 @@ mod drawing_impls {
                 .attach_to(self.window.wl_surface())
                 .expect("buffer attach");
             self.window.commit();
+
+            log_time!("Finished drawing");
+            self.most_recent_draw_finish_time = Instant::now();
         }
     }
 }

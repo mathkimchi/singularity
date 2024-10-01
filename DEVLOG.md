@@ -742,3 +742,20 @@ I am going to try to optimize the displays.
 - Currently, for nested elements like containers and borders, I create a new draw target. I did this for "safety," aka ensuring that elements wouldn't draw outside of its given areas.
   - However, I don't need to do that with the current system because I can just make sure the elements follow the rules when they are drawing.
   - I did this, and it is still noticably slow...
+
+To quantify performance, I will log times.
+I am running this on my laptop at full screen with quite a few background processes, notably VS Code and Firefox (with most tabs unloaded).
+
+Right now, the general output is roughly:
+
+```log
+Starting drawing. 3.991012ms elapsed since last finished drawing.
+Starting rendering. 4.025498ms elapsed since last finished drawing.
+Started drawing elements. 4.202639ms elapsed since last finished drawing.
+Finished drawing elements, starting copy. 398.530553ms elapsed since last finished drawing.
+Finished rendering. 399.172312ms elapsed since last finished drawing.
+Finished drawing. 399.266227ms elapsed since last finished drawing.
+```
+
+This isn't the average or anything, but it gives a good sense of the magnitudes and we can see the rendering taking almost all the time.
+I thought copying from dt would take a lot of time, but I was wrong.
