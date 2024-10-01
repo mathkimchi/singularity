@@ -730,5 +730,6 @@ Also, every once in a while, the lengths of the canvas and draw target (which I 
   - When breaking this way, it breaks on the time it creates a double buffer
   - Can happen on other resizes though
 - The canvas is slightly longer than the draw target. The draw target matches `4*width*height` which is same even when canvas is created. The canvas is greater by a multiple of 4 (from around +4 to +36)
+- I fixed it really jankily by not drawing when the sizes are wrong
 
 TODO: keyboard handling abstractions

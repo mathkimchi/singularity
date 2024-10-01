@@ -9,7 +9,7 @@ use singularity_common::{
 };
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
-    display_units::{DisplayArea, DisplayCoord, DisplaySize},
+    display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
     CharCell, CharGrid, Color, UIDisplay, UIElement,
 };
@@ -189,8 +189,8 @@ impl ProjectManager {
             tab_elements.push((
                 UIElement::CharGrid(subapps_focuser_display).bordered(),
                 DisplayArea::from_coord_size(
-                    DisplayCoord::new(400.0, 400.0),
-                    DisplaySize::new(100.0, 100.0),
+                    DisplayCoord::new(400.into(), 400.into()),
+                    DisplaySize::new(100.into(), 100.into()),
                 ),
             ));
         }
@@ -252,11 +252,9 @@ impl ProjectManager {
                     // maximize focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();
 
-                    // TODO: actual fullscreen
-                    // FIXME: doesn't even work, egui completely ignores sizing
                     focused_tab.set_area(DisplayArea::from_coord_size(
-                        DisplayCoord::new(0.0, 0.0),
-                        DisplaySize::new(1600.0, 1200.0),
+                        DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+                        DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
                     ));
                 }
                 singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
@@ -313,13 +311,16 @@ impl ProjectManager {
     }
 
     fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
-        const TAB_DELTA_Y: f32 = 200.0;
+        const TAB_DELTA_Y: i32 = 200;
 
         DisplayArea(
-            DisplayCoord::new(20.0 * (depth as f32), TAB_DELTA_Y * (child_index as f32)),
             DisplayCoord::new(
-                20.0 * (depth as f32) + 50.0,
-                TAB_DELTA_Y * (child_index as f32) + (TAB_DELTA_Y - 10.0),
+                (20 * (depth as i32)).into(),
+                (TAB_DELTA_Y * (child_index as i32)).into(),
+            ),
+            DisplayCoord::new(
+                (20 * (depth as i32) + 50).into(),
+                (TAB_DELTA_Y * (child_index as i32) + (TAB_DELTA_Y - 10)).into(),
             ),
         )
     }

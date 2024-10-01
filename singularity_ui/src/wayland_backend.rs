@@ -174,7 +174,7 @@ mod drawing_impls {
         properties::{Properties, Weight},
         source::SystemSource,
     };
-    use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
+    use raqote::{DrawOptions, DrawTarget, IntPoint, Point, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
     use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
 
@@ -186,16 +186,22 @@ mod drawing_impls {
             match self {
                 UIElement::Container(children) => {
                     for (ui_element, area) in children {
+                        dbg!(area);
                         // draw the inner widget
-                        let mut inner_dt =
-                            DrawTarget::new(area.size().width as i32, area.size().height as i32);
+                        let mut inner_dt = DrawTarget::new(
+                            area.size().width.pixels(dt.width()),
+                            area.size().height.pixels(dt.height()),
+                        );
                         ui_element.draw(&mut inner_dt);
                         dt.copy_surface(
                             &inner_dt,
                             raqote::IntRect::from_size(
                                 (inner_dt.width(), inner_dt.height()).into(),
                             ),
-                            area.0.into(),
+                            IntPoint::new(
+                                area.0.x.pixels(dt.width()),
+                                area.0.y.pixels(dt.height()),
+                            ),
                         );
                     }
                 }
@@ -231,6 +237,7 @@ mod drawing_impls {
                     // );
 
                     // draw the inner widget
+                    dbg!((dt.width(), dt.height()));
                     let mut inner_dt = DrawTarget::new(dt.width() - 2, dt.height() - 2);
                     inner_dt.fill_rect(
                         0.,
