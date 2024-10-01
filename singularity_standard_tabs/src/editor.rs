@@ -170,72 +170,52 @@ impl Editor {
                 // } if modifiers.command_only() => {
                 //     self.save_to_file();
                 // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::ArrowDown,
-                //     modifiers: KeyModifiers::NONE,
-                //     pressed: true,
-                //     ..
-                // } => {
-                //     self.cursor_logical_position.1 += 1;
-                // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::ArrowUp,
-                //     modifiers: KeyModifiers::NONE,
-                //     pressed: true,
-                //     ..
-                // } => {
-                //     self.cursor_logical_position.1 =
-                //         self.cursor_logical_position.1.saturating_sub(1);
-                // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::ArrowRight,
-                //     modifiers: KeyModifiers::NONE,
-                //     pressed: true,
-                //     ..
-                // } => {
-                //     self.cursor_logical_position.0 += 1;
-                // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::ArrowLeft,
-                //     modifiers: KeyModifiers::NONE,
-                //     pressed: true,
-                //     ..
-                // } => {
-                //     if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
-                //         self.cursor_logical_position.0 = new_cursor_x;
-                //     } else {
-                //         // TODO wrap to prev line
-                //     }
-                // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::Backspace,
-                //     pressed: true,
-                //     repeat: false,
-                //     modifiers: KeyModifiers::NONE,
-                //     ..
-                // } => {
-                //     self.delete_character();
-                // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key: singularity_ui::ui_event::Key::Enter,
-                //     pressed: true,
-                //     repeat: false,
-                //     modifiers: KeyModifiers::NONE,
-                //     ..
-                // } => {
-                //     self.write_new_line();
-                // }
-                singularity_ui::ui_event::UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: false,
-                        shift: false,
-                        caps_lock: false,
-                        logo: false,
-                        num_lock: false,
-                    },
-                ) if key.to_char().is_some() => {
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 108 =>
+                {
+                    // arrow down
+                    self.cursor_logical_position.1 += 1;
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 103 =>
+                {
+                    // arrow up
+                    self.cursor_logical_position.1 =
+                        self.cursor_logical_position.1.saturating_sub(1);
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 106 =>
+                {
+                    // arrow right
+                    self.cursor_logical_position.0 += 1;
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 105 =>
+                {
+                    // arrow left
+                    if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
+                        self.cursor_logical_position.0 = new_cursor_x;
+                    } else {
+                        // TODO wrap to prev line
+                    }
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 14 =>
+                {
+                    // backspace key
+                    self.delete_character();
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.raw_code == 28 =>
+                {
+                    // Enter key
+                    self.write_new_line();
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key
+                        .to_char()
+                        .is_some_and(|c| c.is_ascii_graphic() || c == ' ') =>
+                {
                     // NOTE: I wish rust will soon implement if let within matches
                     if let Some(c) = key.to_char() {
                         self.write_character(CharCell::new(c));

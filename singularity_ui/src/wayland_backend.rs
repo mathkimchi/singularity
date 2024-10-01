@@ -288,11 +288,6 @@ mod drawing_impls {
 
                     for (line_index, line) in char_grid.content.iter().enumerate() {
                         for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
-                            dbg!(character.to_string());
-                            if character == &' ' {
-                                continue;
-                            }
-
                             dt.fill_rect(
                                 FONT_SIZE / 2. * (col_index as f32),
                                 FONT_SIZE * (line_index as f32) + 1.,
@@ -306,6 +301,10 @@ mod drawing_impls {
                                 }),
                                 &DrawOptions::new(),
                             );
+
+                            if character == &' ' {
+                                continue;
+                            }
 
                             dt.draw_text(
                                 &font,
@@ -325,8 +324,6 @@ mod drawing_impls {
                             );
                         }
                     }
-
-                    dbg!((dt.width(), dt.height()));
                 }
             }
         }
@@ -408,7 +405,7 @@ mod ui_display_wayland_impls {
         registry::{ProvidesRegistryState, RegistryState},
         registry_handlers,
         seat::{
-            keyboard::{KeyboardHandler, Keysym},
+            keyboard::{KeyboardHandler, Keysym, Modifiers},
             pointer::{PointerEvent, PointerEventKind, PointerHandler},
             Capability, SeatHandler, SeatState,
         },
@@ -635,6 +632,7 @@ mod ui_display_wayland_impls {
             _: u32,
             event: Key,
         ) {
+            dbg!(event.raw_code);
             self.ui_event_queue
                 .lock()
                 .unwrap()
@@ -660,10 +658,10 @@ mod ui_display_wayland_impls {
             _: &QueueHandle<Self>,
             _: &wl_keyboard::WlKeyboard,
             _serial: u32,
-            key_modifiers: KeyModifiers,
+            modifiers: Modifiers,
             _layout: u32,
         ) {
-            self.key_modifiers = key_modifiers;
+            self.key_modifiers = KeyModifiers::from(modifiers);
         }
     }
 
@@ -737,15 +735,23 @@ mod ui_display_wayland_impls {
 }
 
 pub mod ui_event {
-    use smithay_client_toolkit::seat::keyboard::{KeyEvent, Modifiers};
+    use smithay_client_toolkit::seat::keyboard;
 
     /// FIXME: not great that I am reexporting egui's event, given that the goal is to be backend agnostic.
     /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
     }
-    pub type KeyModifiers = Modifiers;
-    pub type Key = KeyEvent;
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+    pub struct KeyModifiers {
+        pub ctrl: bool,
+        pub alt: bool,
+        pub shift: bool,
+        pub caps_lock: bool,
+        pub logo: bool,
+        pub num_lock: bool,
+    }
+    pub type Key = keyboard::KeyEvent;
 
     pub trait KeyTrait {
         fn to_alphabet(&self) -> Option<char>;
@@ -769,6 +775,38 @@ pub mod ui_event {
 
         fn to_char(&self) -> Option<char> {
             self.keysym.key_char()
+        }
+    }
+
+    impl KeyModifiers {
+        pub const NONE: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            num_lock: false,
+        };
+    }
+    impl From<keyboard::Modifiers> for KeyModifiers {
+        fn from(
+            keyboard::Modifiers {
+                ctrl,
+                alt,
+                shift,
+                caps_lock,
+                logo,
+                num_lock,
+            }: keyboard::Modifiers,
+        ) -> Self {
+            Self {
+                ctrl,
+                alt,
+                shift,
+                caps_lock,
+                logo,
+                num_lock,
+            }
         }
     }
 }
