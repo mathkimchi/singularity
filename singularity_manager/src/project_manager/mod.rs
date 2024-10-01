@@ -188,9 +188,9 @@ impl ProjectManager {
 
             tab_elements.push((
                 UIElement::CharGrid(subapps_focuser_display).bordered(),
-                DisplayArea::from_coord_size(
-                    DisplayCoord::new(400.into(), 400.into()),
-                    DisplaySize::new(100.into(), 100.into()),
+                DisplayArea::from_center_half_size(
+                    DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::HALF),
+                    DisplaySize::new(0.2.into(), 0.2.into()),
                 ),
             ));
         }
@@ -252,7 +252,7 @@ impl ProjectManager {
                     // maximize focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();
 
-                    focused_tab.set_area(DisplayArea::from_coord_size(
+                    focused_tab.set_area(DisplayArea::from_corner_size(
                         DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
                         DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
                     ));

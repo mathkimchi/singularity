@@ -35,6 +35,7 @@ pub mod display_units {
 
         impl DisplayUnits {
             pub const ZERO: DisplayUnits = DisplayUnits::Pixels(0);
+            pub const HALF: DisplayUnits = DisplayUnits::Proportional(0.5);
             pub const FULL: DisplayUnits = DisplayUnits::Proportional(1.0);
 
             pub fn pixels(&self, container_size: i32) -> i32 {
@@ -137,10 +138,17 @@ pub mod display_units {
             DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
         }
 
-        pub fn from_coord_size(coord: DisplayCoord, size: DisplaySize) -> Self {
+        pub fn from_corner_size(corner: DisplayCoord, size: DisplaySize) -> Self {
             Self(
-                coord,
-                DisplayCoord::new(coord.x + size.width, coord.y + size.height),
+                corner,
+                DisplayCoord::new(corner.x + size.width, corner.y + size.height),
+            )
+        }
+
+        pub fn from_center_half_size(center: DisplayCoord, half_size: DisplaySize) -> Self {
+            Self(
+                DisplayCoord::new(center.x - half_size.width, center.y - half_size.height),
+                DisplayCoord::new(center.x + half_size.width, center.y + half_size.height),
             )
         }
     }
