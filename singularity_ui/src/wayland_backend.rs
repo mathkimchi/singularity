@@ -22,7 +22,7 @@ use smithay_client_toolkit::{
     },
 };
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 use ui_event::{KeyModifiers, UIEvent};
@@ -46,7 +46,8 @@ pub struct UIDisplay {
     shm: Shm,
     xdg_activation: Option<ActivationState>,
 
-    exit: bool,
+    /// REVIEW: make sure rwlock is good for this
+    is_running: Arc<RwLock<bool>>,
     first_configure: bool,
     pool: SlotPool,
     width: u32,
@@ -64,6 +65,7 @@ impl UIDisplay {
     pub fn run_display(
         root_element: Arc<Mutex<UIElement>>,
         ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+        is_running: Arc<RwLock<bool>>,
     ) {
         // All Wayland apps start by connecting the compositor (server).
         let conn = Connection::connect_to_env().unwrap();
@@ -137,7 +139,7 @@ impl UIDisplay {
             shm,
             xdg_activation,
 
-            exit: false,
+            is_running,
             first_configure: true,
             pool,
             width: 256,
@@ -152,19 +154,15 @@ impl UIDisplay {
         };
 
         // We don't draw immediately, the configure will notify us when to first draw.
-        loop {
+        while *ui_display.is_running.read().unwrap() {
             event_loop
                 .dispatch(
                     Duration::from_secs_f32(FRAME_DELTA_SECONDS),
                     &mut ui_display,
                 )
                 .unwrap();
-
-            if ui_display.exit {
-                println!("exiting example");
-                break;
-            }
         }
+        println!("exiting example");
     }
 }
 mod drawing_impls {
@@ -504,7 +502,7 @@ mod ui_display_wayland_impls {
 
     impl WindowHandler for UIDisplay {
         fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
-            self.exit = true;
+            *self.is_running.write().unwrap() = false;
         }
 
         fn configure(

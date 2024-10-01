@@ -10,12 +10,12 @@ use singularity_common::{
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
-    ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
+    ui_event::{KeyModifiers, UIEvent},
     CharCell, CharGrid, Color, UIDisplay, UIElement,
 };
 use std::{
     io::{self},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
     thread,
 };
 use tabs::Tabs;
@@ -30,7 +30,7 @@ pub struct ProjectManager {
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
     app_focuser_index: Option<TreeNodePath>,
-    is_running: bool,
+    is_running: Arc<RwLock<bool>>,
 
     /// gui
     ui_element: Arc<Mutex<UIElement>>,
@@ -95,7 +95,7 @@ impl ProjectManager {
                 Self::generate_tab_area(0, 0),
             )),
             app_focuser_index: None,
-            is_running: false,
+            is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         };
@@ -113,27 +113,29 @@ impl ProjectManager {
             &TreeNodePath::new_root(),
         );
 
-        let ui_element_clone = manager.ui_element.clone();
-        let ui_event_queue_clone = manager.ui_event_queue.clone();
-        let ui_thread_handle = thread::spawn(move || {
-            UIDisplay::run_display(ui_element_clone, ui_event_queue_clone);
-        });
-
         manager.run().unwrap();
-        ui_thread_handle.join().unwrap();
 
         Ok(())
     }
 
     pub fn run(mut self) -> io::Result<()> {
-        self.is_running = true;
+        *self.is_running.write().unwrap() = true;
 
-        while self.is_running {
+        let ui_element_clone = self.ui_element.clone();
+        let ui_event_queue_clone = self.ui_event_queue.clone();
+        let is_running_clone = self.is_running.clone();
+        let ui_thread_handle = thread::spawn(move || {
+            UIDisplay::run_display(ui_element_clone, ui_event_queue_clone, is_running_clone);
+        });
+
+        while *self.is_running.read().unwrap() {
             self.draw_app();
             self.handle_input();
             self.process_tab_requests();
             self.answer_tab_queries();
         }
+
+        ui_thread_handle.join().unwrap();
 
         Ok(())
     }
@@ -199,15 +201,13 @@ impl ProjectManager {
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             match ui_event {
-                // UIEvent::Key {
-                //     key: Key::Q,
-                //     modifiers,
-                //     pressed: true,
-                //     ..
-                // } if modifiers.command_only() => {
-                //     dbg!("Goodbye!");
-                //     self.is_running = false;
-                // }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                    if key.raw_code == 16 =>
+                {
+                    // Ctrl+Q
+                    dbg!("Goodbye!");
+                    *self.is_running.write().unwrap() = false;
+                }
                 // UIEvent::Key {
                 //     key,
                 //     modifiers: KeyModifiers::ALT,
@@ -246,32 +246,27 @@ impl ProjectManager {
                 //     dbg!(&self.app_focuser_index);
                 //     // dbg!(&self.focused_tab_path);
                 // }
-                // UIEvent::Key {
-                //     key: Key::ArrowUp,
-                //     modifiers,
-                //     pressed: true,
-                //     ..
-                // } if modifiers.command_only() => {
-                //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
+                    if key.raw_code == 103 =>
+                {
+                    // Alt+ArrowUp
+                    // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
 
-                //     // maximize focused tab
-                //     let focused_tab = self.tabs.get_focused_tab_mut();
+                    // maximize focused tab
+                    let focused_tab = self.tabs.get_focused_tab_mut();
 
-                //     // TODO: actual fullscreen
-                //     // FIXME: doesn't even work, egui completely ignores sizing
-                //     focused_tab.set_area(DisplayArea::from_coord_size(
-                //         DisplayCoord::new(0.0, 0.0),
-                //         DisplaySize::new(1600.0, 1200.0),
-                //     ));
-                // }
-                // UIEvent::Key {
-                //     key: Key::ArrowDown,
-                //     modifiers,
-                //     pressed: true,
-                //     ..
-                // } if modifiers.command_only() => {
-                //     self.tabs.minimize_focused_tab();
-                // }
+                    // TODO: actual fullscreen
+                    // FIXME: doesn't even work, egui completely ignores sizing
+                    focused_tab.set_area(DisplayArea::from_coord_size(
+                        DisplayCoord::new(0.0, 0.0),
+                        DisplaySize::new(1600.0, 1200.0),
+                    ));
+                }
+                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
+                    if key.raw_code == 108 =>
+                {
+                    self.tabs.minimize_focused_tab();
+                }
                 ui_event => {
                     // forward the event to focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();
