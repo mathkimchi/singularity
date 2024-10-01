@@ -225,18 +225,22 @@ impl Editor {
                 // } => {
                 //     self.write_new_line();
                 // }
-                // singularity_ui::ui_event::UIEvent::Key {
-                //     key,
-                //     pressed: true,
-                //     repeat: false,
-                //     modifiers: KeyModifiers::NONE,
-                //     ..
-                // } if key.to_char().is_some() => {
-                //     // NOTE: I wish rust will soon implement if let within matches
-                //     if let Some(c) = key.to_char() {
-                //         self.write_character(CharCell::new(c));
-                //     }
-                // }
+                singularity_ui::ui_event::UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: false,
+                        shift: false,
+                        caps_lock: false,
+                        logo: false,
+                        num_lock: false,
+                    },
+                ) if key.to_char().is_some() => {
+                    // NOTE: I wish rust will soon implement if let within matches
+                    if let Some(c) = key.to_char() {
+                        self.write_character(CharCell::new(c));
+                    }
+                }
                 _ => {}
             },
             Event::Resize(_) => {}
