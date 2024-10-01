@@ -293,6 +293,20 @@ mod drawing_impls {
                                 continue;
                             }
 
+                            dt.fill_rect(
+                                FONT_SIZE / 2. * (col_index as f32),
+                                FONT_SIZE * (line_index as f32) + 1.,
+                                FONT_SIZE / 2. + 1.,
+                                FONT_SIZE + 2.,
+                                &raqote::Source::Solid(SolidSource {
+                                    r: bg.0[0],
+                                    g: bg.0[1],
+                                    b: bg.0[2],
+                                    a: bg.0[3],
+                                }),
+                                &DrawOptions::new(),
+                            );
+
                             dt.draw_text(
                                 &font,
                                 FONT_SIZE,
@@ -302,10 +316,10 @@ mod drawing_impls {
                                     FONT_SIZE * ((line_index + 1) as f32),
                                 ),
                                 &raqote::Source::Solid(SolidSource {
-                                    r: 0,
-                                    g: 0,
-                                    b: 0xFF,
-                                    a: 0xFF,
+                                    r: fg.0[0],
+                                    g: fg.0[1],
+                                    b: fg.0[2],
+                                    a: fg.0[3],
                                 }),
                                 &DrawOptions::new(),
                             );
@@ -822,7 +836,7 @@ pub mod ui_event {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Color(pub [u8; 4]);
 impl Color {
     pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
