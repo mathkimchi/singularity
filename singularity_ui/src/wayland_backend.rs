@@ -32,7 +32,7 @@ use wayland_client::{
     Connection,
 };
 
-pub const FRAME_RATE: f32 = 5.;
+pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 
 pub struct UIDisplay {
@@ -167,98 +167,66 @@ impl UIDisplay {
     }
 }
 mod drawing_impls {
-    use super::UIDisplay;
-    use crate::{CharCell, UIElement};
+    use super::{Color, UIDisplay};
+    use crate::{
+        display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+        CharCell, UIElement,
+    };
     use font_kit::{
         family_name::FamilyName,
         properties::{Properties, Weight},
         source::SystemSource,
     };
-    use raqote::{DrawOptions, DrawTarget, IntPoint, Point, SolidSource, Source};
+    use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
     use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
 
     impl UIElement {
-        pub fn draw(&self, dt: &mut DrawTarget) {
+        fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
+            dt.fill_rect(
+                area.0.x.pixels(dt.width()) as f32,
+                area.0.y.pixels(dt.height()) as f32,
+                area.size().width.pixels(dt.width()) as f32,
+                area.size().height.pixels(dt.height()) as f32,
+                &Source::Solid(SolidSource {
+                    r: color.0[0],
+                    g: color.0[1],
+                    b: color.0[2],
+                    a: color.0[3],
+                }),
+                &DrawOptions::new(),
+            );
+        }
+
+        fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea) {
             /// think this is height in pixels
-            const FONT_SIZE: f32 = 12.;
+            const FONT_SIZE: i32 = 12;
 
             match self {
                 UIElement::Container(children) => {
                     for (ui_element, area) in children {
-                        dbg!(area);
                         // draw the inner widget
-                        let mut inner_dt = DrawTarget::new(
-                            area.size().width.pixels(dt.width()),
-                            area.size().height.pixels(dt.height()),
-                        );
-                        ui_element.draw(&mut inner_dt);
-                        dt.copy_surface(
-                            &inner_dt,
-                            raqote::IntRect::from_size(
-                                (inner_dt.width(), inner_dt.height()).into(),
-                            ),
-                            IntPoint::new(
-                                area.0.x.pixels(dt.width()),
-                                area.0.y.pixels(dt.height()),
-                            ),
-                        );
+                        ui_element.draw(dt, area.map_onto(container_area));
                     }
                 }
                 UIElement::Bordered(inner_element) => {
                     // draw the border
-                    dt.fill_rect(
-                        0.,
-                        0.,
-                        dt.width() as f32,
-                        dt.height() as f32,
-                        &Source::Solid(SolidSource {
-                            r: 0,
-                            g: 0x7F,
-                            b: 0,
-                            a: 0xFF,
-                        }),
-                        &DrawOptions::new(),
-                    );
-                    // // clear the inside of the border
-                    // dt.fill_rect(
-                    //     1.,
-                    //     1.,
-                    //     dt.width() as f32 - 2.,
-                    //     dt.height() as f32 - 2.,
-                    //     &Source::Solid(SolidSource {
-                    //         // REVIEW: set to transparent?
-                    //         r: 0,
-                    //         g: 0,
-                    //         b: 0,
-                    //         a: 0xFF,
-                    //     }),
-                    //     &DrawOptions::new(),
-                    // );
+                    Self::fill_rect(dt, container_area, Color::LIGHT_GREEN);
+
+                    let inner_area = DisplayArea(
+                        DisplayCoord::new(1.into(), 1.into()),
+                        DisplayCoord::new(
+                            DisplayUnits::from_mixed(-1, 1.0),
+                            DisplayUnits::from_mixed(-1, 1.0),
+                        ),
+                    )
+                    .map_onto(container_area);
+
+                    // clear the inside of the border
+                    Self::fill_rect(dt, inner_area, Color::BLACK);
 
                     // draw the inner widget
-                    dbg!((dt.width(), dt.height()));
-                    let mut inner_dt = DrawTarget::new(dt.width() - 2, dt.height() - 2);
-                    inner_dt.fill_rect(
-                        0.,
-                        0.,
-                        inner_dt.width() as f32,
-                        inner_dt.height() as f32,
-                        &Source::Solid(SolidSource {
-                            // REVIEW: set to transparent?
-                            r: 0,
-                            g: 0,
-                            b: 0,
-                            a: 0xFF,
-                        }),
-                        &DrawOptions::new(),
-                    );
-                    inner_element.draw(&mut inner_dt);
-                    dt.copy_surface(
-                        &inner_dt,
-                        raqote::IntRect::from_size((inner_dt.width(), inner_dt.height()).into()),
-                        raqote::IntPoint::new(1, 1),
-                    );
+                    inner_element.draw(dt, inner_area);
                 }
                 UIElement::Text(text) => {
                     dt.draw_text(
@@ -270,7 +238,7 @@ mod drawing_impls {
                             .unwrap()
                             .load()
                             .unwrap(),
-                        FONT_SIZE,
+                        FONT_SIZE as f32,
                         text,
                         Point::new(0., 0.),
                         &Source::Solid(SolidSource {
@@ -294,18 +262,29 @@ mod drawing_impls {
 
                     for (line_index, line) in char_grid.content.iter().enumerate() {
                         for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
-                            dt.fill_rect(
-                                FONT_SIZE / 2. * (col_index as f32),
-                                FONT_SIZE * (line_index as f32) + 1.,
-                                FONT_SIZE / 2. + 1.,
-                                FONT_SIZE + 2.,
-                                &raqote::Source::Solid(SolidSource {
-                                    r: bg.0[0],
-                                    g: bg.0[1],
-                                    b: bg.0[2],
-                                    a: bg.0[3],
-                                }),
-                                &DrawOptions::new(),
+                            let top_left = DisplayCoord::new(
+                                container_area.0.x
+                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                container_area.0.y
+                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+                            );
+                            let bot_left = DisplayCoord::new(
+                                container_area.0.x
+                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                container_area.0.y
+                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                            );
+
+                            Self::fill_rect(
+                                dt,
+                                DisplayArea::from_corner_size(
+                                    top_left,
+                                    DisplaySize::new(
+                                        (FONT_SIZE / 2 + 1).into(),
+                                        (FONT_SIZE + 2).into(),
+                                    ),
+                                ),
+                                *bg,
                             );
 
                             if character == &' ' {
@@ -314,12 +293,10 @@ mod drawing_impls {
 
                             dt.draw_text(
                                 &font,
-                                FONT_SIZE,
+                                FONT_SIZE as f32,
                                 &character.to_string(),
-                                Point::new(
-                                    FONT_SIZE / 2. * (col_index as f32),
-                                    FONT_SIZE * ((line_index + 1) as f32),
-                                ),
+                                // `start` is actually bottom left corner
+                                bot_left.into_point(dt),
                                 &raqote::Source::Solid(SolidSource {
                                     r: fg.0[0],
                                     g: fg.0[1],
@@ -374,7 +351,10 @@ mod drawing_impls {
             // FIXME find an actual fix to the height difference
             if canvas.len() as u32 == 4 * self.width * self.height {
                 let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
-                self.root_element.lock().unwrap().draw(&mut dt);
+                self.root_element
+                    .lock()
+                    .unwrap()
+                    .draw(&mut dt, DisplayArea::FULL);
                 canvas.copy_from_slice(dt.get_data_u8());
             }
 

@@ -733,3 +733,12 @@ Also, every once in a while, the lengths of the canvas and draw target (which I 
 - I fixed it really jankily by not drawing when the sizes are wrong
 
 TODO: keyboard handling abstractions
+
+---
+
+2024/10/01
+
+I am going to try to optimize the displays.
+- Currently, for nested elements like containers and borders, I create a new draw target. I did this for "safety," aka ensuring that elements wouldn't draw outside of its given areas.
+  - However, I don't need to do that with the current system because I can just make sure the elements follow the rules when they are drawing.
+  - I did this, and it is still noticably slow...

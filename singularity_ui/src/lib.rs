@@ -17,6 +17,9 @@ pub use egui_backend::*;
 #[cfg(feature = "wayland_backend")]
 pub use wayland_backend::*;
 
+#[cfg(test)]
+mod test;
+
 pub mod display_units {
     #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
     pub enum DisplayUnits {
@@ -38,23 +41,61 @@ pub mod display_units {
             pub const HALF: DisplayUnits = DisplayUnits::Proportional(0.5);
             pub const FULL: DisplayUnits = DisplayUnits::Proportional(1.0);
 
+            pub fn from_mixed(pixels: i32, proportion: f32) -> Self {
+                match (pixels, proportion) {
+                    (pixels, 0.0) => Self::Pixels(pixels),
+                    (0, proportion) => Self::Proportional(proportion),
+                    (pixels, proportion) => Self::MixedUnits { pixels, proportion },
+                }
+            }
+
             pub fn pixels(&self, container_size: i32) -> i32 {
                 match self {
                     Self::Pixels(pixels) => *pixels,
                     Self::Proportional(proportion) => (container_size as f32 * proportion) as i32,
                     Self::MixedUnits { pixels, proportion } => {
+                        // in essense, you can think of the proportional being applied first
                         Self::Pixels(*pixels).pixels(container_size)
                             + Self::Proportional(*proportion).pixels(container_size)
                     }
                 }
             }
 
-            pub fn mixed(&self) -> (i32, f32) {
+            pub const fn components(&self) -> (i32, f32) {
                 match self {
                     Self::Pixels(pixels) => (*pixels, 0.),
                     Self::Proportional(proportion) => (0, *proportion),
                     Self::MixedUnits { pixels, proportion } => (*pixels, *proportion),
                 }
+            }
+
+            /// REVIEW
+            pub fn map_onto(&self, container_min: Self, container_max: Self) -> Self {
+                if let Self::Pixels(_) = self {
+                    return container_min + *self;
+                }
+
+                let (container_len_px, container_len_pr) =
+                    (container_max - container_min).components();
+                let (unmapped_px, unmapped_pr) = self.components();
+
+                // Math:
+                // if we knew the `tot_px` and `container_len.pixels(tot_px)`, then we can the difference from min is:
+                // `unmapped_px+unmapped_pr*container_len.pixels(tot_px)`
+                // which =`unmapped_px+unmapped_pr*(container_len_px+container_len_pr*tot_px)`
+                // =`unmapped_px+unmapped_pr*container_len_px+unmapped_pr*container_len_pr*tot_px`
+                // =`(unmapped_px+unmapped_pr*container_len_px)+(unmapped_pr*container_len_pr)*tot_px`
+                // =`(unmapped_px+unmapped_pr*container_len_px)+(unmapped_pr*container_len_pr)*tot_px`
+                // so: delta_px=`unmapped_px+unmapped_pr*container_len_px` and
+                // delta_pr=`unmapped_pr*container_len_pr`
+
+                let (container_min_px, container_min_pr) = container_min.components();
+                let delta_px = unmapped_px + ((unmapped_pr * container_len_px as f32) as i32);
+                let delta_pr = unmapped_pr * container_len_pr;
+                let final_px = container_min_px + delta_px;
+                let final_pr = container_min_pr + delta_pr;
+
+                Self::from_mixed(final_px, final_pr)
             }
         }
         impl From<f32> for DisplayUnits {
@@ -73,10 +114,9 @@ pub mod display_units {
                 match self {
                     Self::Pixels(pixels) => Self::Pixels(-pixels),
                     Self::Proportional(proportion) => Self::Proportional(-proportion),
-                    Self::MixedUnits { pixels, proportion } => Self::MixedUnits {
-                        pixels: -pixels,
-                        proportion: -proportion,
-                    },
+                    Self::MixedUnits { pixels, proportion } => {
+                        Self::from_mixed(-pixels, -proportion)
+                    }
                 }
             }
         }
@@ -88,12 +128,9 @@ pub mod display_units {
                     (Self::Pixels(l), Self::Pixels(r)) => Self::Pixels(l + r),
                     (Self::Proportional(l), Self::Proportional(r)) => Self::Proportional(l + r),
                     (l, r) => {
-                        let (lpx, lpr) = l.mixed();
-                        let (rpx, rpr) = r.mixed();
-                        Self::MixedUnits {
-                            pixels: lpx + rpx,
-                            proportion: lpr + rpr,
-                        }
+                        let (lpx, lpr) = l.components();
+                        let (rpx, rpr) = r.components();
+                        Self::from_mixed(lpx + rpx, lpr + rpr)
                     }
                 }
             }
@@ -127,6 +164,21 @@ pub mod display_units {
         pub const fn new(x: DisplayUnits, y: DisplayUnits) -> Self {
             DisplayCoord { x, y }
         }
+
+        pub fn map_onto(&self, container_area: DisplayArea) -> Self {
+            Self::new(
+                self.x.map_onto(container_area.0.x, container_area.1.x),
+                self.y.map_onto(container_area.0.y, container_area.1.y),
+            )
+        }
+
+        #[cfg(feature = "wayland_backend")]
+        pub fn into_point(&self, dt: &raqote::DrawTarget) -> raqote::Point {
+            raqote::Point::new(
+                self.x.pixels(dt.width()) as f32,
+                self.y.pixels(dt.height()) as f32,
+            )
+        }
     }
 
     /// technically, any opposite extremes should work,
@@ -134,6 +186,11 @@ pub mod display_units {
     #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
     pub struct DisplayArea(pub DisplayCoord, pub DisplayCoord);
     impl DisplayArea {
+        pub const FULL: Self = Self(
+            DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+            DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
+        );
+
         pub fn size(&self) -> DisplaySize {
             DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
         }
@@ -149,6 +206,27 @@ pub mod display_units {
             Self(
                 DisplayCoord::new(center.x - half_size.width, center.y - half_size.height),
                 DisplayCoord::new(center.x + half_size.width, center.y + half_size.height),
+            )
+        }
+
+        // pub fn make_absolute(
+        //     &self,
+        //     parent_absolute_area: ((i32, i32), (i32, i32)),
+        //     absolute_size: (i32, i32),
+        // ) -> ((i32, i32), (i32, i32)) {
+        //     let (parent_top_left, parent_bot_right) = parent_absolute_area;
+        //     let parent_size = (
+        //         parent_bot_right.0 - parent_top_left.0,
+        //         parent_bot_right.1 - parent_top_left.1,
+        //     );
+        //     let self_size = self.size();
+
+        //     ((), (todo!(), todo!()))
+        // }
+        pub fn map_onto(&self, container_area: Self) -> Self {
+            Self(
+                self.0.map_onto(container_area),
+                self.1.map_onto(container_area),
             )
         }
     }
