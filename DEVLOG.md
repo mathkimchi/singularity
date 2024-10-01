@@ -722,7 +722,6 @@ So right now, for nested items like Containers and Borders, I create an entirely
 As you can imagine, this is not great for speed.
 Actually, nvm the real problem seems to lie with the text, so I was going to optimize the buffer thing but I will fix the text first.
 
-
 Also, every once in a while, the lengths of the canvas and draw target (which I am using as the buffer) don't match, even though they should be the same thing.
 - I think this happens when I resize, but it is non-deterministic.
 - Okay, I think it happens when a double buffer is created.

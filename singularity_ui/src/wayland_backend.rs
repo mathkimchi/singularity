@@ -169,7 +169,7 @@ impl UIDisplay {
 }
 mod drawing_impls {
     use super::UIDisplay;
-    use crate::UIElement;
+    use crate::{CharCell, UIElement};
     use font_kit::{
         family_name::FamilyName,
         properties::{Properties, Weight},
@@ -181,6 +181,9 @@ mod drawing_impls {
 
     impl UIElement {
         pub fn draw(&self, dt: &mut DrawTarget) {
+            /// think this is height in pixels
+            const FONT_SIZE: f32 = 12.;
+
             match self {
                 UIElement::Container(children) => {
                     for (ui_element, area) in children {
@@ -212,13 +215,31 @@ mod drawing_impls {
                         }),
                         &DrawOptions::new(),
                     );
-                    // clear the inside of the border
-                    dt.fill_rect(
-                        1.,
-                        1.,
-                        dt.width() as f32 - 2.,
-                        dt.height() as f32 - 2.,
+                    // // clear the inside of the border
+                    // dt.fill_rect(
+                    //     1.,
+                    //     1.,
+                    //     dt.width() as f32 - 2.,
+                    //     dt.height() as f32 - 2.,
+                    //     &Source::Solid(SolidSource {
+                    //         // REVIEW: set to transparent?
+                    //         r: 0,
+                    //         g: 0,
+                    //         b: 0,
+                    //         a: 0xFF,
+                    //     }),
+                    //     &DrawOptions::new(),
+                    // );
+
+                    // draw the inner widget
+                    let mut inner_dt = DrawTarget::new(dt.width() - 2, dt.height() - 2);
+                    inner_dt.fill_rect(
+                        0.,
+                        0.,
+                        inner_dt.width() as f32,
+                        inner_dt.height() as f32,
                         &Source::Solid(SolidSource {
+                            // REVIEW: set to transparent?
                             r: 0,
                             g: 0,
                             b: 0,
@@ -226,9 +247,6 @@ mod drawing_impls {
                         }),
                         &DrawOptions::new(),
                     );
-
-                    // draw the inner widget
-                    let mut inner_dt = DrawTarget::new(dt.width() - 2, dt.height() - 2);
                     inner_element.draw(&mut inner_dt);
                     dt.copy_surface(
                         &inner_dt,
@@ -246,7 +264,7 @@ mod drawing_impls {
                             .unwrap()
                             .load()
                             .unwrap(),
-                        24.,
+                        FONT_SIZE,
                         text,
                         Point::new(0., 0.),
                         &Source::Solid(SolidSource {
@@ -259,30 +277,42 @@ mod drawing_impls {
                     );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    // for line in &char_grid.content {
-                    //     for CharCell { character, fg, bg } in line {
-                    dt.draw_text(
-                        &SystemSource::new()
-                            .select_best_match(
-                                &[FamilyName::Monospace],
-                                Properties::new().weight(Weight::MEDIUM),
-                            )
-                            .unwrap()
-                            .load()
-                            .unwrap(),
-                        24.,
-                        "&character.to_string()",
-                        Point::new(0., 0.),
-                        &raqote::Source::Solid(SolidSource {
-                            r: 0,
-                            g: 0,
-                            b: 0xFF,
-                            a: 0xFF,
-                        }),
-                        &DrawOptions::new(),
-                    );
-                    //     }
-                    // }
+                    let font = SystemSource::new()
+                        .select_best_match(
+                            &[FamilyName::Monospace],
+                            Properties::new().weight(Weight::MEDIUM),
+                        )
+                        .unwrap()
+                        .load()
+                        .unwrap();
+
+                    for (line_index, line) in char_grid.content.iter().enumerate() {
+                        for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
+                            dbg!(character.to_string());
+                            if character == &' ' {
+                                continue;
+                            }
+
+                            dt.draw_text(
+                                &font,
+                                FONT_SIZE,
+                                &character.to_string(),
+                                Point::new(
+                                    FONT_SIZE / 2. * (col_index as f32),
+                                    FONT_SIZE * ((line_index + 1) as f32),
+                                ),
+                                &raqote::Source::Solid(SolidSource {
+                                    r: 0,
+                                    g: 0,
+                                    b: 0xFF,
+                                    a: 0xFF,
+                                }),
+                                &DrawOptions::new(),
+                            );
+                        }
+                    }
+
+                    dbg!((dt.width(), dt.height()));
                 }
             }
         }
