@@ -805,3 +805,25 @@ Finished 'draw char grid' in 367.730814ms.
 So, it seems that drawing character grids is taking a significant bit of my time.
 Specifically, the 'fill rect' is taking enough time that it is noticable when there are potentially thousands of characters being rendered.
 I asked google, and 2µs * 1000 = 0.2s = 200ms, so it seems I caught the culprit.
+
+I don't know what is wrong with raqote, but I might need to get lower level than raqote by doing some gpu stuff myself.
+While I am on this topic, I want to log an idea I had:
+- Chunking
+  - Squares (or maybe 1x2 rectangles like a terminal character) of constant size, probably like 8x8 or 16x16
+  - Each chunk has an owner
+  - More or less a pixel buffer, but with extra steps
+  - Benefits:
+    - Possibly faster than pixel buffer
+    - Feels like an upgraded version of the terminal
+  - Problems:
+    - Very rigid, can't resize smoothly
+    - Possibly slower than pixel buffer because wayland doesn't store data this way
+Anyways, here is a roadmap for me:
+- [ ] Modify an array of u8 / u32s with gpu
+- [ ] Pass data to gpu
+- [ ] Render text
+- [ ] Implement each element individually
+
+Uhm, this is really awkward, but it suddenly works now.
+I wrote some optimizations before writing the previous paragraph, and didn't bother to test it out because I thought it wouldn't work.
+I was secretly kind of looking forward to learning gpu, but I guess I can't be complaining.

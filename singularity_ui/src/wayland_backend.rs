@@ -195,7 +195,7 @@ mod drawing_impls {
     impl UIElement {
         fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
             do_task("fill rect", || {
-                dt.fill_rect(
+                let (x, y, width, height, src, options) = (
                     area.0.x.pixels(dt.width()) as f32,
                     area.0.y.pixels(dt.height()) as f32,
                     area.size().width.pixels(dt.width()) as f32,
@@ -207,7 +207,14 @@ mod drawing_impls {
                         a: color.0[3],
                     }),
                     &DrawOptions::new(),
-                )
+                );
+
+                let mut pb = raqote::PathBuilder::new();
+                pb.rect(x, y, width, height);
+                let path = pb.finish();
+                do_task("actually fill rect", || {
+                    dt.fill(&path, src, options);
+                })
             });
         }
 
