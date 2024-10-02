@@ -358,11 +358,10 @@ mod drawing_impls {
             // FIXME find an actual fix to the height difference
             if canvas.len() as u32 == 4 * self.width * self.height {
                 let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
-                log_time!("Started drawing elements");
-                self.root_element
-                    .lock()
-                    .unwrap()
-                    .draw(&mut dt, DisplayArea::FULL, &self.font);
+                log_time!("Trying to get root element");
+                let root_element = self.root_element.lock().unwrap();
+                log_time!("Got root element, starting drawing elements");
+                root_element.draw(&mut dt, DisplayArea::FULL, &self.font);
                 log_time!("Finished drawing elements, starting copy");
                 canvas.copy_from_slice(dt.get_data_u8());
             }

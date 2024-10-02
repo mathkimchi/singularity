@@ -773,4 +773,17 @@ Finished rendering. 393.597623ms elapsed since last finished drawing.
 Finished drawing. 393.689893ms elapsed since last finished drawing.
 ```
 
-I might revert this unless I absolutely need to. 
+I might revert this unless I absolutely need to.
+
+```log
+Starting drawing. 5.521291ms elapsed since last finished drawing.
+Starting rendering. 5.560596ms elapsed since last finished drawing.
+Trying to get root element. 6.125869ms elapsed since last finished drawing.
+Got root element, starting drawing elements. 6.128967ms elapsed since last finished drawing.
+Finished drawing elements, starting copy. 418.385396ms elapsed since last finished drawing.
+Finished rendering. 419.475338ms elapsed since last finished drawing.
+Finished drawing. 419.533916ms elapsed since last finished drawing.
+```
+
+I wondered if locking the mutex might've been holding us back, but it seems to take the least time.
+(I already thought of ways to make this efficient. good job, past me)
