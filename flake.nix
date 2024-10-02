@@ -26,6 +26,14 @@
             # WINIT_UNIX_BACKEND=wayland
             wayland
 
+            # gpu stuff (turns out this wasn't the issue)
+            # opencl-headers
+            # ocl-icd
+            # intel-ocl # this is apparently unfree
+            # mesa
+            # # for dbg purposes
+            # clinfo
+
             # # WINIT_UNIX_BACKEND=x11
             # xorg.libXcursor
             # xorg.libXrandr

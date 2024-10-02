@@ -827,3 +827,46 @@ Anyways, here is a roadmap for me:
 Uhm, this is really awkward, but it suddenly works now.
 I wrote some optimizations before writing the previous paragraph, and didn't bother to test it out because I thought it wouldn't work.
 I was secretly kind of looking forward to learning gpu, but I guess I can't be complaining.
+
+### GPU
+
+2024/10/01
+
+You know what, GPU time.
+- [ ] Modify a mut slice of u8 / u32s with gpu
+- [ ] Pass data to gpu
+- [ ] Render text
+- [ ] Implement each element individually
+
+I think I'll go with vulkan instead of opengl, since it seems Zed and Cosmic DE both use vulkan (can you tell yet that I am unable to form my own opinions?).
+The commonly used vulkan crates seem to be:
+- ash
+- wgpu (not vulkan specific, but supports vulkan)
+- vulkano
+  - people talk about it a lot, but much more people use ash than vulkano
+
+Actually, smithay has a wayland-egl crate, which I guess will work nicely with everything else from smithay, and it supports both open gl and vulkan apparently.
+However, it seems very sparse in documentation.
+Also, smithay's own [gpu example](https://github.com/Smithay/client-toolkit/blob/master/examples/wgpu.rs) uses wgpu instead of egl, so egl might not fit my use case.
+I am not too worried about integration, since I just need to modify a slice.
+
+All the ash examples I look at use winit, which begs the question of why I chose wayland client over winit.
+I might need to migrate to winit later on.
+
+2024/10/02
+
+I looked further into zed, and they use a crate called blade graphics.
+It isn't very widely used, but I guess the creators of zed like it.
+
+I think I need to start considering crates with not a lot of downloads.
+There is a crate called `ocl`, and I instantly love how simple their example is.
+The repo was last updated 6 months ago, so I am not entirely sure if it is 
+`rust-gpu` is even simpler, and it actually somehow works in pure rust, which is very cool.
+It uses something called spirv, which adds an extra layer of complexity to the code.
+Rust gpu also currently doesn't have a crate.io page, which is kind of weird.
+
+I am going to try ocl. 
+
+After a lot of fiddling with nix, `hardware.opengl.extraPackages = with pkgs; [ intel-ocl ];` in my configs.nix is what finally fixed my problem.
+
+Make sure `clinfo` says number of platforms is at least 1 if you are also having issues.
