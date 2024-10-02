@@ -1,4 +1,5 @@
 use crate::UIElement;
+use font_kit::{font::Font, source::SystemSource};
 use smithay_client_toolkit::{
     activation::{ActivationState, RequestData},
     compositor::CompositorState,
@@ -60,6 +61,7 @@ pub struct UIDisplay {
     key_modifiers: KeyModifiers,
     pointer: Option<wl_pointer::WlPointer>,
     loop_handle: LoopHandle<'static, UIDisplay>,
+    font: Font,
 }
 impl UIDisplay {
     /// Returns when display is closed.
@@ -154,6 +156,15 @@ impl UIDisplay {
             key_modifiers: KeyModifiers::default(),
             pointer: None,
             loop_handle: event_loop.handle(),
+            font: SystemSource::new()
+                .select_best_match(
+                    &[font_kit::family_name::FamilyName::Monospace],
+                    font_kit::properties::Properties::new()
+                        .weight(font_kit::properties::Weight::MEDIUM),
+                )
+                .unwrap()
+                .load()
+                .unwrap(),
         };
 
         // We don't draw immediately, the configure will notify us when to first draw.
@@ -169,20 +180,15 @@ impl UIDisplay {
     }
 }
 mod drawing_impls {
-    use std::time::Instant;
-
     use super::{Color, UIDisplay};
     use crate::{
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
         CharCell, UIElement,
     };
-    use font_kit::{
-        family_name::FamilyName,
-        properties::{Properties, Weight},
-        source::SystemSource,
-    };
+    use font_kit::font::Font;
     use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
+    use std::time::Instant;
     use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
 
     impl UIElement {
@@ -202,7 +208,7 @@ mod drawing_impls {
             );
         }
 
-        fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea) {
+        fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
             /// think this is height in pixels
             const FONT_SIZE: i32 = 12;
 
@@ -210,7 +216,7 @@ mod drawing_impls {
                 UIElement::Container(children) => {
                     for (ui_element, area) in children {
                         // draw the inner widget
-                        ui_element.draw(dt, area.map_onto(container_area));
+                        ui_element.draw(dt, area.map_onto(container_area), font);
                     }
                 }
                 UIElement::Bordered(inner_element) => {
@@ -230,18 +236,11 @@ mod drawing_impls {
                     Self::fill_rect(dt, inner_area, Color::BLACK);
 
                     // draw the inner widget
-                    inner_element.draw(dt, inner_area);
+                    inner_element.draw(dt, inner_area, font);
                 }
                 UIElement::Text(text) => {
                     dt.draw_text(
-                        &SystemSource::new()
-                            .select_best_match(
-                                &[FamilyName::Monospace],
-                                Properties::new().weight(Weight::MEDIUM),
-                            )
-                            .unwrap()
-                            .load()
-                            .unwrap(),
+                        font,
                         FONT_SIZE as f32,
                         text,
                         Point::new(0., 0.),
@@ -255,15 +254,6 @@ mod drawing_impls {
                     );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    let font = SystemSource::new()
-                        .select_best_match(
-                            &[FamilyName::Monospace],
-                            Properties::new().weight(Weight::MEDIUM),
-                        )
-                        .unwrap()
-                        .load()
-                        .unwrap();
-
                     for (line_index, line) in char_grid.content.iter().enumerate() {
                         for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
                             let top_left = DisplayCoord::new(
@@ -296,7 +286,7 @@ mod drawing_impls {
                             }
 
                             dt.draw_text(
-                                &font,
+                                font,
                                 FONT_SIZE as f32,
                                 &character.to_string(),
                                 // `start` is actually bottom left corner
@@ -372,7 +362,7 @@ mod drawing_impls {
                 self.root_element
                     .lock()
                     .unwrap()
-                    .draw(&mut dt, DisplayArea::FULL);
+                    .draw(&mut dt, DisplayArea::FULL, &self.font);
                 log_time!("Finished drawing elements, starting copy");
                 canvas.copy_from_slice(dt.get_data_u8());
             }

@@ -759,3 +759,18 @@ Finished drawing. 399.266227ms elapsed since last finished drawing.
 
 This isn't the average or anything, but it gives a good sense of the magnitudes and we can see the rendering taking almost all the time.
 I thought copying from dt would take a lot of time, but I was wrong.
+
+My next optimization will be to render fonts once and reuse it instead of rendering it each frame.
+It turns out that Font doesn't implement Sync, so I need to pass a fonts parameter whenever I call draw.
+Okay, this didn't help much, the result is:
+
+```log
+Starting drawing. 4.202717ms elapsed since last finished drawing.
+Starting rendering. 4.243526ms elapsed since last finished drawing.
+Started drawing elements. 4.736223ms elapsed since last finished drawing.
+Finished drawing elements, starting copy. 392.39039ms elapsed since last finished drawing.
+Finished rendering. 393.597623ms elapsed since last finished drawing.
+Finished drawing. 393.689893ms elapsed since last finished drawing.
+```
+
+I might revert this unless I absolutely need to. 
