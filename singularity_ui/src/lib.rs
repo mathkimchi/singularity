@@ -2,6 +2,7 @@
 mod egui_backend;
 #[cfg(feature = "iced_backend")]
 mod iced_backend;
+pub mod task_logger;
 #[cfg(feature = "wayland_backend")]
 mod wayland_backend;
 #[cfg(not(any(

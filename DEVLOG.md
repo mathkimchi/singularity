@@ -787,3 +787,21 @@ Finished drawing. 419.533916ms elapsed since last finished drawing.
 
 I wondered if locking the mutex might've been holding us back, but it seems to take the least time.
 (I already thought of ways to make this efficient. good job, past me)
+
+I made a tool to log, and when I logged, I got:
+
+```log
+Starting 'fill rect'...
+Finished 'fill rect' in 252.765µs.
+Starting 'draw character'...
+Finished 'draw character' in 9.04µs.
+Starting 'fill rect'...
+Finished 'fill rect' in 252.673µs.
+Starting 'draw character'...
+Finished 'draw character' in 6.743µs.
+Finished 'draw char grid' in 367.730814ms.
+```
+
+So, it seems that drawing character grids is taking a significant bit of my time.
+Specifically, the 'fill rect' is taking enough time that it is noticable when there are potentially thousands of characters being rendered.
+I asked google, and 2µs * 1000 = 0.2s = 200ms, so it seems I caught the culprit.

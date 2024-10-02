@@ -183,6 +183,7 @@ mod drawing_impls {
     use super::{Color, UIDisplay};
     use crate::{
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+        task_logger::do_task,
         CharCell, UIElement,
     };
     use font_kit::font::Font;
@@ -193,19 +194,21 @@ mod drawing_impls {
 
     impl UIElement {
         fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
-            dt.fill_rect(
-                area.0.x.pixels(dt.width()) as f32,
-                area.0.y.pixels(dt.height()) as f32,
-                area.size().width.pixels(dt.width()) as f32,
-                area.size().height.pixels(dt.height()) as f32,
-                &Source::Solid(SolidSource {
-                    r: color.0[0],
-                    g: color.0[1],
-                    b: color.0[2],
-                    a: color.0[3],
-                }),
-                &DrawOptions::new(),
-            );
+            do_task("fill rect", || {
+                dt.fill_rect(
+                    area.0.x.pixels(dt.width()) as f32,
+                    area.0.y.pixels(dt.height()) as f32,
+                    area.size().width.pixels(dt.width()) as f32,
+                    area.size().height.pixels(dt.height()) as f32,
+                    &Source::Solid(SolidSource {
+                        r: color.0[0],
+                        g: color.0[1],
+                        b: color.0[2],
+                        a: color.0[3],
+                    }),
+                    &DrawOptions::new(),
+                )
+            });
         }
 
         fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
@@ -254,53 +257,59 @@ mod drawing_impls {
                     );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    for (line_index, line) in char_grid.content.iter().enumerate() {
-                        for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
-                            let top_left = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
-                            );
-                            let bot_left = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                            );
+                    do_task("draw char grid", || {
+                        for (line_index, line) in char_grid.content.iter().enumerate() {
+                            for (col_index, CharCell { character, fg, bg }) in
+                                line.iter().enumerate()
+                            {
+                                let top_left = DisplayCoord::new(
+                                    container_area.0.x
+                                        + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                    container_area.0.y
+                                        + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+                                );
+                                let bot_left = DisplayCoord::new(
+                                    container_area.0.x
+                                        + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                    container_area.0.y
+                                        + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                                );
 
-                            Self::fill_rect(
-                                dt,
-                                DisplayArea::from_corner_size(
-                                    top_left,
-                                    DisplaySize::new(
-                                        (FONT_SIZE / 2 + 1).into(),
-                                        (FONT_SIZE + 2).into(),
+                                Self::fill_rect(
+                                    dt,
+                                    DisplayArea::from_corner_size(
+                                        top_left,
+                                        DisplaySize::new(
+                                            (FONT_SIZE / 2 + 1).into(),
+                                            (FONT_SIZE + 2).into(),
+                                        ),
                                     ),
-                                ),
-                                *bg,
-                            );
+                                    *bg,
+                                );
 
-                            if character == &' ' {
-                                continue;
+                                if character == &' ' {
+                                    continue;
+                                }
+
+                                do_task("draw character", || {
+                                    dt.draw_text(
+                                        font,
+                                        FONT_SIZE as f32,
+                                        &character.to_string(),
+                                        // `start` is actually bottom left corner
+                                        bot_left.into_point(dt),
+                                        &raqote::Source::Solid(SolidSource {
+                                            r: fg.0[0],
+                                            g: fg.0[1],
+                                            b: fg.0[2],
+                                            a: fg.0[3],
+                                        }),
+                                        &DrawOptions::new(),
+                                    );
+                                });
                             }
-
-                            dt.draw_text(
-                                font,
-                                FONT_SIZE as f32,
-                                &character.to_string(),
-                                // `start` is actually bottom left corner
-                                bot_left.into_point(dt),
-                                &raqote::Source::Solid(SolidSource {
-                                    r: fg.0[0],
-                                    g: fg.0[1],
-                                    b: fg.0[2],
-                                    a: fg.0[3],
-                                }),
-                                &DrawOptions::new(),
-                            );
                         }
-                    }
+                    });
                 }
             }
         }
