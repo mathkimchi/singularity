@@ -1,5 +1,5 @@
 use packets::{Event, Query, Request, Response};
-use singularity_ui::{display_units::DisplayArea, UIElement};
+use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 use std::{
     sync::{
         mpsc::{self, Receiver, Sender},

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 #[test]
 fn dylib_test() {
     // dbg!("Hi0");

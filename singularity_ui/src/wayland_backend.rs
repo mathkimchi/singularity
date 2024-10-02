@@ -1,4 +1,4 @@
-use crate::UIElement;
+use crate::ui_element::UIElement;
 use font_kit::{font::Font, source::SystemSource};
 use smithay_client_toolkit::{
     activation::{ActivationState, RequestData},
@@ -54,7 +54,7 @@ pub struct UIDisplay {
     pool: SlotPool,
     width: u32,
     height: u32,
-    shift: Option<u32>,
+    _shift: Option<u32>,
     buffer: Option<Buffer>,
     window: Window,
     keyboard: Option<wl_keyboard::WlKeyboard>,
@@ -149,7 +149,7 @@ impl UIDisplay {
             pool,
             width: 256,
             height: 256,
-            shift: None,
+            _shift: None,
             buffer: None,
             window,
             keyboard: None,
@@ -176,15 +176,15 @@ impl UIDisplay {
                 )
                 .unwrap();
         }
-        println!("exiting example");
+        println!("Graciously ending display loop.");
     }
 }
 mod drawing_impls {
-    use super::{Color, UIDisplay};
+    use super::UIDisplay;
     use crate::{
+        color::Color,
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
-        task_logger::do_task,
-        CharCell, UIElement,
+        ui_element::{CharCell, UIElement},
     };
     use font_kit::font::Font;
     use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
@@ -194,28 +194,24 @@ mod drawing_impls {
 
     impl UIElement {
         fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
-            do_task("fill rect", || {
-                let (x, y, width, height, src, options) = (
-                    area.0.x.pixels(dt.width()) as f32,
-                    area.0.y.pixels(dt.height()) as f32,
-                    area.size().width.pixels(dt.width()) as f32,
-                    area.size().height.pixels(dt.height()) as f32,
-                    &Source::Solid(SolidSource {
-                        r: color.0[0],
-                        g: color.0[1],
-                        b: color.0[2],
-                        a: color.0[3],
-                    }),
-                    &DrawOptions::new(),
-                );
-
-                let mut pb = raqote::PathBuilder::new();
-                pb.rect(x, y, width, height);
-                let path = pb.finish();
-                do_task("actually fill rect", || {
-                    dt.fill(&path, src, options);
-                })
-            });
+            let mut pb = raqote::PathBuilder::new();
+            pb.rect(
+                area.0.x.pixels(dt.width()) as f32,
+                area.0.y.pixels(dt.height()) as f32,
+                area.size().width.pixels(dt.width()) as f32,
+                area.size().height.pixels(dt.height()) as f32,
+            );
+            let path = pb.finish();
+            dt.fill(
+                &path,
+                &Source::Solid(SolidSource {
+                    r: color.0[0],
+                    g: color.0[1],
+                    b: color.0[2],
+                    a: color.0[3],
+                }),
+                &DrawOptions::new(),
+            );
         }
 
         fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
@@ -264,59 +260,53 @@ mod drawing_impls {
                     );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    do_task("draw char grid", || {
-                        for (line_index, line) in char_grid.content.iter().enumerate() {
-                            for (col_index, CharCell { character, fg, bg }) in
-                                line.iter().enumerate()
-                            {
-                                let top_left = DisplayCoord::new(
-                                    container_area.0.x
-                                        + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                    container_area.0.y
-                                        + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
-                                );
-                                let bot_left = DisplayCoord::new(
-                                    container_area.0.x
-                                        + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                    container_area.0.y
-                                        + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                                );
+                    for (line_index, line) in char_grid.content.iter().enumerate() {
+                        for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
+                            let top_left = DisplayCoord::new(
+                                container_area.0.x
+                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                container_area.0.y
+                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+                            );
+                            let bot_left = DisplayCoord::new(
+                                container_area.0.x
+                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                container_area.0.y
+                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                            );
 
-                                Self::fill_rect(
-                                    dt,
-                                    DisplayArea::from_corner_size(
-                                        top_left,
-                                        DisplaySize::new(
-                                            (FONT_SIZE / 2 + 1).into(),
-                                            (FONT_SIZE + 2).into(),
-                                        ),
+                            Self::fill_rect(
+                                dt,
+                                DisplayArea::from_corner_size(
+                                    top_left,
+                                    DisplaySize::new(
+                                        (FONT_SIZE / 2 + 1).into(),
+                                        (FONT_SIZE + 2).into(),
                                     ),
-                                    *bg,
-                                );
+                                ),
+                                *bg,
+                            );
 
-                                if character == &' ' {
-                                    continue;
-                                }
-
-                                do_task("draw character", || {
-                                    dt.draw_text(
-                                        font,
-                                        FONT_SIZE as f32,
-                                        &character.to_string(),
-                                        // `start` is actually bottom left corner
-                                        bot_left.into_point(dt),
-                                        &raqote::Source::Solid(SolidSource {
-                                            r: fg.0[0],
-                                            g: fg.0[1],
-                                            b: fg.0[2],
-                                            a: fg.0[3],
-                                        }),
-                                        &DrawOptions::new(),
-                                    );
-                                });
+                            if character == &' ' {
+                                continue;
                             }
+
+                            dt.draw_text(
+                                font,
+                                FONT_SIZE as f32,
+                                &character.to_string(),
+                                // `start` is actually bottom left corner
+                                bot_left.into_point(dt),
+                                &raqote::Source::Solid(SolidSource {
+                                    r: fg.0[0],
+                                    g: fg.0[1],
+                                    b: fg.0[2],
+                                    a: fg.0[3],
+                                }),
+                                &DrawOptions::new(),
+                            );
                         }
-                    });
+                    }
                 }
             }
         }
@@ -324,18 +314,6 @@ mod drawing_impls {
 
     impl UIDisplay {
         pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
-            macro_rules! log_time {
-                // hoping that this has no reprecussions
-                ($current_task:expr) => {
-                    println!(
-                        "{}. {:?} elapsed since last finished drawing.",
-                        $current_task,
-                        self.most_recent_draw_finish_time.elapsed()
-                    );
-                };
-            }
-            log_time!("Starting drawing");
-
             let stride = self.width as i32 * 4;
 
             let buffer = self.buffer.get_or_insert_with(|| {
@@ -369,19 +347,16 @@ mod drawing_impls {
                 }
             };
 
-            log_time!("Starting rendering");
             // Draw to the window:
             // FIXME find an actual fix to the height difference
             if canvas.len() as u32 == 4 * self.width * self.height {
                 let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
-                log_time!("Trying to get root element");
-                let root_element = self.root_element.lock().unwrap();
-                log_time!("Got root element, starting drawing elements");
-                root_element.draw(&mut dt, DisplayArea::FULL, &self.font);
-                log_time!("Finished drawing elements, starting copy");
+                self.root_element
+                    .lock()
+                    .unwrap()
+                    .draw(&mut dt, DisplayArea::FULL, &self.font);
                 canvas.copy_from_slice(dt.get_data_u8());
             }
-            log_time!("Finished rendering");
 
             // Damage the entire window
             self.window
@@ -399,7 +374,6 @@ mod drawing_impls {
                 .expect("buffer attach");
             self.window.commit();
 
-            log_time!("Finished drawing");
             self.most_recent_draw_finish_time = Instant::now();
         }
     }
@@ -420,7 +394,7 @@ mod ui_display_wayland_impls {
         registry_handlers,
         seat::{
             keyboard::{KeyboardHandler, Keysym, Modifiers},
-            pointer::{PointerEvent, PointerEventKind, PointerHandler},
+            pointer::{PointerEvent, PointerHandler},
             Capability, SeatHandler, SeatState,
         },
         shell::{
@@ -685,38 +659,38 @@ mod ui_display_wayland_impls {
             _conn: &Connection,
             _qh: &QueueHandle<Self>,
             _pointer: &wl_pointer::WlPointer,
-            events: &[PointerEvent],
+            _events: &[PointerEvent],
         ) {
-            for event in events {
-                // Ignore events for other surfaces
-                if &event.surface != self.window.wl_surface() {
-                    continue;
-                }
+            // for event in events {
+            //     // Ignore events for other surfaces
+            //     if &event.surface != self.window.wl_surface() {
+            //         continue;
+            //     }
 
-                match event.kind {
-                    PointerEventKind::Enter { .. } => {
-                        println!("Pointer entered @{:?}", event.position);
-                    }
-                    PointerEventKind::Leave { .. } => {
-                        println!("Pointer left");
-                    }
-                    PointerEventKind::Motion { .. } => {}
-                    PointerEventKind::Press { button, .. } => {
-                        println!("Press {:x} @ {:?}", button, event.position);
-                        self.shift = self.shift.xor(Some(0));
-                    }
-                    PointerEventKind::Release { button, .. } => {
-                        println!("Release {:x} @ {:?}", button, event.position);
-                    }
-                    PointerEventKind::Axis {
-                        horizontal,
-                        vertical,
-                        ..
-                    } => {
-                        println!("Scroll H:{horizontal:?}, V:{vertical:?}");
-                    }
-                }
-            }
+            //     match event.kind {
+            //         PointerEventKind::Enter { .. } => {
+            //             println!("Pointer entered @{:?}", event.position);
+            //         }
+            //         PointerEventKind::Leave { .. } => {
+            //             println!("Pointer left");
+            //         }
+            //         PointerEventKind::Motion { .. } => {}
+            //         PointerEventKind::Press { button, .. } => {
+            //             println!("Press {:x} @ {:?}", button, event.position);
+            //             self.shift = self.shift.xor(Some(0));
+            //         }
+            //         PointerEventKind::Release { button, .. } => {
+            //             println!("Release {:x} @ {:?}", button, event.position);
+            //         }
+            //         PointerEventKind::Axis {
+            //             horizontal,
+            //             vertical,
+            //             ..
+            //         } => {
+            //             println!("Scroll H:{horizontal:?}, V:{vertical:?}");
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -846,17 +820,8 @@ pub mod ui_event {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Color(pub [u8; 4]);
-impl Color {
-    pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
-    pub const BLACK: Self = Color([0, 0, 0, 0xFF]);
-    pub const LIGHT_YELLOW: Self = Color([0xFF, 0xFF, 0, 0xFF]);
-    pub const LIGHT_GREEN: Self = Color([0, 0xFF, 0, 0xFF]);
-    pub const LIGHT_BLUE: Self = Color([0, 0, 0xFF, 0xFF]);
-}
-impl From<Color> for raqote::Color {
-    fn from(value: Color) -> Self {
+impl From<crate::color::Color> for raqote::Color {
+    fn from(value: crate::color::Color) -> Self {
         raqote::Color::new(value.0[3], value.0[0], value.0[1], value.0[2])
     }
 }

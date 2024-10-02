@@ -9,9 +9,11 @@ use singularity_common::{
 };
 use singularity_standard_tabs::editor::Editor;
 use singularity_ui::{
+    color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+    ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
-    CharCell, CharGrid, Color, UIDisplay, UIElement,
+    UIDisplay,
 };
 use std::{
     io::{self},
@@ -23,7 +25,7 @@ use tabs::Tabs;
 pub mod tabs;
 
 pub struct ProjectManager {
-    project: Project,
+    _project: Project,
 
     tabs: Tabs,
 
@@ -84,7 +86,7 @@ impl ProjectManager {
         // };
 
         let mut manager = Self {
-            project: Project::new("examples/root-project"),
+            _project: Project::new("examples/root-project"),
             tabs: Tabs::new(TabHandler::new(
                 basic_tab_creator(
                     "examples/root-project/file_to_edit.txt",

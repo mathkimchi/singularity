@@ -4,8 +4,8 @@ use std::path::PathBuf;
 pub mod project_settings;
 
 pub struct Project {
-    project_directory: PathBuf,
-    project_settings: ProjectSettings,
+    _project_directory: PathBuf,
+    _project_settings: ProjectSettings,
 }
 impl Project {
     pub fn new<P>(project_directory: P) -> Self
@@ -14,8 +14,8 @@ impl Project {
         PathBuf: std::convert::From<P>,
     {
         Self {
-            project_settings: Self::get_project_settings(&project_directory),
-            project_directory: PathBuf::from(project_directory),
+            _project_settings: Self::get_project_settings(&project_directory),
+            _project_directory: PathBuf::from(project_directory),
         }
     }
 

@@ -3,8 +3,9 @@ use singularity_common::tab::{
     ManagerHandler,
 };
 use singularity_ui::{
+    color::Color,
+    ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait},
-    CharCell, CharGrid, Color, UIElement,
 };
 use std::path::PathBuf;
 
@@ -101,7 +102,7 @@ impl Editor {
 
     /// char can not be new line
     /// knows location from cursor
-    fn write_character(&mut self, character: singularity_ui::CharCell) {
+    fn write_character(&mut self, character: singularity_ui::ui_element::CharCell) {
         self.text.content[self.cursor_logical_position.1]
             .insert(self.cursor_logical_position.0, character);
         self.cursor_logical_position.0 += 1;
