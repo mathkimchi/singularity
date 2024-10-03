@@ -879,3 +879,22 @@ Later on when I do multiple elements, I might just render each element and let e
 My shader code is most definitely suboptimal, but it is a good experience probably.
 
 Wow, I don't understand half of what I just "wrote" but it was surprisingly not as hard as I thought.
+The problem right now is that I don't understand the types and how to pass data to the gpu.
+To fix this, I will read [this tutorial on OpenCL](https://www.nersc.gov/assets/pubs_presos/MattsonTutorialSC14.pdf).
+This is what I gathered from the tutorial as well as the example code from ocl.
+- Levels of stuff (pg 11):
+  - Host calls the compute device, which consists of multiple work groups, which themselves consist of multiple work items. Each work item calls the kernel function once.
+  - Levels of memory:
+    - Host memory
+    - Global and constant memory: shared within the entire compute device
+    - Local memory: shared within a work group
+    - Private memory: individual for each work item
+    - This is pretty helpful, so I guess inputs marked as `__private` are individual for each work item, and the same thing for the other levels.
+- The cl kernel code starts at pg 41.
+- Vectors (eg `int4` is 4 integers, more like const sized arrays than rust vecs)
+  - I needed a seperate auxillary crate `ocl-core-vector` to send vectors as args
+- NOTE: `float` is rust f32
+- NOTE: when a type is marked with `*`, it is actually just a pointer so it would be equivalent to a rust `&` I think
+- `get_global_id(0)` returns the first work id, which is the x pixel in ocl. 1 is y.
+
+[Here](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html) is the documentation for open cl.
