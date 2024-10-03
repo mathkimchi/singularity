@@ -4,4 +4,4 @@
 # cargo test --package singularity_common --lib -- tests::dylib_test --exact --show-output
 # cargo test --package singularity_ui --lib -- test --show-output
 # cargo run --package singularity_ui --bin demo
-RUST_BACKTRACE=full cargo run --package singularity_ui --example ocl_demo
+RUST_BACKTRACE=full cargo run --package singularity_ui --example ab_glyph_demo

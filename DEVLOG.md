@@ -828,6 +828,11 @@ Uhm, this is really awkward, but it suddenly works now.
 I wrote some optimizations before writing the previous paragraph, and didn't bother to test it out because I thought it wouldn't work.
 I was secretly kind of looking forward to learning gpu, but I guess I can't be complaining.
 
+2024/10/02 future me here, I should have looked further into `tiny skia` instead of trying gpu.
+The main page of tiny skia says raqote is very slow, and the benchmarks support that to a high degree.
+One problem is that it doesn't have text though, which is a pretty big problem.
+Still, my point is that raqote is very slow.
+
 ### GPU
 
 2024/10/01
@@ -899,3 +904,34 @@ This is what I gathered from the tutorial as well as the example code from ocl.
 - NOTE: Ocl's `ImageChannelDataType::UnormInt8` is a float from 0 to 1, not an integer, to use u8 is: `ImageChannelDataType::UnsignedInt8`
 
 [Here](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html) is the documentation for open cl.
+
+---
+
+Idk how I would start displaying fonts, I guess I should start with more research.
+
+https://en.wikipedia.org/wiki/Computer_font
+- Three basic ways to store each glyph:
+  - Bitmap
+    - Matrix of pixels
+    - Feels jank even for my standards
+  - Vector/outline
+    - Store instructions on how to draw, like bezier curves
+    - I don't want to manually do all the instructions for this
+  - Stroke
+    - Store a series of strokes (and possibly other info)
+
+I actually don't want to do fonts myself.
+
+`ab_glyph` and `rusttype` both seem  to meet my needs.
+It looks like ab glyph made rusttype obsolete, so I guess I am going with ab glyph.\
+
+Actually, I could use ab glyph's rasterizer to support the gpu.
+
+Okay, it seems pretty simple, but it is a little annoying that I need a .otf file in the project to do this.
+
+font_kit, the crate I was previously using, might actually work, and it doesn't require me to include a font with the project.
+It is tightly coupled with the pathfinder crate, which makes sense because both crates are developed by the servo project.
+
+2024/10/03
+
+If I need to import a font, I'll go with DejaVu fonts because it is public domain.
