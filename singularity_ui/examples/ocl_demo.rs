@@ -1,83 +1,138 @@
-/// Exploded version. Boom!
-///
-/// The functions above use `ProQue` and other abstractions to greatly reduce
-/// the amount of boilerplate and configuration necessary to do basic work.
-/// Many tasks, however, will require more configuration and will necessitate
-/// doing away with `ProQue` altogether. Enqueuing kernels and reading/writing
-/// from buffers and images usually requires a more explicit interface.
-///
-/// The following function performs the exact same steps that the above
-/// functions did, with many of the convenience abstractions peeled away.
-///
-/// See the function below this to take things a step deeper...
-///
-#[allow(dead_code)]
-fn trivial_exploded() -> ocl::Result<()> {
-    use ocl::{flags, Buffer, Context, Device, Kernel, Platform, Program, Queue};
+use ocl::enums::{
+    AddressingMode, FilterMode, ImageChannelDataType, ImageChannelOrder, MemObjectType,
+};
+use ocl::{Context, Device, Image, Kernel, Program, Queue, Sampler};
+use std::path::Path;
 
-    let src = r#"
-        __kernel void add(__global float* buffer, float scalar) {
-            buffer[get_global_id(0)] += scalar;
+const SAVE_IMAGES_TO_DISK: bool = true;
+const BEFORE_IMAGE_FILE_NAME: &str = "./before_example_image.png";
+const AFTER_IMAGE_FILE_NAME: &str = "./after_example_image.png";
+
+const KERNEL_SRC: &str = include_str!("shader.cl");
+
+/// Generates a diagonal reddish stripe and a grey background.
+fn generate_image() -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
+    image::ImageBuffer::from_fn(512, 512, |x, y| {
+        let near_midline = (x + y < 536) && (x + y > 488);
+
+        if near_midline {
+            image::Rgba([196, 50, 50, 255u8])
+        } else {
+            image::Rgba([50, 50, 50, 255u8])
         }
-    "#;
-
-    // (1) Define which platform and device(s) to use. Create a context,
-    // queue, and program then define some dims (compare to step 1 above).
-    let platform = Platform::default();
-    let device = Device::first(platform)?;
-    let context = Context::builder()
-        .platform(platform)
-        .devices(device)
-        .build()?;
-    let program = Program::builder()
-        .devices(device)
-        .src(src)
-        .build(&context)?;
-    let queue = Queue::new(&context, device, None)?;
-    let dims = 1 << 20;
-    // [NOTE]: At this point we could manually assemble a ProQue by calling:
-    // `ProQue::new(context, queue, program, Some(dims))`. One might want to
-    // do this when only one program and queue are all that's needed. Wrapping
-    // it up into a single struct makes passing it around simpler.
-
-    // (2) Create a `Buffer`:
-    let buffer = Buffer::<f32>::builder()
-        .queue(queue.clone())
-        .flags(flags::MEM_READ_WRITE)
-        .len(dims)
-        .fill_val(0f32)
-        .build()?;
-
-    // (3) Create a kernel with arguments matching those in the source above:
-    let kernel = Kernel::builder()
-        .program(&program)
-        .name("add")
-        .queue(queue.clone())
-        .global_work_size(dims)
-        .arg(&buffer)
-        .arg(10.0f32)
-        .build()?;
-
-    // (4) Run the kernel (default parameters shown for demonstration purposes):
-    unsafe {
-        kernel
-            .cmd()
-            .queue(&queue)
-            .global_work_offset(kernel.default_global_work_offset())
-            .global_work_size(dims)
-            .local_work_size(kernel.default_local_work_size())
-            .enq()?;
-    }
-
-    // (5) Read results from the device into a vector (`::block` not shown):
-    let mut vec = vec![0.0f32; dims];
-    buffer.cmd().queue(&queue).offset(0).read(&mut vec).enq()?;
-
-    // Print an element:
-    println!("The value at index [{}] is now '{}'!", 200007, vec[200007]);
-    Ok(())
+    })
 }
 
+enum Element {
+    Triangle {
+        inner_color: image::Rgba<u8>,
+    },
+    Rectangle {
+        inner_color: image::Rgba<u8>,
+        width: u32,
+        height: u32,
+    },
+}
+
+/// Generates and image then sends it through a kernel and optionally saves.
 fn main() {
-    trivial_exploded().unwrap();
+    let mut img = generate_image();
+
+    if SAVE_IMAGES_TO_DISK {
+        img.save(&Path::new(BEFORE_IMAGE_FILE_NAME)).unwrap();
+    }
+
+    let context = Context::builder()
+        .devices(Device::specifier().first())
+        .build()
+        .unwrap();
+    let device = context.devices()[0];
+    let queue = Queue::new(&context, device, None).unwrap();
+
+    let program = Program::builder()
+        .src(KERNEL_SRC)
+        .devices(device)
+        .build(&context)
+        .unwrap();
+
+    let sup_img_formats = Image::<u8>::supported_formats(
+        &context,
+        ocl::flags::MEM_READ_WRITE,
+        MemObjectType::Image2d,
+    )
+    .unwrap();
+    println!("Image formats supported: {}.", sup_img_formats.len());
+    // println!("Image Formats: {:#?}.", sup_img_formats);
+
+    let dims = img.dimensions();
+
+    let src_image = Image::<u8>::builder()
+        .channel_order(ImageChannelOrder::Rgba)
+        .channel_data_type(ImageChannelDataType::UnormInt8)
+        .image_type(MemObjectType::Image2d)
+        .dims(dims)
+        .flags(
+            ocl::flags::MEM_READ_ONLY
+                | ocl::flags::MEM_HOST_WRITE_ONLY
+                | ocl::flags::MEM_COPY_HOST_PTR,
+        )
+        .copy_host_slice(&img)
+        .queue(queue.clone())
+        .build()
+        .unwrap();
+
+    let dst_image = Image::<u8>::builder()
+        .channel_order(ImageChannelOrder::Rgba)
+        .channel_data_type(ImageChannelDataType::UnormInt8)
+        .image_type(MemObjectType::Image2d)
+        .dims(dims)
+        .flags(
+            ocl::flags::MEM_WRITE_ONLY
+                | ocl::flags::MEM_HOST_READ_ONLY
+                | ocl::flags::MEM_COPY_HOST_PTR,
+        )
+        .copy_host_slice(&img)
+        .queue(queue.clone())
+        .build()
+        .unwrap();
+
+    // Not sure why you'd bother creating a sampler on the host but here's how:
+    let sampler = Sampler::new(&context, false, AddressingMode::None, FilterMode::Nearest).unwrap();
+
+    let kernel = Kernel::builder()
+        .program(&program)
+        .name("draw_rectangle")
+        .queue(queue.clone())
+        .global_work_size(dims)
+        .arg(100.0 as f32)
+        .arg(150.0 as f32)
+        .arg(&dst_image)
+        .build()
+        .unwrap();
+
+    println!("Printing image info:");
+    println!("Src: {}", src_image);
+    println!();
+    println!("Dest: {}", src_image);
+    println!();
+
+    println!("Attempting to run the gpu program...");
+    unsafe {
+        kernel.enq().unwrap();
+    }
+
+    dst_image.read(&mut img).enq().unwrap();
+
+    if SAVE_IMAGES_TO_DISK {
+        img.save(&Path::new(AFTER_IMAGE_FILE_NAME)).unwrap();
+        println!(
+            "Images saved as: '{}' and '{}'.",
+            BEFORE_IMAGE_FILE_NAME, AFTER_IMAGE_FILE_NAME
+        );
+    } else {
+        println!(
+            "Saving images to disk disabled. \
+            Enable by setting 'SAVE_IMAGES_TO_DISK' to 'true'."
+        );
+    }
 }

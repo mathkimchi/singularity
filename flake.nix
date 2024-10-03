@@ -28,7 +28,7 @@
 
             # gpu stuff (turns out this wasn't the issue)
             # opencl-headers
-            # ocl-icd
+            ocl-icd
             # intel-ocl # this is apparently unfree
             # mesa
             # # for dbg purposes

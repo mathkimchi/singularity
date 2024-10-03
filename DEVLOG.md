@@ -870,3 +870,12 @@ I am going to try ocl.
 After a lot of fiddling with nix, `hardware.opengl.extraPackages = with pkgs; [ intel-ocl ];` in my configs.nix is what finally fixed my problem.
 
 Make sure `clinfo` says number of platforms is at least 1 if you are also having issues.
+
+---
+
+The simplest way of sending the element data to the gpu is probably by having a different rendering function per each element primitive (text, rect, ...) and passing the remaining arguments (coords, color, ...) via parameters.
+Later on when I do multiple elements, I might just render each element and let elements render on top of each other.
+
+My shader code is most definitely suboptimal, but it is a good experience probably.
+
+Wow, I don't understand half of what I just "wrote" but it was surprisingly not as hard as I thought.
