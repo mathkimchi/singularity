@@ -833,8 +833,8 @@ I was secretly kind of looking forward to learning gpu, but I guess I can't be c
 2024/10/01
 
 You know what, GPU time.
-- [ ] Modify a mut slice of u8 / u32s with gpu
-- [ ] Pass data to gpu
+- [x] Modify a mut slice of u8 / u32s with gpu
+- [x] Pass data to gpu
 - [ ] Render text
 - [ ] Implement each element individually
 
@@ -896,5 +896,6 @@ This is what I gathered from the tutorial as well as the example code from ocl.
 - NOTE: `float` is rust f32
 - NOTE: when a type is marked with `*`, it is actually just a pointer so it would be equivalent to a rust `&` I think
 - `get_global_id(0)` returns the first work id, which is the x pixel in ocl. 1 is y.
+- NOTE: Ocl's `ImageChannelDataType::UnormInt8` is a float from 0 to 1, not an integer, to use u8 is: `ImageChannelDataType::UnsignedInt8`
 
 [Here](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html) is the documentation for open cl.

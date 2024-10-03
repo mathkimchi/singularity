@@ -1,8 +1,7 @@
 use image::Rgba;
 use ocl::{
-    enums::{DeviceSpecifier, ImageChannelDataType, ImageChannelOrder, MemObjectType},
-    prm::cl_uint,
-    Context, Device, Image, Kernel, OclVec, Program, Queue,
+    enums::{ImageChannelDataType, ImageChannelOrder, MemObjectType},
+    Context, Device, Image, Kernel, Program, Queue,
 };
 use std::{path::Path, sync::LazyLock};
 
@@ -22,13 +21,12 @@ static DEVICE: LazyLock<Device> = LazyLock::new(|| CONTEXT.devices()[0]);
 static PROGRAM: LazyLock<Program> = LazyLock::new(|| {
     Program::builder()
         .src(KERNEL_SRC)
-        .devices(DEVICE.clone())
+        .devices(*DEVICE)
         .build(&CONTEXT)
         .unwrap()
 });
 /// not sure if this can be shared
-static QUEUE: LazyLock<Queue> =
-    LazyLock::new(|| Queue::new(&CONTEXT, DEVICE.clone(), None).unwrap());
+static QUEUE: LazyLock<Queue> = LazyLock::new(|| Queue::new(&CONTEXT, *DEVICE, None).unwrap());
 
 /// Generates a diagonal reddish stripe and a grey background.
 fn generate_image() -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
@@ -44,8 +42,10 @@ fn generate_image() -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
 }
 
 enum Element {
-    Triangle {
+    Circle {
         inner_color: image::Rgba<u8>,
+        center: (f32, f32),
+        radius: f32,
     },
     Rectangle {
         inner_color: image::Rgba<u8>,
@@ -56,13 +56,23 @@ enum Element {
 impl Element {
     pub fn render(&self, dst_image: &Image<u8>, dims: &(u32, u32)) {
         let kernel = match self {
-            Element::Triangle { inner_color } => Kernel::builder()
+            Element::Circle {
+                inner_color,
+                center,
+                radius,
+            } => Kernel::builder()
                 .program(&PROGRAM)
-                .name("draw_rectangle")
+                .name("draw_circle")
                 .queue(QUEUE.clone())
                 .global_work_size(dims)
-                .arg(100.0f32)
-                .arg(150.0f32)
+                .arg(ocl_core_vector::Uint4::new(
+                    inner_color.0[0].into(),
+                    inner_color.0[1].into(),
+                    inner_color.0[2].into(),
+                    inner_color.0[3].into(),
+                ))
+                .arg(ocl_core_vector::Float2::new(center.0, center.1))
+                .arg(radius)
                 .arg(dst_image)
                 .build()
                 .unwrap(),
@@ -121,10 +131,22 @@ fn main() {
         height: 150,
     }
     .render(&dst_image, &dims);
+    Element::Circle {
+        inner_color: Rgba([0, 255, 0, 255]),
+        center: (500., -10.),
+        radius: 20.,
+    }
+    .render(&dst_image, &dims);
     Element::Rectangle {
         inner_color: Rgba([255, 0, 0, 255]),
         width: 200,
         height: 50,
+    }
+    .render(&dst_image, &dims);
+    Element::Circle {
+        inner_color: Rgba([0x7F, 0x7F, 0, 255]),
+        center: (200., 200.),
+        radius: 50.,
     }
     .render(&dst_image, &dims);
 
