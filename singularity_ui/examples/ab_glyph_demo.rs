@@ -1,11 +1,25 @@
-use ab_glyph::{Font, FontRef, Glyph};
+use ab_glyph::{Font, FontArc};
 use font_kit::source::SystemSource;
 use image::Rgba;
-use std::path::Path;
+use singularity_ui::task_logger::do_task;
+use std::{path::Path, sync::LazyLock};
 
 const SAVE_IMAGES_TO_DISK: bool = true;
 const BEFORE_IMAGE_FILE_NAME: &str = "./before_glyph_example_image.png";
 const AFTER_IMAGE_FILE_NAME: &str = "./after_glyph_example_image.png";
+
+static FONT_DATA: LazyLock<Vec<u8>> = LazyLock::new(|| {
+    let font = SystemSource::new()
+        .select_best_match(
+            &[font_kit::family_name::FamilyName::Monospace],
+            font_kit::properties::Properties::new().weight(font_kit::properties::Weight::MEDIUM),
+        )
+        .unwrap()
+        .load()
+        .unwrap();
+    font.copy_font_data().unwrap().to_vec()
+});
+static FONT: LazyLock<FontArc> = LazyLock::new(|| FontArc::try_from_slice(&FONT_DATA).unwrap());
 
 /// Generates a diagonal reddish stripe and a grey background.
 fn generate_image() -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
@@ -27,25 +41,24 @@ fn main() {
         img.save(&Path::new(BEFORE_IMAGE_FILE_NAME)).unwrap();
     }
 
-    let font = SystemSource::new()
-        .select_best_match(
-            &[font_kit::family_name::FamilyName::Monospace],
-            font_kit::properties::Properties::new().weight(font_kit::properties::Weight::MEDIUM),
-        )
-        .unwrap()
-        .load()
-        .unwrap();
-    let font_data = font.copy_font_data().unwrap().to_vec();
-    let font = FontRef::try_from_slice(&font_data).unwrap();
+    for pts in [12., 24., 60.] {
+        println!("Pts: {pts}");
+        for i in 0..3 {
+            println!("Trial: {i} with pts: {pts}");
+            do_task("Trial", || {
+                let q_glyph = do_task("Load", || FONT.glyph_id('Q').with_scale(pts));
 
-    // Get a glyph for 'q' with a scale & position.
-    let q_glyph: Glyph = font.glyph_id('Q').with_scale(24.0);
-
-    // Draw it.
-    if let Some(q) = font.outline_glyph(q_glyph) {
-        q.draw(|x, y, c| {
-            *img.get_pixel_mut(x, y) = Rgba([(c * 255.) as u8, 0, 0, u8::MAX]);
-        });
+                do_task("Draw", || {
+                    // Draw it.
+                    if let Some(q) = FONT.outline_glyph(q_glyph) {
+                        q.draw(|x, y, c| {
+                            *img.get_pixel_mut(x + 10, y + 10) =
+                                Rgba([(c * 255.) as u8, 0, 0, u8::MAX]);
+                        });
+                    }
+                });
+            });
+        }
     }
 
     if SAVE_IMAGES_TO_DISK {

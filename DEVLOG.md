@@ -935,3 +935,22 @@ It is tightly coupled with the pathfinder crate, which makes sense because both 
 2024/10/03
 
 If I need to import a font, I'll go with DejaVu fonts because it is public domain.
+
+---
+
+I got ab_glyphs to work, but my implementation isn't super fast.
+Of course, loading takes time, but even for just the drawing portion:
+```rust
+q.draw(|x, y, c| {
+    *img.get_pixel_mut(x + 10, y + 10) =
+        Rgba([(c * 255.) as u8, 0, 0, u8::MAX]);
+});
+```
+drawing a 12pt character onto the picture takes around 20µs.
+For a glyph, raqote (criticized for its speed) took around 5-10µs.
+
+As for the gpu renders, building a kernel took around 150µs and executing it took around 20µs.
+Raqote took around 250µs for rectangles before optimizations
+So, I hypothesize that the more things I can do with a single call to the gpu, the more effecient it will get compared to the cpu.
+
+Okay, knowing all this, I am going to put a hold on the GPU stuff, because it wasn't as fun as I thought it would be.

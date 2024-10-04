@@ -3,6 +3,7 @@ use ocl::{
     enums::{ImageChannelDataType, ImageChannelOrder, MemObjectType},
     Context, Device, Image, Kernel, Program, Queue,
 };
+use singularity_ui::task_logger::do_task;
 use std::{path::Path, sync::LazyLock};
 
 const SAVE_IMAGES_TO_DISK: bool = true;
@@ -55,7 +56,7 @@ enum Element {
 }
 impl Element {
     pub fn render(&self, dst_image: &Image<u8>, dims: &(u32, u32)) {
-        let kernel = match self {
+        let kernel = do_task("Building kernel", || match self {
             Element::Circle {
                 inner_color,
                 center,
@@ -96,12 +97,11 @@ impl Element {
                 .arg(dst_image)
                 .build()
                 .unwrap(),
-        };
+        });
 
-        println!("Attempting to run the gpu program...");
-        unsafe {
+        do_task("Running gpu program", || unsafe {
             kernel.enq().unwrap();
-        }
+        });
     }
 }
 
@@ -125,30 +125,38 @@ fn main() {
         .build()
         .unwrap();
 
-    Element::Rectangle {
-        inner_color: Rgba([0, 0, 255, 255]),
-        width: 100,
-        height: 150,
-    }
-    .render(&dst_image, &dims);
-    Element::Circle {
-        inner_color: Rgba([0, 255, 0, 255]),
-        center: (500., -10.),
-        radius: 20.,
-    }
-    .render(&dst_image, &dims);
-    Element::Rectangle {
-        inner_color: Rgba([255, 0, 0, 255]),
-        width: 200,
-        height: 50,
-    }
-    .render(&dst_image, &dims);
-    Element::Circle {
-        inner_color: Rgba([0x7F, 0x7F, 0, 255]),
-        center: (200., 200.),
-        radius: 50.,
-    }
-    .render(&dst_image, &dims);
+    do_task("Render rect 1", || {
+        Element::Rectangle {
+            inner_color: Rgba([0, 0, 255, 255]),
+            width: 100,
+            height: 150,
+        }
+        .render(&dst_image, &dims);
+    });
+    do_task("Render circle 1", || {
+        Element::Circle {
+            inner_color: Rgba([0, 255, 0, 255]),
+            center: (500., -10.),
+            radius: 20.,
+        }
+        .render(&dst_image, &dims);
+    });
+    do_task("Render rect 2", || {
+        Element::Rectangle {
+            inner_color: Rgba([255, 0, 0, 255]),
+            width: 200,
+            height: 50,
+        }
+        .render(&dst_image, &dims);
+    });
+    do_task("Render circle 2", || {
+        Element::Circle {
+            inner_color: Rgba([0x7F, 0x7F, 0, 255]),
+            center: (200., 200.),
+            radius: 50.,
+        }
+        .render(&dst_image, &dims);
+    });
 
     // put dst_image onto img
     dst_image.read(&mut img).enq().unwrap();
