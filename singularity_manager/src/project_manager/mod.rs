@@ -256,10 +256,13 @@ impl ProjectManager {
                         self.tabs.add(
                             TabHandler::new(
                                 tab_creator,
-                                // NOTE: the argument child index: 0 is technically incorrect,
+                                // NOTE: the argument child index is technically incorrect,
                                 // but the purpose of the generator is to generally prevent all
                                 // tabs from being spawned all in one place.
-                                Self::generate_tab_area(0, requestor_path.depth() + 1),
+                                Self::generate_tab_area(
+                                    self.tabs.num_tabs(),
+                                    requestor_path.depth() + 1,
+                                ),
                             ),
                             &requestor_path,
                         );
@@ -280,17 +283,17 @@ impl ProjectManager {
     }
 
     fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
-        const TAB_DELTA_Y: i32 = 200;
+        const WIDTH: f32 = 0.5;
+        const HEIGHT: f32 = 0.5;
 
-        DisplayArea(
+        let child_index = child_index as f32;
+        let depth = depth as f32;
+        DisplayArea::from_corner_size(
             DisplayCoord::new(
-                (20 * (depth as i32)).into(),
-                (TAB_DELTA_Y * (child_index as i32)).into(),
+                ((0.1 * depth + 0.01 * child_index) % WIDTH).into(),
+                ((0.2 * child_index) % HEIGHT).into(),
             ),
-            DisplayCoord::new(
-                (20 * (depth as i32) + 50).into(),
-                (TAB_DELTA_Y * (child_index as i32) + (TAB_DELTA_Y - 10)).into(),
-            ),
+            DisplaySize::new(WIDTH.into(), HEIGHT.into()),
         )
     }
 }

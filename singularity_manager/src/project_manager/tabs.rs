@@ -38,7 +38,6 @@ impl Tabs {
         }
     }
 
-    /// NOTE: Currently doesn't change focus
     pub fn add(&mut self, new_tab: TabHandler, parent_path: &TreeNodePath) {
         let uuid = Uuid::new_v4();
 
@@ -47,7 +46,11 @@ impl Tabs {
             .add_node(uuid, parent_path)
             .unwrap();
         self.display_order.push(uuid);
-        self.tabs.insert(uuid, (new_tab, path));
+        self.tabs.insert(uuid, (new_tab, path.clone()));
+
+        // set focus to new tabs
+        // REVIEW: is this bad?
+        self.set_focused_tab_path(path);
     }
 
     pub fn get(&self, uuid: Uuid) -> Option<&TabHandler> {
@@ -102,6 +105,10 @@ impl Tabs {
         if let Some(uuid) = self.display_order.last() {
             self.focused_tab = *uuid;
         }
+    }
+
+    pub fn num_tabs(&self) -> usize {
+        self.tabs.len()
     }
 }
 impl std::ops::Index<Uuid> for Tabs {

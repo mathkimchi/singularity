@@ -8,10 +8,6 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_ui::{
-    color::Color,
-    ui_element::{CharCell, CharGrid, UIElement},
-};
 use std::path::PathBuf;
 
 pub struct FileManager {
@@ -71,7 +67,15 @@ impl FileManager {
             .to_string()
     }
 
-    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
+    pub fn render(
+        &mut self,
+        _manager_handler: &ManagerHandler,
+    ) -> Option<singularity_ui::ui_element::UIElement> {
+        use singularity_ui::{
+            color::Color,
+            ui_element::{CharCell, CharGrid, UIElement},
+        };
+
         let mut lines = Vec::new();
 
         for tree_node_path in self.directory_tree.iter_paths_dfs() {
@@ -103,123 +107,41 @@ impl FileManager {
     }
 
     pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
-        // use ratatui::crossterm::event::{
-        //     Event as TUIEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
-        // };
+        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        match event {
+            Event::UIEvent(ui_event) => match ui_event {
+                UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                    if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
+                {
+                    self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
+                        &self.directory_tree,
+                        key.to_char().unwrap(),
+                    );
+                }
+                UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                    if matches!(key.to_char(), Some('f')) =>
+                {
+                    // `f` stands for open selected *F*ile
 
-        // match event {
-        //     Event::TUIEvent(tui_event) => match tui_event {
-        //         TUIEvent::Key(KeyEvent {
-        //             modifiers: KeyModifiers::CONTROL,
-        //             code: KeyCode::Char(traverse_key),
-        //             kind: KeyEventKind::Press,
-        //             ..
-        //         }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-        //             self.selected_path = self
-        //                 .selected_path
-        //                 .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
-        //         }
-        //         TUIEvent::Key(KeyEvent {
-        //             modifiers: KeyModifiers::CONTROL,
-        //             code: KeyCode::Char('f'),
-        //             kind: KeyEventKind::Press,
-        //             ..
-        //         }) => {
-        //             // `f` stands for open selected *F*ile
+                    let selected_element = &self.directory_tree[&self.selected_path];
+                    if selected_element.is_file() {
+                        use crate::editor::Editor;
+                        manager_handler.send_request(Request::SpawnChildTab(Box::new(
+                            singularity_common::tab::basic_tab_creator(
+                                selected_element.clone(),
+                                Editor::new,
+                                Editor::render,
+                                Editor::handle_event,
+                            ),
+                        )));
+                    }
+                    // if selected path isn't a file, then don't do anything
+                }
 
-        //             let selected_element = &self.directory_tree[&self.selected_path];
-        //             if selected_element.is_file() {
-        //                 manager_handler.send_request(Request::SpawnChildTab(Box::new(
-        //                     // Editor::new(selected_element),
-        //                     basic_tab_creator(
-        //                         selected_element.clone(),
-        //                         Editor::new,
-        //                         Editor::render,
-        //                         Editor::handle_event,
-        //                     ),
-        //                 )));
-        //             }
-        //             // if selected path isn't a file, then don't do anything
-        //         }
-        //         _ => {}
-        //     },
-        //     Event::Resize(_) => {}
-        //     Event::Close => panic!("Event::Close should not have been forwarded"),
-        // }
+                _ => {}
+            },
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
+        }
     }
 }
-// impl SubappUI for FileManager {
-//     fn get_title(&self) -> String {
-//         self.directory_tree[&TreeNodePath::new_root()]
-//             .file_name() // this function can return directory name
-//             .unwrap()
-//             .to_str()
-//             .unwrap()
-//             .to_string()
-//     }
-
-//     fn render(
-//         &mut self,
-//         area: ratatui::prelude::Rect,
-//         display_buffer: &mut ratatui::prelude::Buffer,
-//         is_focused: bool,
-//     ) {
-//         for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
-//             let mut line_style = Style::new();
-
-//             if tree_node_path == self.selected_path {
-//                 line_style = line_style.on_cyan();
-
-//                 if is_focused {
-//                     line_style = line_style.light_yellow().bold();
-//                 }
-//             }
-
-//             display_buffer.set_stringn(
-//                 area.x + 1 + 2 * tree_node_path.depth() as u16,
-//                 area.y + 1 + index as u16,
-//                 self.directory_tree[&tree_node_path]
-//                     .file_name() // this function can return directory name
-//                     .unwrap()
-//                     .to_str()
-//                     .unwrap(),
-//                 (area.width - 2) as usize,
-//                 line_style,
-//             );
-//         }
-
-//         ratatui::widgets::Block::bordered()
-//             .title(format!("{} - File Manager", self.get_title()))
-//             .render(area, display_buffer);
-//     }
-
-//     fn handle_input(&mut self, event: Event) {
-//         match event {
-//             Event::Key(KeyEvent {
-//                 modifiers: KeyModifiers::CONTROL,
-//                 code: KeyCode::Char(traverse_key),
-//                 kind: KeyEventKind::Press,
-//                 ..
-//             }) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-//                 self.selected_path = self
-//                     .selected_path
-//                     .clamped_traverse_based_on_wasd(&self.directory_tree, traverse_key);
-//             }
-//             Event::Key(KeyEvent {
-//                 modifiers: KeyModifiers::CONTROL,
-//                 code: KeyCode::Char('f'),
-//                 kind: KeyEventKind::Press,
-//                 ..
-//             }) => {
-//                 // // `f` stands for open selected *F*ile
-
-//                 // let selected_element = &self.directory_tree[&self.selected_path];
-//                 // if selected_element.is_file() {
-//                 //     manager_proxy.request_spawn_child(Box::new(Editor::new(selected_element)));
-//                 // }
-//                 // // if selected path isn't a file, then don't do anything
-//             }
-//             _ => {}
-//         }
-//     }
-// }

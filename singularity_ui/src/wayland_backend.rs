@@ -725,8 +725,10 @@ mod ui_display_wayland_impls {
 pub mod ui_event {
     use smithay_client_toolkit::seat::keyboard;
 
-    /// FIXME: not great that I am reexporting egui's event, given that the goal is to be backend agnostic.
+    /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
     /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
+    ///
+    /// TODO: also, figure out a way to easily match keypresses and shortcuts
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
     }
