@@ -7,7 +7,7 @@ use singularity_common::{
     },
     utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
-use singularity_standard_tabs::editor::Editor;
+use singularity_standard_tabs::{editor::Editor, file_manager::FileManager};
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
@@ -39,60 +39,21 @@ pub struct ProjectManager {
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
 }
 impl ProjectManager {
-    pub fn new<P>(_project_directory: P) -> Self
+    pub fn new<P>(project_directory: P) -> Self
     where
-        P: AsRef<std::path::Path> + Clone + Send,
+        P: 'static + AsRef<std::path::Path> + Clone + Send,
         std::path::PathBuf: From<P>,
     {
-        // let project = Project::new(project_directory.clone());
+        let project = Project::new(project_directory.clone());
 
-        // Self {
-        //     project,
-        //     // running_subapps: RootedTree::from_root(Subapp::new(FileManager::new(
-        //     //     project_directory,
-        //     // ))),
-        //     tabs: RootedTree::from_root(todo!()),
-        //     app_focuser_index: None,
-        //     focused_tab_path: TreeNodePath::new_root(),
-        //     is_running: false,
-        //     ui_element: todo!(),
-        // }
-        todo!()
-    }
-
-    pub fn run_demo() -> io::Result<()> {
-        // create demo manager
-
-        // let manager = Self::new("examples/root-project");
-
-        // manager.running_subapps.add_node(
-        //     Subapp::new(TaskOrganizer::new(
-        //         "examples/root-project/.project/tasks.json",
-        //     )),
-        //     &TreeNodePath::new_root(),
-        // );
-
-        // let manager = Self {
-        //     project: Project::new("examples/root-project"),
-        //     tabs: RootedTree::from_root(TabHandler::new(basic_tab_creator(
-        //         "examples/root-project/file_to_edit.txt",
-        //         Editor::new,
-        //         Editor::render,
-        //         Editor::handle_event,
-        //     ))),
-        //     app_focuser_index: None,
-        //     focused_tab_path: TreeNodePath::new_root(),
-        //     is_running: false,
-        // };
-
-        let mut manager = Self {
-            _project: Project::new("examples/root-project"),
+        Self {
+            _project: project,
             tabs: Tabs::new(TabHandler::new(
                 basic_tab_creator(
-                    "examples/root-project/file_to_edit.txt",
-                    Editor::new,
-                    Editor::render,
-                    Editor::handle_event,
+                    project_directory,
+                    FileManager::new,
+                    FileManager::render,
+                    FileManager::handle_event,
                 ),
                 Self::generate_tab_area(0, 0),
             )),
@@ -100,12 +61,18 @@ impl ProjectManager {
             is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
-        };
+        }
+    }
+
+    pub fn run_demo() -> io::Result<()> {
+        // create demo manager
+
+        let mut manager = Self::new("examples/root-project");
 
         manager.tabs.add(
             TabHandler::new(
                 basic_tab_creator(
-                    "examples/root-project/lorem_ipsum.txt",
+                    "examples/root-project/file_to_edit.txt",
                     Editor::new,
                     Editor::render,
                     Editor::handle_event,

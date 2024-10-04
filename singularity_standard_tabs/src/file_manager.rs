@@ -1,7 +1,5 @@
-use crate::editor::Editor;
 use singularity_common::{
     tab::{
-        basic_tab_creator,
         packets::{Event, Request},
         ManagerHandler,
     },
@@ -10,7 +8,10 @@ use singularity_common::{
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_ui::DisplayBuffer;
+use singularity_ui::{
+    color::Color,
+    ui_element::{CharCell, CharGrid, UIElement},
+};
 use std::path::PathBuf;
 
 pub struct FileManager {
@@ -70,43 +71,35 @@ impl FileManager {
             .to_string()
     }
 
-    pub fn render(&mut self, manager_handler: &ManagerHandler) -> Option<DisplayBuffer> {
-        // use ratatui::{
-        //     buffer::Buffer,
-        //     style::{Style, Stylize},
-        // };
+    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
+        let mut lines = Vec::new();
 
-        // let mut ratatui_buffer = Buffer::empty(manager_handler.inner_area);
-        // // TODO
-        // let is_focused = true;
+        for tree_node_path in self.directory_tree.iter_paths_dfs() {
+            let bg_color = if tree_node_path == self.selected_path {
+                Color::LIGHT_BLUE
+            } else {
+                Color::TRANSPARENT
+            };
 
-        // for (index, tree_node_path) in self.directory_tree.iter_paths_dfs().enumerate() {
-        //     let mut line_style = Style::new();
+            let line = " ".repeat(2 * tree_node_path.depth())
+                + self.directory_tree[&tree_node_path]
+                    .file_name() // this function can return directory name
+                    .unwrap()
+                    .to_str()
+                    .unwrap();
 
-        //     if tree_node_path == self.selected_path {
-        //         line_style = line_style.on_cyan();
+            lines.push(
+                line.chars()
+                    .map(|c| CharCell {
+                        character: c,
+                        fg: Color::LIGHT_YELLOW,
+                        bg: bg_color,
+                    })
+                    .collect(),
+            );
+        }
 
-        //         if is_focused {
-        //             line_style = line_style.light_yellow().bold();
-        //         }
-        //     }
-
-        //     ratatui_buffer.set_stringn(
-        //         manager_handler.inner_area.x + 2 * tree_node_path.depth() as u16,
-        //         manager_handler.inner_area.y + index as u16,
-        //         self.directory_tree[&tree_node_path]
-        //             .file_name() // this function can return directory name
-        //             .unwrap()
-        //             .to_str()
-        //             .unwrap(),
-        //         (manager_handler.inner_area.width - 2) as usize,
-        //         line_style,
-        //     );
-        // }
-
-        // Some(ratatui_buffer.content)
-
-        todo!()
+        Some(UIElement::CharGrid(CharGrid { content: lines }))
     }
 
     pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {

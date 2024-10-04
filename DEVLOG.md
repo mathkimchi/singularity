@@ -954,3 +954,11 @@ Raqote took around 250µs for rectangles before optimizations
 So, I hypothesize that the more things I can do with a single call to the gpu, the more effecient it will get compared to the cpu.
 
 Okay, knowing all this, I am going to put a hold on the GPU stuff, because it wasn't as fun as I thought it would be.
+
+---
+
+2024/10/03
+
+I think that the best thing now is to just implement the other subapps.
+
+Once I do that, I can start the project/workspace wise features.
