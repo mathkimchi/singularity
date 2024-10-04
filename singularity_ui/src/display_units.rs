@@ -23,14 +23,14 @@ impl DisplayUnits {
         }
     }
 
-    pub fn pixels(&self, container_size: i32) -> i32 {
+    pub fn pixels(&self, container_pixels: i32) -> i32 {
         match self {
             Self::Pixels(pixels) => *pixels,
-            Self::Proportional(proportion) => (container_size as f32 * proportion) as i32,
+            Self::Proportional(proportion) => (container_pixels as f32 * proportion) as i32,
             Self::MixedUnits { pixels, proportion } => {
                 // in essense, you can think of the proportional being applied first
-                Self::Pixels(*pixels).pixels(container_size)
-                    + Self::Proportional(*proportion).pixels(container_size)
+                Self::Pixels(*pixels).pixels(container_pixels)
+                    + Self::Proportional(*proportion).pixels(container_pixels)
             }
         }
     }
@@ -184,5 +184,18 @@ impl DisplayArea {
             self.0.map_onto(container_area),
             self.1.map_onto(container_area),
         )
+    }
+
+    pub fn contains(&self, coord: DisplayCoord, container_pixels: [i32; 2]) -> bool {
+        let coord_x = coord.x.pixels(container_pixels[0]);
+        let coord_y = coord.y.pixels(container_pixels[1]);
+
+        // REVIEW: I think doing the == instead of && should handle cases where 0 and 1 aren't min and max respectively
+        let contains_x = (self.0.x.pixels(container_pixels[0]) < coord_x)
+            == (coord_x < self.1.x.pixels(container_pixels[0]));
+        let contains_y = (self.0.y.pixels(container_pixels[1]) < coord_y)
+            == (coord_y < self.1.y.pixels(container_pixels[1]));
+
+        contains_x && contains_y
     }
 }

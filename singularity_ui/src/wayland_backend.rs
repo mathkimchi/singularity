@@ -24,7 +24,7 @@ use smithay_client_toolkit::{
 };
 use std::{
     sync::{Arc, Mutex, RwLock},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use ui_event::{KeyModifiers, UIEvent};
 use wayland_client::{
@@ -49,7 +49,6 @@ pub struct UIDisplay {
 
     /// REVIEW: make sure rwlock is good for this
     is_running: Arc<RwLock<bool>>,
-    most_recent_draw_finish_time: Instant,
     first_configure: bool,
     pool: SlotPool,
     width: u32,
@@ -144,7 +143,6 @@ impl UIDisplay {
             xdg_activation,
 
             is_running,
-            most_recent_draw_finish_time: Instant::now(),
             first_configure: true,
             pool,
             width: 256,
@@ -189,7 +187,6 @@ mod drawing_impls {
     use font_kit::font::Font;
     use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
-    use std::time::Instant;
     use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
 
     impl UIElement {
@@ -268,6 +265,12 @@ mod drawing_impls {
                                 container_area.0.y
                                     + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
                             );
+
+                            if !container_area.contains(top_left, [dt.width(), dt.height()]) {
+                                // FIXME: not completely foolproof -- main purpose is just optimization
+                                continue;
+                            }
+
                             let bot_left = DisplayCoord::new(
                                 container_area.0.x
                                     + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
@@ -373,8 +376,6 @@ mod drawing_impls {
                 .attach_to(self.window.wl_surface())
                 .expect("buffer attach");
             self.window.commit();
-
-            self.most_recent_draw_finish_time = Instant::now();
         }
     }
 }
@@ -495,6 +496,7 @@ mod ui_display_wayland_impls {
             *self.is_running.write().unwrap() = false;
         }
 
+        /// Called on first spawn and resize
         fn configure(
             &mut self,
             conn: &Connection,
@@ -620,7 +622,7 @@ mod ui_display_wayland_impls {
             _: u32,
             event: Key,
         ) {
-            dbg!(event.raw_code);
+            // dbg!(event.raw_code);
             self.ui_event_queue
                 .lock()
                 .unwrap()
