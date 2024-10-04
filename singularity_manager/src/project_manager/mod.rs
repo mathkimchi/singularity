@@ -37,6 +37,7 @@ pub struct ProjectManager {
     /// gui
     ui_element: Arc<Mutex<UIElement>>,
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+    ui_window_px: [u32; 2],
 }
 impl ProjectManager {
     pub fn new<P>(project_directory: P) -> Self
@@ -61,6 +62,7 @@ impl ProjectManager {
             is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
+            ui_window_px: [0, 0],
         }
     }
 
@@ -169,15 +171,14 @@ impl ProjectManager {
 
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
+            use singularity_ui::ui_event::UIEvent;
             match ui_event {
-                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)
-                    if key.raw_code == 16 =>
-                {
+                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
                     // Ctrl+Q
                     dbg!("Goodbye!");
                     *self.is_running.write().unwrap() = false;
                 }
-                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
+                UIEvent::KeyPress(key, KeyModifiers::ALT)
                     if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
                 {
                     // Alt + arrows should be like alt tab for Windows and Linux but tree based
@@ -212,9 +213,7 @@ impl ProjectManager {
                     dbg!(&self.app_focuser_index);
                     // dbg!(&self.focused_tab_path);
                 }
-                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
-                    if key.raw_code == 103 =>
-                {
+                UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
                     // Alt+ArrowUp
                     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
 
@@ -226,17 +225,34 @@ impl ProjectManager {
                         DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
                     ));
                 }
-                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::ALT)
-                    if key.raw_code == 108 =>
-                {
+                UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
                     self.tabs.minimize_focused_tab();
                 }
-                ui_event => {
+                UIEvent::KeyPress(_, _) => {
                     // forward the event to focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();
 
                     focused_tab
                         .send_event(singularity_common::tab::packets::Event::UIEvent(ui_event));
+                }
+                UIEvent::WindowResized(ui_window_px) => {
+                    self.ui_window_px = ui_window_px;
+                }
+                UIEvent::MousePress([click_x, click_y]) => {
+                    // currently all mousepresses should simply update focused tab, don't do anything else
+
+                    for tab_id in self.tabs.get_display_order().iter().rev() {
+                        let tab = self.tabs.get(*tab_id).unwrap();
+                        let tab_area = tab.get_area();
+
+                        if tab_area.contains(
+                            DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+                            [self.ui_window_px[0] as i32, self.ui_window_px[1] as i32],
+                        ) {
+                            self.tabs.set_focused_tab_id(*tab_id);
+                            break;
+                        }
+                    }
                 }
             }
         }

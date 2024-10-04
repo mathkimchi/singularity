@@ -509,6 +509,14 @@ mod ui_display_wayland_impls {
             self.width = configure.new_size.0.map(|v| v.get()).unwrap_or(256);
             self.height = configure.new_size.1.map(|v| v.get()).unwrap_or(256);
 
+            self.ui_event_queue
+                .lock()
+                .unwrap()
+                .push(super::ui_event::UIEvent::WindowResized([
+                    self.width,
+                    self.height,
+                ]));
+
             // Initiate the first draw.
             if self.first_configure {
                 self.first_configure = false;
@@ -661,38 +669,42 @@ mod ui_display_wayland_impls {
             _conn: &Connection,
             _qh: &QueueHandle<Self>,
             _pointer: &wl_pointer::WlPointer,
-            _events: &[PointerEvent],
+            events: &[PointerEvent],
         ) {
-            // for event in events {
-            //     // Ignore events for other surfaces
-            //     if &event.surface != self.window.wl_surface() {
-            //         continue;
-            //     }
+            for event in events {
+                // Ignore events for other surfaces
+                if &event.surface != self.window.wl_surface() {
+                    continue;
+                }
 
-            //     match event.kind {
-            //         PointerEventKind::Enter { .. } => {
-            //             println!("Pointer entered @{:?}", event.position);
-            //         }
-            //         PointerEventKind::Leave { .. } => {
-            //             println!("Pointer left");
-            //         }
-            //         PointerEventKind::Motion { .. } => {}
-            //         PointerEventKind::Press { button, .. } => {
-            //             println!("Press {:x} @ {:?}", button, event.position);
-            //             self.shift = self.shift.xor(Some(0));
-            //         }
-            //         PointerEventKind::Release { button, .. } => {
-            //             println!("Release {:x} @ {:?}", button, event.position);
-            //         }
-            //         PointerEventKind::Axis {
-            //             horizontal,
-            //             vertical,
-            //             ..
-            //         } => {
-            //             println!("Scroll H:{horizontal:?}, V:{vertical:?}");
-            //         }
-            //     }
-            // }
+                use smithay_client_toolkit::seat::pointer::PointerEventKind;
+                match event.kind {
+                    PointerEventKind::Enter { .. } => {
+                        // println!("Pointer entered @{:?}", event.position);
+                    }
+                    PointerEventKind::Leave { .. } => {
+                        // println!("Pointer left");
+                    }
+                    PointerEventKind::Motion { .. } => {}
+                    PointerEventKind::Press { .. } => {
+                        self.ui_event_queue.lock().unwrap().push(
+                            super::ui_event::UIEvent::MousePress([
+                                event.position.0 as u32,
+                                event.position.1 as u32,
+                            ]),
+                        );
+
+                        // println!("Press {:x} @ {:?}", button, event.position);
+                        // self.shift = self.shift.xor(Some(0));
+                    }
+                    PointerEventKind::Release { .. } => {
+                        // println!("Release {:x} @ {:?}", button, event.position);
+                    }
+                    PointerEventKind::Axis { .. } => {
+                        // println!("Scroll H:{horizontal:?}, V:{vertical:?}");
+                    }
+                }
+            }
         }
     }
 
@@ -733,6 +745,8 @@ pub mod ui_event {
     /// TODO: also, figure out a way to easily match keypresses and shortcuts
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
+        WindowResized([u32; 2]),
+        MousePress([u32; 2]),
     }
     #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
     pub struct KeyModifiers {

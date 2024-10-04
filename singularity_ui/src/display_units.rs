@@ -191,10 +191,10 @@ impl DisplayArea {
         let coord_y = coord.y.pixels(container_pixels[1]);
 
         // REVIEW: I think doing the == instead of && should handle cases where 0 and 1 aren't min and max respectively
-        let contains_x = (self.0.x.pixels(container_pixels[0]) < coord_x)
-            == (coord_x < self.1.x.pixels(container_pixels[0]));
-        let contains_y = (self.0.y.pixels(container_pixels[1]) < coord_y)
-            == (coord_y < self.1.y.pixels(container_pixels[1]));
+        let contains_x = (self.0.x.pixels(container_pixels[0]) <= coord_x)
+            == (coord_x <= self.1.x.pixels(container_pixels[0]));
+        let contains_y = (self.0.y.pixels(container_pixels[1]) <= coord_y)
+            == (coord_y <= self.1.y.pixels(container_pixels[1]));
 
         contains_x && contains_y
     }

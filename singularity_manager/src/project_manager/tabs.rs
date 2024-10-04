@@ -78,8 +78,8 @@ impl Tabs {
     }
 
     /// NOTE: has a side effect of putting the newly focused tab on display top
-    pub fn set_focused_tab_path(&mut self, focused_tab_path: TreeNodePath) {
-        self.focused_tab = self.organizational_hierarchy[&focused_tab_path];
+    pub fn set_focused_tab_id(&mut self, focused_tab_id: Uuid) {
+        self.focused_tab = focused_tab_id;
 
         // move the focused tab to end of display order (putting it on top)
         {
@@ -88,6 +88,11 @@ impl Tabs {
 
             self.display_order.push(self.focused_tab);
         }
+    }
+
+    /// NOTE: has a side effect of putting the newly focused tab on display top
+    pub fn set_focused_tab_path(&mut self, focused_tab_path: TreeNodePath) {
+        self.set_focused_tab_id(self.organizational_hierarchy[&focused_tab_path]);
     }
 
     pub fn get_tab_path(&mut self, tab_uuid: &Uuid) -> Option<&TreeNodePath> {
