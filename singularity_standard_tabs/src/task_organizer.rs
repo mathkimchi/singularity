@@ -203,15 +203,15 @@ impl TaskOrganizer {
                         .collect(),
                 );
             }
-            elements.push((
+            elements.push(
                 UIElement::CharGrid(CharGrid {
                     content: (task_list_vec),
-                }),
-                DisplayArea(
+                })
+                .contain(DisplayArea(
                     DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
                     DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::FULL),
-                ),
-            ));
+                )),
+            );
         }
 
         // draw focused task
@@ -219,22 +219,24 @@ impl TaskOrganizer {
             let focused_task = &self.tasks[*focused_index][focused_path];
 
             // title
-            elements.push((
-                UIElement::CharGrid(CharGrid::from(focused_task.title.clone())),
-                DisplayArea(
-                    DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
-                    DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
+            elements.push(
+                UIElement::CharGrid(CharGrid::from(focused_task.title.clone())).contain(
+                    DisplayArea(
+                        DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
+                        DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
+                    ),
                 ),
-            ));
+            );
 
             // task body text
-            elements.push((
-                UIElement::CharGrid(body_text_box.render()).bordered(),
-                DisplayArea(
-                    DisplayCoord::new(DisplayUnits::HALF, 0.05.into()),
-                    DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                ),
-            ));
+            elements.push(
+                UIElement::CharGrid(body_text_box.render())
+                    .bordered()
+                    .contain(DisplayArea(
+                        DisplayCoord::new(DisplayUnits::HALF, 0.05.into()),
+                        DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
+                    )),
+            );
         }
 
         Some(UIElement::Container(elements))

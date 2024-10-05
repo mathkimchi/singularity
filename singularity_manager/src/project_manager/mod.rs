@@ -134,7 +134,7 @@ impl ProjectManager {
         for tab_id in self.tabs.get_display_order().clone() {
             let tab = &mut self.tabs[tab_id];
 
-            tab_elements.push((tab.get_ui_element().bordered(), tab.get_area()));
+            tab_elements.push(tab.get_ui_element().bordered().contain(tab.get_area()));
         }
 
         // display the tab focuser/selector
@@ -174,13 +174,14 @@ impl ProjectManager {
                 subapps_focuser_display.content.push(subapp_title_display);
             }
 
-            tab_elements.push((
-                UIElement::CharGrid(subapps_focuser_display).bordered(),
-                DisplayArea::from_center_half_size(
-                    DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::HALF),
-                    DisplaySize::new(0.2.into(), 0.2.into()),
-                ),
-            ));
+            tab_elements.push(
+                UIElement::CharGrid(subapps_focuser_display)
+                    .bordered()
+                    .contain(DisplayArea::from_center_half_size(
+                        DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::HALF),
+                        DisplaySize::new(0.2.into(), 0.2.into()),
+                    )),
+            );
         }
 
         *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);

@@ -217,10 +217,13 @@ mod drawing_impls {
 
             match self {
                 UIElement::Container(children) => {
-                    for (ui_element, area) in children {
+                    for ui_element in children {
                         // draw the inner widget
-                        ui_element.draw(dt, area.map_onto(container_area), font);
+                        ui_element.draw(dt, container_area, font);
                     }
+                }
+                UIElement::Contained(inner_element, area) => {
+                    inner_element.draw(dt, area.map_onto(container_area), font);
                 }
                 UIElement::Bordered(inner_element) => {
                     // draw the border

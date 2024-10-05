@@ -1,9 +1,12 @@
-use crate::color::Color;
+use crate::{color::Color, display_units::DisplayArea};
 
 #[derive(Debug, Clone)]
 pub enum UIElement {
-    Container(Vec<(UIElement, crate::display_units::DisplayArea)>),
-    // Horizontal(Vec<UIElement>),
+    Container(Vec<UIElement>),
+    /// contains inner element within a certain area
+    ///
+    /// elements that aren't contained should be assumed to take the entire space
+    Contained(Box<UIElement>, DisplayArea),
     Bordered(Box<UIElement>),
     Text(String),
 
@@ -13,6 +16,9 @@ pub enum UIElement {
     CharGrid(CharGrid),
 }
 impl UIElement {
+    pub fn contain(self, area: DisplayArea) -> Self {
+        Self::Contained(Box::new(self), area)
+    }
     pub fn bordered(self) -> Self {
         Self::Bordered(Box::new(self))
     }
