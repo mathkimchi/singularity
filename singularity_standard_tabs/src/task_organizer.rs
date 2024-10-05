@@ -308,7 +308,10 @@ impl TaskOrganizer {
             },
             Mode::Editing => match (key, modifiers) {
                 (key, KeyModifiers::NONE) if key.raw_code == 1 => {
-                    // ESC
+                    // ESCAPE KEY, switch to viewing mode
+                    let (root_index, task_path, text_box) = self.focused_task.as_ref().unwrap();
+                    self.tasks[*root_index][task_path].body = text_box.get_text_as_string();
+
                     self.mode = Mode::Viewing;
                 }
                 _ => {
