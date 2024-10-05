@@ -7,7 +7,7 @@ use singularity_common::{
     },
     utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
-use singularity_standard_tabs::{editor::Editor, file_manager::FileManager};
+use singularity_standard_tabs::{file_manager::FileManager, task_organizer::TaskOrganizer};
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
@@ -49,15 +49,32 @@ impl ProjectManager {
 
         Self {
             _project: project,
-            tabs: Tabs::new(TabHandler::new(
-                basic_tab_creator(
-                    project_directory,
-                    FileManager::new,
-                    FileManager::render,
-                    FileManager::handle_event,
-                ),
-                Self::generate_tab_area(0, 0),
-            )),
+            tabs: {
+                let mut tabs = Tabs::new(TabHandler::new(
+                    basic_tab_creator(
+                        project_directory.clone(),
+                        FileManager::new,
+                        FileManager::render,
+                        FileManager::handle_event,
+                    ),
+                    Self::generate_tab_area(0, 0),
+                ));
+
+                tabs.add(
+                    TabHandler::new(
+                        basic_tab_creator(
+                            project_directory,
+                            TaskOrganizer::new_from_project,
+                            TaskOrganizer::render,
+                            TaskOrganizer::handle_event,
+                        ),
+                        Self::generate_tab_area(1, 1),
+                    ),
+                    &TreeNodePath::new_root(),
+                );
+
+                tabs
+            },
             app_focuser_index: None,
             is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
@@ -69,20 +86,20 @@ impl ProjectManager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
 
-        let mut manager = Self::new("examples/root-project");
+        let manager = Self::new("examples/root-project");
 
-        manager.tabs.add(
-            TabHandler::new(
-                basic_tab_creator(
-                    "examples/root-project/file_to_edit.txt",
-                    Editor::new,
-                    Editor::render,
-                    Editor::handle_event,
-                ),
-                Self::generate_tab_area(1, 1),
-            ),
-            &TreeNodePath::new_root(),
-        );
+        // manager.tabs.add(
+        //     TabHandler::new(
+        //         basic_tab_creator(
+        //             "examples/root-project/file_to_edit.txt",
+        //             Editor::new,
+        //             Editor::render,
+        //             Editor::handle_event,
+        //         ),
+        //         Self::generate_tab_area(1, 1),
+        //     ),
+        //     &TreeNodePath::new_root(),
+        // );
 
         manager.run().unwrap();
 
@@ -136,7 +153,7 @@ impl ProjectManager {
                 };
 
                 let bg = if tab_path == focusing_index.clone() {
-                    Color::LIGHT_BLUE
+                    Color::CYAN
                 } else {
                     Color::TRANSPARENT
                 };

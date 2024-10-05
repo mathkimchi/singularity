@@ -185,7 +185,7 @@ mod drawing_impls {
         ui_element::{CharCell, UIElement},
     };
     use font_kit::font::Font;
-    use raqote::{DrawOptions, DrawTarget, Point, SolidSource, Source};
+    use raqote::{DrawOptions, DrawTarget, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
     use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
 
@@ -242,14 +242,19 @@ mod drawing_impls {
                     inner_element.draw(dt, inner_area, font);
                 }
                 UIElement::Text(text) => {
+                    // FIXME: doesn't work with space
                     dt.draw_text(
                         font,
                         FONT_SIZE as f32,
                         text,
-                        Point::new(0., 0.),
+                        DisplayCoord::new(
+                            container_area.0.x,
+                            container_area.0.y + FONT_SIZE.into(),
+                        )
+                        .into_point(dt),
                         &Source::Solid(SolidSource {
                             r: 0,
-                            g: 0,
+                            g: 0xFF,
                             b: 0xFF,
                             a: 0xFF,
                         }),
@@ -630,7 +635,10 @@ mod ui_display_wayland_impls {
             _: u32,
             event: Key,
         ) {
-            // dbg!(event.raw_code);
+            if self.key_modifiers.caps_lock {
+                // dbg keycode when caps lock is on
+                dbg!(event.raw_code);
+            }
             self.ui_event_queue
                 .lock()
                 .unwrap()
@@ -743,6 +751,7 @@ pub mod ui_event {
     /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
     ///
     /// TODO: also, figure out a way to easily match keypresses and shortcuts
+    #[derive(Debug, Clone)]
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
         WindowResized([u32; 2]),
@@ -810,6 +819,15 @@ pub mod ui_event {
             ctrl: false,
             alt: true,
             shift: false,
+            caps_lock: false,
+            logo: false,
+            num_lock: false,
+        };
+
+        pub const SHIFT: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: true,
             caps_lock: false,
             logo: false,
             num_lock: false,

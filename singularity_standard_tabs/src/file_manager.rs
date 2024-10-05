@@ -80,7 +80,7 @@ impl FileManager {
 
         for tree_node_path in self.directory_tree.iter_paths_dfs() {
             let bg_color = if tree_node_path == self.selected_path {
-                Color::LIGHT_BLUE
+                Color::CYAN
             } else {
                 Color::TRANSPARENT
             };

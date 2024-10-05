@@ -2,6 +2,7 @@ use super::ManagerHandler;
 use crate::utils::tree::tree_node_path::TreeNodePath;
 use singularity_ui::{display_units::DisplayArea, ui_event::UIEvent};
 
+#[derive(Debug, Clone)]
 pub enum Event {
     UIEvent(UIEvent),
     Resize(DisplayArea),
