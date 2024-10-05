@@ -60,7 +60,7 @@ pub struct TaskOrganizer {
 impl TaskOrganizer {
     pub fn new_from_project<P>(
         project_path: P,
-        _manager_handler: &singularity_common::tab::ManagerHandler,
+        manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Self
     where
         P: AsRef<std::path::Path>,
@@ -70,12 +70,12 @@ impl TaskOrganizer {
         task_file_path.push(".project");
         task_file_path.push("tasks.json");
 
-        Self::new::<PathBuf>(task_file_path, _manager_handler)
+        Self::new::<PathBuf>(task_file_path, manager_handler)
     }
 
     pub fn new<P>(
         task_file_path: P,
-        _manager_handler: &singularity_common::tab::ManagerHandler,
+        manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Self
     where
         P: AsRef<std::path::Path>,
@@ -83,6 +83,10 @@ impl TaskOrganizer {
     {
         let tasks =
             serde_json::from_str(&std::fs::read_to_string(&task_file_path).unwrap()).unwrap();
+
+        manager_handler.send_request(singularity_common::tab::packets::Request::ChangeName(
+            "Task Organizer".to_string(),
+        ));
 
         Self {
             task_file_path: PathBuf::from(task_file_path),
