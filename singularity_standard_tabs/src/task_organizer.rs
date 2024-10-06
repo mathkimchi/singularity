@@ -168,8 +168,20 @@ impl TaskOrganizer {
             self.set_focused_task(0, TreeNodePath::new_root());
         }
     }
+}
+impl<P> singularity_common::tab::BasicTab<P> for TaskOrganizer
+where
+    P: 'static + Clone + AsRef<std::path::Path> + Send,
+    PathBuf: std::convert::From<P>,
+{
+    fn initialize(
+        init_args: &mut P,
+        manager_handler: &singularity_common::tab::ManagerHandler,
+    ) -> Self {
+        Self::new_from_project(init_args.clone(), manager_handler)
+    }
 
-    pub fn render(
+    fn render(
         &mut self,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<UIElement> {
@@ -250,7 +262,7 @@ impl TaskOrganizer {
         )
     }
 
-    pub fn handle_event(
+    fn handle_event(
         &mut self,
         event: singularity_common::tab::packets::Event,
         _manager_handler: &singularity_common::tab::ManagerHandler,

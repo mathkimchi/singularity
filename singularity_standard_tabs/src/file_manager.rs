@@ -1,7 +1,7 @@
 use singularity_common::{
     tab::{
         packets::{Event, Request},
-        ManagerHandler,
+        BasicTab, ManagerHandler,
     },
     utils::tree::{
         rooted_tree::RootedTree,
@@ -66,8 +66,17 @@ impl FileManager {
             .unwrap()
             .to_string()
     }
+}
+impl<P> BasicTab<P> for FileManager
+where
+    P: 'static + Clone + AsRef<std::path::Path> + Send,
+    PathBuf: std::convert::From<P>,
+{
+    fn initialize(init_args: &mut P, manager_handler: &ManagerHandler) -> Self {
+        Self::new(init_args.clone(), manager_handler)
+    }
 
-    pub fn render(
+    fn render(
         &mut self,
         _manager_handler: &ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
@@ -110,7 +119,7 @@ impl FileManager {
         )
     }
 
-    pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
+    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             Event::UIEvent(ui_event) => match ui_event {
@@ -131,11 +140,8 @@ impl FileManager {
                     if selected_element.is_file() {
                         use crate::editor::Editor;
                         manager_handler.send_request(Request::SpawnChildTab(Box::new(
-                            singularity_common::tab::basic_tab_creator(
+                            <Editor as BasicTab<PathBuf>>::new_tab_creator(
                                 selected_element.clone(),
-                                Editor::new,
-                                Editor::render,
-                                Editor::handle_event,
                             ),
                         )));
                     }

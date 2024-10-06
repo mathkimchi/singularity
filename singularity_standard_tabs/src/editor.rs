@@ -1,6 +1,6 @@
 use singularity_common::tab::{
     packets::{Event, Request},
-    ManagerHandler,
+    BasicTab, ManagerHandler,
 };
 use singularity_ui::{
     color::Color,
@@ -144,8 +144,17 @@ impl Editor {
         self.cursor_logical_position.0 = 0;
         self.cursor_logical_position.1 += 1;
     }
+}
+impl<P> BasicTab<P> for Editor
+where
+    P: 'static + Clone + AsRef<std::path::Path> + Send,
+    PathBuf: std::convert::From<P>,
+{
+    fn initialize(file_path: &mut P, manager_handler: &ManagerHandler) -> Self {
+        Self::new(file_path.clone(), manager_handler)
+    }
 
-    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
+    fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
@@ -164,7 +173,7 @@ impl Editor {
         )
     }
 
-    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+    fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
                 singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)

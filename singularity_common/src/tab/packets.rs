@@ -1,4 +1,4 @@
-use super::ManagerHandler;
+use super::TabCreator;
 use crate::utils::tree::tree_node_path::TreeNodePath;
 use singularity_ui::{display_units::DisplayArea, ui_event::UIEvent};
 
@@ -13,7 +13,7 @@ pub enum Event {
 pub enum Request {
     ChangeName(String),
     /// FIXME: Box<dyn TabCreator> didn't work for some reason, get it to work
-    SpawnChildTab(Box<dyn FnOnce(ManagerHandler) + Send>),
+    SpawnChildTab(Box<dyn TabCreator>),
 }
 
 /// TODO: auto generate this with macro

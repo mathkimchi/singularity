@@ -1,9 +1,8 @@
 use singularity_common::{
     project::Project,
     tab::{
-        basic_tab_creator,
         packets::{Query, Request, Response},
-        TabHandler,
+        BasicTab, TabHandler,
     },
     utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
@@ -51,23 +50,13 @@ impl ProjectManager {
             _project: project,
             tabs: {
                 let mut tabs = Tabs::new(TabHandler::new(
-                    basic_tab_creator(
-                        project_directory.clone(),
-                        FileManager::new,
-                        FileManager::render,
-                        FileManager::handle_event,
-                    ),
+                    FileManager::new_tab_creator(project_directory.clone()),
                     Self::generate_tab_area(0, 0),
                 ));
 
                 tabs.add(
                     TabHandler::new(
-                        basic_tab_creator(
-                            project_directory,
-                            TaskOrganizer::new_from_project,
-                            TaskOrganizer::render,
-                            TaskOrganizer::handle_event,
-                        ),
+                        TaskOrganizer::new_tab_creator(project_directory),
                         Self::generate_tab_area(1, 1),
                     ),
                     &TreeNodePath::new_root(),

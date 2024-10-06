@@ -13,54 +13,59 @@ pub mod packets;
 /// REVIEW: name this tab runner?
 pub trait TabCreator: Send {
     /// Create and start running the create_tab
-    fn create_tab(self, manager_handler: ManagerHandler);
+    fn create_tab(&mut self, manager_handler: ManagerHandler);
 }
-impl<F, O> TabCreator for F
-where
-    F: FnOnce(ManagerHandler) -> O + Send,
-{
-    fn create_tab(self, manager_handler: ManagerHandler) {
-        self(manager_handler);
+// impl<F, O> TabCreator for F
+// where
+//     F: FnOnce(ManagerHandler) -> O + Send,
+// {
+//     fn create_tab(self, manager_handler: ManagerHandler) {
+//         self(manager_handler);
+//     }
+// }
+impl TabCreator for Box<dyn TabCreator> {
+    fn create_tab(&mut self, manager_handler: ManagerHandler) {
+        self.as_mut().create_tab(manager_handler);
     }
 }
 
-/// REVIEW: I don't know if this is code is good or an abomination
-pub fn basic_tab_creator<Tab, InitArgs, Initializer, Renderer, EventHandler>(
-    init_args: InitArgs,
-    initializer: Initializer,
-    mut renderer: Renderer,
-    mut event_handler: EventHandler,
-    // ) -> impl TabCreator
-) -> impl FnOnce(ManagerHandler) + Send
-where
-    InitArgs: Send,
-    Initializer: FnOnce(InitArgs, &ManagerHandler) -> Tab + Send,
-    Renderer: FnMut(&mut Tab, &ManagerHandler) -> Option<UIElement> + Send,
-    EventHandler: FnMut(&mut Tab, Event, &ManagerHandler) + Send,
-{
-    move |mut manager_handler: ManagerHandler| {
-        let mut tab: Tab = initializer(init_args, &manager_handler);
+pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
+    fn initialize(init_args: &mut InitArgs, manager_handler: &ManagerHandler) -> Self;
+    fn render(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
+    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler);
 
-        'mainloop: loop {
-            if let Some(new_display_buffer) = renderer(&mut tab, &manager_handler) {
-                manager_handler.update_ui_element(new_display_buffer);
-            };
+    fn new_tab_creator(mut init_args: InitArgs) -> impl TabCreator {
+        struct Inner(Box<dyn FnMut(ManagerHandler) + Send>);
+        impl TabCreator for Inner {
+            fn create_tab(&mut self, manager_handler: ManagerHandler) {
+                self.0(manager_handler)
+            }
+        }
 
-            for event in manager_handler.collect_events() {
-                match event {
-                    Event::Close => {
-                        break 'mainloop;
-                    }
-                    Event::Resize(inner_area) => {
-                        manager_handler.inner_area = inner_area;
-                        event_handler(&mut tab, event, &manager_handler);
-                    }
-                    event => {
-                        event_handler(&mut tab, event, &manager_handler);
+        Inner(Box::new(move |mut manager_handler: ManagerHandler| {
+            let mut tab = Self::initialize(&mut init_args, &manager_handler);
+
+            'mainloop: loop {
+                if let Some(new_display_buffer) = tab.render(&manager_handler) {
+                    manager_handler.update_ui_element(new_display_buffer);
+                };
+
+                for event in manager_handler.collect_events() {
+                    match event {
+                        Event::Close => {
+                            break 'mainloop;
+                        }
+                        Event::Resize(inner_area) => {
+                            manager_handler.inner_area = inner_area;
+                            tab.handle_event(event, &manager_handler);
+                        }
+                        event => {
+                            tab.handle_event(event, &manager_handler);
+                        }
                     }
                 }
             }
-        }
+        }))
     }
 }
 
@@ -125,7 +130,7 @@ pub struct TabHandler {
     _tab_thread: JoinHandle<()>,
 }
 impl TabHandler {
-    pub fn new<F: 'static + TabCreator>(tab_creator: F, tab_area: DisplayArea) -> Self {
+    pub fn new<F: 'static + TabCreator>(mut tab_creator: F, tab_area: DisplayArea) -> Self {
         let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
@@ -144,8 +149,23 @@ impl TabHandler {
         }
     }
 
-    // pub fn new_from_box(tab_creator: Box<dyn FnOnce(ManagerHandler) + Send>) -> Self {
-    //     Self::new(tab_creator)
+    // pub fn new_from_box(tab_creator: Box<dyn TabCreator + Send>, tab_area: DisplayArea) -> Self {
+    //     let (tab_channels, manager_channels) = create_channels();
+
+    //     // create tab thread with manager proxy
+    //     let tab_thread = thread::spawn(move || {
+    //         tab_creator.create_tab(ManagerHandler {
+    //             manager_channels,
+    //             inner_area: tab_area,
+    //         })
+    //     });
+
+    //     Self {
+    //         tab_channels,
+    //         _tab_thread: tab_thread,
+    //         tab_name: String::new(),
+    //         tab_area,
+    //     }
     // }
 
     pub fn send_event(&self, event: Event) {
