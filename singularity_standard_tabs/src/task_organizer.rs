@@ -235,7 +235,7 @@ impl TaskOrganizer {
             // task body text
             elements.push(
                 UIElement::CharGrid(body_text_box.render())
-                    .bordered()
+                    .bordered(Color::LIGHT_GREEN)
                     .contain(DisplayArea(
                         DisplayCoord::new(DisplayUnits::HALF, 0.05.into()),
                         DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
@@ -243,7 +243,11 @@ impl TaskOrganizer {
             );
         }
 
-        Some(UIElement::Container(elements))
+        Some(
+            UIElement::Container(elements)
+                .fill_bg(Color::DARK_GRAY)
+                .bordered(Color::LIGHT_GREEN),
+        )
     }
 
     pub fn handle_event(

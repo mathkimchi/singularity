@@ -103,7 +103,11 @@ impl FileManager {
             );
         }
 
-        Some(UIElement::CharGrid(CharGrid { content: lines }))
+        Some(
+            UIElement::CharGrid(CharGrid { content: lines })
+                .fill_bg(Color::DARK_GRAY)
+                .bordered(Color::LIGHT_GREEN),
+        )
     }
 
     pub fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {

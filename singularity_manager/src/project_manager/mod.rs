@@ -134,7 +134,7 @@ impl ProjectManager {
         for tab_id in self.tabs.get_display_order().clone() {
             let tab = &mut self.tabs[tab_id];
 
-            tab_elements.push(tab.get_ui_element().bordered().contain(tab.get_area()));
+            tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
         }
 
         // display the tab focuser/selector
@@ -176,7 +176,8 @@ impl ProjectManager {
 
             tab_elements.push(
                 UIElement::CharGrid(subapps_focuser_display)
-                    .bordered()
+                    .fill_bg(Color::DARK_GRAY)
+                    .bordered(Color::LIGHT_GREEN)
                     .contain(DisplayArea::from_center_half_size(
                         DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::HALF),
                         DisplaySize::new(0.2.into(), 0.2.into()),
@@ -184,7 +185,8 @@ impl ProjectManager {
             );
         }
 
-        *(self.ui_element.lock().unwrap()) = UIElement::Container(tab_elements);
+        *(self.ui_element.lock().unwrap()) =
+            UIElement::Container(tab_elements).fill_bg(Color::BLACK);
     }
 
     fn handle_input(&mut self) {

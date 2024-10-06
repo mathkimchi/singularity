@@ -157,7 +157,11 @@ impl Editor {
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
             Color::BLACK;
 
-        Some(UIElement::CharGrid(text_clone))
+        Some(
+            UIElement::CharGrid(text_clone)
+                .fill_bg(Color::DARK_GRAY)
+                .bordered(Color::LIGHT_GREEN),
+        )
     }
 
     pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {

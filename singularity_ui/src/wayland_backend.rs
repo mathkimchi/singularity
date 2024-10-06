@@ -199,16 +199,7 @@ mod drawing_impls {
                 area.size().height.pixels(dt.height()) as f32,
             );
             let path = pb.finish();
-            dt.fill(
-                &path,
-                &Source::Solid(SolidSource {
-                    r: color.0[0],
-                    g: color.0[1],
-                    b: color.0[2],
-                    a: color.0[3],
-                }),
-                &DrawOptions::new(),
-            );
+            dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
         }
 
         fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
@@ -225,9 +216,45 @@ mod drawing_impls {
                 UIElement::Contained(inner_element, area) => {
                     inner_element.draw(dt, area.map_onto(container_area), font);
                 }
-                UIElement::Bordered(inner_element) => {
+                UIElement::Bordered(inner_element, border_color) => {
                     // draw the border
-                    Self::fill_rect(dt, container_area, Color::LIGHT_GREEN);
+                    let border_path = {
+                        let mut pb = raqote::PathBuilder::new();
+                        // top
+                        pb.rect(
+                            container_area.0.x.pixels(dt.width()) as f32,
+                            container_area.0.y.pixels(dt.height()) as f32,
+                            container_area.size().width.pixels(dt.width()) as f32,
+                            1.,
+                        );
+                        // bot
+                        pb.rect(
+                            container_area.0.x.pixels(dt.width()) as f32,
+                            container_area.1.y.pixels(dt.height()) as f32,
+                            container_area.size().width.pixels(dt.width()) as f32,
+                            1.,
+                        );
+                        // left
+                        pb.rect(
+                            container_area.0.x.pixels(dt.width()) as f32,
+                            container_area.0.y.pixels(dt.height()) as f32,
+                            1.,
+                            container_area.size().width.pixels(dt.height()) as f32,
+                        );
+                        // right
+                        pb.rect(
+                            container_area.1.x.pixels(dt.width()) as f32,
+                            container_area.0.y.pixels(dt.height()) as f32,
+                            1.,
+                            container_area.size().width.pixels(dt.height()) as f32,
+                        );
+                        pb.finish()
+                    };
+                    dt.fill(
+                        &border_path,
+                        &Source::Solid((*border_color).into()),
+                        &DrawOptions::new(),
+                    );
 
                     let inner_area = DisplayArea(
                         DisplayCoord::new(1.into(), 1.into()),
@@ -238,11 +265,15 @@ mod drawing_impls {
                     )
                     .map_onto(container_area);
 
-                    // clear the inside of the border
-                    Self::fill_rect(dt, inner_area, Color::BLACK);
-
                     // draw the inner widget
                     inner_element.draw(dt, inner_area, font);
+                }
+                UIElement::Backgrounded(inner_element, bg_color) => {
+                    // clear the inside of the border
+                    Self::fill_rect(dt, container_area, *bg_color);
+
+                    // draw the inner widget
+                    inner_element.draw(dt, container_area, font);
                 }
                 UIElement::Text(text) => {
                     // FIXME: doesn't work with space
@@ -308,12 +339,7 @@ mod drawing_impls {
                                 &character.to_string(),
                                 // `start` is actually bottom left corner
                                 bot_left.into_point(dt),
-                                &raqote::Source::Solid(SolidSource {
-                                    r: fg.0[0],
-                                    g: fg.0[1],
-                                    b: fg.0[2],
-                                    a: fg.0[3],
-                                }),
+                                &raqote::Source::Solid((*fg).into()),
                                 &DrawOptions::new(),
                             );
                         }
@@ -856,11 +882,5 @@ pub mod ui_event {
                 num_lock,
             }
         }
-    }
-}
-
-impl From<crate::color::Color> for raqote::Color {
-    fn from(value: crate::color::Color) -> Self {
-        raqote::Color::new(value.0[3], value.0[0], value.0[1], value.0[2])
     }
 }

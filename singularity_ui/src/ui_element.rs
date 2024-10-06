@@ -3,11 +3,15 @@ use crate::{color::Color, display_units::DisplayArea};
 #[derive(Debug, Clone)]
 pub enum UIElement {
     Container(Vec<UIElement>),
+
     /// contains inner element within a certain area
     ///
     /// elements that aren't contained should be assumed to take the entire space
     Contained(Box<UIElement>, DisplayArea),
-    Bordered(Box<UIElement>),
+    Bordered(Box<UIElement>, Color),
+    /// TODO: better name
+    Backgrounded(Box<UIElement>, Color),
+
     Text(String),
 
     /// should display like a terminal
@@ -19,8 +23,11 @@ impl UIElement {
     pub fn contain(self, area: DisplayArea) -> Self {
         Self::Contained(Box::new(self), area)
     }
-    pub fn bordered(self) -> Self {
-        Self::Bordered(Box::new(self))
+    pub fn bordered(self, border: Color) -> Self {
+        Self::Bordered(Box::new(self), border)
+    }
+    pub fn fill_bg(self, bg: Color) -> Self {
+        Self::Backgrounded(Box::new(self), bg)
     }
 }
 
