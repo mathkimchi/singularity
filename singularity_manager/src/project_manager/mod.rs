@@ -21,7 +21,7 @@ use std::{
 };
 use tabs::Tabs;
 
-pub mod tabs;
+mod tabs;
 
 pub struct ProjectManager {
     _project: Project,
@@ -59,7 +59,7 @@ impl ProjectManager {
                         TaskOrganizer::new_tab_creator(project_directory),
                         Self::generate_tab_area(1, 1),
                     ),
-                    &TreeNodePath::new_root(),
+                    &tabs.get_id_by_org_path(&TreeNodePath::new_root()).unwrap(),
                 );
 
                 tabs
@@ -121,7 +121,7 @@ impl ProjectManager {
         let mut tab_elements = Vec::new();
 
         for tab_id in self.tabs.get_display_order().clone() {
-            let tab = &mut self.tabs[tab_id];
+            let tab = &mut self.tabs.get_mut_tab_handler(tab_id).unwrap();
 
             tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
         }
@@ -130,12 +130,11 @@ impl ProjectManager {
         if let Some(focusing_index) = &self.app_focuser_index {
             let mut subapps_focuser_display = CharGrid::default();
 
-            for tab_path in self.tabs.get_organizational_hierarchy().iter_paths_dfs() {
-                let tab = &self.tabs[&tab_path];
+            for tab_path in self.tabs.iter_paths_dfs() {
+                let tab_id = self.tabs.get_id_by_org_path(&tab_path).unwrap();
+                let tab = self.tabs.get_tab_handler(tab_id).unwrap();
 
-                let fg = if self.tabs.get_organizational_hierarchy()[&tab_path]
-                    == self.tabs.get_focused_tab_id()
-                {
+                let fg = if tab_id == self.tabs.get_focused_tab_id() {
                     Color::LIGHT_YELLOW
                 } else {
                     Color::LIGHT_GREEN
@@ -198,7 +197,7 @@ impl ProjectManager {
 
                         let new_focus_index = self.app_focuser_index.take().unwrap();
 
-                        self.tabs.set_focused_tab_path(new_focus_index);
+                        self.tabs.set_focused_tab_path(&new_focus_index);
                     } else {
                         let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
                             self.tabs
@@ -210,10 +209,8 @@ impl ProjectManager {
                         self.app_focuser_index = match key.to_char() {
                             Some('\n') => Some(new_focus_index),
                             Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
-                                new_focus_index = new_focus_index.clamped_traverse_based_on_wasd(
-                                    self.tabs.get_organizational_hierarchy(),
-                                    traverse_key,
-                                );
+                                new_focus_index = new_focus_index
+                                    .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
                                 Some(new_focus_index)
                             }
                             _ => panic!(),
@@ -237,6 +234,11 @@ impl ProjectManager {
                 UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
                     self.tabs.minimize_focused_tab();
                 }
+                UIEvent::KeyPress(key, KeyModifiers::CTRL | KeyModifiers::SHIFT)
+                    if key.to_char() == Some('w') =>
+                {
+                    // self.tabs.close_focused_tab_recursively();
+                }
                 UIEvent::KeyPress(_, _) => {
                     // forward the event to focused tab
                     let focused_tab = self.tabs.get_focused_tab_mut();
@@ -251,7 +253,7 @@ impl ProjectManager {
                     // currently all mousepresses should simply update focused tab, don't do anything else
 
                     for tab_id in self.tabs.get_display_order().iter().rev() {
-                        let tab = self.tabs.get(*tab_id).unwrap();
+                        let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
                         let tab_area = tab.get_area();
 
                         if tab_area.contains(
@@ -269,13 +271,22 @@ impl ProjectManager {
 
     /// Requests from tab to manager
     fn process_tab_requests(&mut self) {
-        for requestor_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
-            let requests = self.tabs[&requestor_path].collect_requests();
+        for requestor_path in self.tabs.collect_paths_dfs() {
+            let requests = self
+                .tabs
+                .get_tab_handler(self.tabs.get_id_by_org_path(&requestor_path).unwrap())
+                .unwrap()
+                .collect_requests();
 
             for request in requests {
                 match request {
                     Request::ChangeName(new_name) => {
-                        self.tabs[&requestor_path].tab_name = new_name;
+                        self.tabs
+                            .get_mut_tab_handler(
+                                self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
+                            )
+                            .unwrap()
+                            .tab_name = new_name;
                     }
                     Request::SpawnChildTab(tab_creator) => {
                         self.tabs.add(
@@ -289,7 +300,7 @@ impl ProjectManager {
                                     requestor_path.depth() + 1,
                                 ),
                             ),
-                            &requestor_path,
+                            &self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
                         );
                     }
                 }
@@ -298,8 +309,11 @@ impl ProjectManager {
     }
 
     fn answer_tab_queries(&self) {
-        for tab_path in self.tabs.get_organizational_hierarchy().collect_paths_dfs() {
-            let inquieror = &self.tabs[&tab_path];
+        for tab_path in self.tabs.collect_paths_dfs() {
+            let inquieror = self
+                .tabs
+                .get_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
+                .unwrap();
             inquieror.answer_query(move |query| match query {
                 Query::Path => Response::Path(tab_path.clone()),
                 Query::Name => Response::Name(inquieror.tab_name.clone()),

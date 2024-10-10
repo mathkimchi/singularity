@@ -123,7 +123,7 @@ where
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             Event::UIEvent(ui_event) => match ui_event {
-                UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                UIEvent::KeyPress(key, KeyModifiers::NONE)
                     if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
                 {
                     self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
@@ -131,7 +131,7 @@ where
                         key.to_char().unwrap(),
                     );
                 }
-                UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                UIEvent::KeyPress(key, KeyModifiers::NONE)
                     if matches!(key.to_char(), Some('f')) =>
                 {
                     // `f` stands for open selected *F*ile

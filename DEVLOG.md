@@ -962,3 +962,29 @@ Okay, knowing all this, I am going to put a hold on the GPU stuff, because it wa
 I think that the best thing now is to just implement the other subapps.
 
 Once I do that, I can start the project/workspace wise features.
+
+### Hierarchy Operations
+
+2024/10/08
+
+I have some ideas for moving tabs in the hierarchy.
+I think the easiest way is to "<u>P</u>luck" trees into a temp buffer, then "<u>P</u>lace" them somewhere else.
+BTW, I am going to be using Alt for most (or all) the hierarchy operations, because that is how window switching works in other OS's (Alt+Tab).
+There can also be a mark operation to allow for things like swapping two tabs.
+
+Before that, I should actually do tab closing first.
+The one tricky decision with closing is the tree hierarchy.
+Ideally, the tree (specifically the deleted node's children) would maintain its rough structure when a node is deleted, and a parent node can be deleted without deleting the children.
+The two basic ways of doing this would be:
+
+1. Put all the (direct) children of the deleted node in the 
+   1. If thinking connections-wise, equivalent to just connecting deleted node's parent directly to deleted node's children.
+2. Make the first child take the place of the deleted node, and the other children don't move so they are now the children of the first child
+   1. Kind of similar to the heap deletion algorithm.
+
+I will first implement a full deletion first, but I think it will be best to implement trees specific to my goals.
+
+2024/10/10
+
+I am implementing a tree based of id's, but something I might want to change later is the fact that the id tree is heavily coupled with `Tabs`.
+It is like the rooted tree, but it just uses IDs as indices.

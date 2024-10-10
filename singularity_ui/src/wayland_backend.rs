@@ -883,4 +883,32 @@ pub mod ui_event {
             }
         }
     }
+    impl std::ops::BitOr for KeyModifiers {
+        type Output = Self;
+
+        fn bitor(self, rhs: Self) -> Self::Output {
+            Self {
+                ctrl: self.ctrl | rhs.ctrl,
+                alt: self.alt | rhs.alt,
+                shift: self.shift | rhs.shift,
+                caps_lock: self.caps_lock | rhs.caps_lock,
+                logo: self.logo | rhs.logo,
+                num_lock: self.num_lock | rhs.num_lock,
+            }
+        }
+    }
+    impl std::ops::BitAnd for KeyModifiers {
+        type Output = Self;
+
+        fn bitand(self, rhs: Self) -> Self::Output {
+            Self {
+                ctrl: self.ctrl & rhs.ctrl,
+                alt: self.alt & rhs.alt,
+                shift: self.shift & rhs.shift,
+                caps_lock: self.caps_lock & rhs.caps_lock,
+                logo: self.logo & rhs.logo,
+                num_lock: self.num_lock & rhs.num_lock,
+            }
+        }
+    }
 }

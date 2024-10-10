@@ -59,6 +59,14 @@ mod tree_node_path_traversal_impls {
             }
         }
 
+        pub fn unchecked_traverse_to_child(&self, child_index: usize) -> Self {
+            let mut child_path_vec = self.0.clone();
+
+            child_path_vec.push(child_index);
+
+            Self(child_path_vec)
+        }
+
         /// Needs the tree to make sure that the child exists
         pub fn traverse_to_child<T: TraversableTree>(
             &self,
