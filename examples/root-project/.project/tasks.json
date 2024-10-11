@@ -1,43 +1,25 @@
-[
-  {
-    "value": {
-      "title": "Ex",
-      "body": "Placeholder body.",
-      "is_complete": false
-    },
-    "children": [
-      {
-        "value": {
-          "title": "Ex Child",
-          "body": "json manually written",
-          "is_complete": false
-        },
-        "children": []
-      }
-    ]
+{
+  "value": {
+    "title": "Root",
+    "body": "Root body.",
+    "is_complete": false
   },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Pasdfl\naceholder body.\n\nhello \\n \\\\ amog",
-      "is_complete": false
+  "children": [
+    {
+      "value": {
+        "title": "Ex Child",
+        "body": "Json manually written.",
+        "is_complete": false
+      },
+      "children": []
     },
-    "children": []
-  },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Placeholder body.",
-      "is_complete": false
-    },
-    "children": []
-  },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Placeholder body.\nhello",
-      "is_complete": false
-    },
-    "children": []
-  }
-]
+    {
+      "value": {
+        "title": "Placeholder Title",
+        "body": "Placeholder body.",
+        "is_complete": false
+      },
+      "children": []
+    }
+  ]
+}

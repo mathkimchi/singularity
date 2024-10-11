@@ -1007,3 +1007,8 @@ I was thinking about my vision for singularity, and I think this is the order of
 This is similar to how in nix, there is a configuration.nix which is for the user (or the machine), but when a user enters a nix-shell or dev flake, the packages/features available are a union of the packages from configuration.nix and shell.nix.
 Actually, now that I think about it, most apps are like this.
 As another example, VSCode has User Settings and Project Settings.
+
+2024/10/11
+
+In order to code faster, I am going to ignore the permission stuff for tabs, which seems like bad foreshadowing.
+Additionally, I will ignore things like abstraction, since the main priority is just the task organizer.

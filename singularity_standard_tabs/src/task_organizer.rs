@@ -50,10 +50,10 @@ pub struct TaskOrganizer {
     /// and I can maybe just ignore the root task or pretend like
     /// mandating a root task is a feature not a bug.
     /// REVIEW: what I said above ^
-    tasks: Vec<RecursiveTreeNode<IndividualTask>>,
+    tasks: RecursiveTreeNode<IndividualTask>,
 
-    /// (root index, task path, body editor)
-    focused_task: Option<(usize, TreeNodePath, TextBox)>,
+    /// (task path, body editor)
+    focused_task: Option<(TreeNodePath, TextBox)>,
     /// If editing mode, there should be some focused task
     mode: Mode,
 }
@@ -96,77 +96,11 @@ impl TaskOrganizer {
         }
     }
 
-    fn set_focused_task(&mut self, root_index: usize, task_path: TreeNodePath) {
+    fn set_focused_task(&mut self, task_path: TreeNodePath) {
         self.focused_task = Some((
-            root_index,
             task_path.clone(),
-            TextBox::from(self.tasks[root_index][&task_path].body.clone()),
+            TextBox::from(self.tasks[&task_path].body.clone()),
         ));
-    }
-
-    /// Expects traverse key to be a traverse key (wasd); panics if it isn't
-    fn handle_traversal(&mut self, traverse_key: char) {
-        if let Some((root_index, task_path, _text_box)) = &self.focused_task {
-            match traverse_key {
-                'a' | 'd' => {
-                    // parent-child traversal works as it would normally
-
-                    self.set_focused_task(
-                        *root_index,
-                        task_path
-                            .clamped_traverse_based_on_wasd(&self.tasks[*root_index], traverse_key),
-                    );
-                }
-                'w' => {
-                    // sibling traversal needs to take care of the edge case of root
-                    if task_path.is_root() {
-                        // already root, go to previous task's root
-                        // if this is very first task, then change nothing
-                        self.set_focused_task(
-                            root_index.saturating_sub(1),
-                            TreeNodePath::new_root(),
-                        );
-                    } else {
-                        self.set_focused_task(
-                            *root_index,
-                            task_path
-                                .traverse_to_previous_sibling()
-                                .unwrap_or(task_path.clone()),
-                        );
-                    }
-                }
-                's' => {
-                    // sibling traversal needs to take care of the edge case of root
-                    if task_path.is_root() {
-                        // already root, go to next task's root
-                        // if there is no later root, then change nothing
-                        self.set_focused_task(
-                            root_index.saturating_add(1).clamp(0, self.tasks.len() - 1),
-                            TreeNodePath::new_root(),
-                        );
-                    } else {
-                        self.set_focused_task(
-                            *root_index,
-                            task_path
-                                .traverse_to_next_sibling(&self.tasks[*root_index])
-                                .unwrap_or(task_path.clone()),
-                        );
-                    }
-                }
-                _ => {
-                    panic!()
-                }
-            }
-        } else {
-            if self.tasks.is_empty() {
-                // if user tries traversing when there are no tasks, create a placeholder task
-                self.tasks
-                    .push(RecursiveTreeNode::from_value(IndividualTask::default()));
-            }
-
-            // user tried to traverse for the first time, select first task
-            self.set_focused_task(0, TreeNodePath::new_root());
-        }
     }
 }
 impl<P> singularity_common::tab::BasicTab<P> for TaskOrganizer
@@ -190,15 +124,10 @@ where
         // draw task list
         {
             let mut task_list_vec = Vec::new();
-            for (root_index, path) in self
-                .tasks
-                .iter()
-                .enumerate()
-                .flat_map(|(root_index, tree)| tree.iter_paths_dfs().map(move |x| (root_index, x)))
-            {
+            for path in self.tasks.iter_paths_dfs() {
                 // TODO: style complete vs todo
-                let bg_color = if let Some((focused_index, focused_path, _)) = &self.focused_task {
-                    if (focused_index == &root_index) && (focused_path == &path) {
+                let bg_color = if let Some((focused_path, _)) = &self.focused_task {
+                    if focused_path == &path {
                         Color::CYAN
                     } else {
                         Color::TRANSPARENT
@@ -207,7 +136,7 @@ where
                     Color::TRANSPARENT
                 };
 
-                let line = " ".repeat(2 * path.depth()) + &self.tasks[root_index][&path].title;
+                let line = " ".repeat(2 * path.depth()) + &self.tasks[&path].title;
 
                 task_list_vec.push(
                     line.chars()
@@ -231,8 +160,8 @@ where
         }
 
         // draw focused task
-        if let Some((focused_index, focused_path, body_text_box)) = &mut self.focused_task {
-            let focused_task = &self.tasks[*focused_index][focused_path];
+        if let Some((focused_path, body_text_box)) = &mut self.focused_task {
+            let focused_task = &self.tasks[focused_path];
 
             // title
             elements.push(
@@ -283,14 +212,14 @@ where
                     // add a placeholder root task & focus on it
 
                     self.tasks
-                        .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+                        .push_child_node(RecursiveTreeNode::from_value(IndividualTask::default()));
 
-                    self.set_focused_task(self.tasks.len() - 1, TreeNodePath::new_root());
+                    self.set_focused_task(TreeNodePath::new_root());
                 }
                 (Some('s'), KeyModifiers::CTRL) => {
                     // save body
-                    if let Some((focused_index, focused_path, body_text_box)) = &self.focused_task {
-                        let focused_task = &mut self.tasks[*focused_index][focused_path];
+                    if let Some((focused_path, body_text_box)) = &self.focused_task {
+                        let focused_task = &mut self.tasks[focused_path];
 
                         focused_task.body = body_text_box.get_text_as_string();
                     }
@@ -309,14 +238,8 @@ where
                     if self.focused_task.is_none() {
                         // edit mode requires Some focused task so set one if n/a
 
-                        if self.tasks.is_empty() {
-                            // if user tries traversing when there are no tasks, create a placeholder task
-                            self.tasks
-                                .push(RecursiveTreeNode::from_value(IndividualTask::default()));
-                        }
-
                         // user tried to traverse for the first time, select first task
-                        self.set_focused_task(0, TreeNodePath::new_root());
+                        self.set_focused_task(TreeNodePath::new_root());
                     }
 
                     self.mode = Mode::Editing;
@@ -324,22 +247,26 @@ where
                 (Some(traverse_key), KeyModifiers::NONE)
                     if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
                 {
-                    self.handle_traversal(traverse_key);
+                    if let Some((prev_focused, ..)) = &self.focused_task {
+                        self.set_focused_task(
+                            prev_focused.clamped_traverse_based_on_wasd(&self.tasks, traverse_key),
+                        );
+                    } else {
+                        self.set_focused_task(TreeNodePath::new_root());
+                    }
                 }
                 _ => {}
             },
             Mode::Editing => match (key, modifiers) {
                 (key, KeyModifiers::NONE) if key.raw_code == 1 => {
                     // ESCAPE KEY, switch to viewing mode
-                    let (root_index, task_path, text_box) = self.focused_task.as_ref().unwrap();
-                    self.tasks[*root_index][task_path].body = text_box.get_text_as_string();
+                    let (task_path, text_box) = self.focused_task.as_ref().unwrap();
+                    self.tasks[task_path].body = text_box.get_text_as_string();
 
                     self.mode = Mode::Viewing;
                 }
                 _ => {
-                    if let Some((_focused_index, _focused_path, body_text_box)) =
-                        &mut self.focused_task
-                    {
+                    if let Some((_focused_path, body_text_box)) = &mut self.focused_task {
                         body_text_box.handle_event(event);
                     }
                 }
