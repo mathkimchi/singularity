@@ -57,7 +57,7 @@ impl ProjectManager {
                 tabs.add(
                     TabHandler::new(
                         TaskOrganizer::new_tab_creator(project_directory),
-                        Self::generate_tab_area(1, 1),
+                        Self::generate_tab_area(0, 1),
                     ),
                     &tabs.get_id_by_org_path(&TreeNodePath::new_root()).unwrap(),
                 );
@@ -75,20 +75,21 @@ impl ProjectManager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
 
-        let manager = Self::new("examples/root-project");
+        let mut manager = Self::new("examples/root-project");
 
-        // manager.tabs.add(
-        //     TabHandler::new(
-        //         basic_tab_creator(
-        //             "examples/root-project/file_to_edit.txt",
-        //             Editor::new,
-        //             Editor::render,
-        //             Editor::handle_event,
-        //         ),
-        //         Self::generate_tab_area(1, 1),
-        //     ),
-        //     &TreeNodePath::new_root(),
-        // );
+        manager.tabs.add(
+            TabHandler::new(
+                singularity_common::components::timer::Timer::new_tab_creator((
+                    std::time::Duration::from_secs(10),
+                    false,
+                )),
+                Self::generate_tab_area(1, 1),
+            ),
+            &manager
+                .tabs
+                .get_id_by_org_path(&TreeNodePath::new_root())
+                .unwrap(),
+        );
 
         manager.run().unwrap();
 

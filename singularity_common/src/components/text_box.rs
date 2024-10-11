@@ -83,7 +83,7 @@ impl TextBox {
         self.cursor_logical_position.1 += 1;
     }
 
-    pub fn render(&mut self) -> CharGrid {
+    pub fn render(&self) -> CharGrid {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost

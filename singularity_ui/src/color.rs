@@ -6,10 +6,12 @@ pub struct Color(pub [u8; 4]);
 impl Color {
     pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
     pub const BLACK: Self = Color([0, 0, 0, 0xFF]);
+    pub const WHITE: Self = Color([0xFF, 0xFF, 0xFF, 0xFF]);
     pub const DARK_GRAY: Self = Color([0x1F, 0x1F, 0x1F, 0xFF]);
     pub const LIGHT_YELLOW: Self = Color([0xFF, 0xFF, 0, 0xFF]);
     pub const LIGHT_GREEN: Self = Color([0, 0xFF, 0, 0xFF]);
     pub const LIGHT_BLUE: Self = Color([0, 0, 0xFF, 0xFF]);
+    pub const ORANGE: Self = Color([0xFF, 0xA5, 0, 0xFF]);
     pub const CYAN: Self = Color([0, 0xFF, 0xFF, 0xFF]);
 }
 #[cfg(feature = "wayland_backend")]

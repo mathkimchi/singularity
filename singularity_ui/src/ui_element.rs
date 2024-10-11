@@ -66,6 +66,19 @@ impl From<String> for CharGrid {
     }
 }
 impl CharGrid {
+    pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
+        let mut content = Vec::new();
+        for line_str in raw_content.split('\n') {
+            let mut line = Vec::new();
+            for character in line_str.chars() {
+                line.push(CharCell { character, fg, bg });
+            }
+            content.push(line);
+        }
+
+        Self { content }
+    }
+
     pub fn get_text_as_string(&self) -> String {
         self.content
             .iter()
