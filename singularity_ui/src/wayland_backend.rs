@@ -414,6 +414,8 @@ mod drawing_impls {
     }
 }
 mod ui_display_wayland_impls {
+    use crate::display_units::DisplayArea;
+
     use super::{
         ui_event::{Key, KeyModifiers},
         UIDisplay,
@@ -725,10 +727,13 @@ mod ui_display_wayland_impls {
                     PointerEventKind::Motion { .. } => {}
                     PointerEventKind::Press { .. } => {
                         self.ui_event_queue.lock().unwrap().push(
-                            super::ui_event::UIEvent::MousePress([
-                                event.position.0 as u32,
-                                event.position.1 as u32,
-                            ]),
+                            super::ui_event::UIEvent::MousePress(
+                                [
+                                    [event.position.0 as u32, event.position.1 as u32],
+                                    [self.width, self.height],
+                                ],
+                                DisplayArea::FULL,
+                            ),
                         );
 
                         // println!("Press {:x} @ {:?}", button, event.position);
@@ -776,6 +781,8 @@ mod ui_display_wayland_impls {
 pub mod ui_event {
     use smithay_client_toolkit::seat::keyboard;
 
+    use crate::display_units::DisplayArea;
+
     /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
     /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
     ///
@@ -784,7 +791,13 @@ pub mod ui_event {
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
         WindowResized([u32; 2]),
-        MousePress([u32; 2]),
+        /// ([mouse location [x, y], window size [w h]], container)
+        ///
+        /// REVIEW: definitely redundant, but might be helpful?
+        ///
+        /// NOTE: container should always be FULL for the outermost, but is helpful when trying to forward it to children:
+        /// the forwarded area should be: `child_area.map_onto(parent_area)`
+        MousePress([[u32; 2]; 2], DisplayArea),
     }
     #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
     pub struct KeyModifiers {

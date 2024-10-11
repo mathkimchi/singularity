@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    time::{Duration, Instant},
+    vec,
+};
 
 /// Kind of like range
 ///
@@ -10,6 +13,8 @@ pub struct Timer {
     running: bool,
     elapsed: Duration,
     most_recent: Instant,
+
+    button: super::button::Button,
 }
 impl Timer {
     pub fn new(total: Duration, running: bool) -> Self {
@@ -18,6 +23,16 @@ impl Timer {
             running,
             elapsed: Duration::ZERO,
             most_recent: Instant::now(),
+            button: super::button::Button::new(
+                singularity_ui::ui_element::UIElement::CharGrid(
+                    "Toggle Running".to_string().into(),
+                )
+                .bordered(singularity_ui::color::Color::LIGHT_GREEN),
+                singularity_ui::display_units::DisplayArea::from_center_half_size(
+                    singularity_ui::display_units::DisplayCoord::new(0.5.into(), 0.75.into()),
+                    singularity_ui::display_units::DisplaySize::new(0.4.into(), 0.1.into()),
+                ),
+            ),
         }
     }
 
@@ -48,22 +63,6 @@ impl Timer {
         self.elapsed >= self.total
     }
 
-    pub fn render(&self) -> singularity_ui::ui_element::CharGrid {
-        let fg = if self.is_done() {
-            singularity_ui::color::Color::LIGHT_GREEN
-        } else if self.running {
-            singularity_ui::color::Color::WHITE
-        } else {
-            singularity_ui::color::Color::ORANGE
-        };
-
-        singularity_ui::ui_element::CharGrid::new_monostyled(
-            format!("{:.2?}", self.elapsed),
-            fg,
-            singularity_ui::color::Color::BLACK,
-        )
-    }
-
     pub fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
@@ -72,6 +71,17 @@ impl Timer {
                 UIEvent::KeyPress(key, KeyModifiers::NONE) if key.to_char() == Some(' ') => {
                     // toggle running
                     self.running ^= true;
+                }
+                UIEvent::MousePress([mouse, window_px], container) => {
+                    self.button.handle_event(Event::UIEvent(UIEvent::MousePress(
+                        [mouse, window_px],
+                        container,
+                    )));
+
+                    if self.button.was_clicked() {
+                        // toggle running
+                        self.running ^= true;
+                    }
                 }
                 _ => {}
             },
@@ -82,6 +92,7 @@ impl Timer {
 }
 
 /// NOTE: this is here just for the sake of debugging the timer
+/// TODO: remove
 impl crate::tab::BasicTab<(Duration, bool)> for Timer {
     fn initialize(
         init_args: &mut (Duration, bool),
@@ -100,11 +111,26 @@ impl crate::tab::BasicTab<(Duration, bool)> for Timer {
     ) -> Option<singularity_ui::ui_element::UIElement> {
         self.tick();
 
-        Some(
-            singularity_ui::ui_element::UIElement::CharGrid(Timer::render(self))
+        let fg = if self.is_done() {
+            singularity_ui::color::Color::LIGHT_GREEN
+        } else if self.running {
+            singularity_ui::color::Color::WHITE
+        } else {
+            singularity_ui::color::Color::ORANGE
+        };
+
+        let elapsed = singularity_ui::ui_element::CharGrid::new_monostyled(
+            format!("{:.2?}", self.elapsed),
+            fg,
+            singularity_ui::color::Color::BLACK,
+        );
+
+        Some(singularity_ui::ui_element::UIElement::Container(vec![
+            singularity_ui::ui_element::UIElement::CharGrid(elapsed)
                 .fill_bg(singularity_ui::color::Color::BLACK)
                 .bordered(singularity_ui::color::Color::LIGHT_GREEN),
-        )
+            self.button.render(),
+        ]))
     }
 
     fn handle_event(

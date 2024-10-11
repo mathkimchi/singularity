@@ -36,7 +36,7 @@ pub struct ProjectManager {
     /// gui
     ui_element: Arc<Mutex<UIElement>>,
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
-    ui_window_px: [u32; 2],
+    // ui_window_px: [u32; 2],
 }
 impl ProjectManager {
     pub fn new<P>(project_directory: P) -> Self
@@ -68,7 +68,6 @@ impl ProjectManager {
             is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
-            ui_window_px: [0, 0],
         }
     }
 
@@ -247,19 +246,41 @@ impl ProjectManager {
                     focused_tab
                         .send_event(singularity_common::tab::packets::Event::UIEvent(ui_event));
                 }
-                UIEvent::WindowResized(ui_window_px) => {
-                    self.ui_window_px = ui_window_px;
+                UIEvent::WindowResized(_ui_window_px) => {
+                    // self.ui_window_px = ui_window_px;
                 }
-                UIEvent::MousePress([click_x, click_y]) => {
-                    // currently all mousepresses should simply update focused tab, don't do anything else
+                UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
+                    assert_eq!(container, DisplayArea::FULL);
 
+                    // if pressed on focused tab, then forward the click
+                    {
+                        let focused_tab = self
+                            .tabs
+                            .get_tab_handler(self.tabs.get_focused_tab_id())
+                            .unwrap();
+                        if focused_tab.get_area().contains(
+                            DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+                            [tot_width as i32, tot_height as i32],
+                        ) {
+                            focused_tab.send_event(
+                                singularity_common::tab::packets::Event::UIEvent(
+                                    singularity_ui::ui_event::UIEvent::MousePress(
+                                        [[click_x, click_y], [tot_width, tot_height]],
+                                        focused_tab.get_area().map_onto(container),
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+
+                    // if pressed on unfocused tab, make that focused
                     for tab_id in self.tabs.get_display_order().iter().rev() {
                         let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
                         let tab_area = tab.get_area();
 
                         if tab_area.contains(
                             DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
-                            [self.ui_window_px[0] as i32, self.ui_window_px[1] as i32],
+                            [tot_width as i32, tot_height as i32],
                         ) {
                             self.tabs.set_focused_tab_id(*tab_id);
                             break;

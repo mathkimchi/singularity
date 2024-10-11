@@ -179,6 +179,7 @@ impl DisplayArea {
         )
     }
 
+    /// Use: `child_area.map_onto(parent_area)`
     pub fn map_onto(&self, container_area: Self) -> Self {
         Self(
             self.0.map_onto(container_area),
