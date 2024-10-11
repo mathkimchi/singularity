@@ -988,3 +988,22 @@ I will first implement a full deletion first, but I think it will be best to imp
 
 I am implementing a tree based of id's, but something I might want to change later is the fact that the id tree is heavily coupled with `Tabs`.
 It is like the rooted tree, but it just uses IDs as indices.
+
+Deletion is actually quite hard, on second thought, I will not do hierarchy operations right now.
+(Ex: removing a non-last sibling requires all later siblings and their children to redo their paths, I might end up needing a different system of storage entirely. The fact that children are ordered is a big obstacle)
+
+## Organization
+
+2024/10/10
+
+I was thinking about my vision for singularity, and I think this is the order of "categories" that makes the most sense to me (think of this like the Kingdom-P-C-O-Family-Genus-Species):
+
+1. User
+   1. The file storing the user data could be a special case of the project storing file, maybe with a special `userfile=true`
+   2. But, there could be shared projects later on
+2. Project
+3. Custom User-set hierarchy between tabs
+
+This is similar to how in nix, there is a configuration.nix which is for the user (or the machine), but when a user enters a nix-shell or dev flake, the packages/features available are a union of the packages from configuration.nix and shell.nix.
+Actually, now that I think about it, most apps are like this.
+As another example, VSCode has User Settings and Project Settings.

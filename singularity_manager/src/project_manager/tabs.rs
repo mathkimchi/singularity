@@ -176,14 +176,23 @@ impl Tabs {
     }
 
     // /// closes the tab and all its children
-    // fn close_tab_recursively(&mut self, path: &TreeNodePath) {
-    //     for child_path in self.organizational_hierarchy {}
+    // ///
+    // /// TODO: do this with loop instead?
+    // fn close_tab_recursively(&mut self, id: &Uuid) {
+    //     for child_id in self.tabs.get(id).unwrap().org_children.clone() {
+    //         self.close_tab_recursively(&child_id);
+    //     }
+
+    //     if let Some(parent_id) = &self.tabs.get(id).unwrap().org_parent {
+    //         self.tabs.get(parent_id).unwrap().org_children.retain(|c| );
+    //     } else {
+    //         println!("WARNING: TRIED TO CLOSE ROOT");
+    //     }
     // }
 
     // /// closes the focused tab and all its children
     // pub fn close_focused_tab_recursively(&mut self) {
-    //     let focused_tab_path = self.get_tab_path(&self.focused_tab).unwrap().clone();
-    //     self.close_tab_recursively(&focused_tab_path);
+    //     self.close_tab_recursively(&self.get_focused_tab_id());
     // }
 }
 impl TraversableTree for Tabs {
