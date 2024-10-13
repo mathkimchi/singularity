@@ -78,7 +78,7 @@ impl ProjectManager {
 
         manager.tabs.add(
             TabHandler::new(
-                singularity_common::components::timer::Timer::new_tab_creator((
+                singularity_common::components::timer_widget::TimerWidget::new_tab_creator((
                     std::time::Duration::from_secs(10),
                     false,
                 )),

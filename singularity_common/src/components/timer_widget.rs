@@ -1,27 +1,24 @@
+use crate::utils::timer::Timer;
 use std::{
     time::{Duration, Instant},
     vec,
 };
 
-/// Kind of like range
-///
 /// REVIEW: keep track of (log) all the stop and start times?
-pub struct Timer {
-    total: Duration,
+pub struct TimerWidget {
+    timer: Timer,
 
     /// running or paused
     running: bool,
-    elapsed: Duration,
     most_recent: Instant,
 
     button: super::button::Button,
 }
-impl Timer {
+impl TimerWidget {
     pub fn new(total: Duration, running: bool) -> Self {
-        Timer {
-            total,
+        TimerWidget {
+            timer: Timer::new_clean(total),
             running,
-            elapsed: Duration::ZERO,
             most_recent: Instant::now(),
             button: super::button::Button::new(
                 singularity_ui::ui_element::UIElement::CharGrid(
@@ -48,19 +45,15 @@ impl Timer {
         let new_recent = Instant::now();
 
         if self.running {
-            self.elapsed += new_recent.duration_since(self.most_recent);
+            self.timer
+                .increment(new_recent.duration_since(self.most_recent));
         }
 
         self.most_recent = new_recent;
-
-        // clamp
-        if self.is_done() {
-            self.elapsed = self.total;
-        }
     }
 
     pub fn is_done(&self) -> bool {
-        self.elapsed >= self.total
+        self.timer.is_done()
     }
 
     pub fn handle_event(&mut self, event: crate::tab::packets::Event) {
@@ -93,7 +86,7 @@ impl Timer {
 
 /// NOTE: this is here just for the sake of debugging the timer
 /// TODO: remove
-impl crate::tab::BasicTab<(Duration, bool)> for Timer {
+impl crate::tab::BasicTab<(Duration, bool)> for TimerWidget {
     fn initialize(
         init_args: &mut (Duration, bool),
         manager_handler: &crate::tab::ManagerHandler,
@@ -120,7 +113,7 @@ impl crate::tab::BasicTab<(Duration, bool)> for Timer {
         };
 
         let elapsed = singularity_ui::ui_element::CharGrid::new_monostyled(
-            format!("{:.2?}", self.elapsed),
+            format!("{:.2?}", self.timer.elapsed),
             fg,
             singularity_ui::color::Color::BLACK,
         );
