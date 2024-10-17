@@ -5,7 +5,7 @@ use std::time::Duration;
 ///
 /// This just represents the bare minimum data for a timer, but doesn't deal with any of the practical functionality.
 /// To see an example of something that uses `Timer`, go to `TimerWidget`.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Timer {
     pub total: Duration,
     pub elapsed: Duration,

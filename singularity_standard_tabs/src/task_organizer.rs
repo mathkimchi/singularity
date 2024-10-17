@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::text_box::TextBox,
-    utils::tree::{
-        recursive_tree::RecursiveTreeNode,
-        tree_node_path::{TraversableTree, TreeNodePath},
+    components::{text_box::TextBox, timer_widget::TimerWidget},
+    utils::{
+        timer::Timer,
+        tree::{
+            recursive_tree::RecursiveTreeNode,
+            tree_node_path::{TraversableTree, TreeNodePath},
+        },
     },
 };
 use singularity_ui::{
@@ -11,7 +14,7 @@ use singularity_ui::{
     display_units::{DisplayArea, DisplayCoord, DisplayUnits},
     ui_element::{CharGrid, UIElement},
 };
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 #[derive(Serialize, Deserialize)]
 pub struct IndividualTask {
@@ -19,6 +22,7 @@ pub struct IndividualTask {
     body: String,
 
     is_complete: bool,
+    timer: Option<Timer>,
 }
 impl Default for IndividualTask {
     fn default() -> Self {
@@ -26,6 +30,8 @@ impl Default for IndividualTask {
             title: "Placeholder Title".to_string(),
             body: "Placeholder body.".to_string(),
             is_complete: false,
+            // timer: None,
+            timer: Some(Timer::new_clean(Duration::from_secs(30))),
         }
     }
 }
@@ -35,6 +41,7 @@ struct IndividualTaskWidget {
 
     title: String,
     body_editor: TextBox,
+    timer_widget: Option<TimerWidget>,
 }
 impl IndividualTaskWidget {
     fn new(task: &IndividualTask, task_path: TreeNodePath) -> Self {
@@ -42,6 +49,10 @@ impl IndividualTaskWidget {
             task_path,
             title: task.title.clone(),
             body_editor: TextBox::from(task.body.clone()),
+            timer_widget: task
+                .timer
+                .as_ref()
+                .map(|timer| TimerWidget::new(*timer, false)),
         }
     }
 
@@ -63,9 +74,16 @@ impl IndividualTaskWidget {
                 .bordered(Color::LIGHT_GREEN)
                 .contain(DisplayArea(
                     DisplayCoord::new(DisplayUnits::ZERO, 0.05.into()),
-                    DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
+                    DisplayCoord::new(DisplayUnits::FULL, 0.5.into()),
                 )),
         );
+
+        if let Some(timer_widget) = &mut self.timer_widget {
+            elements.push(timer_widget.render().contain(DisplayArea(
+                DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
+                DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
+            )));
+        }
 
         UIElement::Container(elements)
             .fill_bg(Color::DARK_GRAY)
@@ -74,19 +92,34 @@ impl IndividualTaskWidget {
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
         use singularity_common::tab::packets::Event;
-        use singularity_ui::ui_event::UIEvent;
-        let (key, modifiers) =
-            if let Event::UIEvent(UIEvent::KeyPress(key, modifiers)) = event.clone() {
-                (key, modifiers)
-            } else {
-                // right now, no use for any other event type
-                return;
-            };
+        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        match event {
+            Event::UIEvent(ref ui_event) => match ui_event {
+                UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
+                    if let Some(timer_widget) = &mut self.timer_widget {
+                        let timer_area = DisplayArea(
+                            DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
+                            DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
+                        );
 
-        match (key, modifiers) {
-            _ => {
-                self.body_editor.handle_event(event);
-            }
+                        if timer_area.map_onto(*container).contains(
+                            DisplayCoord::new((*click_x as i32).into(), (*click_y as i32).into()),
+                            [*tot_width as i32, *tot_height as i32],
+                        ) {
+                            timer_widget.handle_event(Event::UIEvent(UIEvent::MousePress(
+                                [[*click_x, *click_y], [*tot_width, *tot_height]],
+                                timer_area.map_onto(*container),
+                            )));
+                        }
+                    }
+                }
+                _ => {
+                    // forward to body
+                    self.body_editor.handle_event(event);
+                }
+            },
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
         }
     }
 
@@ -254,66 +287,65 @@ where
     ) {
         use singularity_common::tab::packets::Event;
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
-        let (key, modifiers) =
-            if let Event::UIEvent(UIEvent::KeyPress(key, modifiers)) = event.clone() {
-                (key, modifiers)
-            } else {
-                // right now, no use for any other event type
-                return;
-            };
 
         match self.mode {
-            Mode::Viewing => match (key.to_char(), modifiers) {
-                (Some('+'), KeyModifiers::SHIFT) => {
-                    // add a placeholder root task & focus on it
+            Mode::Viewing => match event {
+                Event::UIEvent(ui_event) => match ui_event {
+                    UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.to_char() == Some('+') => {
+                        // add a placeholder root task & focus on it
 
-                    self.tasks
-                        .push_child_node(RecursiveTreeNode::from_value(IndividualTask::default()));
+                        self.tasks.push_child_node(RecursiveTreeNode::from_value(
+                            IndividualTask::default(),
+                        ));
 
-                    self.set_focused_task(TreeNodePath::new_root());
-                }
-                (Some('s'), KeyModifiers::CTRL) => {
-                    // save body
-                    if let Some(focused_task) = &self.focused_task_widget {
-                        focused_task.save_into(&mut self.tasks);
-                    }
-
-                    // save to file
-                    std::fs::write(
-                        &self.task_file_path,
-                        serde_json::to_string_pretty(&self.tasks).unwrap(),
-                    )
-                    .unwrap();
-                }
-                (Some('\n'), KeyModifiers::NONE) => {
-                    // NOTE: Enter+CONTROL doesn't work as an event for some reason
-                    // enter edit mode
-
-                    if self.focused_task_widget.is_none() {
-                        // edit mode requires Some focused task so set one if n/a
-
-                        // user tried to traverse for the first time, select first task
                         self.set_focused_task(TreeNodePath::new_root());
                     }
+                    UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
+                        // save body
+                        if let Some(focused_task) = &self.focused_task_widget {
+                            focused_task.save_into(&mut self.tasks);
+                        }
 
-                    self.mode = Mode::Editing;
-                }
-                (Some(traverse_key), KeyModifiers::NONE)
-                    if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-                {
-                    if let Some(IndividualTaskWidget { task_path, .. }) = &self.focused_task_widget
+                        // save to file
+                        std::fs::write(
+                            &self.task_file_path,
+                            serde_json::to_string_pretty(&self.tasks).unwrap(),
+                        )
+                        .unwrap();
+                    }
+                    UIEvent::KeyPress(key, KeyModifiers::NONE) if key.to_char() == Some('\n') => {
+                        // NOTE: Enter+CONTROL doesn't work as an event for some reason
+                        // enter edit mode
+
+                        if self.focused_task_widget.is_none() {
+                            // edit mode requires Some focused task so set one if n/a
+
+                            // user tried to traverse for the first time, select first task
+                            self.set_focused_task(TreeNodePath::new_root());
+                        }
+
+                        self.mode = Mode::Editing;
+                    }
+                    UIEvent::KeyPress(traverse_key, KeyModifiers::NONE)
+                        if matches!(traverse_key.to_char(), Some('w' | 'a' | 's' | 'd')) =>
                     {
-                        self.set_focused_task(
-                            task_path.clamped_traverse_based_on_wasd(&self.tasks, traverse_key),
-                        );
-                    } else {
-                        self.set_focused_task(TreeNodePath::new_root());
+                        if let Some(IndividualTaskWidget { task_path, .. }) =
+                            &self.focused_task_widget
+                        {
+                            self.set_focused_task(task_path.clamped_traverse_based_on_wasd(
+                                &self.tasks,
+                                traverse_key.to_char().unwrap(),
+                            ));
+                        } else {
+                            self.set_focused_task(TreeNodePath::new_root());
+                        }
                     }
-                }
+                    _ => {}
+                },
                 _ => {}
             },
-            Mode::Editing => match (key, modifiers) {
-                (key, KeyModifiers::NONE) if key.raw_code == 1 => {
+            Mode::Editing => match &event {
+                Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE)) if key.raw_code == 1 => {
                     // ESCAPE KEY, switch to viewing mode
 
                     // save before switching mode
@@ -323,6 +355,27 @@ where
                         .save_into(&mut self.tasks);
 
                     self.mode = Mode::Viewing;
+                }
+                Event::UIEvent(UIEvent::MousePress(
+                    [[click_x, click_y], [tot_width, tot_height]],
+                    container,
+                )) => {
+                    if let Some(focused_task_widget) = &mut self.focused_task_widget {
+                        let focused_task_area = DisplayArea(
+                            DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
+                            DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
+                        );
+
+                        if focused_task_area.map_onto(*container).contains(
+                            DisplayCoord::new((*click_x as i32).into(), (*click_y as i32).into()),
+                            [*tot_width as i32, *tot_height as i32],
+                        ) {
+                            focused_task_widget.handle_event(Event::UIEvent(UIEvent::MousePress(
+                                [[*click_x, *click_y], [*tot_width, *tot_height]],
+                                focused_task_area.map_onto(*container),
+                            )));
+                        }
+                    }
                 }
                 _ => {
                     if let Some(task_widget) = &mut self.focused_task_widget {

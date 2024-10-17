@@ -74,21 +74,21 @@ impl ProjectManager {
     pub fn run_demo() -> io::Result<()> {
         // create demo manager
 
-        let mut manager = Self::new("examples/root-project");
+        let manager = Self::new("examples/root-project");
 
-        manager.tabs.add(
-            TabHandler::new(
-                singularity_common::components::timer_widget::TimerWidget::new_tab_creator((
-                    std::time::Duration::from_secs(10),
-                    false,
-                )),
-                Self::generate_tab_area(1, 1),
-            ),
-            &manager
-                .tabs
-                .get_id_by_org_path(&TreeNodePath::new_root())
-                .unwrap(),
-        );
+        // manager.tabs.add(
+        //     TabHandler::new(
+        //         singularity_common::components::timer_widget::TimerWidget::new_tab_creator((
+        //             std::time::Duration::from_secs(10),
+        //             false,
+        //         )),
+        //         Self::generate_tab_area(1, 1),
+        //     ),
+        //     &manager
+        //         .tabs
+        //         .get_id_by_org_path(&TreeNodePath::new_root())
+        //         .unwrap(),
+        // );
 
         manager.run().unwrap();
 
@@ -258,7 +258,7 @@ impl ProjectManager {
                             .tabs
                             .get_tab_handler(self.tabs.get_focused_tab_id())
                             .unwrap();
-                        if focused_tab.get_area().contains(
+                        if focused_tab.get_area().map_onto(container).contains(
                             DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                             [tot_width as i32, tot_height as i32],
                         ) {
@@ -278,7 +278,7 @@ impl ProjectManager {
                         let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
                         let tab_area = tab.get_area();
 
-                        if tab_area.contains(
+                        if tab_area.map_onto(container).contains(
                             DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                             [tot_width as i32, tot_height as i32],
                         ) {

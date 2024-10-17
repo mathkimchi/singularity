@@ -2,14 +2,16 @@
   "value": {
     "title": "Root",
     "body": "Root body.",
-    "is_complete": false
+    "is_complete": false,
+    "timer": null
   },
   "children": [
     {
       "value": {
         "title": "Ex Child",
         "body": "Json manually written.",
-        "is_complete": false
+        "is_complete": false,
+        "timer": null
       },
       "children": []
     },
@@ -17,7 +19,17 @@
       "value": {
         "title": "Placeholder Title",
         "body": "Placeholder body.",
-        "is_complete": false
+        "is_complete": false,
+        "timer": {
+          "total": {
+            "secs": 30,
+            "nanos": 0
+          },
+          "elapsed": {
+            "secs": 0,
+            "nanos": 0
+          }
+        }
       },
       "children": []
     }
