@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::{text_box::TextBox, timer_widget::TimerWidget},
+    components::{text_box::TextBox, timer_widget::TimerWidget, Component},
     utils::{
         timer::Timer,
         tree::{

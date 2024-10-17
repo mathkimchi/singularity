@@ -1012,3 +1012,21 @@ As another example, VSCode has User Settings and Project Settings.
 
 In order to code faster, I am going to ignore the permission stuff for tabs, which seems like bad foreshadowing.
 Additionally, I will ignore things like abstraction, since the main priority is just the task organizer.
+
+2024/10/16
+
+I want to be able to standardize children elements (eg: components or widgets) for things like "forwarding" events (especially mouse-clicks) and possibly focus.
+Planned steps:
+
+1. Make a trait for elements
+   1. `Tab` kind of works for this, but something else might be better
+2. Create forwarding method
+   1. Only difference right now between `forward_event` and `handle_event` should be that `forward_event` somehow should take care of mapping mouse
+
+2024/10/17
+
+Ugh, I don't know how I want to do this...
+
+I might somehow make use of Mutexes of UIElements.
+
+The Mutex

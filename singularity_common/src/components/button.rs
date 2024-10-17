@@ -1,5 +1,7 @@
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 
+use super::Component;
+
 pub struct Button {
     inner_element: UIElement,
 
@@ -24,12 +26,13 @@ impl Button {
 
         clicked
     }
-
-    pub fn render(&self) -> UIElement {
+}
+impl Component for Button {
+    fn render(&mut self) -> UIElement {
         self.inner_element.clone().contain(self.area)
     }
 
-    pub fn handle_event(&mut self, event: crate::tab::packets::Event) {
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
         use singularity_ui::ui_event::UIEvent;
         match event {
