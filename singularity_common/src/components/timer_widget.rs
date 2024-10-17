@@ -109,6 +109,10 @@ impl TimerWidget {
             self.button.render(),
         ])
     }
+
+    pub fn get_timer(&self) -> &Timer {
+        &self.timer
+    }
 }
 
 /// NOTE: this is here just for the sake of debugging the timer

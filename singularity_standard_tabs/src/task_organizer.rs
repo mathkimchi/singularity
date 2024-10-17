@@ -92,7 +92,7 @@ impl IndividualTaskWidget {
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
         use singularity_common::tab::packets::Event;
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        use singularity_ui::ui_event::UIEvent;
         match event {
             Event::UIEvent(ref ui_event) => match ui_event {
                 UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
@@ -125,6 +125,10 @@ impl IndividualTaskWidget {
 
     fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
         tasks[&self.task_path].body = self.body_editor.get_text_as_string();
+
+        if let Some(timer_widget) = &self.timer_widget {
+            tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
+        }
     }
 }
 
@@ -342,9 +346,25 @@ where
                     }
                     _ => {}
                 },
-                _ => {}
+                Event::Resize(_) => {}
+                Event::Close => panic!("Event::Close should not have been forwarded"),
             },
             Mode::Editing => match &event {
+                Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::CTRL))
+                    if key.to_char() == Some('s') =>
+                {
+                    // save body
+                    if let Some(focused_task) = &self.focused_task_widget {
+                        focused_task.save_into(&mut self.tasks);
+                    }
+
+                    // save to file
+                    std::fs::write(
+                        &self.task_file_path,
+                        serde_json::to_string_pretty(&self.tasks).unwrap(),
+                    )
+                    .unwrap();
+                }
                 Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE)) if key.raw_code == 1 => {
                     // ESCAPE KEY, switch to viewing mode
 
@@ -377,6 +397,8 @@ where
                         }
                     }
                 }
+                Event::Resize(_) => {}
+                Event::Close => panic!("Event::Close should not have been forwarded"),
                 _ => {
                     if let Some(task_widget) = &mut self.focused_task_widget {
                         task_widget.handle_event(event);
