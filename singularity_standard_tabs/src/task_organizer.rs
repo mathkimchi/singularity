@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::{text_box::TextBox, timer_widget::TimerWidget, Component},
+    components::{text_box::TextBox, timer_widget::TimerWidget, Component, EnclosedComponent},
     utils::{
         timer::Timer,
         tree::{
@@ -41,7 +41,7 @@ struct IndividualTaskWidget {
 
     title: String,
     body_editor: TextBox,
-    timer_widget: Option<TimerWidget>,
+    timer_widget: Option<EnclosedComponent<TimerWidget>>,
 }
 impl IndividualTaskWidget {
     fn new(task: &IndividualTask, task_path: TreeNodePath) -> Self {
@@ -49,13 +49,27 @@ impl IndividualTaskWidget {
             task_path,
             title: task.title.clone(),
             body_editor: TextBox::from(task.body.clone()),
-            timer_widget: task
-                .timer
-                .as_ref()
-                .map(|timer| TimerWidget::new(*timer, false)),
+            timer_widget: task.timer.as_ref().map(|timer| {
+                EnclosedComponent::new(
+                    TimerWidget::new(*timer, false),
+                    DisplayArea(
+                        DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
+                        DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
+                    ),
+                )
+            }),
         }
     }
 
+    fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
+        tasks[&self.task_path].body = self.body_editor.get_text_as_string();
+
+        if let Some(timer_widget) = &self.timer_widget {
+            tasks[&self.task_path].timer = Some(*timer_widget.inner_component.get_timer());
+        }
+    }
+}
+impl Component for IndividualTaskWidget {
     /// TODO: add `focused` argument
     fn render(&mut self) -> UIElement {
         let mut elements = Vec::new();
@@ -79,10 +93,7 @@ impl IndividualTaskWidget {
         );
 
         if let Some(timer_widget) = &mut self.timer_widget {
-            elements.push(timer_widget.render().contain(DisplayArea(
-                DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
-                DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
-            )));
+            elements.push(timer_widget.render());
         }
 
         UIElement::Container(elements)
@@ -95,22 +106,10 @@ impl IndividualTaskWidget {
         use singularity_ui::ui_event::UIEvent;
         match event {
             Event::UIEvent(ref ui_event) => match ui_event {
-                UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
+                UIEvent::MousePress(..) => {
                     if let Some(timer_widget) = &mut self.timer_widget {
-                        let timer_area = DisplayArea(
-                            DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
-                            DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
-                        );
-
-                        if timer_area.map_onto(*container).contains(
-                            DisplayCoord::new((*click_x as i32).into(), (*click_y as i32).into()),
-                            [*tot_width as i32, *tot_height as i32],
-                        ) {
-                            timer_widget.handle_event(Event::UIEvent(UIEvent::MousePress(
-                                [[*click_x, *click_y], [*tot_width, *tot_height]],
-                                timer_area.map_onto(*container),
-                            )));
-                        }
+                        timer_widget.handle_event(event);
+                        dbg!("mouse pressed on individual task");
                     }
                 }
                 _ => {
@@ -120,14 +119,6 @@ impl IndividualTaskWidget {
             },
             Event::Resize(_) => {}
             Event::Close => panic!("Event::Close should not have been forwarded"),
-        }
-    }
-
-    fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
-        tasks[&self.task_path].body = self.body_editor.get_text_as_string();
-
-        if let Some(timer_widget) = &self.timer_widget {
-            tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
         }
     }
 }
@@ -155,7 +146,7 @@ pub struct TaskOrganizer {
     /// REVIEW: what I said above ^
     tasks: RecursiveTreeNode<IndividualTask>,
 
-    focused_task_widget: Option<IndividualTaskWidget>,
+    focused_task_widget: Option<EnclosedComponent<IndividualTaskWidget>>,
     /// If editing mode, there should be Some focused task
     mode: Mode,
 }
@@ -199,9 +190,12 @@ impl TaskOrganizer {
     }
 
     fn set_focused_task(&mut self, task_path: TreeNodePath) {
-        self.focused_task_widget = Some(IndividualTaskWidget::new(
-            &self.tasks[&task_path],
-            task_path.clone(),
+        self.focused_task_widget = Some(EnclosedComponent::new(
+            IndividualTaskWidget::new(&self.tasks[&task_path], task_path.clone()),
+            DisplayArea(
+                DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
+                DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
+            ),
         ));
     }
 }
@@ -228,8 +222,10 @@ where
             let mut task_list_vec = Vec::new();
             for path in self.tasks.iter_paths_dfs() {
                 // TODO: style complete vs todo
-                let bg_color = if let Some(IndividualTaskWidget { task_path, .. }) =
-                    &self.focused_task_widget
+                let bg_color = if let Some(EnclosedComponent {
+                    inner_component: IndividualTaskWidget { task_path, .. },
+                    ..
+                }) = &self.focused_task_widget
                 {
                     if task_path == &path {
                         Color::CYAN
@@ -266,15 +262,7 @@ where
         // draw focused task
         if let Some(focused_task_widget) = &mut self.focused_task_widget {
             // task body text
-            elements.push(
-                focused_task_widget
-                    .render()
-                    .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea(
-                        DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
-                        DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                    )),
-            );
+            elements.push(focused_task_widget.render().bordered(Color::LIGHT_GREEN));
         }
 
         Some(
@@ -307,7 +295,7 @@ where
                     UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
                         // save body
                         if let Some(focused_task) = &self.focused_task_widget {
-                            focused_task.save_into(&mut self.tasks);
+                            focused_task.inner_component.save_into(&mut self.tasks);
                         }
 
                         // save to file
@@ -333,8 +321,10 @@ where
                     UIEvent::KeyPress(traverse_key, KeyModifiers::NONE)
                         if matches!(traverse_key.to_char(), Some('w' | 'a' | 's' | 'd')) =>
                     {
-                        if let Some(IndividualTaskWidget { task_path, .. }) =
-                            &self.focused_task_widget
+                        if let Some(EnclosedComponent {
+                            inner_component: IndividualTaskWidget { task_path, .. },
+                            ..
+                        }) = &self.focused_task_widget
                         {
                             self.set_focused_task(task_path.clamped_traverse_based_on_wasd(
                                 &self.tasks,
@@ -355,7 +345,7 @@ where
                 {
                     // save body
                     if let Some(focused_task) = &self.focused_task_widget {
-                        focused_task.save_into(&mut self.tasks);
+                        focused_task.inner_component.save_into(&mut self.tasks);
                     }
 
                     // save to file
@@ -372,30 +362,10 @@ where
                     self.focused_task_widget
                         .as_ref()
                         .unwrap()
+                        .inner_component
                         .save_into(&mut self.tasks);
 
                     self.mode = Mode::Viewing;
-                }
-                Event::UIEvent(UIEvent::MousePress(
-                    [[click_x, click_y], [tot_width, tot_height]],
-                    container,
-                )) => {
-                    if let Some(focused_task_widget) = &mut self.focused_task_widget {
-                        let focused_task_area = DisplayArea(
-                            DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
-                            DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                        );
-
-                        if focused_task_area.map_onto(*container).contains(
-                            DisplayCoord::new((*click_x as i32).into(), (*click_y as i32).into()),
-                            [*tot_width as i32, *tot_height as i32],
-                        ) {
-                            focused_task_widget.handle_event(Event::UIEvent(UIEvent::MousePress(
-                                [[*click_x, *click_y], [*tot_width, *tot_height]],
-                                focused_task_area.map_onto(*container),
-                            )));
-                        }
-                    }
                 }
                 Event::Resize(_) => {}
                 Event::Close => panic!("Event::Close should not have been forwarded"),

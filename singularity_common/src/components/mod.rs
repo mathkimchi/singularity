@@ -11,7 +11,8 @@ pub trait Component {
     fn handle_event(&mut self, event: crate::tab::packets::Event);
 }
 
-/// TODO: naming
+/// REVIEW: naming
+/// REVIEW: is this a good idea? (feels kind of bulky to have everything like `EnclosedComponent<InnerComponent>`)
 pub struct EnclosedComponent<InnerComponent: Component> {
     pub area: singularity_ui::display_units::DisplayArea,
     pub inner_component: InnerComponent,
