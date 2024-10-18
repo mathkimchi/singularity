@@ -1026,7 +1026,17 @@ Planned steps:
 2024/10/17
 
 Ugh, I don't know how I want to do this...
-
 I might somehow make use of Mutexes of UIElements.
 
-The Mutex
+Actually, it was pretty easy, barely an inconvenience.
+I did it with a new trait called `Component`
+
+Things to implement/consider for the components stuff:
+- [ ] focus (should I even do this?)
+  - [ ] either make this an event (this is probably the way most other things do this), or give `focused` as a parameter for each render, or both
+  - [ ] implement setting focus
+  - [ ] implement different display for focused vs unfocused
+- [ ] vec of components as a component (like UIElement::Container)
+  - [ ] Somehow make this like map tuples and stuff, (like being able to write `Components<(A, B, C)>` and it works like a vec for Components, but it works like a tuple from the outside (you can call `component_bundle.0` and the compiler knows it is type `A`))
+  - [ ] get focus working with this
+- [ ] make the components with inner components less bulky to write

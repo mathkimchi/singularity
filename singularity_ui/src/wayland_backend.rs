@@ -216,6 +216,7 @@ mod drawing_impls {
                 UIElement::Contained(inner_element, area) => {
                     inner_element.draw(dt, area.map_onto(container_area), font);
                 }
+                // FIXME: there are weird border lines
                 UIElement::Bordered(inner_element, border_color) => {
                     // draw the border
                     let border_path = {

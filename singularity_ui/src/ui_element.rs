@@ -1,5 +1,6 @@
 use crate::{color::Color, display_units::DisplayArea};
 
+/// TODO: rename most everything here
 #[derive(Debug, Clone)]
 pub enum UIElement {
     Container(Vec<UIElement>),
