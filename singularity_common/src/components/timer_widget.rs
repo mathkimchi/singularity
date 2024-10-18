@@ -9,7 +9,7 @@ pub struct TimerWidget {
     running: bool,
     most_recent: Instant,
 
-    button: super::button::Button,
+    button: super::EnclosedComponent<super::button::Button>,
 }
 impl TimerWidget {
     pub fn new(timer: Timer, running: bool) -> Self {
@@ -17,11 +17,13 @@ impl TimerWidget {
             timer,
             running,
             most_recent: Instant::now(),
-            button: super::button::Button::new(
-                singularity_ui::ui_element::UIElement::CharGrid(
-                    "Toggle Running".to_string().into(),
-                )
-                .bordered(singularity_ui::color::Color::LIGHT_GREEN),
+            button: super::EnclosedComponent::new(
+                super::button::Button::new(
+                    singularity_ui::ui_element::UIElement::CharGrid(
+                        "Toggle Running".to_string().into(),
+                    )
+                    .bordered(singularity_ui::color::Color::LIGHT_GREEN),
+                ),
                 singularity_ui::display_units::DisplayArea::from_center_half_size(
                     singularity_ui::display_units::DisplayCoord::new(0.5.into(), 0.75.into()),
                     singularity_ui::display_units::DisplaySize::new(0.4.into(), 0.1.into()),
@@ -98,7 +100,7 @@ impl Component for TimerWidget {
                         container,
                     )));
 
-                    if self.button.was_clicked() {
+                    if self.button.inner_component.was_clicked() {
                         // toggle running
                         self.running ^= true;
                     }
