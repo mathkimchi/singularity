@@ -19,6 +19,8 @@ pub enum UIElement {
     ///
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
+
+    Nothing,
 }
 impl UIElement {
     pub fn contain(self, area: DisplayArea) -> Self {
@@ -29,6 +31,11 @@ impl UIElement {
     }
     pub fn fill_bg(self, bg: Color) -> Self {
         Self::Backgrounded(Box::new(self), bg)
+    }
+}
+impl From<Option<UIElement>> for UIElement {
+    fn from(value: Option<UIElement>) -> Self {
+        value.unwrap_or(UIElement::Nothing)
     }
 }
 

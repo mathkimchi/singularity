@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::{text_box::TextBox, timer_widget::TimerWidget, Component, EnclosedComponent},
+    components::{
+        text_box::TextBox, timer_widget::TimerWidget, Component, ComponentContainer,
+        EnclosedComponent,
+    },
     utils::{
         timer::Timer,
         tree::{
@@ -38,83 +41,99 @@ impl Default for IndividualTask {
 
 struct IndividualTaskWidget {
     task_path: TreeNodePath,
-
-    title: String,
-    body_editor: TextBox,
-    timer_widget: Option<EnclosedComponent<TimerWidget>>,
+    // title: String,
+    // body_editor: TextBox,
+    // timer_widget: Option<EnclosedComponent<TimerWidget>>,
+    /// (title, body, timer)
+    components: ComponentContainer<(
+        EnclosedComponent<TextBox>,
+        EnclosedComponent<TextBox>,
+        EnclosedComponent<Option<TimerWidget>>,
+    )>,
 }
 impl IndividualTaskWidget {
     fn new(task: &IndividualTask, task_path: TreeNodePath) -> Self {
         Self {
             task_path,
-            title: task.title.clone(),
-            body_editor: TextBox::from(task.body.clone()),
-            timer_widget: task.timer.as_ref().map(|timer| {
-                EnclosedComponent::new(
-                    TimerWidget::new(*timer, false),
-                    DisplayArea(
-                        DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
-                        DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
+            components: ComponentContainer {
+                children: (
+                    EnclosedComponent::new(
+                        TextBox::from(task.title.clone()),
+                        DisplayArea(
+                            DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+                            DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
+                        ),
                     ),
-                )
-            }),
+                    EnclosedComponent::new(
+                        TextBox::from(task.body.clone()),
+                        DisplayArea(
+                            DisplayCoord::new(DisplayUnits::ZERO, 0.05.into()),
+                            DisplayCoord::new(DisplayUnits::FULL, 0.5.into()),
+                        ),
+                    ),
+                    EnclosedComponent::new(
+                        task.timer
+                            .as_ref()
+                            .map(|timer| TimerWidget::new(*timer, false)),
+                        DisplayArea(
+                            DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
+                            DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
+                        ),
+                    ),
+                ),
+                focused_child: 1,
+            },
         }
     }
 
     fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
-        tasks[&self.task_path].body = self.body_editor.get_text_as_string();
+        tasks[&self.task_path].title = self
+            .components
+            .children
+            .0
+            .inner_component
+            .get_text_as_string();
+        tasks[&self.task_path].body = self
+            .components
+            .children
+            .1
+            .inner_component
+            .get_text_as_string();
 
-        if let Some(timer_widget) = &self.timer_widget {
-            tasks[&self.task_path].timer = Some(*timer_widget.inner_component.get_timer());
+        if let Some(timer_widget) = &self.components.children.2.inner_component {
+            tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
         }
     }
 }
 impl Component for IndividualTaskWidget {
     /// TODO: add `focused` argument
     fn render(&mut self) -> UIElement {
-        let mut elements = Vec::new();
-
-        // title
-        elements.push(
-            UIElement::CharGrid(CharGrid::from(self.title.clone())).contain(DisplayArea(
-                DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
-            )),
-        );
-
-        // task body text
-        elements.push(
-            UIElement::CharGrid(self.body_editor.render())
-                .bordered(Color::LIGHT_GREEN)
-                .contain(DisplayArea(
-                    DisplayCoord::new(DisplayUnits::ZERO, 0.05.into()),
-                    DisplayCoord::new(DisplayUnits::FULL, 0.5.into()),
-                )),
-        );
-
-        if let Some(timer_widget) = &mut self.timer_widget {
-            elements.push(timer_widget.render());
-        }
-
-        UIElement::Container(elements)
+        self.components
+            .render()
             .fill_bg(Color::DARK_GRAY)
             .bordered(Color::LIGHT_GREEN)
     }
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
         use singularity_common::tab::packets::Event;
-        use singularity_ui::ui_event::UIEvent;
+        use singularity_ui::ui_event::{KeyModifiers, UIEvent};
         match event {
             Event::UIEvent(ref ui_event) => match ui_event {
-                UIEvent::MousePress(..) => {
-                    if let Some(timer_widget) = &mut self.timer_widget {
-                        timer_widget.handle_event(event);
-                        dbg!("mouse pressed on individual task");
-                    }
+                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 15 => {
+                    // TAB pressed, shift focus
+                    self.components.focused_child += 1;
+                    self.components.focused_child %= 3;
                 }
+                UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.raw_code == 15 => {}
+                // UIEvent::MousePress(..) => {
+                //     if let Some(timer_widget) = &mut self.timer_widget {
+                //         timer_widget.handle_event(event);
+                //         dbg!("mouse pressed on individual task");
+                //     }
+                // }
                 _ => {
                     // forward to body
-                    self.body_editor.handle_event(event);
+                    self.components.handle_event(event);
                 }
             },
             Event::Resize(_) => {}

@@ -59,6 +59,17 @@ impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> 
     }
 }
 
+impl<T: Component> Component for Option<T> {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        self.as_mut().map(|inner| inner.render()).into()
+    }
+
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+        if let Some(inner) = self.as_mut() {
+            inner.handle_event(event)
+        }
+    }
+}
 impl<T: Component> Component for Box<T> {
     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
         T::render(self)
@@ -78,6 +89,7 @@ impl<T: Component> Component for std::sync::Arc<std::sync::Mutex<T>> {
     }
 }
 
+/// REVIEW: is this a bad idea? I might be tightly coupling all other logic with the ui logic
 pub struct ComponentContainer<T: Send> {
     /// REVIEW: storing mutex to containers might reduce bulk
     // pub children: Vec<std::sync::Arc<std::sync::Mutex<EnclosedComponent<Box<dyn Component>>>>>,
@@ -90,7 +102,7 @@ pub struct ComponentContainer<T: Send> {
 // TODO: this is reverse order
 macro_rules! component_container_tuple_impls {
     (($current:ident, $index:tt),) => {
-        impl<$current> Component for ComponentContainer<($current,)>
+        impl<$current> Component for ComponentContainer<(EnclosedComponent<$current>,)>
         where
             $current: Component + Send,
         {
@@ -104,7 +116,7 @@ macro_rules! component_container_tuple_impls {
         }
     };
     (($head:ident, $index:tt), $(($tail:ident, $tail_index:tt),)*) => {
-        impl<$head, $( $tail ),*> Component for ComponentContainer<($head, $( $tail ),*)>
+        impl<$head, $( $tail ),*> Component for ComponentContainer<(EnclosedComponent<$head>, $(EnclosedComponent<$tail>),*)>
         where
             $head: Component + Send,
             $($tail: Component + Send,)*
@@ -137,23 +149,3 @@ macro_rules! component_container_tuple_impls {
 
 // TODO: abstract this
 component_container_tuple_impls!((C, 2), (B, 1), (A, 0),);
-
-fn _test() {
-    let c: ComponentContainer<(i32,)>;
-
-    let t = (1, 2i16, 3u8, false);
-}
-// impl Component for ComponentContainer {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
-//         singularity_ui::ui_element::UIElement::Container(
-//             self.children
-//                 .iter_mut()
-//                 .map(|child| child.render())
-//                 .collect(),
-//         )
-//     }
-
-//     fn handle_event(&mut self, event: crate::tab::packets::Event) {
-//         self.children[self.focused_child].handle_event(event);
-//     }
-// }

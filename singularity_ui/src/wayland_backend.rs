@@ -346,6 +346,7 @@ mod drawing_impls {
                         }
                     }
                 }
+                UIElement::Nothing => {}
             }
         }
     }

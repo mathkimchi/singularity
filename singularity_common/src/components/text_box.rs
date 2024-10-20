@@ -1,5 +1,7 @@
 use singularity_ui::ui_element::CharGrid;
 
+use super::Component;
+
 /// just plaintext
 pub struct TextBox {
     text: CharGrid,
@@ -83,7 +85,7 @@ impl TextBox {
         self.cursor_logical_position.1 += 1;
     }
 
-    pub fn render(&self) -> CharGrid {
+    pub fn render_grid(&self) -> CharGrid {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
@@ -99,8 +101,23 @@ impl TextBox {
 
         text_clone
     }
+}
+impl Default for TextBox {
+    fn default() -> Self {
+        Self::new(String::new())
+    }
+}
+impl From<String> for TextBox {
+    fn from(value: String) -> Self {
+        Self::new(value.lines().map(|s| s.to_string()).collect())
+    }
+}
+impl Component for TextBox {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
+    }
 
-    pub fn handle_event(&mut self, event: crate::tab::packets::Event) {
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
@@ -151,15 +168,5 @@ impl TextBox {
         }
 
         self.clamp_everything();
-    }
-}
-impl Default for TextBox {
-    fn default() -> Self {
-        Self::new(String::new())
-    }
-}
-impl From<String> for TextBox {
-    fn from(value: String) -> Self {
-        Self::new(value.lines().map(|s| s.to_string()).collect())
     }
 }
