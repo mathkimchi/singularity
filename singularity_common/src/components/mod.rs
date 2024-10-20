@@ -5,7 +5,7 @@ pub mod text_box;
 pub mod timer_widget;
 // pub mod tree_viewer;
 
-pub trait Component {
+pub trait Component: Send {
     fn render(&mut self) -> singularity_ui::ui_element::UIElement;
 
     fn handle_event(&mut self, event: crate::tab::packets::Event);
@@ -13,7 +13,7 @@ pub trait Component {
 
 /// REVIEW: naming
 /// REVIEW: is this a good idea? (feels kind of bulky to have everything like `EnclosedComponent<InnerComponent>`)
-pub struct EnclosedComponent<InnerComponent: Component> {
+pub struct EnclosedComponent<InnerComponent: Component + ?Sized> {
     pub area: singularity_ui::display_units::DisplayArea,
     pub inner_component: InnerComponent,
 }
@@ -58,3 +58,102 @@ impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> 
         }
     }
 }
+
+impl<T: Component> Component for Box<T> {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        T::render(self)
+    }
+
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+        T::handle_event(self, event)
+    }
+}
+impl<T: Component> Component for std::sync::Arc<std::sync::Mutex<T>> {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        T::render(self.lock().as_mut().unwrap())
+    }
+
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+        T::handle_event(self.lock().as_mut().unwrap(), event)
+    }
+}
+
+pub struct ComponentContainer<T: Send> {
+    /// REVIEW: storing mutex to containers might reduce bulk
+    // pub children: Vec<std::sync::Arc<std::sync::Mutex<EnclosedComponent<Box<dyn Component>>>>>,
+    // pub children: Vec<EnclosedComponent<Box<dyn Component>>>,
+    // pub children: Vec<Box<dyn Component>>,
+    pub children: T,
+    /// the only current use of this is for event forwarding
+    pub focused_child: usize,
+}
+// TODO: this is reverse order
+macro_rules! component_container_tuple_impls {
+    (($current:ident, $index:tt),) => {
+        impl<$current> Component for ComponentContainer<($current,)>
+        where
+            $current: Component + Send,
+        {
+            fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+                self.children.$index.render()
+            }
+
+            fn handle_event(&mut self, event: crate::tab::packets::Event) {
+                self.children.$index.handle_event(event);
+            }
+        }
+    };
+    (($head:ident, $index:tt), $(($tail:ident, $tail_index:tt),)*) => {
+        impl<$head, $( $tail ),*> Component for ComponentContainer<($head, $( $tail ),*)>
+        where
+            $head: Component + Send,
+            $($tail: Component + Send,)*
+        {
+            fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+                singularity_ui::ui_element::UIElement::Container(
+                    vec![
+                        self.children.$index.render(),
+                        $(
+                            self.children.$tail_index.render(),
+                        )*
+                    ]
+                )
+            }
+
+            fn handle_event(&mut self, event: crate::tab::packets::Event) {
+                match self.focused_child {
+                    $index => self.children.$index.handle_event(event),
+                    $(
+                        $tail_index => self.children.$tail_index.handle_event(event),
+                    )*
+                    _ => panic!()
+                }
+            }
+        }
+
+        component_container_tuple_impls!($(($tail,$tail_index),)*);
+    };
+}
+
+// TODO: abstract this
+component_container_tuple_impls!((C, 2), (B, 1), (A, 0),);
+
+fn _test() {
+    let c: ComponentContainer<(i32,)>;
+
+    let t = (1, 2i16, 3u8, false);
+}
+// impl Component for ComponentContainer {
+//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//         singularity_ui::ui_element::UIElement::Container(
+//             self.children
+//                 .iter_mut()
+//                 .map(|child| child.render())
+//                 .collect(),
+//         )
+//     }
+
+//     fn handle_event(&mut self, event: crate::tab::packets::Event) {
+//         self.children[self.focused_child].handle_event(event);
+//     }
+// }

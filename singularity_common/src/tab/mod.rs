@@ -29,6 +29,7 @@ impl TabCreator for Box<dyn TabCreator> {
     }
 }
 
+/// REVIEW: the parallel between this and `Component` is undeniable, maybe look into some higher level of abstraction in this
 pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
     fn initialize(init_args: &mut InitArgs, manager_handler: &ManagerHandler) -> Self;
     fn render(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
