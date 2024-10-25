@@ -1044,3 +1044,11 @@ Things I could implement/consider for the components stuff:
   - [ ] get focus working with this
 - [ ] make the components with inner components less bulky to write
   - [ ] maybe mutexes might help?
+
+2024/10/24
+
+I don't like the way this is currently implemented, but since I am using macros anyways, I might look into having macros instead of using the complex types.
+
+I want to reattempt tab structure operations.
+My first change is going to have the tree path be not order based, but id based.
+This means I will need to reimplement all the tree traversal logic and very tightly couple the tree logic with the tab logic, but I am willing to make that sacrifice.

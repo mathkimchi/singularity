@@ -59,7 +59,7 @@ impl ProjectManager {
                         TaskOrganizer::new_tab_creator(project_directory),
                         Self::generate_tab_area(0, 1),
                     ),
-                    &tabs.get_id_by_org_path(&TreeNodePath::new_root()).unwrap(),
+                    &tabs.get_root_id(),
                 );
 
                 tabs
