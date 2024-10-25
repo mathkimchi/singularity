@@ -124,25 +124,25 @@ impl Tabs {
         self.org_tree.get_root_id()
     }
 
-    // /// closes the tab and all its children
-    // ///
-    // /// TODO: do this with loop instead?
-    // fn close_tab_recursively(&mut self, id: &Uuid) {
-    //     for child_id in self.tabs.get(id).unwrap().org_children.clone() {
-    //         self.close_tab_recursively(&child_id);
-    //     }
+    /// closes the tab and all its children
+    ///
+    /// TODO: do this with loop instead?
+    fn close_tab_recursively(&mut self, id: &Uuid) {
+        for child_id in self.org_tree.get_children(*id).clone() {
+            self.close_tab_recursively(&child_id);
+        }
 
-    //     if let Some(parent_id) = &self.tabs.get(id).unwrap().org_parent {
-    //         self.tabs.get(parent_id).unwrap().org_children.retain(|c| );
-    //     } else {
-    //         println!("WARNING: TRIED TO CLOSE ROOT");
-    //     }
-    // }
+        self.org_tree.remove_recursive(*id);
+        self.tabs.remove(id);
+        self.display_order.retain(|i| i != id);
+    }
 
-    // /// closes the focused tab and all its children
-    // pub fn close_focused_tab_recursively(&mut self) {
-    //     self.close_tab_recursively(&self.get_focused_tab_id());
-    // }
+    /// closes the focused tab and all its children
+    pub fn close_focused_tab_recursively(&mut self) {
+        self.close_tab_recursively(&self.get_focused_tab_id());
+        // TODO: self focused tab to parent
+        self.set_focused_tab_id(self.get_root_id());
+    }
 }
 impl singularity_common::utils::tree::tree_node_path::TraversableTree for Tabs {
     fn exists_at(&self, path: &TreeNodePath) -> bool {

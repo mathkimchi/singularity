@@ -234,10 +234,9 @@ impl ProjectManager {
                 UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
                     self.tabs.minimize_focused_tab();
                 }
-                UIEvent::KeyPress(key, KeyModifiers::CTRL | KeyModifiers::SHIFT)
-                    if key.to_char() == Some('w') =>
-                {
-                    // self.tabs.close_focused_tab_recursively();
+                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
+                    println!("Deletin");
+                    self.tabs.close_focused_tab_recursively();
                 }
                 UIEvent::KeyPress(_, _) => {
                     // forward the event to focused tab

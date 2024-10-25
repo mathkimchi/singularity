@@ -67,6 +67,9 @@ impl UuidTree {
         } else {
             panic!("Tried to call remove on root");
         }
+
+        // remove this from nodes
+        self.nodes.remove(&id);
     }
 
     pub fn get_root_id(&self) -> Uuid {
@@ -82,6 +85,10 @@ impl UuidTree {
         }
 
         Some(node_id)
+    }
+
+    pub fn get_children(&self, parent_id: Uuid) -> &Vec<Uuid> {
+        &self.nodes.get(&parent_id).unwrap().children
     }
 
     /// climb upwards

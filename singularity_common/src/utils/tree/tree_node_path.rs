@@ -67,6 +67,18 @@ mod tree_node_path_traversal_impls {
             Self(child_path_vec)
         }
 
+        pub fn children_paths<T: TraversableTree>(&self, tree_to_traverse: &T) -> Vec<Self> {
+            let mut children_paths = Vec::new();
+            for child_index in 0.. {
+                if let Some(child_path) = self.traverse_to_child(tree_to_traverse, child_index) {
+                    children_paths.push(child_path);
+                } else {
+                    break;
+                }
+            }
+            children_paths
+        }
+
         /// Needs the tree to make sure that the child exists
         pub fn traverse_to_child<T: TraversableTree>(
             &self,
