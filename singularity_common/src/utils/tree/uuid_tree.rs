@@ -51,8 +51,10 @@ impl UuidTree {
 
     /// removes node corresponding to id and all its children
     ///
+    /// If this is root, then don't remove
+    ///
     /// TODO: do this with loop instead?
-    pub fn remove_recursive(&mut self, id: Uuid) {
+    pub fn remove_recursive(&mut self, id: Uuid) -> bool {
         for child in self.nodes.get(&id).unwrap().children.clone() {
             self.remove_recursive(child);
         }
@@ -64,12 +66,16 @@ impl UuidTree {
                 .unwrap()
                 .children
                 .retain(|i| i != &id);
-        } else {
-            panic!("Tried to call remove on root");
-        }
+            // remove this from nodes
+            self.nodes.remove(&id);
 
-        // remove this from nodes
-        self.nodes.remove(&id);
+            true
+        } else {
+            // this is root
+            println!("Tried to call remove on root");
+
+            false
+        }
     }
 
     pub fn get_root_id(&self) -> Uuid {

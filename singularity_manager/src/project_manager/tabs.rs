@@ -132,9 +132,12 @@ impl Tabs {
             self.close_tab_recursively(&child_id);
         }
 
-        self.org_tree.remove_recursive(*id);
-        self.tabs.remove(id);
-        self.display_order.retain(|i| i != id);
+        if self.org_tree.remove_recursive(*id) {
+            self.tabs.remove(id);
+            self.display_order.retain(|i| i != id);
+        } else {
+            println!("Tried to close root");
+        }
     }
 
     /// closes the focused tab and all its children
