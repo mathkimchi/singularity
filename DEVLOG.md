@@ -1052,3 +1052,15 @@ I don't like the way this is currently implemented, but since I am using macros 
 I want to reattempt tab structure operations.
 My first change is going to have the tree path be not order based, but id based.
 This means I will need to reimplement all the tree traversal logic and very tightly couple the tree logic with the tab logic, but I am willing to make that sacrifice.
+
+2024/10/25
+
+Btw, I ended up having tree logic decoupled from all the tab stuff.
+
+Anyways, I am making procedural macros, and it was kind of annoying to start because there was not great documentation, but it feels pretty simple once you get started.
+Here are my tips:
+
+- My main source for getting started was a [video](https://youtu.be/crWfcA064is?si=AbTf290vzLE4bhR0) by Let's Get Rusty.
+- Use `cargo expand`
+- [this article](https://www.freecodecamp.org/news/procedural-macros-in-rust/) also seems good and very in-depth
+- use the `quote` macro

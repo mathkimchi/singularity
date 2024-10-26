@@ -1,56 +1,25 @@
-use singularity_common::tab::{
-    packets::{Event, Request},
-    ManagerHandler,
-};
-use singularity_ui::{
-    ui_event::{Key, KeyModifiers, KeyTrait},
-    UIElement,
-};
+use singularity_common::components::{button::Button, Component};
+use singularity_macros::ComposeComponents;
+use singularity_ui::display_units::DisplayArea;
 
-pub struct DemoTab {
-    string: String,
+#[derive(ComposeComponents)]
+pub struct Test {
+    focused_component: usize,
+    #[component(DisplayArea::FULL)]
+    button: Button,
+    #[component(DisplayArea::FULL)]
+    button2: Button,
 }
-impl DemoTab {
-    pub fn new(string: String, manager_handler: &ManagerHandler) -> Self {
-        manager_handler.send_request(Request::ChangeName("Hi".to_string()));
-
-        Self { string }
+impl Component for Test {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        // singularity_ui::ui_element::UIElement::Container(vec![self
+        //     .button
+        //     .render()
+        //     .contain(DisplayArea::FULL)])
+        self.render_components()
     }
 
-    pub fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
-        Some(UIElement::char_grid(&self.string))
-    }
-
-    pub fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
-        match event {
-            Event::UIEvent(ui_event) => match ui_event {
-                singularity_ui::ui_event::UIEvent::Key {
-                    key: Key::Backspace,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    self.string.pop();
-                }
-                singularity_ui::ui_event::UIEvent::Key {
-                    key,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    dbg!(key);
-                    if let Some(c) = key.to_char() {
-                        self.string.push(c);
-                    }
-                }
-                _ => {}
-            },
-            Event::Resize(_) => {
-                // dbg!("resized");
-            }
-            Event::Close => panic!("Event::Close should not have been forwarded"),
-        }
+    fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
+        self.forward_events_to_focused(event)
     }
 }

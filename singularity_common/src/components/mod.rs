@@ -27,14 +27,13 @@ impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
             inner_component,
         }
     }
-}
-impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> {
-    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
-        self.inner_component.render().contain(self.area)
-    }
 
-    /// currently, only special behavior is mouseclick
-    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+    /// remap mouseclick
+    pub fn forward_event(
+        inner_component: &mut InnerComponent,
+        area: singularity_ui::display_units::DisplayArea,
+        event: crate::tab::packets::Event,
+    ) {
         use crate::tab::packets::Event;
         use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
 
@@ -43,19 +42,28 @@ impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> 
             container,
         )) = event
         {
-            if self.area.map_onto(container).contains(
+            if area.map_onto(container).contains(
                 DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                 [tot_width as i32, tot_height as i32],
             ) {
-                self.inner_component
-                    .handle_event(Event::UIEvent(UIEvent::MousePress(
-                        [[click_x, click_y], [tot_width, tot_height]],
-                        self.area.map_onto(container),
-                    )));
+                inner_component.handle_event(Event::UIEvent(UIEvent::MousePress(
+                    [[click_x, click_y], [tot_width, tot_height]],
+                    area.map_onto(container),
+                )));
             }
         } else {
-            self.inner_component.handle_event(event);
+            inner_component.handle_event(event);
         }
+    }
+}
+impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        self.inner_component.render().contain(self.area)
+    }
+
+    /// currently, only special behavior is mouseclick
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+        EnclosedComponent::forward_event(&mut self.inner_component, self.area, event);
     }
 }
 
