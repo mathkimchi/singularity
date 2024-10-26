@@ -51,16 +51,33 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     // };
     let forward_events_impl = {
         let mut match_cases = quote! {};
+        let mut search_clicked = quote! {};
         for (index, (component_ident, component_size)) in components.iter().enumerate() {
             match_cases.extend(quote! { 
-                #index => singularity_common::components::EnclosedComponent::forward_event(&mut self.#component_ident, #component_size, event), 
+                #index => if let Some(remapped_event) = singularity_common::components::remap_event(#component_size, event.clone()) {
+                    self.#component_ident.handle_event(remapped_event);
+                    return Ok(());
+                }
+            });
+
+            search_clicked.extend(quote! {
+                if singularity_common::components::remap_event(#component_size, event.clone()).is_some() {
+                    Err(#index)
+                } else 
             });
         }
         quote! {
+            // try to forward to the focused component
             match self.focused_component {
                 #match_cases
                 _ => panic!(),
             }
+
+            // if not returned, then it means it was a mouseclick not on the focused component
+            // look if there was a component clicked (in order of first to last in struct def)
+            #search_clicked
+
+            { Ok(()) }
         }
     };
 
@@ -73,7 +90,11 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 ])
             }
 
-            pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) {
+            /// If there is a mouse click outside the focused component,
+            /// returns the index of the first component that contains the mouse click
+            /// without passing the mouse click to it.
+            /// If passing it is desired behavior, then set the focused index to that and then rerun this.
+            pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), usize> {
                 #forward_events_impl
             }
         }

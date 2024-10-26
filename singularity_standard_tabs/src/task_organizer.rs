@@ -48,6 +48,7 @@ struct IndividualTaskWidget {
     #[component(DisplayArea::new((0.0, 0.5), (1.0, 1.0)))]
     timer_widget: Option<TimerWidget>,
 
+    /// this name is a keyword for ComposeComponents
     focused_component: usize,
 }
 impl IndividualTaskWidget {
@@ -99,8 +100,14 @@ impl Component for IndividualTaskWidget {
                 //     }
                 // }
                 _ => {
-                    // forward to body
-                    self.forward_events_to_focused(event);
+                    // forward to focused component
+                    if let Err(clicked_component_index) =
+                        self.forward_events_to_focused(event.clone())
+                    {
+                        // if mousclicked on another component, then change focus and re-forward
+                        self.focused_component = clicked_component_index;
+                        self.forward_events_to_focused(event).unwrap();
+                    }
                 }
             },
             Event::Resize(_) => {}

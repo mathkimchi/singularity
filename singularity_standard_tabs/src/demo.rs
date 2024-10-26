@@ -4,6 +4,7 @@ use singularity_ui::display_units::DisplayArea;
 
 #[derive(ComposeComponents)]
 pub struct Test {
+    /// this name is a keyword for ComposeComponents
     focused_component: usize,
     #[component(DisplayArea::FULL)]
     button: Button,
@@ -20,6 +21,9 @@ impl Component for Test {
     }
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
-        self.forward_events_to_focused(event)
+        if let Err(clicked_component_index) = self.forward_events_to_focused(event.clone()) {
+            self.focused_component = clicked_component_index;
+            self.forward_events_to_focused(event).unwrap();
+        }
     }
 }

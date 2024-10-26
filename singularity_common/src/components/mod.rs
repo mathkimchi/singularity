@@ -11,8 +11,38 @@ pub trait Component: Send {
     fn handle_event(&mut self, event: crate::tab::packets::Event);
 }
 
+/// if mouseclick, remap area. otherwise just return normally
+pub fn remap_event(
+    area: singularity_ui::display_units::DisplayArea,
+    event: crate::tab::packets::Event,
+) -> Option<crate::tab::packets::Event> {
+    use crate::tab::packets::Event;
+    use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
+
+    if let Event::UIEvent(singularity_ui::ui_event::UIEvent::MousePress(
+        [[click_x, click_y], [tot_width, tot_height]],
+        container,
+    )) = event
+    {
+        if area.map_onto(container).contains(
+            DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+            [tot_width as i32, tot_height as i32],
+        ) {
+            Some(Event::UIEvent(UIEvent::MousePress(
+                [[click_x, click_y], [tot_width, tot_height]],
+                area.map_onto(container),
+            )))
+        } else {
+            None
+        }
+    } else {
+        Some(event)
+    }
+}
+
 /// REVIEW: naming
 /// REVIEW: is this a good idea? (feels kind of bulky to have everything like `EnclosedComponent<InnerComponent>`)
+/// REVIEW: does enclosed component even need to exist?
 pub struct EnclosedComponent<InnerComponent: Component + ?Sized> {
     pub area: singularity_ui::display_units::DisplayArea,
     pub inner_component: InnerComponent,
@@ -29,11 +59,13 @@ impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
     }
 
     /// remap mouseclick
-    pub fn forward_event(
-        inner_component: &mut InnerComponent,
+    ///
+    /// REVIEW: Does this belong in enclosed component?
+    /// REVIEW: does enclosed component even need to exist?
+    pub fn remap_event(
         area: singularity_ui::display_units::DisplayArea,
         event: crate::tab::packets::Event,
-    ) {
+    ) -> Option<crate::tab::packets::Event> {
         use crate::tab::packets::Event;
         use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
 
@@ -46,13 +78,15 @@ impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
                 DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                 [tot_width as i32, tot_height as i32],
             ) {
-                inner_component.handle_event(Event::UIEvent(UIEvent::MousePress(
+                Some(Event::UIEvent(UIEvent::MousePress(
                     [[click_x, click_y], [tot_width, tot_height]],
                     area.map_onto(container),
-                )));
+                )))
+            } else {
+                None
             }
         } else {
-            inner_component.handle_event(event);
+            Some(event)
         }
     }
 }
@@ -63,7 +97,9 @@ impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> 
 
     /// currently, only special behavior is mouseclick
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
-        EnclosedComponent::forward_event(&mut self.inner_component, self.area, event);
+        if let Some(remapped_event) = remap_event(self.area, event) {
+            self.inner_component.handle_event(remapped_event);
+        }
     }
 }
 
