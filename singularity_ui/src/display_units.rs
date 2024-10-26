@@ -161,6 +161,26 @@ impl DisplayArea {
         DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
     );
 
+    pub fn new(
+        // x0: impl Into<DisplayUnits>,
+        // y0: impl Into<DisplayUnits>,
+        // x1: impl Into<DisplayUnits>,
+        // y1: impl Into<DisplayUnits>,
+        (x0, y0): (impl Into<DisplayUnits>, impl Into<DisplayUnits>),
+        (x1, y1): (impl Into<DisplayUnits>, impl Into<DisplayUnits>),
+    ) -> Self {
+        Self(
+            DisplayCoord {
+                x: x0.into(),
+                y: y0.into(),
+            },
+            DisplayCoord {
+                x: x1.into(),
+                y: y1.into(),
+            },
+        )
+    }
+
     pub fn size(&self) -> DisplaySize {
         DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
     }

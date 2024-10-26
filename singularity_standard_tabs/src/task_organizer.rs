@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::{
-        text_box::TextBox, timer_widget::TimerWidget, Component, ComponentContainer,
-        EnclosedComponent,
-    },
+    components::{text_box::TextBox, timer_widget::TimerWidget, Component, EnclosedComponent},
     utils::{
         timer::Timer,
         tree::{
@@ -12,6 +9,7 @@ use singularity_common::{
         },
     },
 };
+use singularity_macros::ComposeComponents;
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplayUnits},
@@ -39,68 +37,38 @@ impl Default for IndividualTask {
     }
 }
 
+#[derive(ComposeComponents)]
 struct IndividualTaskWidget {
     task_path: TreeNodePath,
-    // title: String,
-    // body_editor: TextBox,
-    // timer_widget: Option<EnclosedComponent<TimerWidget>>,
-    /// (title, body, timer)
-    components: ComponentContainer<(
-        EnclosedComponent<TextBox>,
-        EnclosedComponent<TextBox>,
-        EnclosedComponent<Option<TimerWidget>>,
-    )>,
+
+    #[component(DisplayArea::new((0.0, 0.0), (1.0, 0.05)))]
+    title: TextBox,
+    #[component(DisplayArea::new((0.0, 0.05), (1.0, 0.5)))]
+    body_editor: TextBox,
+    #[component(DisplayArea::new((0.0, 0.5), (1.0, 1.0)))]
+    timer_widget: Option<TimerWidget>,
+
+    focused_component: usize,
 }
 impl IndividualTaskWidget {
     fn new(task: &IndividualTask, task_path: TreeNodePath) -> Self {
         Self {
             task_path,
-            components: ComponentContainer {
-                children: (
-                    EnclosedComponent::new(
-                        TextBox::from(task.title.clone()),
-                        DisplayArea(
-                            DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                            DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
-                        ),
-                    ),
-                    EnclosedComponent::new(
-                        TextBox::from(task.body.clone()),
-                        DisplayArea(
-                            DisplayCoord::new(DisplayUnits::ZERO, 0.05.into()),
-                            DisplayCoord::new(DisplayUnits::FULL, 0.5.into()),
-                        ),
-                    ),
-                    EnclosedComponent::new(
-                        task.timer
-                            .as_ref()
-                            .map(|timer| TimerWidget::new(*timer, false)),
-                        DisplayArea(
-                            DisplayCoord::new(DisplayUnits::ZERO, 0.5.into()),
-                            DisplayCoord::new(DisplayUnits::FULL, 1.0.into()),
-                        ),
-                    ),
-                ),
-                focused_child: 1,
-            },
+            title: TextBox::from(task.title.clone()),
+            body_editor: TextBox::from(task.body.clone()),
+            timer_widget: task
+                .timer
+                .as_ref()
+                .map(|timer| TimerWidget::new(*timer, false)),
+            focused_component: 1,
         }
     }
 
     fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
-        tasks[&self.task_path].title = self
-            .components
-            .children
-            .0
-            .inner_component
-            .get_text_as_string();
-        tasks[&self.task_path].body = self
-            .components
-            .children
-            .1
-            .inner_component
-            .get_text_as_string();
+        tasks[&self.task_path].title = self.title.get_text_as_string();
+        tasks[&self.task_path].body = self.body_editor.get_text_as_string();
 
-        if let Some(timer_widget) = &self.components.children.2.inner_component {
+        if let Some(timer_widget) = &self.timer_widget {
             tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
         }
     }
@@ -108,8 +76,7 @@ impl IndividualTaskWidget {
 impl Component for IndividualTaskWidget {
     /// TODO: add `focused` argument
     fn render(&mut self) -> UIElement {
-        self.components
-            .render()
+        self.render_components()
             .fill_bg(Color::DARK_GRAY)
             .bordered(Color::LIGHT_GREEN)
     }
@@ -121,8 +88,8 @@ impl Component for IndividualTaskWidget {
             Event::UIEvent(ref ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 15 => {
                     // TAB pressed, shift focus
-                    self.components.focused_child += 1;
-                    self.components.focused_child %= 3;
+                    self.focused_component += 1;
+                    self.focused_component %= 3;
                 }
                 UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.raw_code == 15 => {}
                 // UIEvent::MousePress(..) => {
@@ -133,7 +100,7 @@ impl Component for IndividualTaskWidget {
                 // }
                 _ => {
                     // forward to body
-                    self.components.handle_event(event);
+                    self.forward_events_to_focused(event);
                 }
             },
             Event::Resize(_) => {}

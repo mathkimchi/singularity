@@ -73,7 +73,6 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 ])
             }
 
-            /// TODO: currently doesn't map mouse
             pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) {
                 #forward_events_impl
             }
