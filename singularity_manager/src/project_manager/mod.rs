@@ -71,30 +71,6 @@ impl ProjectManager {
         }
     }
 
-    pub fn run_demo() -> io::Result<()> {
-        // create demo manager
-
-        let manager = Self::new("examples/root-project");
-
-        // manager.tabs.add(
-        //     TabHandler::new(
-        //         singularity_common::components::timer_widget::TimerWidget::new_tab_creator((
-        //             std::time::Duration::from_secs(10),
-        //             false,
-        //         )),
-        //         Self::generate_tab_area(1, 1),
-        //     ),
-        //     &manager
-        //         .tabs
-        //         .get_id_by_org_path(&TreeNodePath::new_root())
-        //         .unwrap(),
-        // );
-
-        manager.run().unwrap();
-
-        Ok(())
-    }
-
     pub fn run(mut self) -> io::Result<()> {
         *self.is_running.write().unwrap() = true;
 

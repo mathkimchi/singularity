@@ -1064,3 +1064,14 @@ Here are my tips:
 - Use `cargo expand`
 - [this article](https://www.freecodecamp.org/news/procedural-macros-in-rust/) also seems good and very in-depth
 - use the `quote` macro
+
+
+2024/10/27
+
+I've been going on tangents from the `Organization` subsection, but I will get back on topic now.
+The thing I was supposed to improve was the `.project` stuff, with an initial focus on tasks.
+I think I will just start "drawing inspiration" from similar existing tools like VSCode and Nixos.
+
+First, I want to improve open/close behavior:
+- [x] be able to run and specify project path in cli: `singularity_manager --project examples/root-project`
+- [ ] save the workspace's open tabs on close
