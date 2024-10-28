@@ -2,11 +2,10 @@ use singularity_common::{
     project::Project,
     tab::{
         packets::{Query, Request, Response},
-        BasicTab, TabHandler,
+        TabHandler,
     },
     utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
-use singularity_standard_tabs::{file_manager::FileManager, task_organizer::TaskOrganizer};
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
@@ -45,25 +44,11 @@ impl ProjectManager {
         std::path::PathBuf: From<P>,
     {
         let project = Project::new(project_directory.clone());
+        let tabs = Tabs::parse_from_project(&project);
 
         Self {
             _project: project,
-            tabs: {
-                let mut tabs = Tabs::new(TabHandler::new(
-                    FileManager::new_tab_creator(project_directory.clone()),
-                    Self::generate_tab_area(0, 0),
-                ));
-
-                tabs.add(
-                    TabHandler::new(
-                        TaskOrganizer::new_tab_creator(project_directory),
-                        Self::generate_tab_area(0, 1),
-                    ),
-                    &tabs.get_root_id(),
-                );
-
-                tabs
-            },
+            tabs,
             app_focuser_index: None,
             is_running: Arc::new(RwLock::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),

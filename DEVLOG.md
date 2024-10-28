@@ -1073,5 +1073,5 @@ The thing I was supposed to improve was the `.project` stuff, with an initial fo
 I think I will just start "drawing inspiration" from similar existing tools like VSCode and Nixos.
 
 First, I want to improve open/close behavior:
-- [x] be able to run and specify project path in cli: `singularity_manager --project examples/root-project`
+- [x] be able to run and specify project path in cli, something like `singularity_manager --project examples/root-project`
 - [ ] save the workspace's open tabs on close

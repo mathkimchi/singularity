@@ -1,7 +1,9 @@
 use singularity_common::{
+    project::Project,
     tab::TabHandler,
     utils::tree::{tree_node_path::TreeNodePath, uuid_tree::UuidTree},
 };
+use singularity_ui::display_units::DisplayArea;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -27,17 +29,67 @@ pub struct Tabs {
     display_order: Vec<Uuid>,
 }
 impl Tabs {
-    pub fn new(root_tab: TabHandler) -> Self {
-        let root_id = Uuid::new_v4();
+    pub fn parse_from_project(project: &Project) -> Self {
+        if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
+            Self {
+                tabs: open_tabs
+                    .tabs
+                    .into_iter()
+                    .map(|(id, open_tab)| {
+                        (
+                            id,
+                            TabHandler::new(
+                                singularity_standard_tabs::get_tab_creator_from_type(
+                                    open_tab.tab_type.as_str(),
+                                    open_tab.tab_data,
+                                ),
+                                open_tab.tab_area,
+                            ),
+                        )
+                    })
+                    .collect(),
+                org_tree: open_tabs.org_tree,
+                focused_tab: open_tabs.focused_tab,
+                display_order: open_tabs.display_order,
+            }
+        } else {
+            // create new project
+            use singularity_common::tab::BasicTab;
+            use singularity_standard_tabs::{
+                file_manager::FileManager, task_organizer::TaskOrganizer,
+            };
+
+            let mut tabs = Tabs::new_from_root(TabHandler::new(
+                FileManager::new_tab_creator(project.get_project_directory().clone()),
+                DisplayArea::new((0., 0.), (0.5, 1.)),
+            ));
+
+            tabs.add(
+                TabHandler::new(
+                    TaskOrganizer::new_tab_creator(project.get_project_directory().clone()),
+                    DisplayArea::new((0.5, 0.), (1.0, 1.)),
+                ),
+                &tabs.get_root_id(),
+            );
+
+            tabs
+        }
+    }
+
+    fn new_from_root_with_id(root_tab: TabHandler, id: Uuid) -> Self {
         let mut tabs = BTreeMap::new();
-        tabs.insert(root_id, root_tab);
+        tabs.insert(id, root_tab);
 
         Self {
             tabs,
-            org_tree: UuidTree::new(root_id),
-            focused_tab: root_id,
-            display_order: vec![root_id],
+            org_tree: UuidTree::new(id),
+            focused_tab: id,
+            display_order: vec![id],
         }
+    }
+
+    pub fn new_from_root(root_tab: TabHandler) -> Self {
+        Self::new_from_root_with_id(root_tab, Uuid::new_v4())
     }
 
     pub fn add(&mut self, new_tab: TabHandler, parent_id: &Uuid) -> Option<Uuid> {

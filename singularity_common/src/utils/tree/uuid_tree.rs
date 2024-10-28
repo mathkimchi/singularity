@@ -4,13 +4,14 @@ use uuid::Uuid;
 use super::tree_node_path::{TraversableTree, TreeNodePath};
 
 /// Technically, children are ordered
-#[derive(Default)]
+#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 struct Node {
     children: Vec<Uuid>,
     parent: Option<Uuid>,
 }
 
 /// Only stores hierarchy, no items.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct UuidTree {
     root_id: Uuid,
     nodes: BTreeMap<Uuid, Node>,

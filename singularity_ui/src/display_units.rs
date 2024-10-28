@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub enum DisplayUnits {
     Pixels(i32),
     /// 0 to 1
@@ -114,7 +114,7 @@ impl std::ops::Sub for DisplayUnits {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplaySize {
     pub width: DisplayUnits,
     pub height: DisplayUnits,
@@ -125,7 +125,7 @@ impl DisplaySize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayCoord {
     pub x: DisplayUnits,
     pub y: DisplayUnits,
@@ -153,7 +153,7 @@ impl DisplayCoord {
 
 /// technically, any opposite extremes should work,
 /// but usually do (upper left, lower right)
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayArea(pub DisplayCoord, pub DisplayCoord);
 impl DisplayArea {
     pub const FULL: Self = Self(
