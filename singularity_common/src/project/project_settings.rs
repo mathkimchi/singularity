@@ -35,14 +35,18 @@ pub struct SubappSettings {
 
 /// NOTE: Read devlog ~2024/10/29 for description; this is like SessionStorage for webdev
 /// REVIEW: rename?
-/// REVIEW: include Area and UIElement into this?
+/// REVIEW: include Area and UIElement and TabType into this?
 /// This type is kind of a black sheep
-pub type TabData = serde_json::Value;
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct TabData {
+    pub tab_type: String,
+    pub session_data: serde_json::Value,
+}
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct OpenTab {
-    /// FIXME, right now, this works with finite tabs, is a glorified enum
-    pub tab_type: String,
+    // /// FIXME, right now, this works with finite tabs, is a glorified enum
+    // pub tab_type: String,
     /// is kind of dangerous let user change the id of a tab, but if they screw this up, it is their fault
     pub tab_area: DisplayArea,
     pub tab_data: TabData,

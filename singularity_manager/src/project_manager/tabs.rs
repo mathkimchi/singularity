@@ -1,5 +1,5 @@
 use singularity_common::{
-    project::Project,
+    project::{project_settings::TabData, Project},
     tab::TabHandler,
     utils::tree::{tree_node_path::TreeNodePath, uuid_tree::UuidTree},
 };
@@ -40,7 +40,7 @@ impl Tabs {
                             id,
                             TabHandler::new(
                                 singularity_standard_tabs::get_tab_creator_from_type(
-                                    open_tab.tab_type.as_str(),
+                                    open_tab.tab_data.tab_type.as_str(),
                                 ),
                                 open_tab.tab_data,
                                 open_tab.tab_area,
@@ -61,14 +61,22 @@ impl Tabs {
 
             let mut tabs = Tabs::new_from_root(TabHandler::new(
                 FileManager::new_tab_creator(),
-                serde_json::to_value(project.get_project_directory().clone()).unwrap(),
+                TabData {
+                    tab_type: "FILE_MANAGER".to_string(),
+                    session_data: serde_json::to_value(project.get_project_directory().clone())
+                        .unwrap(),
+                },
                 DisplayArea::new((0., 0.), (0.5, 1.)),
             ));
 
             tabs.add(
                 TabHandler::new(
                     TaskOrganizer::new_tab_creator(),
-                    serde_json::to_value(project.get_project_directory().clone()).unwrap(),
+                    TabData {
+                        tab_type: "TASK_ORGANIZER".to_string(),
+                        session_data: serde_json::to_value(project.get_project_directory().clone())
+                            .unwrap(),
+                    },
                     DisplayArea::new((0.5, 0.), (1.0, 1.)),
                 ),
                 &tabs.get_root_id(),
@@ -215,7 +223,6 @@ impl Tabs {
                         *id,
                         OpenTab {
                             // TODO
-                            tab_type: "FILE_MANAGER".to_string(),
                             tab_area: handler.get_area(),
                             tab_data: handler.get_tab_data().clone(),
                         },

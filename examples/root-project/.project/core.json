@@ -18,30 +18,7 @@
   },
   "open_tabs": {
     "tabs": {
-      "1e57bebd-7b63-4022-99cc-069250787926": {
-        "tab_type": "FILE_MANAGER",
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 1.0
-            },
-            "y": {
-              "Proportional": 1.0
-            }
-          }
-        ],
-        "tab_data": "examples/root-project"
-      },
-      "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57": {
-        "tab_type": "FILE_MANAGER",
+      "754b4b6b-ab30-48bd-8a94-a63bb6931680": {
         "tab_area": [
           {
             "x": {
@@ -60,32 +37,12 @@
             }
           }
         ],
-        "tab_data": "examples/root-project/lorem_ipsum.txt"
+        "tab_data": {
+          "tab_type": "EDITOR",
+          "session_data": "examples/root-project/subdir/subfile.txt"
+        }
       },
-      "7944e9ae-77db-40c4-bced-031488239d8c": {
-        "tab_type": "FILE_MANAGER",
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.120000005
-            },
-            "y": {
-              "Proportional": 0.4
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.62
-            },
-            "y": {
-              "Proportional": 0.9
-            }
-          }
-        ],
-        "tab_data": "examples/root-project/file_to_edit.txt"
-      },
-      "fce23123-f281-48a7-9c67-d364cf22620d": {
-        "tab_type": "FILE_MANAGER",
+      "968565ce-3f1d-4545-9310-aa97c330578d": {
         "tab_area": [
           {
             "x": {
@@ -104,40 +61,91 @@
             }
           }
         ],
-        "tab_data": "examples/root-project"
-      }
-    },
-    "org_tree": {
-      "root_id": "fce23123-f281-48a7-9c67-d364cf22620d",
-      "nodes": {
-        "1e57bebd-7b63-4022-99cc-069250787926": {
-          "children": [],
-          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
-        },
-        "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57": {
-          "children": [],
-          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
-        },
-        "7944e9ae-77db-40c4-bced-031488239d8c": {
-          "children": [],
-          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
-        },
-        "fce23123-f281-48a7-9c67-d364cf22620d": {
-          "children": [
-            "1e57bebd-7b63-4022-99cc-069250787926",
-            "7944e9ae-77db-40c4-bced-031488239d8c",
-            "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57"
-          ],
-          "parent": null
+        "tab_data": {
+          "tab_type": "FILE_MANAGER",
+          "session_data": "examples/root-project"
+        }
+      },
+      "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "TASK_ORGANIZER",
+          "session_data": "examples/root-project"
+        }
+      },
+      "ddaddb20-8976-40f3-9d74-8faccb028535": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.120000005
+            },
+            "y": {
+              "Proportional": 0.4
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.62
+            },
+            "y": {
+              "Proportional": 0.9
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "EDITOR",
+          "session_data": "examples/root-project/lorem_ipsum.txt"
         }
       }
     },
-    "focused_tab": "fce23123-f281-48a7-9c67-d364cf22620d",
+    "org_tree": {
+      "root_id": "968565ce-3f1d-4545-9310-aa97c330578d",
+      "nodes": {
+        "754b4b6b-ab30-48bd-8a94-a63bb6931680": {
+          "children": [],
+          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
+        },
+        "968565ce-3f1d-4545-9310-aa97c330578d": {
+          "children": [
+            "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb",
+            "ddaddb20-8976-40f3-9d74-8faccb028535",
+            "754b4b6b-ab30-48bd-8a94-a63bb6931680"
+          ],
+          "parent": null
+        },
+        "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb": {
+          "children": [],
+          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
+        },
+        "ddaddb20-8976-40f3-9d74-8faccb028535": {
+          "children": [],
+          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
+        }
+      }
+    },
+    "focused_tab": "968565ce-3f1d-4545-9310-aa97c330578d",
     "display_order": [
-      "7944e9ae-77db-40c4-bced-031488239d8c",
-      "1e57bebd-7b63-4022-99cc-069250787926",
-      "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57",
-      "fce23123-f281-48a7-9c67-d364cf22620d"
+      "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb",
+      "ddaddb20-8976-40f3-9d74-8faccb028535",
+      "754b4b6b-ab30-48bd-8a94-a63bb6931680",
+      "968565ce-3f1d-4545-9310-aa97c330578d"
     ]
   }
 }

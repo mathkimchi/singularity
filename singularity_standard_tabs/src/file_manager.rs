@@ -1,4 +1,5 @@
 use singularity_common::{
+    project::project_settings::TabData,
     tab::{
         packets::{Event, Request},
         BasicTab, ManagerHandler,
@@ -74,7 +75,8 @@ impl BasicTab for FileManager {
                 manager_handler
                     .query(singularity_common::tab::packets::Query::TabData)
                     .try_as_tab_data()
-                    .unwrap(),
+                    .unwrap()
+                    .session_data,
             )
             .unwrap(),
             manager_handler,
@@ -146,7 +148,11 @@ impl BasicTab for FileManager {
                         use crate::editor::Editor;
                         manager_handler.send_request(Request::SpawnChildTab(
                             Box::new(Editor::new_tab_creator()),
-                            serde_json::to_value(selected_element.clone()).unwrap(),
+                            TabData {
+                                tab_type: "EDITOR".to_string(),
+                                session_data: serde_json::to_value(selected_element.clone())
+                                    .unwrap(),
+                            },
                         ));
                     }
                     // if selected path isn't a file, then don't do anything

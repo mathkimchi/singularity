@@ -152,7 +152,8 @@ impl BasicTab for Editor {
                 manager_handler
                     .query(singularity_common::tab::packets::Query::TabData)
                     .try_as_tab_data()
-                    .unwrap(),
+                    .unwrap()
+                    .session_data,
             )
             .unwrap(),
             manager_handler,
