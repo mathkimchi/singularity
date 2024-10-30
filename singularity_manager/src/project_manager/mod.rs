@@ -270,10 +270,11 @@ impl ProjectManager {
                             .unwrap()
                             .tab_name = new_name;
                     }
-                    Request::SpawnChildTab(tab_creator) => {
+                    Request::SpawnChildTab(tab_creator, tab_data) => {
                         self.tabs.add(
                             TabHandler::new(
                                 tab_creator,
+                                tab_data,
                                 // NOTE: the argument child index is technically incorrect,
                                 // but the purpose of the generator is to generally prevent all
                                 // tabs from being spawned all in one place.
@@ -299,6 +300,7 @@ impl ProjectManager {
             inquieror.answer_query(move |query| match query {
                 Query::Path => Response::Path(tab_path.clone()),
                 Query::Name => Response::Name(inquieror.tab_name.clone()),
+                Query::TabData => Response::TabData(inquieror.get_tab_data().clone()),
             });
         }
     }

@@ -145,16 +145,21 @@ impl Editor {
         self.cursor_logical_position.1 += 1;
     }
 }
-impl<P> BasicTab<P> for Editor
-where
-    P: 'static + Clone + AsRef<std::path::Path> + Send,
-    PathBuf: std::convert::From<P>,
-{
-    fn initialize(file_path: &mut P, manager_handler: &ManagerHandler) -> Self {
-        Self::new(file_path.clone(), manager_handler)
+impl BasicTab for Editor {
+    fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
+        Self::new(
+            serde_json::from_value::<String>(
+                manager_handler
+                    .query(singularity_common::tab::packets::Query::TabData)
+                    .try_as_tab_data()
+                    .unwrap(),
+            )
+            .unwrap(),
+            manager_handler,
+        )
     }
 
-    fn render(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
+    fn render_tab(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
@@ -173,7 +178,7 @@ where
         )
     }
 
-    fn handle_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
+    fn handle_tab_event(&mut self, event: Event, _manager_handler: &ManagerHandler) {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
                 singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)

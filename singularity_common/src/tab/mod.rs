@@ -1,3 +1,4 @@
+use crate::project::project_settings::TabData;
 use packets::{Event, Query, Request, Response};
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 use std::{
@@ -30,12 +31,12 @@ impl TabCreator for Box<dyn TabCreator> {
 }
 
 /// REVIEW: the parallel between this and `Component` is undeniable, maybe look into some higher level of abstraction in this
-pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
-    fn initialize(init_args: &mut InitArgs, manager_handler: &ManagerHandler) -> Self;
-    fn render(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
-    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler);
+pub trait BasicTab: Send + Sized {
+    fn initialize_tab(manager_handler: &ManagerHandler) -> Self;
+    fn render_tab(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
+    fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler);
 
-    fn new_tab_creator(mut init_args: InitArgs) -> impl TabCreator {
+    fn new_tab_creator() -> impl TabCreator {
         struct Inner(Box<dyn FnMut(ManagerHandler) + Send>);
         impl TabCreator for Inner {
             fn create_tab(&mut self, manager_handler: ManagerHandler) {
@@ -44,10 +45,10 @@ pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
         }
 
         Inner(Box::new(move |mut manager_handler: ManagerHandler| {
-            let mut tab = Self::initialize(&mut init_args, &manager_handler);
+            let mut tab = Self::initialize_tab(&manager_handler);
 
             'mainloop: loop {
-                if let Some(new_display_buffer) = tab.render(&manager_handler) {
+                if let Some(new_display_buffer) = tab.render_tab(&manager_handler) {
                     manager_handler.update_ui_element(new_display_buffer);
                 };
 
@@ -58,10 +59,10 @@ pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
                         }
                         Event::Resize(inner_area) => {
                             manager_handler.inner_area = inner_area;
-                            tab.handle_event(event, &manager_handler);
+                            tab.handle_tab_event(event, &manager_handler);
                         }
                         event => {
-                            tab.handle_event(event, &manager_handler);
+                            tab.handle_tab_event(event, &manager_handler);
                         }
                     }
                 }
@@ -125,13 +126,18 @@ pub struct TabHandler {
 
     pub tab_name: String,
     tab_area: DisplayArea,
+    tab_data: TabData,
 
     /// REVIEW: idk if this will ever be used
     /// I realized I can't kill threads anyways
     _tab_thread: JoinHandle<()>,
 }
 impl TabHandler {
-    pub fn new<F: 'static + TabCreator>(mut tab_creator: F, tab_area: DisplayArea) -> Self {
+    pub fn new<F: 'static + TabCreator>(
+        mut tab_creator: F,
+        initial_tab_data: TabData,
+        tab_area: DisplayArea,
+    ) -> Self {
         let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
@@ -147,6 +153,7 @@ impl TabHandler {
             _tab_thread: tab_thread,
             tab_name: String::new(),
             tab_area,
+            tab_data: initial_tab_data,
         }
     }
 
@@ -202,6 +209,10 @@ impl TabHandler {
         self.tab_area = new_area;
 
         self.send_event(Event::Resize(new_area));
+    }
+
+    pub fn get_tab_data(&self) -> &TabData {
+        &self.tab_data
     }
 }
 

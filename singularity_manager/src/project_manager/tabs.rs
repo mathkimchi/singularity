@@ -41,8 +41,8 @@ impl Tabs {
                             TabHandler::new(
                                 singularity_standard_tabs::get_tab_creator_from_type(
                                     open_tab.tab_type.as_str(),
-                                    open_tab.tab_data,
                                 ),
+                                open_tab.tab_data,
                                 open_tab.tab_area,
                             ),
                         )
@@ -60,13 +60,15 @@ impl Tabs {
             };
 
             let mut tabs = Tabs::new_from_root(TabHandler::new(
-                FileManager::new_tab_creator(project.get_project_directory().clone()),
+                FileManager::new_tab_creator(),
+                serde_json::to_value(project.get_project_directory().clone()).unwrap(),
                 DisplayArea::new((0., 0.), (0.5, 1.)),
             ));
 
             tabs.add(
                 TabHandler::new(
-                    TaskOrganizer::new_tab_creator(project.get_project_directory().clone()),
+                    TaskOrganizer::new_tab_creator(),
+                    serde_json::to_value(project.get_project_directory().clone()).unwrap(),
                     DisplayArea::new((0.5, 0.), (1.0, 1.)),
                 ),
                 &tabs.get_root_id(),

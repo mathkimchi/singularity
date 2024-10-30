@@ -67,16 +67,21 @@ impl FileManager {
             .to_string()
     }
 }
-impl<P> BasicTab<P> for FileManager
-where
-    P: 'static + Clone + AsRef<std::path::Path> + Send,
-    PathBuf: std::convert::From<P>,
-{
-    fn initialize(init_args: &mut P, manager_handler: &ManagerHandler) -> Self {
-        Self::new(init_args.clone(), manager_handler)
+impl BasicTab for FileManager {
+    fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
+        Self::new(
+            serde_json::from_value::<String>(
+                manager_handler
+                    .query(singularity_common::tab::packets::Query::TabData)
+                    .try_as_tab_data()
+                    .unwrap(),
+            )
+            .unwrap(),
+            manager_handler,
+        )
     }
 
-    fn render(
+    fn render_tab(
         &mut self,
         _manager_handler: &ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
@@ -119,7 +124,7 @@ where
         )
     }
 
-    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
+    fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             Event::UIEvent(ui_event) => match ui_event {
@@ -139,11 +144,10 @@ where
                     let selected_element = &self.directory_tree[&self.selected_path];
                     if selected_element.is_file() {
                         use crate::editor::Editor;
-                        manager_handler.send_request(Request::SpawnChildTab(Box::new(
-                            <Editor as BasicTab<PathBuf>>::new_tab_creator(
-                                selected_element.clone(),
-                            ),
-                        )));
+                        manager_handler.send_request(Request::SpawnChildTab(
+                            Box::new(Editor::new_tab_creator()),
+                            serde_json::to_value(selected_element.clone()).unwrap(),
+                        ));
                     }
                     // if selected path isn't a file, then don't do anything
                 }

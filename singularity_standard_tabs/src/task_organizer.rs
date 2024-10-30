@@ -192,19 +192,21 @@ impl TaskOrganizer {
         ));
     }
 }
-impl<P> singularity_common::tab::BasicTab<P> for TaskOrganizer
-where
-    P: 'static + Clone + AsRef<std::path::Path> + Send,
-    PathBuf: std::convert::From<P>,
-{
-    fn initialize(
-        init_args: &mut P,
-        manager_handler: &singularity_common::tab::ManagerHandler,
-    ) -> Self {
-        Self::new_from_project(init_args.clone(), manager_handler)
+impl singularity_common::tab::BasicTab for TaskOrganizer {
+    fn initialize_tab(manager_handler: &singularity_common::tab::ManagerHandler) -> Self {
+        Self::new_from_project(
+            serde_json::from_value::<String>(
+                manager_handler
+                    .query(singularity_common::tab::packets::Query::TabData)
+                    .try_as_tab_data()
+                    .unwrap(),
+            )
+            .unwrap(),
+            manager_handler,
+        )
     }
 
-    fn render(
+    fn render_tab(
         &mut self,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<UIElement> {
@@ -265,7 +267,7 @@ where
         )
     }
 
-    fn handle_event(
+    fn handle_tab_event(
         &mut self,
         event: singularity_common::tab::packets::Event,
         _manager_handler: &singularity_common::tab::ManagerHandler,

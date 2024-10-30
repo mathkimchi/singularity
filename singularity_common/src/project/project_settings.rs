@@ -34,6 +34,12 @@ pub struct SubappSettings {
     subapp_specific_settings: Option<HashMap<String, Value>>,
 }
 
+/// NOTE: Read devlog ~2024/10/29 for description; this is like SessionStorage for webdev
+/// REVIEW: rename?
+/// REVIEW: include Area and UIElement into this?
+/// This type is kind of a black sheep
+pub type TabData = serde_json::Value;
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct OpenTab {
     /// FIXME, right now, this works with finite tabs, is a glorified enum

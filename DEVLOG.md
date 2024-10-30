@@ -1116,3 +1116,10 @@ Instead, I will pull a javascript and just store a serde value or even just a st
 
 I think there is a reason why webpages don't save data on closing like this (that I know of, +other than caching).
 Saving on close is a pain, especially with the current architecture with threads.
+Keeping with the webpage inspiration/theme, I think I will just save the initialization data throughout, and save it on close.
+Later on, I can modify that code slightly to have a more general tab data.
+Wait, I think I just reinvented session storage.
+(As much as I like to hate on JS and webdev standards, I am slowly recreating it with this project...)
+
+Though I could use Mutex for session storage (and later might), I will do it with queries for now.
+If I do that, the current infastructure for UIDisplay can be reused for session storage.
