@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -31,7 +30,7 @@ pub struct SubappStandardSettings {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubappSettings {
     subapp_standard_settings: Option<SubappStandardSettings>,
-    subapp_specific_settings: Option<HashMap<String, Value>>,
+    subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// NOTE: Read devlog ~2024/10/29 for description; this is like SessionStorage for webdev
@@ -46,8 +45,9 @@ pub struct OpenTab {
     pub tab_type: String,
     /// is kind of dangerous let user change the id of a tab, but if they screw this up, it is their fault
     pub tab_area: DisplayArea,
-    pub tab_data: serde_json::Value,
+    pub tab_data: TabData,
 }
+/// REVIEW: alternative name for open tab: tab session
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OpenTabs {
     pub tabs: std::collections::BTreeMap<Uuid, OpenTab>,
@@ -63,5 +63,6 @@ pub struct OpenTabs {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
     pub subapps: HashMap<String, SubappSettings>,
+    /// TODO: move this out of settings
     pub open_tabs: Option<OpenTabs>,
 }

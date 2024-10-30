@@ -1123,3 +1123,8 @@ Wait, I think I just reinvented session storage.
 
 Though I could use Mutex for session storage (and later might), I will do it with queries for now.
 If I do that, the current infastructure for UIDisplay can be reused for session storage.
+
+I got expected behavior first try!
+However, I still need to find a way to figure out the tab type.
+In fact, I am not sure how I am going to handle tab type at all.
+But, I am ready to sleep now.

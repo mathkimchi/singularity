@@ -5,7 +5,8 @@ pub mod project_settings;
 
 pub struct Project {
     project_directory: PathBuf,
-    project_settings: ProjectSettings,
+    /// REVIEW: dangerous to expose this?
+    pub project_settings: ProjectSettings,
 }
 impl Project {
     pub fn new<P>(project_directory: P) -> Self
@@ -38,5 +39,12 @@ impl Project {
 
     pub fn get_project_settings(&self) -> &ProjectSettings {
         &self.project_settings
+    }
+
+    pub fn save_to_file(&self) {
+        let core_project_settings_path = self.project_directory.join(".project/core.json");
+        let serialized_project = serde_json::to_string_pretty(&self.project_settings).unwrap();
+        std::fs::write(core_project_settings_path, serialized_project)
+            .expect("failed to write serialized project to `.project/core.json`");
     }
 }

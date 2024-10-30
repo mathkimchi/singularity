@@ -1,19 +1,143 @@
 {
-    "subapps": {
-        "task_organizer": {
-            "location": "standard_subapps/task_organizer",
-            "subapp_standard_settings": {
-                "subapp_file_system_permissions": {
-                    "property": {
-                        "location": "[$project_directory]/.project/tasks.json",
-                        "read": true,
-                        "write": true
-                    }
-                }
-            },
-            "subapp_specific_settings": {
-                "debug_border": false
-            }
+  "subapps": {
+    "task_organizer": {
+      "subapp_standard_settings": {
+        "subapp_file_system_permissions": {
+          "property": {
+            "location": "[$project_directory]/.project/tasks.json",
+            "read": true,
+            "write": true,
+            "execute": false
+          }
         }
+      },
+      "subapp_specific_settings": {
+        "debug_border": false
+      }
     }
+  },
+  "open_tabs": {
+    "tabs": {
+      "1e57bebd-7b63-4022-99cc-069250787926": {
+        "tab_type": "FILE_MANAGER",
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": "examples/root-project"
+      },
+      "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57": {
+        "tab_type": "FILE_MANAGER",
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.13
+            },
+            "y": {
+              "Proportional": 0.100000024
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.63
+            },
+            "y": {
+              "Proportional": 0.6
+            }
+          }
+        ],
+        "tab_data": "examples/root-project/lorem_ipsum.txt"
+      },
+      "7944e9ae-77db-40c4-bced-031488239d8c": {
+        "tab_type": "FILE_MANAGER",
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.120000005
+            },
+            "y": {
+              "Proportional": 0.4
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.62
+            },
+            "y": {
+              "Proportional": 0.9
+            }
+          }
+        ],
+        "tab_data": "examples/root-project/file_to_edit.txt"
+      },
+      "fce23123-f281-48a7-9c67-d364cf22620d": {
+        "tab_type": "FILE_MANAGER",
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": "examples/root-project"
+      }
+    },
+    "org_tree": {
+      "root_id": "fce23123-f281-48a7-9c67-d364cf22620d",
+      "nodes": {
+        "1e57bebd-7b63-4022-99cc-069250787926": {
+          "children": [],
+          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
+        },
+        "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57": {
+          "children": [],
+          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
+        },
+        "7944e9ae-77db-40c4-bced-031488239d8c": {
+          "children": [],
+          "parent": "fce23123-f281-48a7-9c67-d364cf22620d"
+        },
+        "fce23123-f281-48a7-9c67-d364cf22620d": {
+          "children": [
+            "1e57bebd-7b63-4022-99cc-069250787926",
+            "7944e9ae-77db-40c4-bced-031488239d8c",
+            "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57"
+          ],
+          "parent": null
+        }
+      }
+    },
+    "focused_tab": "fce23123-f281-48a7-9c67-d364cf22620d",
+    "display_order": [
+      "7944e9ae-77db-40c4-bced-031488239d8c",
+      "1e57bebd-7b63-4022-99cc-069250787926",
+      "1f41d280-8aa1-42b8-9ffa-8cd10cc27b57",
+      "fce23123-f281-48a7-9c67-d364cf22620d"
+    ]
+  }
 }

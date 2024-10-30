@@ -23,7 +23,7 @@ use tabs::Tabs;
 mod tabs;
 
 pub struct ProjectManager {
-    _project: Project,
+    project: Project,
 
     tabs: Tabs,
 
@@ -47,7 +47,7 @@ impl ProjectManager {
         let tabs = Tabs::parse_from_project(&project);
 
         Self {
-            _project: project,
+            project,
             tabs,
             app_focuser_index: None,
             is_running: Arc::new(RwLock::new(false)),
@@ -74,6 +74,8 @@ impl ProjectManager {
         }
 
         ui_thread_handle.join().unwrap();
+
+        self.save_to_file();
 
         Ok(())
     }
@@ -138,6 +140,13 @@ impl ProjectManager {
             UIElement::Container(tab_elements).fill_bg(Color::BLACK);
     }
 
+    fn save_to_file(mut self) {
+        // save the tabs session
+        let open_tabs = self.tabs.save_session();
+        self.project.project_settings.open_tabs = Some(open_tabs);
+        self.project.save_to_file();
+    }
+
     fn handle_input(&mut self) {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             use singularity_ui::ui_event::UIEvent;
@@ -146,6 +155,7 @@ impl ProjectManager {
                     // Ctrl+Q
                     dbg!("Goodbye!");
                     *self.is_running.write().unwrap() = false;
+                    return;
                 }
                 UIEvent::KeyPress(key, KeyModifiers::ALT)
                     if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>

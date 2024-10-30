@@ -200,6 +200,33 @@ impl Tabs {
         // TODO: self focused tab to parent
         self.set_focused_tab_id(self.get_root_id());
     }
+
+    /// Save this session
+    /// REVIEW: Rename to export?
+    pub fn save_session(&self) -> singularity_common::project::project_settings::OpenTabs {
+        use singularity_common::project::project_settings::{OpenTab, OpenTabs};
+
+        OpenTabs {
+            tabs: self
+                .tabs
+                .iter()
+                .map(|(id, handler)| {
+                    (
+                        *id,
+                        OpenTab {
+                            // TODO
+                            tab_type: "FILE_MANAGER".to_string(),
+                            tab_area: handler.get_area(),
+                            tab_data: handler.get_tab_data().clone(),
+                        },
+                    )
+                })
+                .collect(),
+            org_tree: self.org_tree.clone(),
+            focused_tab: self.focused_tab,
+            display_order: self.display_order.clone(),
+        }
+    }
 }
 impl singularity_common::utils::tree::tree_node_path::TraversableTree for Tabs {
     fn exists_at(&self, path: &TreeNodePath) -> bool {
