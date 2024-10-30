@@ -12,7 +12,6 @@ pub enum Event {
 
 pub enum Request {
     ChangeName(String),
-    /// FIXME: Box<dyn TabCreator> didn't work for some reason, get it to work
     SpawnChildTab(Box<dyn TabCreator>),
 }
 

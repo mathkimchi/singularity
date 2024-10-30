@@ -25,7 +25,7 @@ pub trait TabCreator: Send {
 // }
 impl TabCreator for Box<dyn TabCreator> {
     fn create_tab(&mut self, manager_handler: ManagerHandler) {
-        self.as_mut().create_tab(manager_handler);
+        self.as_mut().create_tab(manager_handler)
     }
 }
 

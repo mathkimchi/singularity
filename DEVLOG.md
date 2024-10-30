@@ -1075,3 +1075,44 @@ I think I will just start "drawing inspiration" from similar existing tools like
 First, I want to improve open/close behavior:
 - [x] be able to run and specify project path in cli, something like `singularity_manager --project examples/root-project`
 - [ ] save the workspace's open tabs on close
+
+2024/10/28
+
+I am working on saving tab sessions on close, but how should the data transfer happen?
+I could just do something rather---contrived, if I only cared about this, but I would be avoiding the overarching matter of how information should travel between the tabs and the project.
+And in a way, this brings into question what singularity itself is.
+
+I initially thought singularity should simply be an app to host other apps.
+I still want an app that does that.
+But after inspiration from Wayland, I believe that an interface protocol between subapps/tabs and a centralized app can be much more powerful.
+
+Anyways, that is something I should keep in the back of my mind while I continue making progress.
+
+I think I can draw inspiration from webpages for saving data.
+These are the aspects of webpages I think are relavent:
+- Information for opening a webpage:
+  - The webpage location in the url (most of the url)
+    - Parallel the "tab_type"
+  - Extra parameters in the url (like the `url.link/page?parameter`)
+    - Examples of this are in many search pages and also when specifying sections (wikipedia)
+    - Data from the opener to the tab on initialization
+    - Should also remember/ask for this when saving a session, if you want to restore it later
+    - Already implemented this for opening, but I should also add it for closing
+  - Cookies/local storage/session storage
+    - Local storage
+      - Data per tab type (and per .project type)
+      - I think I can add this with queries
+    - Session storage
+      - Data per instance of tab
+      - This is just variables, already implemented
+
+2024/10/29
+
+I can add initialization parameters and something like local storage through queries.
+In essence, the initialization parameters are storing the session storage long term, from one close to the next init.
+
+Both extra parameters and local storage will not be generic types that are different per tab type.
+Instead, I will pull a javascript and just store a serde value or even just a string.
+
+I think there is a reason why webpages don't save data on closing like this (that I know of, +other than caching).
+Saving on close is a pain, especially with the current architecture with threads.
