@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
+    ask_query,
     components::{text_box::TextBox, timer_widget::TimerWidget, Component, EnclosedComponent},
     utils::{
         timer::Timer,
@@ -196,11 +197,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
     fn initialize_tab(manager_handler: &singularity_common::tab::ManagerHandler) -> Self {
         Self::new_from_project(
             serde_json::from_value::<String>(
-                manager_handler
-                    .query(singularity_common::tab::packets::Query::TabData)
-                    .try_as_tab_data()
-                    .unwrap()
-                    .session_data,
+                ask_query!(manager_handler.get_query_channels(), TabData).session_data,
             )
             .unwrap(),
             manager_handler,

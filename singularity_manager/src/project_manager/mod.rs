@@ -1,9 +1,6 @@
 use singularity_common::{
     project::Project,
-    tab::{
-        packets::{Query, Request, Response},
-        TabHandler,
-    },
+    tab::{packets::Request, TabHandler},
     utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
 };
 use singularity_ui::{
@@ -307,11 +304,11 @@ impl ProjectManager {
                 .tabs
                 .get_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
                 .unwrap();
-            inquieror.answer_query(move |query| match query {
-                Query::Path => Response::Path(tab_path.clone()),
-                Query::Name => Response::Name(inquieror.tab_name.clone()),
-                Query::TabData => Response::TabData(inquieror.get_tab_data().clone()),
-            });
+            inquieror.get_respond_channels().answer_query(
+                move || tab_path.clone(),
+                move || inquieror.tab_name.clone(),
+                move || inquieror.get_tab_data().clone(),
+            );
         }
     }
 

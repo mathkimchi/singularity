@@ -1141,3 +1141,5 @@ I tried to do my own implementation of the concat_idents macro, but it sometimes
 Using paste, I automated generating the query type stuff, but it is not very readable, and I am also worried about its performance.
 Additionally, if something does go wrong, it will be a nightnmare to debug.
 I haven't used the auto-generated queries yet.
+
+Uhm, this feels noticably slower, I can't remember if it is because of my new changes though.

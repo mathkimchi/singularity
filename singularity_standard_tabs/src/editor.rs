@@ -1,6 +1,9 @@
-use singularity_common::tab::{
-    packets::{Event, Request},
-    BasicTab, ManagerHandler,
+use singularity_common::{
+    ask_query,
+    tab::{
+        packets::{Event, Request},
+        BasicTab, ManagerHandler,
+    },
 };
 use singularity_ui::{
     color::Color,
@@ -149,11 +152,7 @@ impl BasicTab for Editor {
     fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
         Self::new(
             serde_json::from_value::<String>(
-                manager_handler
-                    .query(singularity_common::tab::packets::Query::TabData)
-                    .try_as_tab_data()
-                    .unwrap()
-                    .session_data,
+                ask_query!(manager_handler.get_query_channels(), TabData).session_data,
             )
             .unwrap(),
             manager_handler,
