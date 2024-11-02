@@ -18,31 +18,7 @@
   },
   "open_tabs": {
     "tabs": {
-      "754b4b6b-ab30-48bd-8a94-a63bb6931680": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.13
-            },
-            "y": {
-              "Proportional": 0.100000024
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.63
-            },
-            "y": {
-              "Proportional": 0.6
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_type": "EDITOR",
-          "session_data": "examples/root-project/subdir/subfile.txt"
-        }
-      },
-      "968565ce-3f1d-4545-9310-aa97c330578d": {
+      "34b3ca21-5c47-4d51-9251-11a1481f4aad": {
         "tab_area": [
           {
             "x": {
@@ -66,7 +42,7 @@
           "session_data": "examples/root-project"
         }
       },
-      "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb": {
+      "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c": {
         "tab_area": [
           {
             "x": {
@@ -89,63 +65,27 @@
           "tab_type": "TASK_ORGANIZER",
           "session_data": "examples/root-project"
         }
-      },
-      "ddaddb20-8976-40f3-9d74-8faccb028535": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.120000005
-            },
-            "y": {
-              "Proportional": 0.4
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.62
-            },
-            "y": {
-              "Proportional": 0.9
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_type": "EDITOR",
-          "session_data": "examples/root-project/lorem_ipsum.txt"
-        }
       }
     },
     "org_tree": {
-      "root_id": "968565ce-3f1d-4545-9310-aa97c330578d",
+      "root_id": "34b3ca21-5c47-4d51-9251-11a1481f4aad",
       "nodes": {
-        "754b4b6b-ab30-48bd-8a94-a63bb6931680": {
-          "children": [],
-          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
-        },
-        "968565ce-3f1d-4545-9310-aa97c330578d": {
+        "34b3ca21-5c47-4d51-9251-11a1481f4aad": {
           "children": [
-            "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb",
-            "ddaddb20-8976-40f3-9d74-8faccb028535",
-            "754b4b6b-ab30-48bd-8a94-a63bb6931680"
+            "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c"
           ],
           "parent": null
         },
-        "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb": {
+        "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c": {
           "children": [],
-          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
-        },
-        "ddaddb20-8976-40f3-9d74-8faccb028535": {
-          "children": [],
-          "parent": "968565ce-3f1d-4545-9310-aa97c330578d"
+          "parent": "34b3ca21-5c47-4d51-9251-11a1481f4aad"
         }
       }
     },
-    "focused_tab": "968565ce-3f1d-4545-9310-aa97c330578d",
+    "focused_tab": "34b3ca21-5c47-4d51-9251-11a1481f4aad",
     "display_order": [
-      "bae51d0f-9e30-46d5-af7c-c81a58cb1bcb",
-      "ddaddb20-8976-40f3-9d74-8faccb028535",
-      "754b4b6b-ab30-48bd-8a94-a63bb6931680",
-      "968565ce-3f1d-4545-9310-aa97c330578d"
+      "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c",
+      "34b3ca21-5c47-4d51-9251-11a1481f4aad"
     ]
   }
 }

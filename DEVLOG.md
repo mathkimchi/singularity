@@ -1143,3 +1143,7 @@ Additionally, if something does go wrong, it will be a nightnmare to debug.
 I haven't used the auto-generated queries yet.
 
 Uhm, this feels noticably slower, I can't remember if it is because of my new changes though.
+
+2024/11/2
+
+I think that was just because I had so many tabs open from the open/close session test.
