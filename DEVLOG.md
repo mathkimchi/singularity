@@ -1074,7 +1074,7 @@ I think I will just start "drawing inspiration" from similar existing tools like
 
 First, I want to improve open/close behavior:
 - [x] be able to run and specify project path in cli, something like `singularity_manager --project examples/root-project`
-- [ ] save the workspace's open tabs on close
+- [x] save the workspace's open tabs on close
 
 2024/10/28
 
@@ -1128,3 +1128,16 @@ I got expected behavior first try!
 However, I still need to find a way to figure out the tab type.
 In fact, I am not sure how I am going to handle tab type at all.
 But, I am ready to sleep now.
+
+2024/11/1
+
+Coder's worst nightmare, naming variables, strikes once again.
+I've been stuck working on automatically generating code for queries.
+I am trying to procedurally name variables, but that has turned out to be quite a hassle.
+
+Concat idents is unstable, and while the paste crate seems cool, but is deprecated for some reason.
+I tried to do my own implementation of the concat_idents macro, but it sometimes just doesn't work, so I will try using paste even though it is deprecated.
+
+Using paste, I automated generating the query type stuff, but it is not very readable, and I am also worried about its performance.
+Additionally, if something does go wrong, it will be a nightnmare to debug.
+I haven't used the auto-generated queries yet.
