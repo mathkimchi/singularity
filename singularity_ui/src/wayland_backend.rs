@@ -23,7 +23,10 @@ use smithay_client_toolkit::{
     },
 };
 use std::{
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 use ui_event::{KeyModifiers, UIEvent};
@@ -47,8 +50,8 @@ pub struct UIDisplay {
     shm: Shm,
     xdg_activation: Option<ActivationState>,
 
-    /// REVIEW: make sure rwlock is good for this
-    is_running: Arc<RwLock<bool>>,
+    /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
+    is_running: Arc<AtomicBool>,
     first_configure: bool,
     pool: SlotPool,
     width: u32,
@@ -67,7 +70,7 @@ impl UIDisplay {
     pub fn run_display(
         root_element: Arc<Mutex<UIElement>>,
         ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
-        is_running: Arc<RwLock<bool>>,
+        is_running: Arc<AtomicBool>,
     ) {
         // All Wayland apps start by connecting the compositor (server).
         let conn = Connection::connect_to_env().unwrap();
@@ -166,7 +169,7 @@ impl UIDisplay {
         };
 
         // We don't draw immediately, the configure will notify us when to first draw.
-        while *ui_display.is_running.read().unwrap() {
+        while ui_display.is_running.load(Ordering::Relaxed) {
             event_loop
                 .dispatch(
                     Duration::from_secs_f32(FRAME_DELTA_SECONDS),
@@ -416,12 +419,11 @@ mod drawing_impls {
     }
 }
 mod ui_display_wayland_impls {
-    use crate::display_units::DisplayArea;
-
     use super::{
         ui_event::{Key, KeyModifiers},
         UIDisplay,
     };
+    use crate::display_units::DisplayArea;
     use smithay_client_toolkit::{
         activation::{ActivationHandler, RequestData},
         compositor::CompositorHandler,
@@ -531,7 +533,8 @@ mod ui_display_wayland_impls {
 
     impl WindowHandler for UIDisplay {
         fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
-            *self.is_running.write().unwrap() = false;
+            self.is_running
+                .store(false, std::sync::atomic::Ordering::Relaxed);
         }
 
         /// Called on first spawn and resize

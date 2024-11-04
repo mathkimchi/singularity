@@ -12,7 +12,10 @@ use singularity_ui::{
 };
 use std::{
     io::{self},
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
 };
 use tabs::Tabs;
@@ -27,7 +30,7 @@ pub struct ProjectManager {
     /// App focuser is a special window
     /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
     app_focuser_index: Option<TreeNodePath>,
-    is_running: Arc<RwLock<bool>>,
+    is_running: Arc<AtomicBool>,
 
     /// gui
     ui_element: Arc<Mutex<UIElement>>,
@@ -47,14 +50,14 @@ impl ProjectManager {
             project,
             tabs,
             app_focuser_index: None,
-            is_running: Arc::new(RwLock::new(false)),
+            is_running: Arc::new(AtomicBool::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
     pub fn run(mut self) -> io::Result<()> {
-        *self.is_running.write().unwrap() = true;
+        self.is_running.store(true, Ordering::Relaxed);
 
         let ui_element_clone = self.ui_element.clone();
         let ui_event_queue_clone = self.ui_event_queue.clone();
@@ -63,7 +66,7 @@ impl ProjectManager {
             UIDisplay::run_display(ui_element_clone, ui_event_queue_clone, is_running_clone);
         });
 
-        while *self.is_running.read().unwrap() {
+        while self.is_running.load(Ordering::Relaxed) {
             self.draw_app();
             self.handle_input();
             self.process_tab_requests();
@@ -151,7 +154,7 @@ impl ProjectManager {
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
                     // Ctrl+Q
                     dbg!("Goodbye!");
-                    *self.is_running.write().unwrap() = false;
+                    self.is_running.store(false, Ordering::Relaxed);
                     return;
                 }
                 UIEvent::KeyPress(key, KeyModifiers::ALT)
