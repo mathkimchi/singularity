@@ -23,6 +23,7 @@ pub enum Tile {
         // parent_tile: Option<Id<Tile>>,
         children: [Id<Tile>; 2],
         orientation: Orientation,
+        split: f32,
     },
     /// Leaf node points to a full window
     Tab {
@@ -80,6 +81,7 @@ impl Tiles {
         *original_tile = Tile::Container {
             children: [older_tile_id, younger_tile_id],
             orientation: Orientation::Horizontal,
+            split: 0.5,
         };
     }
 

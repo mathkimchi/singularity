@@ -90,17 +90,18 @@ impl ProjectManager {
             Tile::Container {
                 children,
                 orientation,
+                split,
             } => {
                 // TODO: orientation
 
                 UIElement::Container(vec![
                     self.render_tile_recursive(
                         children[0],
-                        DisplayArea::new((0., 0.), (1., 0.5)).map_onto(container_area),
+                        DisplayArea::new((0., 0.), (1., *split)).map_onto(container_area),
                     ),
                     self.render_tile_recursive(
                         children[1],
-                        DisplayArea::new((0., 0.5), (1., 1.)).map_onto(container_area),
+                        DisplayArea::new((0., *split), (1., 1.)).map_onto(container_area),
                     ),
                 ])
             }
@@ -246,6 +247,10 @@ impl ProjectManager {
                 // }
                 UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.raw_code == 103 => {
                     // LOGO+ArrowUp
+                }
+                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('=') => {
+                    // LOGO+"=" (but it represents "+")
+                    // TODO: increment tile split
                 }
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
                     println!("Deletin");
