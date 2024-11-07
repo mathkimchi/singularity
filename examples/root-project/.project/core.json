@@ -1,91 +1,19 @@
 {
-  "subapps": {
-    "task_organizer": {
-      "subapp_standard_settings": {
-        "subapp_file_system_permissions": {
-          "property": {
-            "location": "[$project_directory]/.project/tasks.json",
-            "read": true,
-            "write": true,
-            "execute": false
-          }
+    "subapps": {
+        "task_organizer": {
+            "subapp_standard_settings": {
+                "subapp_file_system_permissions": {
+                    "property": {
+                        "location": "[$project_directory]/.project/tasks.json",
+                        "read": true,
+                        "write": true,
+                        "execute": false
+                    }
+                }
+            },
+            "subapp_specific_settings": {
+                "debug_border": false
+            }
         }
-      },
-      "subapp_specific_settings": {
-        "debug_border": false
-      }
     }
-  },
-  "open_tabs": {
-    "tabs": {
-      "34b3ca21-5c47-4d51-9251-11a1481f4aad": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.0
-            },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 1.0
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_type": "FILE_MANAGER",
-          "session_data": "examples/root-project"
-        }
-      },
-      "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 1.0
-            },
-            "y": {
-              "Proportional": 1.0
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_type": "TASK_ORGANIZER",
-          "session_data": "examples/root-project"
-        }
-      }
-    },
-    "org_tree": {
-      "root_id": "34b3ca21-5c47-4d51-9251-11a1481f4aad",
-      "nodes": {
-        "34b3ca21-5c47-4d51-9251-11a1481f4aad": {
-          "children": [
-            "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c"
-          ],
-          "parent": null
-        },
-        "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c": {
-          "children": [],
-          "parent": "34b3ca21-5c47-4d51-9251-11a1481f4aad"
-        }
-      }
-    },
-    "focused_tab": "34b3ca21-5c47-4d51-9251-11a1481f4aad",
-    "display_order": [
-      "bcdcf066-03ca-46cc-8e8e-a5763dbb1f6c",
-      "34b3ca21-5c47-4d51-9251-11a1481f4aad"
-    ]
-  }
 }

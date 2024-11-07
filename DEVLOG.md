@@ -1147,3 +1147,23 @@ Uhm, this feels noticably slower, I can't remember if it is because of my new ch
 2024/11/2
 
 I think that was just because I had so many tabs open from the open/close session test.
+
+2024/11/3
+
+I tried to do wayland embedding in another branch, but that didn't work out.
+
+Anyways, I want to work on organization in the form of tiling.
+I will ~~copy~~ gain inspiration from existing tiling window managers like hyprland.
+
+The problem is that a lot of the keybinds I want to use are already being used by KDE.
+I am going to disable them for my entire system, because there is no way to selectively change KDE keybinds based on app focus.
+
+2024/11/4
+
+I talked to a friend who uses Hyprland, and it seems like everything can be stored in a binary tree, with leaves being the actual windows, and non-leaf nodes storing two children, and data about how they are organized (eg, hor vs vert split, split ratio).
+
+2024/11/6
+
+I am once again turning to Uuids for the binary trees, and I realized I wanted type safety with uuids, but the rust compiler is kind of annoying so I might use an external crate for this.
+I looked at the `typed_id` crate, and it just manually implements what would have been derived.
+But, I feel like there is something wrong with my logic as I rely more and more on Uuid's.

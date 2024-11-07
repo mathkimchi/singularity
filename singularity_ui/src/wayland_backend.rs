@@ -672,8 +672,10 @@ mod ui_display_wayland_impls {
             event: Key,
         ) {
             if self.key_modifiers.caps_lock {
-                // dbg keycode when caps lock is on
-                dbg!(event.raw_code);
+                // dbg when caps lock is on
+                println!("key pressed in dbg mode (capslock)");
+                dbg!(&event);
+                dbg!(&self.key_modifiers);
             }
             self.ui_event_queue
                 .lock()
@@ -879,6 +881,15 @@ pub mod ui_event {
             shift: true,
             caps_lock: false,
             logo: false,
+            num_lock: false,
+        };
+
+        pub const LOGO: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: true,
             num_lock: false,
         };
     }

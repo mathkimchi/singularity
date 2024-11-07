@@ -10,6 +10,7 @@ use std::{
 };
 
 pub mod packets;
+pub mod tile;
 
 /// REVIEW: name this tab runner?
 pub trait TabCreator: Send {

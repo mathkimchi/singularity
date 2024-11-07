@@ -1,6 +1,6 @@
 use singularity_common::{
     project::{project_settings::TabData, Project},
-    tab::TabHandler,
+    tab::{tile::Tiles, TabHandler},
     utils::tree::{tree_node_path::TreeNodePath, uuid_tree::UuidTree},
 };
 use singularity_ui::display_units::DisplayArea;
@@ -25,8 +25,9 @@ pub struct Tabs {
     org_tree: UuidTree,
     focused_tab: Uuid,
 
-    /// currently, last in vec is "top" in gui
-    display_order: Vec<Uuid>,
+    // /// currently, last in vec is "top" in gui
+    // display_order: Vec<Uuid>,
+    display_tiles: Tiles,
 }
 impl Tabs {
     pub fn parse_from_project(project: &Project) -> Self {
@@ -50,7 +51,7 @@ impl Tabs {
                     .collect(),
                 org_tree: open_tabs.org_tree,
                 focused_tab: open_tabs.focused_tab,
-                display_order: open_tabs.display_order,
+                display_tiles: open_tabs.display_tiles,
             }
         } else {
             // create new project
@@ -86,15 +87,15 @@ impl Tabs {
         }
     }
 
-    fn new_from_root_with_id(root_tab: TabHandler, id: Uuid) -> Self {
+    fn new_from_root_with_id(root_tab: TabHandler, root_id: Uuid) -> Self {
         let mut tabs = BTreeMap::new();
-        tabs.insert(id, root_tab);
+        tabs.insert(root_id, root_tab);
 
         Self {
             tabs,
-            org_tree: UuidTree::new(id),
-            focused_tab: id,
-            display_order: vec![id],
+            org_tree: UuidTree::new(root_id),
+            focused_tab: root_id,
+            display_tiles: Tiles::new_from_root(root_id.into()),
         }
     }
 
@@ -110,7 +111,8 @@ impl Tabs {
         // add to `tabs`
         self.tabs.insert(uuid, new_tab);
         // add to top of display order
-        self.display_order.push(uuid);
+        self.display_tiles
+            .give_sibling(self.focused_tab.into(), uuid.into());
 
         // set focus to new tabs
         // REVIEW: is this bad?
@@ -131,8 +133,8 @@ impl Tabs {
         self.get_mut_tab_handler(self.get_focused_tab_id()).unwrap()
     }
 
-    pub fn get_display_order(&self) -> &Vec<Uuid> {
-        &self.display_order
+    pub fn get_display_tiles(&self) -> &Tiles {
+        &self.display_tiles
     }
 
     pub fn get_focused_tab_id(&self) -> Uuid {
@@ -145,10 +147,10 @@ impl Tabs {
 
         // move the focused tab to end of display order (putting it on top)
         {
-            self.display_order
-                .retain(|tab_id| tab_id != &self.focused_tab);
+            // self.display_order
+            //     .retain(|tab_id| tab_id != &self.focused_tab);
 
-            self.display_order.push(self.focused_tab);
+            // self.display_order.push(self.focused_tab);
         }
     }
 
@@ -166,20 +168,26 @@ impl Tabs {
     }
 
     pub fn minimize_focused_tab(&mut self) {
-        // remove the focused tab from the display order as to not render it
+        todo!()
 
-        self.display_order
-            .retain(|tab_id| tab_id != &self.focused_tab);
+        // // remove the focused tab from the display order as to not render it
 
-        // REVIEW: is this good?
-        // make the topmost tab the new focused tab
-        if let Some(uuid) = self.display_order.last() {
-            self.focused_tab = *uuid;
-        }
+        // self.display_order
+        //     .retain(|tab_id| tab_id != &self.focused_tab);
+
+        // // REVIEW: is this good?
+        // // make the topmost tab the new focused tab
+        // if let Some(uuid) = self.display_order.last() {
+        //     self.focused_tab = *uuid;
+        // }
     }
 
     pub fn num_tabs(&self) -> usize {
         self.tabs.len()
+    }
+
+    pub fn collect_tab_ids(&self) -> Vec<Uuid> {
+        self.tabs.keys().cloned().collect()
     }
 
     pub fn get_root_id(&self) -> Uuid {
@@ -196,7 +204,7 @@ impl Tabs {
 
         if self.org_tree.remove_recursive(*id) {
             self.tabs.remove(id);
-            self.display_order.retain(|i| i != id);
+            self.display_tiles.remove((*id).into());
         } else {
             println!("Tried to close root");
         }
@@ -231,7 +239,7 @@ impl Tabs {
                 .collect(),
             org_tree: self.org_tree.clone(),
             focused_tab: self.focused_tab,
-            display_order: self.display_order.clone(),
+            display_tiles: self.display_tiles.clone(),
         }
     }
 }

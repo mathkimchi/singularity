@@ -1,7 +1,10 @@
 use singularity_common::{
     project::Project,
-    tab::{packets::Request, TabHandler},
-    utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
+    tab::{packets::Request, tile::Tile, TabHandler},
+    utils::{
+        id_map::Id,
+        tree::tree_node_path::{TraversableTree, TreeNodePath},
+    },
 };
 use singularity_ui::{
     color::Color,
@@ -80,14 +83,49 @@ impl ProjectManager {
         Ok(())
     }
 
+    fn render_tile_recursive(&self, tile_id: Id<Tile>, container_area: DisplayArea) -> UIElement {
+        let tile = self.tabs.get_display_tiles().get_tile(tile_id).unwrap();
+
+        match tile {
+            Tile::Container {
+                children,
+                orientation,
+            } => {
+                // TODO: orientation
+
+                UIElement::Container(vec![
+                    self.render_tile_recursive(
+                        children[0],
+                        DisplayArea::new((0., 0.), (1., 0.5)).map_onto(container_area),
+                    ),
+                    self.render_tile_recursive(
+                        children[1],
+                        DisplayArea::new((0., 0.5), (1., 1.)).map_onto(container_area),
+                    ),
+                ])
+            }
+            Tile::Tab { tab_id } => {
+                let tab = self.tabs.get_tab_handler((*tab_id).into()).unwrap();
+
+                // TODO measure area & inform the tab of area changes
+
+                tab.get_ui_element().contain(container_area)
+            }
+        }
+    }
+
     fn draw_app(&mut self) {
         let mut tab_elements = Vec::new();
 
-        for tab_id in self.tabs.get_display_order().clone() {
-            let tab = &mut self.tabs.get_mut_tab_handler(tab_id).unwrap();
+        // for tab_id in self.tabs.get_display_order().clone() {
+        //     let tab = &mut self.tabs.get_mut_tab_handler(tab_id).unwrap();
 
-            tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
-        }
+        //     tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
+        // }
+        tab_elements.push(self.render_tile_recursive(
+            self.tabs.get_display_tiles().get_root_tile(),
+            DisplayArea::FULL,
+        ));
 
         // display the tab focuser/selector
         if let Some(focusing_index) = &self.app_focuser_index {
@@ -190,20 +228,24 @@ impl ProjectManager {
                     dbg!(&self.app_focuser_index);
                     // dbg!(&self.focused_tab_path);
                 }
-                UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
-                    // Alt+ArrowUp
-                    // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+                // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
+                //     // Alt+ArrowUp
+                //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
 
-                    // maximize focused tab
-                    let focused_tab = self.tabs.get_focused_tab_mut();
+                //     // maximize focused tab
+                //     let focused_tab = self.tabs.get_focused_tab_mut();
 
-                    focused_tab.set_area(DisplayArea::from_corner_size(
-                        DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                        DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                    ));
-                }
-                UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
-                    self.tabs.minimize_focused_tab();
+                //     focused_tab.set_area(DisplayArea::from_corner_size(
+                //         DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+                //         DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
+                //     ));
+                // }
+                // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
+                //     // Alt+ArrowDown
+                //     self.tabs.minimize_focused_tab();
+                // }
+                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.raw_code == 103 => {
+                    // LOGO+ArrowUp
                 }
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
                     println!("Deletin");
@@ -244,7 +286,7 @@ impl ProjectManager {
                     }
 
                     // if pressed on unfocused tab, make that focused
-                    for tab_id in self.tabs.get_display_order().iter().rev() {
+                    for tab_id in self.tabs.collect_tab_ids().iter().rev() {
                         let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
                         let tab_area = tab.get_area();
 

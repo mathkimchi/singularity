@@ -3,6 +3,8 @@ use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::tab::tile::Tiles;
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubappFileSystemPermission {
     location: String,
@@ -60,8 +62,9 @@ pub struct OpenTabs {
     pub org_tree: crate::utils::tree::uuid_tree::UuidTree,
     pub focused_tab: Uuid,
 
-    /// currently, last in vec is "top" in gui
-    pub display_order: Vec<Uuid>,
+    // /// currently, last in vec is "top" in gui
+    // pub display_order: Vec<Uuid>,
+    pub display_tiles: Tiles,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
