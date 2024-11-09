@@ -1160,7 +1160,7 @@ I am going to disable them for my entire system, because there is no way to sele
 
 2024/11/4
 
-I talked to a friend who uses Hyprland, and it seems like everything can be stored in a binary tree, with leaves being the actual windows, and non-leaf nodes storing two children, and data about how they are organized (eg, hor vs vert split, split ratio).
+I talked to a friend (@glolichen) who uses Hyprland, and it seems like everything can be stored in a binary tree, with leaves being the actual windows, and non-leaf nodes storing two children, and data about how they are organized (eg, hor vs vert split, split ratio).
 
 2024/11/6
 
