@@ -4,12 +4,11 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 use uuid::Uuid;
 
-/// FIXME: derives
-#[derive(serde::Serialize, serde::Deserialize)]
+// #[derive(serde::Deserialize)]
 pub struct Id<Item> {
     uuid: Uuid,
     /// Compiler will complain if I don't have this here
-    #[serde(skip)]
+    // #[serde(skip)]
     phantom_data: PhantomData<Item>,
 }
 impl<Item> Id<Item> {
@@ -61,6 +60,47 @@ mod id_derive_impls {
     impl<Item> std::fmt::Debug for Id<Item> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Id").field("uuid", &self.uuid).finish()
+        }
+    }
+
+    /// Serialize as a str for the sake of map keys, I think the phantom data messes with it
+    impl<Item> serde::Serialize for Id<Item> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            self.uuid.serialize(serializer)
+        }
+    }
+    impl<'de, Item> serde::Deserialize<'de> for Id<Item> {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            struct IdVisitor<Item> {
+                phantom_data: PhantomData<Item>,
+            }
+
+            impl<'de, Item> serde::de::Visitor<'de> for IdVisitor<Item> {
+                type Value = Id<Item>;
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    write!(formatter, "a UUID string")
+                }
+                fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Id<Item>, E> {
+                    Ok(Id {
+                        uuid: value.parse::<Uuid>().map_err(|e| {
+                            E::custom(format!("Failed to parse UUID for Id: {}", e))
+                        })?,
+                        phantom_data: PhantomData,
+                    })
+                }
+                fn visit_bytes<E: serde::de::Error>(self, value: &[u8]) -> Result<Id<Item>, E> {
+                    Ok(Id {
+                        uuid: Uuid::from_slice(value).map_err(|e| {
+                            E::custom(format!("Failed to parse UUID for Id: {}", e))
+                        })?,
+                        phantom_data: PhantomData,
+                    })
+                }
+            }
+
+            deserializer.deserialize_str(IdVisitor::<Item> {
+                phantom_data: PhantomData,
+            })
         }
     }
 }

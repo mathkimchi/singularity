@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::tab::tile::Tiles;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappFileSystemPermission {
     location: String,
     /// default to false
@@ -19,17 +19,17 @@ pub struct SubappFileSystemPermission {
     execute: bool,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappFileSystemPermissions {
     property: Option<SubappFileSystemPermission>,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappStandardSettings {
     subapp_file_system_permissions: Option<SubappFileSystemPermissions>,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappSettings {
     subapp_standard_settings: Option<SubappStandardSettings>,
     subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
@@ -45,7 +45,7 @@ pub struct TabData {
     pub session_data: serde_json::Value,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct OpenTab {
     // /// FIXME, right now, this works with finite tabs, is a glorified enum
     // pub tab_type: String,
@@ -54,7 +54,7 @@ pub struct OpenTab {
     pub tab_data: TabData,
 }
 /// REVIEW: alternative name for open tab: tab session
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct OpenTabs {
     pub tabs: std::collections::BTreeMap<Uuid, OpenTab>,
 
@@ -67,7 +67,7 @@ pub struct OpenTabs {
     pub display_tiles: Tiles,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSettings {
     pub subapps: HashMap<String, SubappSettings>,
     /// TODO: move this out of settings

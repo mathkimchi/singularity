@@ -1,19 +1,116 @@
 {
-    "subapps": {
-        "task_organizer": {
-            "subapp_standard_settings": {
-                "subapp_file_system_permissions": {
-                    "property": {
-                        "location": "[$project_directory]/.project/tasks.json",
-                        "read": true,
-                        "write": true,
-                        "execute": false
-                    }
-                }
-            },
-            "subapp_specific_settings": {
-                "debug_border": false
-            }
+  "subapps": {
+    "task_organizer": {
+      "subapp_standard_settings": {
+        "subapp_file_system_permissions": {
+          "property": {
+            "location": "[$project_directory]/.project/tasks.json",
+            "read": true,
+            "write": true,
+            "execute": false
+          }
         }
+      },
+      "subapp_specific_settings": {
+        "debug_border": false
+      }
     }
+  },
+  "open_tabs": {
+    "tabs": {
+      "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "FILE_MANAGER",
+          "session_data": "examples/root-project"
+        }
+      },
+      "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "TASK_ORGANIZER",
+          "session_data": "examples/root-project"
+        }
+      }
+    },
+    "org_tree": {
+      "root_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
+      "nodes": {
+        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
+          "children": [
+            "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+          ],
+          "parent": null
+        },
+        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
+          "children": [],
+          "parent": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+        }
+      }
+    },
+    "focused_tab": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
+    "display_tiles": {
+      "root_id": "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa",
+      "tiles": {
+        "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa": {
+          "Container": {
+            "children": [
+              "fd71644a-8f4c-4973-a332-0d1fe0b89d85",
+              "a1222c7c-06ba-4dc7-b08d-daa23b415b11"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
+          }
+        },
+        "a1222c7c-06ba-4dc7-b08d-daa23b415b11": {
+          "Tab": {
+            "tab_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+          }
+        },
+        "fd71644a-8f4c-4973-a332-0d1fe0b89d85": {
+          "Tab": {
+            "tab_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+          }
+        }
+      },
+      "leaf_registry": {
+        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": "fd71644a-8f4c-4973-a332-0d1fe0b89d85",
+        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": "a1222c7c-06ba-4dc7-b08d-daa23b415b11"
+      }
+    }
+  }
 }

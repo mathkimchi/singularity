@@ -1167,3 +1167,8 @@ I talked to a friend who uses Hyprland, and it seems like everything can be stor
 I am once again turning to Uuids for the binary trees, and I realized I wanted type safety with uuids, but the rust compiler is kind of annoying so I might use an external crate for this.
 I looked at the `typed_id` crate, and it just manually implements what would have been derived.
 But, I feel like there is something wrong with my logic as I rely more and more on Uuid's.
+
+2024/11/7
+
+I learned that hyprland has two ways of doing tiling: dwindle and master.
+Dwindle is what I was basing my tiling off of.
