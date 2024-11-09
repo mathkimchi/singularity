@@ -178,6 +178,11 @@ impl TabHandler {
     }
 
     pub fn set_area(&mut self, new_area: DisplayArea) {
+        if self.tab_area == new_area {
+            // optimization, but might cause annoying behavior
+            return;
+        }
+
         self.tab_area = new_area;
 
         self.send_event(Event::Resize(new_area));

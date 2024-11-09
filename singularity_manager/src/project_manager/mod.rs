@@ -83,8 +83,12 @@ impl ProjectManager {
         Ok(())
     }
 
-    fn render_tile_recursive(&self, tile_id: Id<Tile>, container_area: DisplayArea) -> UIElement {
-        let tile = self.tabs.get_display_tiles().get_tile(tile_id).unwrap();
+    fn render_tile_recursive(
+        &mut self,
+        tile_id: Id<Tile>,
+        container_area: DisplayArea,
+    ) -> UIElement {
+        let tile = *self.tabs.get_display_tiles().get_tile(tile_id).unwrap();
 
         match tile {
             Tile::Container {
@@ -97,18 +101,19 @@ impl ProjectManager {
                 UIElement::Container(vec![
                     self.render_tile_recursive(
                         children[0],
-                        DisplayArea::new((0., 0.), (1., *split)).map_onto(container_area),
+                        DisplayArea::new((0., 0.), (1., split)).map_onto(container_area),
                     ),
                     self.render_tile_recursive(
                         children[1],
-                        DisplayArea::new((0., *split), (1., 1.)).map_onto(container_area),
+                        DisplayArea::new((0., split), (1., 1.)).map_onto(container_area),
                     ),
                 ])
             }
             Tile::Tab { tab_id } => {
-                let tab = self.tabs.get_tab_handler((*tab_id).into()).unwrap();
+                let tab = self.tabs.get_mut_tab_handler(tab_id.into()).unwrap();
 
-                // TODO measure area & inform the tab of area changes
+                // NOTE: rn, this is how the tab area is updated, but there's gotta be a better way
+                tab.set_area(container_area);
 
                 tab.get_ui_element().contain(container_area)
             }
@@ -362,6 +367,7 @@ impl ProjectManager {
         }
     }
 
+    /// TODO: now, with tiling, I don't need this
     fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
         const WIDTH: f32 = 0.5;
         const HEIGHT: f32 = 0.5;

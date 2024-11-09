@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use super::TabHandler;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Copy)]
 pub enum Orientation {
     Horizontal,
     Vertical,
@@ -17,7 +17,7 @@ pub enum Orientation {
 ///
 /// REVIEW: abstract something about the pattern where items are represented by Uuids and stored in B-maps
 /// Maybe like ID map
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Copy)]
 pub enum Tile {
     Container {
         // parent_tile: Option<Id<Tile>>,
