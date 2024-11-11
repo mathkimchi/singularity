@@ -30,10 +30,10 @@
           },
           {
             "x": {
-              "Proportional": 1.0
+              "Proportional": 0.5
             },
             "y": {
-              "Proportional": 0.5
+              "Proportional": 1.0
             }
           }
         ],
@@ -46,10 +46,10 @@
         "tab_area": [
           {
             "x": {
-              "Pixels": 0
+              "Proportional": 0.5
             },
             "y": {
-              "Proportional": 0.5
+              "Pixels": 0
             }
           },
           {
@@ -92,7 +92,7 @@
               "fd71644a-8f4c-4973-a332-0d1fe0b89d85",
               "a1222c7c-06ba-4dc7-b08d-daa23b415b11"
             ],
-            "orientation": "Horizontal",
+            "orientation": "Vertical",
             "split": 0.5
           }
         },

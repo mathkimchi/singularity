@@ -96,16 +96,25 @@ impl ProjectManager {
                 orientation,
                 split,
             } => {
-                // TODO: orientation
+                let area_splits = match orientation {
+                    singularity_common::tab::tile::Orientation::Horizontal => [
+                        DisplayArea::new((0., 0.), (1., split)),
+                        DisplayArea::new((0., split), (1., 1.)),
+                    ],
+                    singularity_common::tab::tile::Orientation::Vertical => [
+                        DisplayArea::new((0., 0.), (split, 1.)),
+                        DisplayArea::new((split, 0.), (1., 1.)),
+                    ],
+                };
 
                 UIElement::Container(vec![
                     self.render_tile_recursive(
                         children[0],
-                        DisplayArea::new((0., 0.), (1., split)).map_onto(container_area),
+                        area_splits[0].map_onto(container_area),
                     ),
                     self.render_tile_recursive(
                         children[1],
-                        DisplayArea::new((0., split), (1., 1.)).map_onto(container_area),
+                        area_splits[1].map_onto(container_area),
                     ),
                 ])
             }
@@ -256,6 +265,10 @@ impl ProjectManager {
                 UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('=') => {
                     // LOGO+"=" (but it represents "+")
                     // TODO: increment tile split
+                }
+                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('t') => {
+                    // "T"ranspose selected tile's container (change horizontal vs vertical)
+                    self.tabs.transpose_focused_tile_parent();
                 }
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
                     println!("Deletin");

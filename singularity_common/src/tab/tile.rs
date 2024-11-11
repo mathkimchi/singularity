@@ -12,6 +12,14 @@ pub enum Orientation {
     Horizontal,
     Vertical,
 }
+impl Orientation {
+    fn get_transpose(&self) -> Self {
+        match self {
+            Orientation::Horizontal => Orientation::Vertical,
+            Orientation::Vertical => Orientation::Horizontal,
+        }
+    }
+}
 
 /// Could do recursive enums, but I will do the UUID way
 ///
@@ -99,5 +107,36 @@ impl Tiles {
 
     pub fn get_tile(&self, tile_id: Id<Tile>) -> Option<&Tile> {
         self.tiles.get(&tile_id)
+    }
+
+    pub fn transpose_container(&mut self, container_tile_id: Id<Tile>) {
+        if let Some(Tile::Container {
+            children: _,
+            orientation,
+            split: _,
+        }) = self.tiles.get_mut(&container_tile_id)
+        {
+            *orientation = orientation.get_transpose();
+        }
+    }
+
+    /// NOTE: currently searches for parent that has the child
+    /// REVIEW: optimize by storing the parents
+    pub fn get_parent_tile_id(&mut self, child_tile_id: Id<Tile>) -> Option<Id<Tile>> {
+        self.tiles.iter().find_map(|(parent_id, parent_tile)| {
+            if let Tile::Container { children, .. } = parent_tile {
+                if children.contains(&child_tile_id) {
+                    Some(*parent_id)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_leaf_tile_id(&self, tab_handler: Id<TabHandler>) -> Option<Id<Tile>> {
+        self.leaf_registry.get(&tab_handler).copied()
     }
 }
