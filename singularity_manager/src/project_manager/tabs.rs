@@ -150,6 +150,19 @@ impl Tabs {
         self.display_tiles.transpose_container(container_tile_id);
     }
 
+    pub fn swap_focused_tile_siblings(&mut self) {
+        let container_tile_id = self
+            .display_tiles
+            .get_parent_tile_id(
+                self.display_tiles
+                    .get_leaf_tile_id(self.focused_tab.into())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        self.display_tiles.swap_children(container_tile_id);
+    }
+
     pub fn get_focused_tab_id(&self) -> Uuid {
         self.focused_tab
     }

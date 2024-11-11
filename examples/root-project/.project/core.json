@@ -18,6 +18,30 @@
   },
   "open_tabs": {
     "tabs": {
+      "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1": {
+        "tab_area": [
+          {
+            "x": {
+              "Pixels": 0
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "EDITOR",
+          "session_data": "examples/root-project/lorem_ipsum.txt"
+        }
+      },
       "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
         "tab_area": [
           {
@@ -33,7 +57,7 @@
               "Proportional": 0.5
             },
             "y": {
-              "Proportional": 1.0
+              "Proportional": 0.5
             }
           }
         ],
@@ -70,9 +94,14 @@
     "org_tree": {
       "root_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
       "nodes": {
+        "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1": {
+          "children": [],
+          "parent": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+        },
         "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
           "children": [
-            "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+            "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
+            "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1"
           ],
           "parent": null
         },
@@ -82,7 +111,7 @@
         }
       }
     },
-    "focused_tab": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
+    "focused_tab": "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1",
     "display_tiles": {
       "root_id": "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa",
       "tiles": {
@@ -96,19 +125,35 @@
             "split": 0.5
           }
         },
+        "58fbd697-1804-4bec-a9ae-09b793fef8a9": {
+          "Tab": {
+            "tab_id": "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1"
+          }
+        },
+        "5df60858-d6c8-408a-9e8e-2990dac502a8": {
+          "Tab": {
+            "tab_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+          }
+        },
         "a1222c7c-06ba-4dc7-b08d-daa23b415b11": {
           "Tab": {
             "tab_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
           }
         },
         "fd71644a-8f4c-4973-a332-0d1fe0b89d85": {
-          "Tab": {
-            "tab_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+          "Container": {
+            "children": [
+              "5df60858-d6c8-408a-9e8e-2990dac502a8",
+              "58fbd697-1804-4bec-a9ae-09b793fef8a9"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
           }
         }
       },
       "leaf_registry": {
-        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": "fd71644a-8f4c-4973-a332-0d1fe0b89d85",
+        "1ec82ffe-ad76-4ecc-9184-2a4edf49daa1": "58fbd697-1804-4bec-a9ae-09b793fef8a9",
+        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": "5df60858-d6c8-408a-9e8e-2990dac502a8",
         "995c64ed-840e-4de2-b9a6-7311b7c8f21c": "a1222c7c-06ba-4dc7-b08d-daa23b415b11"
       }
     }

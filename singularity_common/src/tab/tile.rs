@@ -120,6 +120,17 @@ impl Tiles {
         }
     }
 
+    pub fn swap_children(&mut self, container_tile_id: Id<Tile>) {
+        if let Some(Tile::Container {
+            children,
+            orientation: _,
+            split: _,
+        }) = self.tiles.get_mut(&container_tile_id)
+        {
+            children.swap(0, 1);
+        }
+    }
+
     /// NOTE: currently searches for parent that has the child
     /// REVIEW: optimize by storing the parents
     pub fn get_parent_tile_id(&mut self, child_tile_id: Id<Tile>) -> Option<Id<Tile>> {

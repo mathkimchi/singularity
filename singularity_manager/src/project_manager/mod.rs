@@ -270,6 +270,10 @@ impl ProjectManager {
                     // "T"ranspose selected tile's container (change horizontal vs vertical)
                     self.tabs.transpose_focused_tile_parent();
                 }
+                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('s') => {
+                    // "S"wap selected tile's siblings
+                    self.tabs.swap_focused_tile_siblings();
+                }
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
                     println!("Deletin");
                     self.tabs.close_focused_tab_recursively();
