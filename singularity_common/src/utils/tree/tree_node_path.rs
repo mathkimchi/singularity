@@ -44,6 +44,7 @@ pub trait TraversableTree {
         self.iter_paths_dfs().collect()
     }
 }
+pub const TREE_TRAVERSE_KEYS: [char; 6] = ['w', 'a', 's', 'd', 'q', 'e'];
 /// For the traverse functions, some require the original tree to be safe
 mod tree_node_path_traversal_impls {
     use super::{TraversableTree, TreeNodePath};
@@ -163,6 +164,15 @@ mod tree_node_path_traversal_impls {
             }
         }
 
+        pub fn traverse_dfs_prev(&self) -> Option<Self> {
+            if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
+                Some(previous_sibling)
+            } else {
+                // current is oldest sibling, traverse up to parent
+                self.traverse_to_parent()
+            }
+        }
+
         /// This is a helper function, traversing trees based on wasd input
         ///
         /// returns None if keycode isn't wasd or if the traversal is invalid
@@ -180,6 +190,8 @@ mod tree_node_path_traversal_impls {
                 'd' => self.traverse_to_first_child(tree_to_traverse),
                 'w' => self.traverse_to_previous_sibling(),
                 's' => self.traverse_to_next_sibling(tree_to_traverse),
+                'q' => self.traverse_dfs_prev(),
+                'e' => self.traverse_dfs_next(tree_to_traverse),
                 _ => None,
             }
         }

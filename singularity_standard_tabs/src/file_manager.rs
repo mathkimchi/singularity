@@ -7,7 +7,7 @@ use singularity_common::{
     },
     utils::tree::{
         rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath},
+        tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
     },
 };
 use std::path::PathBuf;
@@ -128,7 +128,9 @@ impl BasicTab for FileManager {
         match event {
             Event::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE)
-                    if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
+                    if key.to_char() == Some('\n')
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
                 {
                     self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
                         &self.directory_tree,

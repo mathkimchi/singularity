@@ -3,7 +3,7 @@ use singularity_common::{
     tab::{packets::Request, tile::Tile, TabHandler},
     utils::{
         id_map::Id,
-        tree::tree_node_path::{TraversableTree, TreeNodePath},
+        tree::tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
     },
 };
 use singularity_ui::{
@@ -211,7 +211,9 @@ impl ProjectManager {
                     return;
                 }
                 UIEvent::KeyPress(key, KeyModifiers::ALT)
-                    if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
+                    if key.to_char() == Some('\n')
+                        // `' '` is a placeholder for some key that isn't in tree traverse
+                        || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
                 {
                     // Alt + arrows should be like alt tab for Windows and Linux but tree based
                     // Alt + Enter either opens the tab chooser or closes it and chooses the tab
@@ -232,7 +234,7 @@ impl ProjectManager {
 
                         self.app_focuser_index = match key.to_char() {
                             Some('\n') => Some(new_focus_index),
-                            Some(traverse_key) if matches!(traverse_key, 'w' | 'a' | 's' | 'd') => {
+                            Some(traverse_key) if TREE_TRAVERSE_KEYS.contains(&traverse_key) => {
                                 new_focus_index = new_focus_index
                                     .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
                                 Some(new_focus_index)

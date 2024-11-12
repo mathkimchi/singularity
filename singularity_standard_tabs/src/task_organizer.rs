@@ -6,7 +6,7 @@ use singularity_common::{
         timer::Timer,
         tree::{
             recursive_tree::RecursiveTreeNode,
-            tree_node_path::{TraversableTree, TreeNodePath},
+            tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
         },
     },
 };
@@ -312,7 +312,8 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         self.mode = Mode::Editing;
                     }
                     UIEvent::KeyPress(traverse_key, KeyModifiers::NONE)
-                        if matches!(traverse_key.to_char(), Some('w' | 'a' | 's' | 'd')) =>
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    if TREE_TRAVERSE_KEYS.contains(&traverse_key.to_char().unwrap_or(' ')) =>
                     {
                         if let Some(EnclosedComponent {
                             inner_component: IndividualTaskWidget { task_path, .. },
