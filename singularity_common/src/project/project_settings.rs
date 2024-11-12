@@ -1,9 +1,7 @@
+use crate::{tab::tile::Tiles, utils::id_map::IdMap};
 use serde::{Deserialize, Serialize};
 use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
-use uuid::Uuid;
-
-use crate::tab::tile::Tiles;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappFileSystemPermission {
@@ -56,11 +54,11 @@ pub struct OpenTab {
 /// REVIEW: alternative name for open tab: tab session
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct OpenTabs {
-    pub tabs: std::collections::BTreeMap<Uuid, OpenTab>,
+    pub tabs: IdMap<OpenTab>,
 
     /// ORGanizational tree
-    pub org_tree: crate::utils::tree::uuid_tree::UuidTree,
-    pub focused_tab: Uuid,
+    pub org_tree: crate::utils::tree::id_tree::IdTree<crate::tab::TabHandler>,
+    pub focused_tab: crate::utils::id_map::Id<crate::tab::TabHandler>,
 
     // /// currently, last in vec is "top" in gui
     // pub display_order: Vec<Uuid>,

@@ -1,11 +1,12 @@
 use singularity_common::{
     project::{project_settings::TabData, Project},
     tab::{tile::Tiles, TabHandler},
-    utils::tree::{tree_node_path::TreeNodePath, uuid_tree::UuidTree},
+    utils::{
+        id_map::{Id, IdMap},
+        tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
+    },
 };
 use singularity_ui::display_units::DisplayArea;
-use std::collections::BTreeMap;
-use uuid::Uuid;
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
 /// REVIEW: currently, must have at least one tab. change?
@@ -19,11 +20,11 @@ use uuid::Uuid;
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    tabs: BTreeMap<Uuid, TabHandler>,
+    tabs: IdMap<TabHandler>,
 
     /// ORGanizational tree
-    org_tree: UuidTree,
-    focused_tab: Uuid,
+    org_tree: IdTree<TabHandler>,
+    focused_tab: Id<TabHandler>,
 
     // /// currently, last in vec is "top" in gui
     // display_order: Vec<Uuid>,
@@ -38,7 +39,7 @@ impl Tabs {
                     .into_iter()
                     .map(|(id, open_tab)| {
                         (
-                            id,
+                            uuid::Uuid::from(id).into(),
                             TabHandler::new(
                                 singularity_standard_tabs::get_tab_creator_from_type(
                                     open_tab.tab_data.tab_type.as_str(),
@@ -87,32 +88,35 @@ impl Tabs {
         }
     }
 
-    fn new_from_root_with_id(root_tab: TabHandler, root_id: Uuid) -> Self {
-        let mut tabs = BTreeMap::new();
+    fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
+        let mut tabs = IdMap::new();
         tabs.insert(root_id, root_tab);
 
         Self {
             tabs,
-            org_tree: UuidTree::new(root_id),
+            org_tree: IdTree::new(root_id),
             focused_tab: root_id,
-            display_tiles: Tiles::new_from_root(root_id.into()),
+            display_tiles: Tiles::new_from_root(root_id),
         }
     }
 
     pub fn new_from_root(root_tab: TabHandler) -> Self {
-        Self::new_from_root_with_id(root_tab, Uuid::new_v4())
+        Self::new_from_root_with_id(root_tab, Id::generate())
     }
 
-    pub fn add(&mut self, new_tab: TabHandler, parent_id: &Uuid) -> Option<Uuid> {
-        let uuid = Uuid::new_v4();
+    pub fn add(
+        &mut self,
+        new_tab: TabHandler,
+        parent_id: &Id<TabHandler>,
+    ) -> Option<Id<TabHandler>> {
+        let uuid = Id::generate();
 
         // add to `org_tree`
         self.org_tree.add_child(*parent_id, uuid);
         // add to `tabs`
         self.tabs.insert(uuid, new_tab);
         // add to top of display order
-        self.display_tiles
-            .give_sibling(self.focused_tab.into(), uuid.into());
+        self.display_tiles.give_sibling(self.focused_tab, uuid);
 
         // set focus to new tabs
         // REVIEW: is this bad?
@@ -121,11 +125,11 @@ impl Tabs {
         Some(uuid)
     }
 
-    pub fn get_tab_handler(&self, uuid: Uuid) -> Option<&TabHandler> {
+    pub fn get_tab_handler(&self, uuid: Id<TabHandler>) -> Option<&TabHandler> {
         self.tabs.get(&uuid)
     }
 
-    pub fn get_mut_tab_handler(&mut self, uuid: Uuid) -> Option<&mut TabHandler> {
+    pub fn get_mut_tab_handler(&mut self, uuid: Id<TabHandler>) -> Option<&mut TabHandler> {
         self.tabs.get_mut(&uuid)
     }
 
@@ -142,7 +146,7 @@ impl Tabs {
             .display_tiles
             .get_parent_tile_id(
                 self.display_tiles
-                    .get_leaf_tile_id(self.focused_tab.into())
+                    .get_leaf_tile_id(self.focused_tab)
                     .unwrap(),
             )
             .unwrap();
@@ -155,7 +159,7 @@ impl Tabs {
             .display_tiles
             .get_parent_tile_id(
                 self.display_tiles
-                    .get_leaf_tile_id(self.focused_tab.into())
+                    .get_leaf_tile_id(self.focused_tab)
                     .unwrap(),
             )
             .unwrap();
@@ -163,12 +167,12 @@ impl Tabs {
         self.display_tiles.swap_children(container_tile_id);
     }
 
-    pub fn get_focused_tab_id(&self) -> Uuid {
+    pub fn get_focused_tab_id(&self) -> Id<TabHandler> {
         self.focused_tab
     }
 
     /// NOTE: has a side effect of putting the newly focused tab on display top
-    pub fn set_focused_tab_id(&mut self, focused_tab_id: Uuid) {
+    pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
         self.focused_tab = focused_tab_id;
 
         // move the focused tab to end of display order (putting it on top)
@@ -180,7 +184,7 @@ impl Tabs {
         }
     }
 
-    pub fn get_id_by_org_path(&self, org_path: &TreeNodePath) -> Option<Uuid> {
+    pub fn get_id_by_org_path(&self, org_path: &TreeNodePath) -> Option<Id<TabHandler>> {
         self.org_tree.get_id_from_path(org_path)
     }
 
@@ -189,7 +193,7 @@ impl Tabs {
         self.set_focused_tab_id(self.get_id_by_org_path(focused_tab_path).unwrap());
     }
 
-    pub fn get_tab_path(&self, tab_uuid: &Uuid) -> Option<TreeNodePath> {
+    pub fn get_tab_path(&self, tab_uuid: &Id<TabHandler>) -> Option<TreeNodePath> {
         self.org_tree.get_path(*tab_uuid)
     }
 
@@ -212,25 +216,25 @@ impl Tabs {
         self.tabs.len()
     }
 
-    pub fn collect_tab_ids(&self) -> Vec<Uuid> {
+    pub fn collect_tab_ids(&self) -> Vec<Id<TabHandler>> {
         self.tabs.keys().cloned().collect()
     }
 
-    pub fn get_root_id(&self) -> Uuid {
+    pub fn get_root_id(&self) -> Id<TabHandler> {
         self.org_tree.get_root_id()
     }
 
     /// closes the tab and all its children
     ///
     /// TODO: do this with loop instead?
-    fn close_tab_recursively(&mut self, id: &Uuid) {
+    fn close_tab_recursively(&mut self, id: &Id<TabHandler>) {
         for child_id in self.org_tree.get_children(*id).clone() {
             self.close_tab_recursively(&child_id);
         }
 
         if self.org_tree.remove_recursive(*id) {
             self.tabs.remove(id);
-            self.display_tiles.remove((*id).into());
+            self.display_tiles.remove(*id);
         } else {
             println!("Tried to close root");
         }
@@ -254,7 +258,7 @@ impl Tabs {
                 .iter()
                 .map(|(id, handler)| {
                     (
-                        *id,
+                        uuid::Uuid::from(*id).into(),
                         OpenTab {
                             // TODO
                             tab_area: handler.get_area(),
