@@ -197,20 +197,20 @@ impl Tabs {
         self.org_tree.get_path(*tab_uuid)
     }
 
-    pub fn minimize_focused_tab(&mut self) {
-        todo!()
+    // pub fn minimize_focused_tab(&mut self) {
+    //     todo!()
 
-        // // remove the focused tab from the display order as to not render it
+    //     // // remove the focused tab from the display order as to not render it
 
-        // self.display_order
-        //     .retain(|tab_id| tab_id != &self.focused_tab);
+    //     // self.display_order
+    //     //     .retain(|tab_id| tab_id != &self.focused_tab);
 
-        // // REVIEW: is this good?
-        // // make the topmost tab the new focused tab
-        // if let Some(uuid) = self.display_order.last() {
-        //     self.focused_tab = *uuid;
-        // }
-    }
+    //     // // REVIEW: is this good?
+    //     // // make the topmost tab the new focused tab
+    //     // if let Some(uuid) = self.display_order.last() {
+    //     //     self.focused_tab = *uuid;
+    //     // }
+    // }
 
     pub fn num_tabs(&self) -> usize {
         self.tabs.len()

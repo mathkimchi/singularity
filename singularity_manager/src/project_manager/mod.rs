@@ -119,7 +119,7 @@ impl ProjectManager {
                 ])
             }
             Tile::Tab { tab_id } => {
-                let tab = self.tabs.get_mut_tab_handler(tab_id.into()).unwrap();
+                let tab = self.tabs.get_mut_tab_handler(tab_id).unwrap();
 
                 // NOTE: rn, this is how the tab area is updated, but there's gotta be a better way
                 tab.set_area(container_area);
