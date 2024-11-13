@@ -62,7 +62,15 @@ pub trait BasicTab: Send + Sized {
                             manager_handler.inner_area = inner_area;
                             tab.handle_tab_event(event, &manager_handler);
                         }
-                        event => {
+                        Event::Focused => {
+                            manager_handler.focus = true;
+                            tab.handle_tab_event(event, &manager_handler);
+                        }
+                        Event::Unfocused => {
+                            manager_handler.focus = false;
+                            tab.handle_tab_event(event, &manager_handler);
+                        }
+                        Event::UIEvent(_) => {
                             tab.handle_tab_event(event, &manager_handler);
                         }
                     }
@@ -141,6 +149,8 @@ impl TabHandler {
             tab_creator.create_tab(ManagerHandler {
                 manager_channels,
                 inner_area: tab_area,
+                // TODO
+                focus: false,
             })
         });
 
@@ -198,6 +208,7 @@ pub struct ManagerHandler {
     manager_channels: ManagerChannels,
 
     pub inner_area: DisplayArea,
+    pub focus: bool,
 }
 impl ManagerHandler {
     pub fn send_request(&self, request: Request) {

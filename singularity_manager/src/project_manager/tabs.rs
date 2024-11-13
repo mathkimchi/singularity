@@ -171,9 +171,12 @@ impl Tabs {
         self.focused_tab
     }
 
-    /// NOTE: has a side effect of putting the newly focused tab on display top
     pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
+        // notify previously focused tab it is no longer focused
+        self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Unfocused);
         self.focused_tab = focused_tab_id;
+        // notify new focused tab it is now focused
+        self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Focused);
 
         // move the focused tab to end of display order (putting it on top)
         {

@@ -6,6 +6,8 @@ use singularity_ui::{display_units::DisplayArea, ui_event::UIEvent};
 pub enum Event {
     UIEvent(UIEvent),
     Resize(DisplayArea),
+    Focused,
+    Unfocused,
     /// TODO: close forcibly
     Close,
 }

@@ -159,7 +159,7 @@ impl BasicTab for Editor {
         )
     }
 
-    fn render_tab(&mut self, _manager_handler: &ManagerHandler) -> Option<UIElement> {
+    fn render_tab(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement> {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
@@ -167,7 +167,11 @@ impl BasicTab for Editor {
 
         // highlight cursor
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
-            Color::LIGHT_YELLOW;
+            if manager_handler.focus {
+                Color::LIGHT_YELLOW
+            } else {
+                Color::CYAN
+            };
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
             Color::BLACK;
 
@@ -239,6 +243,8 @@ impl BasicTab for Editor {
                 }
                 _ => {}
             },
+            Event::Focused => {}
+            Event::Unfocused => {}
             Event::Resize(_) => {}
             Event::Close => panic!("Event::Close should not have been forwarded"),
         }

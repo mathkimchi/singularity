@@ -1172,3 +1172,20 @@ But, I feel like there is something wrong with my logic as I rely more and more 
 
 I learned that hyprland has two ways of doing tiling: dwindle and master.
 Dwindle is what I was basing my tiling off of.
+
+2024/11/11 (technically 2024/11/12 1:09 AM)
+
+Plan:
+- [ ] render based on focus state (boolean) (this sets up tree elements ui to change highlights on select)
+  - ideas
+    - pass `focused` boolean on render (idk, feels kinda jank)
+    - pass render_data on render (a more abstract version of the `focused` idea)
+    - use macros (this will be the hardest, but I want to do it)
+- [ ] some abstraction for tree displaying
+- [ ] improve task organizer
+
+2024/11/12
+
+I think I was overcomplicating it.
+For tab focus, I need to standardize it, but with widgets, I might just have it be different for each.
+If I really wanted some standardization for widget focus, I could just add a trait.

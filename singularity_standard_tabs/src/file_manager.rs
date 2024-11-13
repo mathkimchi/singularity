@@ -159,6 +159,8 @@ impl BasicTab for FileManager {
 
                 _ => {}
             },
+            Event::Focused => {}
+            Event::Unfocused => {}
             Event::Resize(_) => {}
             Event::Close => panic!("Event::Close should not have been forwarded"),
         }
