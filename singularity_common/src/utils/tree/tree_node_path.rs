@@ -119,7 +119,7 @@ mod tree_node_path_traversal_impls {
         ) -> Option<Self> {
             self.traverse_to_child(
                 tree_to_traverse,
-                self.children_paths(tree_to_traverse).len() - 1,
+                self.children_paths(tree_to_traverse).len().checked_sub(1)?,
             )
         }
 

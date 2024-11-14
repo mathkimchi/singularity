@@ -137,6 +137,7 @@ pub struct TabHandler {
     _tab_thread: JoinHandle<()>,
 }
 impl TabHandler {
+    /// TODO: allow setting focus
     pub fn new<F: 'static + TabCreator>(
         mut tab_creator: F,
         initial_tab_data: TabData,
