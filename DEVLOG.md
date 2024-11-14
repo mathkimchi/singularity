@@ -1181,7 +1181,7 @@ Plan:
     - pass `focused` boolean on render (idk, feels kinda jank)
     - pass render_data on render (a more abstract version of the `focused` idea)
     - use macros (this will be the hardest, but I want to do it)
-- [ ] some abstraction for tree displaying
+- [x] some abstraction for tree displaying
 - [ ] improve task organizer
 
 2024/11/12

@@ -6,7 +6,7 @@ use singularity_common::{
         timer::Timer,
         tree::{
             recursive_tree::RecursiveTreeNode,
-            tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
+            tree_node_path::{TreeNodePath, TREE_TRAVERSE_KEYS},
         },
     },
 };
@@ -126,6 +126,8 @@ enum Mode {
     Editing,
 }
 
+#[derive(ComposeComponents)]
+#[focused_component(self.focused_component())]
 pub struct TaskOrganizer {
     task_file_path: PathBuf,
     /// REVIEW: rooted tree or recursive tree?
@@ -140,9 +142,12 @@ pub struct TaskOrganizer {
     /// and I can maybe just ignore the root task or pretend like
     /// mandating a root task is a feature not a bug.
     /// REVIEW: what I said above ^
+    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)))]
     tasks: RecursiveTreeNode<IndividualTask>,
 
+    #[component(DisplayArea::FULL)]
     focused_task_widget: Option<EnclosedComponent<IndividualTaskWidget>>,
+
     /// If editing mode, there should be Some focused task
     mode: Mode,
 }
@@ -194,6 +199,52 @@ impl TaskOrganizer {
             ),
         ));
     }
+
+    fn focused_component(&self) -> usize {
+        match self.mode {
+            Mode::Viewing => todo!(),
+            Mode::Editing => todo!(),
+        }
+    }
+
+    fn generate_tree_area(index: usize, path: &TreeNodePath) -> DisplayArea {
+        DisplayArea::from_corner_size(
+            DisplayCoord::new(
+                (path.depth() as i32 * 6 * 4).into(),
+                (index as i32 * 12).into(),
+            ),
+            singularity_ui::display_units::DisplaySize::new((12 * 40).into(), 12.into()),
+        )
+    }
+
+    fn render_task_list_item(&mut self, path: &TreeNodePath) -> UIElement {
+        // TODO: style complete vs todo
+        let bg_color = if let Some(EnclosedComponent {
+            inner_component: IndividualTaskWidget { task_path, .. },
+            ..
+        }) = &self.focused_task_widget
+        {
+            if task_path == path {
+                Color::CYAN
+            } else {
+                Color::TRANSPARENT
+            }
+        } else {
+            Color::TRANSPARENT
+        };
+
+        UIElement::CharGrid(CharGrid {
+            content: vec![self.tasks[path]
+                .title
+                .chars()
+                .map(|c| singularity_ui::ui_element::CharCell {
+                    character: c,
+                    fg: Color::LIGHT_YELLOW,
+                    bg: bg_color,
+                })
+                .collect()],
+        })
+    }
 }
 impl singularity_common::tab::BasicTab for TaskOrganizer {
     fn initialize_tab(manager_handler: &singularity_common::tab::ManagerHandler) -> Self {
@@ -210,61 +261,62 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
         &mut self,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<UIElement> {
-        let mut elements = Vec::new();
+        // let mut elements = Vec::new();
 
-        // draw task list
-        {
-            let mut task_list_vec = Vec::new();
-            for path in self.tasks.iter_paths_dfs() {
-                // TODO: style complete vs todo
-                let bg_color = if let Some(EnclosedComponent {
-                    inner_component: IndividualTaskWidget { task_path, .. },
-                    ..
-                }) = &self.focused_task_widget
-                {
-                    if task_path == &path {
-                        Color::CYAN
-                    } else {
-                        Color::TRANSPARENT
-                    }
-                } else {
-                    Color::TRANSPARENT
-                };
+        // // draw task list
+        // {
+        //     let mut task_list_vec = Vec::new();
+        //     for path in self.tasks.iter_paths_dfs() {
+        //         // TODO: style complete vs todo
+        //         let bg_color = if let Some(EnclosedComponent {
+        //             inner_component: IndividualTaskWidget { task_path, .. },
+        //             ..
+        //         }) = &self.focused_task_widget
+        //         {
+        //             if task_path == &path {
+        //                 Color::CYAN
+        //             } else {
+        //                 Color::TRANSPARENT
+        //             }
+        //         } else {
+        //             Color::TRANSPARENT
+        //         };
 
-                let line = " ".repeat(2 * path.depth()) + &self.tasks[&path].title;
+        //         let line = " ".repeat(2 * path.depth()) + &self.tasks[&path].title;
 
-                task_list_vec.push(
-                    line.chars()
-                        .map(|c| singularity_ui::ui_element::CharCell {
-                            character: c,
-                            fg: Color::LIGHT_YELLOW,
-                            bg: bg_color,
-                        })
-                        .collect(),
-                );
-            }
-            elements.push(
-                UIElement::CharGrid(CharGrid {
-                    content: (task_list_vec),
-                })
-                .contain(DisplayArea(
-                    DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                    DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::FULL),
-                )),
-            );
-        }
+        //         task_list_vec.push(
+        //             line.chars()
+        //                 .map(|c| singularity_ui::ui_element::CharCell {
+        //                     character: c,
+        //                     fg: Color::LIGHT_YELLOW,
+        //                     bg: bg_color,
+        //                 })
+        //                 .collect(),
+        //         );
+        //     }
+        //     elements.push(
+        //         UIElement::CharGrid(CharGrid {
+        //             content: (task_list_vec),
+        //         })
+        //         .contain(DisplayArea(
+        //             DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+        //             DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::FULL),
+        //         )),
+        //     );
+        // }
 
-        // draw focused task
-        if let Some(focused_task_widget) = &mut self.focused_task_widget {
-            // task body text
-            elements.push(focused_task_widget.render().bordered(Color::LIGHT_GREEN));
-        }
+        // // draw focused task
+        // if let Some(focused_task_widget) = &mut self.focused_task_widget {
+        //     // task body text
+        //     elements.push(focused_task_widget.render().bordered(Color::LIGHT_GREEN));
+        // }
 
-        Some(
-            UIElement::Container(elements)
-                .fill_bg(Color::DARK_GRAY)
-                .bordered(Color::LIGHT_GREEN),
-        )
+        // Some(
+        //     UIElement::Container(elements)
+        //         .fill_bg(Color::DARK_GRAY)
+        //         .bordered(Color::LIGHT_GREEN),
+        // )
+        Some(self.render_components())
     }
 
     fn handle_tab_event(

@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-#[proc_macro_derive(ComposeComponents, attributes(component, tree_component))]
+#[proc_macro_derive(ComposeComponents, attributes(component, tree_component, focused_component))]
 pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
@@ -13,6 +13,24 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         _ => panic!(),
     };
 
+    let focused_component = {
+        let mut focused_component = None;
+
+        for attr in &ast.attrs {
+            if attr.path.is_ident("focused_component") {
+                assert!(focused_component.is_none());
+                focused_component = match attr.tokens.clone().into_iter().next().unwrap() {
+                    proc_macro2::TokenTree::Group(focused_component) => {
+                        // just get the inner of the group without the delimiters
+                        Some(focused_component.stream())
+                    }
+                    _ => panic!(),
+                };
+            }
+        }
+
+        focused_component.unwrap_or(quote! { self.focused_component })
+    };
     // [(component ident, container size)]
     let components = {
         let mut components = vec![];
@@ -116,7 +134,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         }
         quote! {
             // try to forward to the focused component
-            match self.focused_component {
+            match #focused_component {
                 #match_cases
                 _ => panic!(),
             }
@@ -130,23 +148,25 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        extern crate singularity_common as __singularity_common;
-        #[automatically_derived]
-        impl #struct_identitifier {
-            pub fn render_components(&mut self) -> singularity_ui::ui_element::UIElement {
-                singularity_ui::ui_element::UIElement::Container(vec![
-                    #render_components
-                ])
-            }
+        const _: () = {
+            extern crate singularity_common as __singularity_common;
+            #[automatically_derived]
+            impl #struct_identitifier {
+                pub fn render_components(&mut self) -> singularity_ui::ui_element::UIElement {
+                    singularity_ui::ui_element::UIElement::Container(vec![
+                        #render_components
+                    ])
+                }
 
-            /// If there is a mouse click outside the focused component,
-            /// returns the index of the first component that contains the mouse click
-            /// without passing the mouse click to it.
-            /// If passing it is desired behavior, then set the focused index to that and then rerun this.
-            pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), usize> {
-                #forward_events_impl
+                /// If there is a mouse click outside the focused component,
+                /// returns the index of the first component that contains the mouse click
+                /// without passing the mouse click to it.
+                /// If passing it is desired behavior, then set the focused index to that and then rerun this.
+                pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), usize> {
+                    #forward_events_impl
+                }
             }
-        }
+        };
     }
     .into()
 }
