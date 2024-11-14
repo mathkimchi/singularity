@@ -85,6 +85,27 @@ impl TextBox {
         self.cursor_logical_position.1 += 1;
     }
 
+    pub fn render_grid_with_color(
+        &self,
+        cursor_fg: singularity_ui::color::Color,
+        cursor_bg: singularity_ui::color::Color,
+    ) -> CharGrid {
+        let mut text_clone = self.text.clone();
+
+        // add this in case the cursor is rightmost
+        text_clone.content[self.cursor_logical_position.1]
+            .push(singularity_ui::ui_element::CharCell::new(' '));
+
+        // highlight cursor
+        use singularity_ui::color::Color;
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
+            cursor_bg;
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
+            cursor_fg;
+
+        text_clone
+    }
+
     pub fn render_grid(&self) -> CharGrid {
         let mut text_clone = self.text.clone();
 
