@@ -151,7 +151,7 @@ impl Component for TextBox {
                     // Enter key
                     self.write_new_line();
                 }
-                UIEvent::KeyPress(key, KeyModifiers::NONE)
+                UIEvent::KeyPress(key, KeyModifiers::NONE | KeyModifiers::SHIFT)
                     if key
                         .to_char()
                         .is_some_and(|c| c.is_ascii_graphic() || c == ' ') =>
