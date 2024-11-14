@@ -333,11 +333,15 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.to_char() == Some('+') => {
                         // add a placeholder root task & focus on it
 
-                        self.tasks.push_child_node(RecursiveTreeNode::from_value(
-                            IndividualTask::default(),
-                        ));
+                        let prev_focused_path = self.focused_task_widget.as_ref().map_or(
+                            TreeNodePath::new_root(),
+                            |focused_task_widget| focused_task_widget.inner_component.task_path.clone());
 
-                        self.set_focused_task(TreeNodePath::new_root());
+                        self.tasks.safe_get_mut(&prev_focused_path).unwrap().push_child_node(
+                                RecursiveTreeNode::from_value(IndividualTask::default()),
+                        );
+
+                        self.set_focused_task(prev_focused_path.traverse_to_last_child(&self.tasks).unwrap());
                     }
                     UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
                         // save body
