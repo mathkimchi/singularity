@@ -1176,7 +1176,7 @@ Dwindle is what I was basing my tiling off of.
 2024/11/11 (technically 2024/11/12 1:09 AM)
 
 Plan:
-- [ ] render based on focus state (boolean) (this sets up tree elements ui to change highlights on select)
+- [x] render based on focus state (boolean) (this sets up tree elements ui to change highlights on select)
   - ideas
     - pass `focused` boolean on render (idk, feels kinda jank)
     - pass render_data on render (a more abstract version of the `focused` idea)
@@ -1189,3 +1189,13 @@ Plan:
 I think I was overcomplicating it.
 For tab focus, I need to standardize it, but with widgets, I might just have it be different for each.
 If I really wanted some standardization for widget focus, I could just add a trait.
+
+For the tree displaying thing, I will use macros.
+
+2024/11/13
+
+I think I can just add it to compose components.
+
+First, I implemented the logic without macros, then, in demo, I wrote what I wanted the macro use to look like, and then I implemented macros while changing the macro use to fit logistical constraints.
+
+(warning: the demo window has an empty background, and at first, it looks like it isn't running)

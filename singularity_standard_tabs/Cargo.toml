@@ -26,3 +26,7 @@ serde_json = { workspace = true }
 # [[bin]]
 # name = "demo"
 # path = "demo.rs"
+
+[[test]]
+name = "demo"
+path = "src/demo.rs"

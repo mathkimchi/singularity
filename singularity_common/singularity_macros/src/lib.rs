@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-#[proc_macro_derive(ComposeComponents, attributes(component))]
+#[proc_macro_derive(ComposeComponents, attributes(component, tree_component))]
 pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
@@ -29,15 +29,63 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                     };
                     components.push((field.ident.clone().unwrap(), container_size));
                 }
+
+                if attr.path.is_ident("tree_component") {
+                    // // just get the first thing from attr.tokens
+                    // let container_size = match attr.tokens.clone().into_iter().next().unwrap() {
+                    //     proc_macro2::TokenTree::Group(group) => {
+                    //         // just get the inner of the group without the delimiters
+                    //         group.stream()
+                    //     }
+                    //     _ => panic!(),
+                    // };
+                    // components.push((field.ident.clone().unwrap(), container_size));
+                }
             }
         }
         components
+    };
+    // [(component ident, individual area generator, individual node renderer)]
+    let tree_components = {
+        let mut tree_components = vec![];
+        for field in struct_.fields.iter() {
+            for attr in field.attrs.iter() {
+                if attr.path.is_ident("tree_component") {
+                    let (area_generator, seperator) = 
+                    match attr.tokens.clone().into_iter().next().unwrap() {
+                        proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
+                            &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(node_renderer)] => {
+                                assert_eq!(seperator.as_char(), ',', "Delimiter between area_generator and node_renderer of tree_component should be ','");
+                                (area_generator.stream(), node_renderer.stream())
+                            },
+                            _ => panic!("tree_component attributes could not be parsed"),
+                        }
+                        _ => panic!("expected group as attribute for tree_component"),
+                    };
+                    tree_components.push((field.ident.clone().unwrap(), area_generator, seperator));
+                }
+            }
+        }
+        tree_components
     };
     let render_components = {
         let mut render_components = quote! {};
         for (component_ident, container_size) in &components {
             render_components.extend(quote! {
                 self.#component_ident.render().contain(#container_size),
+            });
+        }
+        for (component_ident, area_generator, node_renderer) in &tree_components {
+            render_components.extend(quote! {
+                singularity_ui::ui_element::UIElement::Container(
+                    __singularity_common::utils::tree::tree_node_path::TraversableTree::collect_paths_dfs(&self.#component_ident)
+                        .iter()
+                        .enumerate()
+                        .map(|(__index, __path)| {
+                            #node_renderer.contain(#area_generator)
+                        })
+                        .collect(),
+                )
             });
         }
         render_components
@@ -82,6 +130,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     };
 
     quote! {
+        extern crate singularity_common as __singularity_common;
         #[automatically_derived]
         impl #struct_identitifier {
             pub fn render_components(&mut self) -> singularity_ui::ui_element::UIElement {
