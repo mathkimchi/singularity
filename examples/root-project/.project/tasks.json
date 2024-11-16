@@ -10,7 +10,7 @@
       "value": {
         "title": "Ex Child",
         "body": "Json manually written.",
-        "is_complete": false,
+        "is_complete": true,
         "timer": null
       },
       "children": []

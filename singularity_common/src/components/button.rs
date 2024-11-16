@@ -45,3 +45,43 @@ impl Component for Button {
         }
     }
 }
+
+pub struct ToggleButton {
+    pub on_inner: UIElement,
+    pub off_inner: UIElement,
+    pub toggle: bool,
+}
+impl ToggleButton {
+    pub fn new(on_inner: UIElement, off_inner: UIElement, toggle: bool) -> Self {
+        Self {
+            on_inner,
+            off_inner,
+            toggle,
+        }
+    }
+}
+impl Component for ToggleButton {
+    fn render(&mut self) -> UIElement {
+        match self.toggle {
+            true => self.on_inner.clone(),
+            false => self.off_inner.clone(),
+        }
+    }
+
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
+        use crate::tab::packets::Event;
+        use singularity_ui::ui_event::UIEvent;
+        match event {
+            Event::UIEvent(ui_event) => {
+                if let UIEvent::MousePress(..) = ui_event {
+                    dbg!("toggled");
+                    self.toggle = !self.toggle;
+                }
+            }
+            Event::Focused => {}
+            Event::Unfocused => {}
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
+        }
+    }
+}

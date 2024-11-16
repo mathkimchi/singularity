@@ -1,5 +1,7 @@
 //! NOTE: Widget kind of just means it is more complicated than a bare bones component
 
+use singularity_ui::ui_element::UIElement;
+
 pub mod button;
 pub mod text_box;
 pub mod timer_widget;
@@ -131,4 +133,12 @@ impl<T: Component> Component for std::sync::Arc<std::sync::Mutex<T>> {
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
         T::handle_event(self.lock().as_mut().unwrap(), event)
     }
+}
+
+impl Component for UIElement {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        self.clone()
+    }
+
+    fn handle_event(&mut self, _event: crate::tab::packets::Event) {}
 }

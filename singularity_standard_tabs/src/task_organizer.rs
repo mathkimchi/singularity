@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{text_box::TextBox, timer_widget::TimerWidget, Component, EnclosedComponent},
+    components::{
+        button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component,
+        EnclosedComponent,
+    },
     utils::{
         timer::Timer,
         tree::{
@@ -42,8 +45,10 @@ impl Default for IndividualTask {
 struct IndividualTaskWidget {
     task_path: TreeNodePath,
 
-    #[component(DisplayArea::new((0.0, 0.0), (1.0, 0.05)))]
+    #[component(DisplayArea::new((0.0, 0.0), (0.9, 0.05)))]
     title: TextBox,
+    #[component(DisplayArea::new((0.9, 0.0), (1.0, 0.05)))]
+    checkbox: ToggleButton,
     #[component(DisplayArea::new((0.0, 0.05), (1.0, 0.5)))]
     body_editor: TextBox,
     #[component(DisplayArea::new((0.0, 0.5), (1.0, 1.0)))]
@@ -57,6 +62,13 @@ impl IndividualTaskWidget {
         Self {
             task_path,
             title: TextBox::from(task.title.clone()),
+            checkbox: ToggleButton::new(
+                UIElement::CharGrid(CharGrid::from("DONE".to_string()))
+                    .bordered(Color::LIGHT_GREEN),
+                UIElement::CharGrid(CharGrid::from("TODO".to_string()))
+                    .bordered(Color::LIGHT_GREEN),
+                task.is_complete,
+            ),
             body_editor: TextBox::from(task.body.clone()),
             timer_widget: task
                 .timer
@@ -69,6 +81,7 @@ impl IndividualTaskWidget {
     fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
         tasks[&self.task_path].title = self.title.get_text_as_string();
         tasks[&self.task_path].body = self.body_editor.get_text_as_string();
+        tasks[&self.task_path].is_complete = self.checkbox.toggle;
 
         if let Some(timer_widget) = &self.timer_widget {
             tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
