@@ -398,13 +398,16 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         }
                     }
                     UIEvent::MousePress(..) => {
-                        // dbg!(self.forward_events_to_focused(Event::UIEvent(ui_event)));
-                        if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
-                            // index 1 should be the focused task widget
-                            self.mode = Mode::Editing;
+                        // even if focused_task_widget is none, forward events just checks if mouseclick is within area
+                        // FIXME fix ^
+                        if self.focused_task_widget.is_some() {
+                            if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
+                                // index 1 should be the focused task widget
+                                self.mode = Mode::Editing;
 
-                            // re-forward the event
-                            self.forward_events_to_focused(Event::UIEvent(ui_event)).unwrap();
+                                // re-forward the event
+                                self.forward_events_to_focused(Event::UIEvent(ui_event)).unwrap();
+                            }
                         }
                     }
                     _ => {}
