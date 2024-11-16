@@ -45,13 +45,13 @@ impl Default for IndividualTask {
 struct IndividualTaskWidget {
     task_path: TreeNodePath,
 
-    #[component(DisplayArea::new((0.0, 0.0), (0.9, 0.05)))]
+    #[component((DisplayArea::new((0.0, 0.0), (0.9, 0.05))), (0))]
     title: TextBox,
-    #[component(DisplayArea::new((0.9, 0.0), (1.0, 0.05)))]
+    #[component((DisplayArea::new((0.9, 0.0), (1.0, 0.05))), (1))]
     checkbox: ToggleButton,
-    #[component(DisplayArea::new((0.0, 0.05), (1.0, 0.5)))]
+    #[component((DisplayArea::new((0.0, 0.05), (1.0, 0.5))), (2))]
     body_editor: TextBox,
-    #[component(DisplayArea::new((0.0, 0.5), (1.0, 1.0)))]
+    #[component((DisplayArea::new((0.0, 0.5), (1.0, 1.0))), (3))]
     timer_widget: Option<TimerWidget>,
 
     /// this name is a keyword for ComposeComponents
@@ -132,6 +132,7 @@ impl Component for IndividualTaskWidget {
     }
 }
 
+#[derive(Debug)]
 enum Mode {
     /// also traversing
     Viewing,
@@ -140,7 +141,7 @@ enum Mode {
 }
 
 #[derive(ComposeComponents)]
-#[focused_component(self.focused_component())]
+#[focused_component((self.mode), (Mode))]
 pub struct TaskOrganizer {
     task_file_path: PathBuf,
     /// REVIEW: rooted tree or recursive tree?
@@ -155,10 +156,10 @@ pub struct TaskOrganizer {
     /// and I can maybe just ignore the root task or pretend like
     /// mandating a root task is a feature not a bug.
     /// REVIEW: what I said above ^
-    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)))]
+    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)), (Mode::Viewing))]
     tasks: RecursiveTreeNode<IndividualTask>,
 
-    #[component(DisplayArea::FULL)]
+    #[component((DisplayArea::FULL), (Mode::Editing))]
     focused_task_widget: Option<EnclosedComponent<IndividualTaskWidget>>,
 
     /// If editing mode, there should be Some focused task
@@ -211,13 +212,6 @@ impl TaskOrganizer {
                 DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
             ),
         ));
-    }
-
-    fn focused_component(&self) -> usize {
-        match self.mode {
-            Mode::Viewing => 0,
-            Mode::Editing => 1,
-        }
     }
 
     fn generate_tree_area(index: usize, path: &TreeNodePath) -> DisplayArea {
@@ -401,11 +395,14 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     }
                     UIEvent::MousePress(..) => {
                         dbg!("mousepressed while viewing");
-                        dbg!(self.forward_events_to_focused(Event::UIEvent(ui_event)));
-                        // if let Err(Some(1)) = self.forward_events_to_focused(Event::UIEvent(ui_event)) {
-                        //     // index 1 should be the focused task widget
-                        //     self.mode = Mode::Editing;
-                        // }
+                        // dbg!(self.forward_events_to_focused(Event::UIEvent(ui_event)));
+                        if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
+                            // index 1 should be the focused task widget
+                            self.mode = Mode::Editing;
+
+                            // re-forward the event
+                            self.forward_events_to_focused(Event::UIEvent(ui_event)).unwrap();
+                        }
                     }
                     _ => {}
                 },
