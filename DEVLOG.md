@@ -1199,3 +1199,7 @@ I think I can just add it to compose components.
 First, I implemented the logic without macros, then, in demo, I wrote what I wanted the macro use to look like, and then I implemented macros while changing the macro use to fit logistical constraints.
 
 (warning: the demo window has an empty background, and at first, it looks like it isn't running)
+
+2024/11/16
+
+I was using enclosed component along with compose component for the focus task editor, so there might be leftover redundant code from doing that.

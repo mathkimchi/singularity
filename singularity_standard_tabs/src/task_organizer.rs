@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{
-        button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component,
-        EnclosedComponent,
-    },
+    components::{button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component},
     utils::{
         timer::Timer,
         tree::{
@@ -16,7 +13,7 @@ use singularity_common::{
 use singularity_macros::ComposeComponents;
 use singularity_ui::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplayUnits},
+    display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharGrid, UIElement},
 };
 use std::{path::PathBuf, time::Duration};
@@ -159,8 +156,8 @@ pub struct TaskOrganizer {
     #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)), (Mode::Viewing))]
     tasks: RecursiveTreeNode<IndividualTask>,
 
-    #[component((DisplayArea::FULL), (Mode::Editing))]
-    focused_task_widget: Option<EnclosedComponent<IndividualTaskWidget>>,
+    #[component((DisplayArea::new((0.5, 0.0), (1.0, 1.0))), (Mode::Editing))]
+    focused_task_widget: Option<IndividualTaskWidget>,
 
     /// If editing mode, there should be Some focused task
     mode: Mode,
@@ -205,12 +202,9 @@ impl TaskOrganizer {
     }
 
     fn set_focused_task(&mut self, task_path: TreeNodePath) {
-        self.focused_task_widget = Some(EnclosedComponent::new(
-            IndividualTaskWidget::new(&self.tasks[&task_path], task_path.clone()),
-            DisplayArea(
-                DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
-                DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
-            ),
+        self.focused_task_widget = Some(IndividualTaskWidget::new(
+            &self.tasks[&task_path],
+            task_path.clone(),
         ));
     }
 
@@ -230,11 +224,7 @@ impl TaskOrganizer {
         } else {
             Color::RED
         };
-        let bg = if let Some(EnclosedComponent {
-            inner_component: IndividualTaskWidget { task_path, .. },
-            ..
-        }) = &self.focused_task_widget
-        {
+        let bg = if let Some(IndividualTaskWidget { task_path, .. }) = &self.focused_task_widget {
             if task_path == path {
                 Color::CYAN
             } else {
@@ -346,7 +336,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
 
                         let prev_focused_path = self.focused_task_widget.as_ref().map_or(
                             TreeNodePath::new_root(),
-                            |focused_task_widget| focused_task_widget.inner_component.task_path.clone());
+                            |focused_task_widget| focused_task_widget.task_path.clone());
 
                         self.tasks.safe_get_mut(&prev_focused_path).unwrap().push_child_node(
                                 RecursiveTreeNode::from_value(IndividualTask::default()),
@@ -357,7 +347,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
                         // save body
                         if let Some(focused_task) = &self.focused_task_widget {
-                            focused_task.inner_component.save_into(&mut self.tasks);
+                            focused_task.save_into(&mut self.tasks);
                         }
 
                         // save to file
@@ -384,10 +374,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     // `' '` is a placeholder for some key that isn't in tree traverse
                     if TREE_TRAVERSE_KEYS.contains(&traverse_key.to_char().unwrap_or(' ')) =>
                     {
-                        if let Some(EnclosedComponent {
-                            inner_component: IndividualTaskWidget { task_path, .. },
-                            ..
-                        }) = &self.focused_task_widget
+                        if let Some(IndividualTaskWidget { task_path, .. },) = &self.focused_task_widget
                         {
                             self.set_focused_task(task_path.clamped_traverse_based_on_wasd(
                                 &self.tasks,
@@ -423,7 +410,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                 {
                     // save body
                     if let Some(focused_task) = &self.focused_task_widget {
-                        focused_task.inner_component.save_into(&mut self.tasks);
+                        focused_task.save_into(&mut self.tasks);
                     }
 
                     // save to file
@@ -440,7 +427,6 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     self.focused_task_widget
                         .as_ref()
                         .unwrap()
-                        .inner_component
                         .save_into(&mut self.tasks);
 
                     self.mode = Mode::Viewing;
