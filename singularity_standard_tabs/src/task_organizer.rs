@@ -115,7 +115,7 @@ impl Component for IndividualTaskWidget {
                 // }
                 _ => {
                     // forward to focused component
-                    if let Err(clicked_component_index) =
+                    if let Err(Some(clicked_component_index)) =
                         self.forward_events_to_focused(event.clone())
                     {
                         // if mousclicked on another component, then change focus and re-forward
@@ -215,8 +215,8 @@ impl TaskOrganizer {
 
     fn focused_component(&self) -> usize {
         match self.mode {
-            Mode::Viewing => todo!(),
-            Mode::Editing => todo!(),
+            Mode::Viewing => 0,
+            Mode::Editing => 1,
         }
     }
 
@@ -398,6 +398,14 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         } else {
                             self.set_focused_task(TreeNodePath::new_root());
                         }
+                    }
+                    UIEvent::MousePress(..) => {
+                        dbg!("mousepressed while viewing");
+                        dbg!(self.forward_events_to_focused(Event::UIEvent(ui_event)));
+                        // if let Err(Some(1)) = self.forward_events_to_focused(Event::UIEvent(ui_event)) {
+                        //     // index 1 should be the focused task widget
+                        //     self.mode = Mode::Editing;
+                        // }
                     }
                     _ => {}
                 },

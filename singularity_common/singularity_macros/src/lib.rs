@@ -128,7 +128,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
 
             search_clicked.extend(quote! {
                 if singularity_common::components::remap_event(#component_size, event.clone()).is_some() {
-                    Err(#index)
+                    Err(Some(#index))
                 } else 
             });
         }
@@ -143,7 +143,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             // look if there was a component clicked (in order of first to last in struct def)
             #search_clicked
 
-            { Ok(()) }
+            { Err(None) }
         }
     };
 
@@ -161,8 +161,9 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 /// If there is a mouse click outside the focused component,
                 /// returns the index of the first component that contains the mouse click
                 /// without passing the mouse click to it.
+                /// If there is a mouse click on no designated  area, then returns Err(None)
                 /// If passing it is desired behavior, then set the focused index to that and then rerun this.
-                pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), usize> {
+                pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), Option<usize>> {
                     #forward_events_impl
                 }
             }

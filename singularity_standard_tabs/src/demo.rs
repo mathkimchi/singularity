@@ -52,7 +52,7 @@ impl Component for Test {
     }
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
-        if let Err(clicked_component_index) = self.forward_events_to_focused(event.clone()) {
+        if let Err(Some(clicked_component_index)) = self.forward_events_to_focused(event.clone()) {
             self.focused_component = clicked_component_index;
             self.forward_events_to_focused(event).unwrap();
         }
