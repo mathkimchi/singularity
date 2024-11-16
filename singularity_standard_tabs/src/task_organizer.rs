@@ -448,9 +448,13 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                 Event::Resize(_) => {}
                 Event::Close => panic!("Event::Close should not have been forwarded"),
                 _ => {
-                    if let Some(task_widget) = &mut self.focused_task_widget {
-                        task_widget.handle_event(event);
+                    if self.forward_events_to_focused(event).is_err() {
+                        // clicked off of focus, either on tree or just on nothing
+                        self.mode = Mode::Viewing;
                     }
+                    // if let Some(task_widget) = &mut self.focused_task_widget {
+                    //     task_widget.handle_event(event);
+                    // }
                 }
             },
         }
