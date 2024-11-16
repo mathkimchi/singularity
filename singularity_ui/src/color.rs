@@ -13,6 +13,7 @@ impl Color {
     pub const LIGHT_BLUE: Self = Color([0, 0, 0xFF, 0xFF]);
     pub const ORANGE: Self = Color([0xFF, 0xA5, 0, 0xFF]);
     pub const CYAN: Self = Color([0, 0xFF, 0xFF, 0xFF]);
+    pub const RED: Self = Color([0xFF, 0x00, 0x00, 0xFF]);
 }
 #[cfg(feature = "wayland_backend")]
 impl From<Color> for raqote::Color {

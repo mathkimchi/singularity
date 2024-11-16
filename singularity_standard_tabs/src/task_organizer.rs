@@ -225,8 +225,12 @@ impl TaskOrganizer {
     }
 
     fn render_task_list_item(&mut self, path: &TreeNodePath) -> UIElement {
-        // TODO: style complete vs todo
-        let bg_color = if let Some(EnclosedComponent {
+        let fg = if self.tasks[path].is_complete {
+            Color::LIGHT_GREEN
+        } else {
+            Color::RED
+        };
+        let bg = if let Some(EnclosedComponent {
             inner_component: IndividualTaskWidget { task_path, .. },
             ..
         }) = &self.focused_task_widget
@@ -246,8 +250,8 @@ impl TaskOrganizer {
                 .chars()
                 .map(|c| singularity_ui::ui_element::CharCell {
                     character: c,
-                    fg: Color::LIGHT_YELLOW,
-                    bg: bg_color,
+                    fg,
+                    bg,
                 })
                 .collect()],
         })
@@ -394,7 +398,6 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         }
                     }
                     UIEvent::MousePress(..) => {
-                        dbg!("mousepressed while viewing");
                         // dbg!(self.forward_events_to_focused(Event::UIEvent(ui_event)));
                         if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
                             // index 1 should be the focused task widget
