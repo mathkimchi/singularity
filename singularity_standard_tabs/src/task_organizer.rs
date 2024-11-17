@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
     components::{button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component},
+    tab::packets::Event,
     utils::{
         timer::Timer,
         tree::{
@@ -15,6 +16,7 @@ use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharGrid, UIElement},
+    ui_event::UIEvent,
 };
 use std::{path::PathBuf, time::Duration};
 
@@ -153,7 +155,7 @@ pub struct TaskOrganizer {
     /// and I can maybe just ignore the root task or pretend like
     /// mandating a root task is a feature not a bug.
     /// REVIEW: what I said above ^
-    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)), (Mode::Viewing))]
+    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)), (self.handle_item_event(__path, __event)), (Mode::Viewing))]
     tasks: RecursiveTreeNode<IndividualTask>,
 
     #[component((DisplayArea::new((0.5, 0.0), (1.0, 1.0))), (Mode::Editing))]
@@ -201,9 +203,9 @@ impl TaskOrganizer {
         }
     }
 
-    fn set_focused_task(&mut self, task_path: TreeNodePath) {
+    fn set_focused_task(&mut self, task_path: &TreeNodePath) {
         self.focused_task_widget = Some(IndividualTaskWidget::new(
-            &self.tasks[&task_path],
+            &self.tasks[task_path],
             task_path.clone(),
         ));
     }
@@ -232,7 +234,7 @@ impl TaskOrganizer {
                 if self.focused_task_widget.is_none() {
                     // edit mode requires Some focused task so set one if n/a:
                     // user tried to traverse for the first time, select root task
-                    self.set_focused_task(TreeNodePath::new_root());
+                    self.set_focused_task(&TreeNodePath::new_root());
                 }
 
                 self.mode = Mode::Editing;
@@ -267,6 +269,12 @@ impl TaskOrganizer {
                 })
                 .collect()],
         })
+    }
+
+    fn handle_item_event(&mut self, path: &TreeNodePath, event: Event) {
+        if let Event::UIEvent(UIEvent::MousePress(_, _)) = event {
+            self.set_focused_task(path);
+        }
     }
 }
 impl singularity_common::tab::BasicTab for TaskOrganizer {
@@ -364,7 +372,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                                 RecursiveTreeNode::from_value(IndividualTask::default()),
                         );
 
-                        self.set_focused_task(prev_focused_path.traverse_to_last_child(&self.tasks).unwrap());
+                        self.set_focused_task(&prev_focused_path.traverse_to_last_child(&self.tasks).unwrap());
                     }
                     UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
                         // save body
@@ -391,19 +399,21 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                     {
                         if let Some(IndividualTaskWidget { task_path, .. },) = &self.focused_task_widget
                         {
-                            self.set_focused_task(task_path.clamped_traverse_based_on_wasd(
+                            self.set_focused_task(&task_path.clamped_traverse_based_on_wasd(
                                 &self.tasks,
                                 traverse_key.to_char().unwrap(),
                             ));
                         } else {
-                            self.set_focused_task(TreeNodePath::new_root());
+                            self.set_focused_task(&TreeNodePath::new_root());
                         }
                     }
                     UIEvent::MousePress(..) => {
+                        let forward_result = self.forward_events_to_focused(Event::UIEvent(ui_event.clone()));
+
                         // even if focused_task_widget is none, forward events just checks if mouseclick is within area
                         // FIXME fix ^
                         if self.focused_task_widget.is_some() {
-                            if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
+                            if let Err(Some(Mode::Editing)) = forward_result {
                                 // index 1 should be the focused task widget
                                 self.set_mode(Mode::Editing);
 
@@ -443,9 +453,11 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                 Event::Resize(_) => {}
                 Event::Close => panic!("Event::Close should not have been forwarded"),
                 _ => {
-                    if self.forward_events_to_focused(event).is_err() {
+                    if self.forward_events_to_focused(event.clone()).is_err() {
                         // clicked off of focus, either on tree or just on nothing
                         self.set_mode(Mode::Viewing);
+
+                        self.forward_events_to_focused(event).unwrap();
                     }
                     // if let Some(task_widget) = &mut self.focused_task_widget {
                     //     task_widget.handle_event(event);

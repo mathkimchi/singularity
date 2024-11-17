@@ -36,6 +36,8 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
 
         focused_component.unwrap_or((quote! { self.focused_component }, quote! { usize }))
     };
+    // TODO: better argument parsing
+
     // [(component ident, container size, focus id)]
     let components = {
         let mut components = vec![];
@@ -71,25 +73,26 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         }
         components
     };
-    // [(component ident, individual area generator, individual node renderer, focus_id)]
+    // [(component ident, individual area generator, individual node renderer, individual event handler, focus_id)]
     let tree_components = {
         let mut tree_components = vec![];
         for field in struct_.fields.iter() {
             for attr in field.attrs.iter() {
                 if attr.path.is_ident("tree_component") {
-                    let (area_generator, seperator, focus_id) = 
+                    let (area_generator, renderer, event_handler, focus_id) = 
                     match attr.tokens.clone().into_iter().next().unwrap() {
                         proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
-                            &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator0), proc_macro2::TokenTree::Group(node_renderer), proc_macro2::TokenTree::Punct(seperator1), proc_macro2::TokenTree::Group(focus_id)] => {
+                            &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator0), proc_macro2::TokenTree::Group(node_renderer), proc_macro2::TokenTree::Punct(seperator1), proc_macro2::TokenTree::Group(event_handler), proc_macro2::TokenTree::Punct(seperator2), proc_macro2::TokenTree::Group(focus_id)] => {
                                 assert_eq!(seperator0.as_char(), ',', "Delimiter between area_generator and node_renderer of tree_component should be ','");
-                                assert_eq!(seperator1.as_char(), ',', "Delimiter between node_renderer and focus id of tree_component should be ','");
-                                (area_generator.stream(), node_renderer.stream(), focus_id.stream())
+                                assert_eq!(seperator1.as_char(), ',', "Delimiter between node_renderer and event handler of tree_component should be ','");
+                                assert_eq!(seperator2.as_char(), ',', "Delimiter between event handler and focus id of tree_component should be ','");
+                                (area_generator.stream(), node_renderer.stream(), event_handler.stream(), focus_id.stream())
                             },
-                            _ => panic!("tree_component attributes could not be parsed (hint: group: {})", group),
+                            e => panic!("tree_component attributes could not be parsed (hint: group: `{}` and e.len(): `{}`)", group, e.len()),
                         }
                         _ => panic!("expected group as attribute for tree_component"),
                     };
-                    tree_components.push((field.ident.clone().unwrap(), area_generator, seperator, focus_id));
+                    tree_components.push((field.ident.clone().unwrap(), area_generator, renderer, event_handler, focus_id));
                 }
             }
         }
@@ -102,7 +105,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 self.#component_ident.render().contain(#container_size),
             });
         }
-        for (component_ident, area_generator, node_renderer, _) in &tree_components {
+        for (component_ident, area_generator, node_renderer, _, _) in &tree_components {
             render_components.extend(quote! {
                 singularity_ui::ui_element::UIElement::Container(
                     __singularity_common::utils::tree::tree_node_path::TraversableTree::collect_paths_dfs(&self.#component_ident)
@@ -117,13 +120,6 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         }
         render_components
     };
-    // let components_tuple = {
-    //     let mut components_tuple = quote! {};
-    //     for (component_ident, _) in &components {
-    //         components_tuple.extend(quote! { #component_ident, });
-    //     }
-    //     quote! { ( #components_tuple ) }
-    // };
     let forward_events_impl = {
         let mut match_cases = quote! {};
         let mut search_clicked = quote! {};
@@ -139,6 +135,33 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 if singularity_common::components::remap_event(#component_size, event.clone()).is_some() {
                     Err(Some(#focus_id))
                 } else 
+            });
+        }
+        for (component_ident, area_generator, _, event_handler, focus_id) in &tree_components {
+            match_cases.extend(quote! {
+                #focus_id => {
+                    for (__index, __path) in __singularity_common::utils::tree::tree_node_path::TraversableTree::collect_paths_dfs(&self.#component_ident)
+                        .iter()
+                        .enumerate() {
+                        // FIXME: only works for clicks, for other events, it just forwards to the first element
+                        if let Some(remapped_event) = singularity_common::components::remap_event(#area_generator, event.clone()) {
+                            let __event = remapped_event;
+                            #event_handler;
+                            return Ok(());
+                        }
+                    }
+                }
+            });
+
+            search_clicked.extend(quote! {
+                if __singularity_common::utils::tree::tree_node_path::TraversableTree::collect_paths_dfs(&self.#component_ident)
+                        .iter()
+                        .enumerate()
+                        .any(|(__index, __path)| {
+                            singularity_common::components::remap_event(#area_generator, event.clone()).is_some()
+                        }) {
+                    Err(Some(#focus_id))
+                } else
             });
         }
         quote! {

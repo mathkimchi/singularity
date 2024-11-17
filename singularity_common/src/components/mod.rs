@@ -13,7 +13,8 @@ pub trait Component: Send {
     fn handle_event(&mut self, event: crate::tab::packets::Event);
 }
 
-/// if mouseclick, remap area. otherwise just return normally
+/// if mouseclick, return Some(remap area) if clicked within, else return None.
+/// For other events, just return normally
 pub fn remap_event(
     area: singularity_ui::display_units::DisplayArea,
     event: crate::tab::packets::Event,
