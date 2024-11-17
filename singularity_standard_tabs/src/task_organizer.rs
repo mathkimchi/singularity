@@ -218,6 +218,28 @@ impl TaskOrganizer {
         )
     }
 
+    fn set_mode(&mut self, new_mode: Mode) {
+        match new_mode {
+            Mode::Viewing => {
+                if let Some(focused_task_widget) = &self.focused_task_widget {
+                    // save before switching mode
+                    focused_task_widget.save_into(&mut self.tasks);
+                }
+
+                self.mode = Mode::Viewing;
+            }
+            Mode::Editing => {
+                if self.focused_task_widget.is_none() {
+                    // edit mode requires Some focused task so set one if n/a:
+                    // user tried to traverse for the first time, select root task
+                    self.set_focused_task(TreeNodePath::new_root());
+                }
+
+                self.mode = Mode::Editing;
+            }
+        }
+    }
+
     fn render_task_list_item(&mut self, path: &TreeNodePath) -> UIElement {
         let fg = if self.tasks[path].is_complete {
             Color::LIGHT_GREEN
@@ -361,14 +383,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         // NOTE: Enter+CONTROL doesn't work as an event for some reason
                         // enter edit mode
 
-                        if self.focused_task_widget.is_none() {
-                            // edit mode requires Some focused task so set one if n/a
-
-                            // user tried to traverse for the first time, select first task
-                            self.set_focused_task(TreeNodePath::new_root());
-                        }
-
-                        self.mode = Mode::Editing;
+                        self.set_mode(Mode::Editing);
                     }
                     UIEvent::KeyPress(traverse_key, KeyModifiers::NONE)
                     // `' '` is a placeholder for some key that isn't in tree traverse
@@ -390,7 +405,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                         if self.focused_task_widget.is_some() {
                             if let Err(Some(Mode::Editing)) = self.forward_events_to_focused(Event::UIEvent(ui_event.clone())) {
                                 // index 1 should be the focused task widget
-                                self.mode = Mode::Editing;
+                                self.set_mode(Mode::Editing);
 
                                 // re-forward the event
                                 self.forward_events_to_focused(Event::UIEvent(ui_event)).unwrap();
@@ -423,20 +438,14 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
                 Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE)) if key.raw_code == 1 => {
                     // ESCAPE KEY, switch to viewing mode
 
-                    // save before switching mode
-                    self.focused_task_widget
-                        .as_ref()
-                        .unwrap()
-                        .save_into(&mut self.tasks);
-
-                    self.mode = Mode::Viewing;
+                    self.set_mode(Mode::Viewing);
                 }
                 Event::Resize(_) => {}
                 Event::Close => panic!("Event::Close should not have been forwarded"),
                 _ => {
                     if self.forward_events_to_focused(event).is_err() {
                         // clicked off of focus, either on tree or just on nothing
-                        self.mode = Mode::Viewing;
+                        self.set_mode(Mode::Viewing);
                     }
                     // if let Some(task_widget) = &mut self.focused_task_widget {
                     //     task_widget.handle_event(event);
