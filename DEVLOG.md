@@ -1208,3 +1208,32 @@ I was using enclosed component along with compose component for the focus task e
 
 I tried to use lldb in VsCode, but unfortunately it requires extra setup in nix which doesn't seem worth my current time.
 Plus, it probably would have not worked with multithreading anyways.
+
+2024/11/18
+
+Bruh, why did I never find [this video](https://www.youtube.com/watch?v=Api6dFMlxAA)?
+The title isn't really descriptive but it is a video on tiling wm algorithms.
+Things I want to look for:
+- Moving tiles around
+  - (Representing tile structure and adding and deleting tiles are already implemented and are pretty intuitive)
+  - The current swapping system is limited
+- Inspiration for tab hierarchy as well if possible
+
+Notes:
+
+- 5:32 starts talking about approches to tiling
+  - 6:14 list-based
+    - 6:35 stack mode/master mode
+      - One master takes up half of the screen
+      - All others are just stacked on top of each other
+      - Lame (imo)
+    - 8:20 Max/ful/lmonocle
+      - Bruh
+      - Sucks
+      - Only full screen
+    - Continues talking about other stuff, but as expected, all the list-based methods are cringe
+  - 11:45 Tree-based
+    - The example's tree structure is similar to what I use and has parents being containers while leaves are actual windows (tiles in my case), but it is not a binary tree
+    - I didn't watch the whole thing, but unfortunately, it seems the slides only go over adding tiles so it doesn't really help me
+
+I tried to look elsewhere for similar sources, but could not find anything.
