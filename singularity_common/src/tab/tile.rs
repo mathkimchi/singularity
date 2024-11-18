@@ -67,6 +67,11 @@ pub struct Tiles {
     root_id: Id<Tile>,
     tiles: IdMap<Tile>,
     /// TODO: rename leaf to tab
+    ///
+    /// REVIEW: better to just not have this? removal might result in worse big O,
+    /// but it will be insignificant at this scale and the benefits are:
+    /// simplicity, safety, and slightly less storage.
+    /// I mean, I am not storing the parent either, and that is working fine.
     leaf_registry: BTreeMap<Id<TabHandler>, Id<Tile>>,
 }
 impl Tiles {
