@@ -173,7 +173,9 @@ impl Tabs {
 
     pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
         // notify previously focused tab it is no longer focused
-        self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Unfocused);
+        if let Some(old_focused_tab) = self.tabs.get(&self.focused_tab) {
+            old_focused_tab.send_event(singularity_common::tab::packets::Event::Unfocused);
+        }
         self.focused_tab = focused_tab_id;
         // notify new focused tab it is now focused
         self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Focused);

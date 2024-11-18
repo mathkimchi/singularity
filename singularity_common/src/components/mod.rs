@@ -46,12 +46,10 @@ pub fn remap_event(
 /// REVIEW: naming
 /// REVIEW: is this a good idea? (feels kind of bulky to have everything like `EnclosedComponent<InnerComponent>`)
 /// REVIEW: does enclosed component even need to exist?
-#[deprecated]
 pub struct EnclosedComponent<InnerComponent: Component + ?Sized> {
     pub area: singularity_ui::display_units::DisplayArea,
     pub inner_component: InnerComponent,
 }
-#[allow(deprecated)]
 impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
     pub fn new(
         inner_component: InnerComponent,
@@ -95,7 +93,6 @@ impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
         }
     }
 }
-#[allow(deprecated)]
 impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> {
     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
         self.inner_component.render().contain(self.area)

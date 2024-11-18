@@ -23,7 +23,7 @@ pub struct Test {
 
     /// REVIEW: this doesn't directly have anything to do with compose components (might need to decouple)
     /// TODO: Ideal syntax: `...($index, $path)...` instead of `...(__index, __path)...`
-    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_individual_tree_node(__path)), (2))]
+    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_individual_tree_node(__path)), (), (2))]
     tree: RootedTree<TextBox>,
 }
 impl Test {

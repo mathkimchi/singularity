@@ -1203,3 +1203,8 @@ First, I implemented the logic without macros, then, in demo, I wrote what I wan
 2024/11/16
 
 I was using enclosed component along with compose component for the focus task editor, so there might be leftover redundant code from doing that.
+
+2024/11/17
+
+I tried to use lldb in VsCode, but unfortunately it requires extra setup in nix which doesn't seem worth my current time.
+Plus, it probably would have not worked with multithreading anyways.

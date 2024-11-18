@@ -39,6 +39,28 @@ pub enum Tile {
         tab_id: Id<TabHandler>,
     },
 }
+impl Tile {
+    pub fn try_as_container(&self) -> Option<([Id<Tile>; 2], Orientation, f32)> {
+        if let Tile::Container {
+            children,
+            orientation,
+            split,
+        } = *self
+        {
+            Some((children, orientation, split))
+        } else {
+            None
+        }
+    }
+
+    pub fn try_as_tab(&self) -> Option<Id<TabHandler>> {
+        if let Tile::Tab { tab_id } = *self {
+            Some(tab_id)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Tiles {
@@ -93,8 +115,32 @@ impl Tiles {
         };
     }
 
-    pub fn remove(&mut self, _tab_id: Id<TabHandler>) {
-        todo!()
+    pub fn remove(&mut self, tab_id: Id<TabHandler>) {
+        let tile_to_remove = self.get_leaf_tile_id(tab_id).unwrap();
+        let parent_tile_id = self
+            .get_parent_tile_id(tile_to_remove)
+            .expect("tried to remove root tile");
+
+        let sibling_id = self.tiles[&parent_tile_id]
+            .try_as_container()
+            .expect("parent must be variant `Tile::Container`")
+            .0
+            .into_iter()
+            .find(|c| c != &tile_to_remove)
+            .unwrap();
+
+        // the sibling takes the place of the parent
+        let sibling = self.tiles.remove(&sibling_id).unwrap();
+        self.tiles.insert(parent_tile_id, sibling).unwrap();
+        if let Some(sibling_tab) = sibling.try_as_tab() {
+            // update the leaf registry entry for sibling tab
+            self.leaf_registry
+                .insert(sibling_tab, parent_tile_id)
+                .unwrap();
+        }
+
+        self.leaf_registry.remove(&tab_id).unwrap();
+        self.tiles.remove(&tile_to_remove).unwrap();
     }
 
     pub fn get_root_tile(&self) -> Id<Tile> {
