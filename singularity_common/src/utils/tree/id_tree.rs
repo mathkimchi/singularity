@@ -83,6 +83,22 @@ impl<T> IdTree<T> {
         })
     }
 
+    /// similar logic to `add_child`
+    ///
+    /// meant to be used with pluck, for pluck and place
+    pub fn place_as_children(&mut self, mut sub_tree: Self, sub_tree_parent_id: Id<T>) {
+        // connect root of subtree with the parent
+        self.nodes
+            .get_mut(&sub_tree_parent_id)
+            .unwrap()
+            .children
+            .push(sub_tree.root_id);
+        sub_tree.nodes.get_mut(&sub_tree.root_id).unwrap().parent = Some(sub_tree_parent_id);
+
+        // add subtree's nodes into self's nodes
+        self.nodes.append(&mut sub_tree.nodes);
+    }
+
     pub fn get_root_id(&self) -> Id<T> {
         self.root_id
     }

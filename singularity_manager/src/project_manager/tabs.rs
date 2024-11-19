@@ -256,6 +256,14 @@ impl Tabs {
         self.org_tree.swap_ids(ids);
     }
 
+    pub fn org_pluck(&mut self, id: &Id<TabHandler>) -> Option<IdTree<TabHandler>> {
+        self.org_tree.pluck(id)
+    }
+
+    pub fn org_place(&mut self, structure_to_place: IdTree<TabHandler>, path: Id<TabHandler>) {
+        self.org_tree.place_as_children(structure_to_place, path)
+    }
+
     /// Save this session
     /// REVIEW: Rename to export?
     pub fn save_session(&self) -> singularity_common::project::project_settings::OpenTabs {

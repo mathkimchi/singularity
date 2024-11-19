@@ -3,12 +3,12 @@ use singularity_common::{
     tab::{packets::Request, tile::Tile, TabHandler},
     utils::{
         id_map::Id,
-        tree::tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
+        tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
     },
 };
 use singularity_ui::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+    display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
     UIDisplay,
@@ -25,14 +25,45 @@ use tabs::Tabs;
 
 mod tabs;
 
+#[derive(Debug, Clone)]
+enum Mode {
+    /// Focused on some app
+    Normal,
+    /// If ChoosingFocus, there should be a special window app focuser
+    ChoosingFocus {
+        focusing_index: TreeNodePath,
+        plucked: Option<IdTree<TabHandler>>,
+    }
+}
+impl Mode {
+    fn try_as_choosing_focus(&self) -> Option<(&TreeNodePath, &Option<IdTree<TabHandler>>)> {
+        match self {
+            Mode::Normal => None,
+            Mode::ChoosingFocus { focusing_index, plucked } => Some((focusing_index, plucked)),
+        }
+    }
+
+    fn try_as_choosing_focus_mut(&mut self) -> Option<(&mut TreeNodePath, &mut Option<IdTree<TabHandler>>)> {
+        match self {
+            Mode::Normal => None,
+            Mode::ChoosingFocus { focusing_index, plucked } => Some((focusing_index, plucked)),
+        }
+    }
+
+    fn try_get_focusing_index(&self) -> Option<&TreeNodePath> {
+        match self {
+            Mode::Normal => None,
+            Mode::ChoosingFocus { focusing_index, plucked: _ } => Some(focusing_index),
+        }
+    }
+}
+
 pub struct ProjectManager {
     project: Project,
 
     tabs: Tabs,
 
-    /// App focuser is a special window
-    /// This value is None if the app focuser isn't being used, if Some then it represents the index that the user wants
-    app_focuser_index: Option<TreeNodePath>,
+    mode: Mode,
     is_running: Arc<AtomicBool>,
 
     /// gui
@@ -52,7 +83,7 @@ impl ProjectManager {
         Self {
             project,
             tabs,
-            app_focuser_index: None,
+            mode: Mode::Normal,
             is_running: Arc::new(AtomicBool::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
@@ -143,7 +174,7 @@ impl ProjectManager {
         ));
 
         // display the tab focuser/selector
-        if let Some(focusing_index) = &self.app_focuser_index {
+        if let Mode::ChoosingFocus { focusing_index, plucked } = &self.mode {
             let mut subapps_focuser_display = CharGrid::default();
 
             for tab_path in self.tabs.iter_paths_dfs() {
@@ -182,11 +213,43 @@ impl ProjectManager {
                 UIElement::CharGrid(subapps_focuser_display)
                     .fill_bg(Color::DARK_GRAY)
                     .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea::from_center_half_size(
-                        DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::HALF),
-                        DisplaySize::new(0.2.into(), 0.2.into()),
-                    )),
+                    .contain(DisplayArea::new((0.4, 0.4), (0.5, 0.6)))
             );
+
+            if let Some(plucked) = plucked {
+                let mut plucked_display = CharGrid::default();
+    
+                for tab_path in plucked.iter_paths_dfs() {
+                    let tab_id = plucked.get_id_from_path(&tab_path).unwrap();
+                    let tab = self.tabs.get_tab_handler(tab_id).unwrap();
+    
+                    let fg = Color::LIGHT_GREEN;
+    
+                    let bg = Color::TRANSPARENT;
+    
+                    let mut subapp_title_display = vec![
+                        CharCell {
+                            character: ' ',
+                            fg: Color::TRANSPARENT,
+                            bg: Color::TRANSPARENT
+                        };
+                        2 * tab_path.depth()
+                    ];
+    
+                    for character in tab.tab_name.chars() {
+                        subapp_title_display.push(CharCell { character, fg, bg });
+                    }
+    
+                    plucked_display.content.push(subapp_title_display);
+                }
+    
+                tab_elements.push(
+                    UIElement::CharGrid(plucked_display)
+                        .fill_bg(Color::DARK_GRAY)
+                        .bordered(Color::LIGHT_GREEN)
+                        .contain(DisplayArea::new((0.5, 0.4), (0.6, 0.6))),
+                );
+            }
         }
 
         *(self.ui_element.lock().unwrap()) =
@@ -218,31 +281,39 @@ impl ProjectManager {
                     // Alt + arrows should be like alt tab for Windows and Linux but tree based
                     // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                    if key.to_char() == Some('\n') && self.app_focuser_index.is_some() {
-                        // save tree index and close window
+                    if key.to_char() == Some('\n') && self.mode.try_as_choosing_focus().is_some() {
+                        // place if needed, save tree index, and close window
 
-                        let new_focus_index = self.app_focuser_index.take().unwrap();
+                        let (new_focus_index, pluck) = self.mode.try_as_choosing_focus_mut().take().unwrap();
 
-                        self.tabs.set_focused_tab_path(&new_focus_index);
+                        if let Some(pluck) = pluck.take() {
+                            self.tabs.org_place(pluck, self.tabs.get_id_by_org_path(new_focus_index).unwrap());
+                        }
+
+                        self.tabs.set_focused_tab_path(new_focus_index);
                     } else {
-                        let mut new_focus_index = self.app_focuser_index.clone().unwrap_or(
-                            self.tabs
-                                .get_tab_path(&self.tabs.get_focused_tab_id())
-                                .unwrap()
-                                .clone(),
-                        );
+                        let (new_focus_index, plucked) = match &self.mode {
+                            Mode::Normal => {
+                                (&self.tabs
+                                    .get_tab_path(&self.tabs.get_focused_tab_id())
+                                    .unwrap(), &None)
+                            },
+                            Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
+                        };
 
-                        self.app_focuser_index = match key.to_char() {
-                            Some('\n') => Some(new_focus_index),
-                            Some(traverse_key) if TREE_TRAVERSE_KEYS.contains(&traverse_key) => {
-                                new_focus_index = new_focus_index
-                                    .clamped_traverse_based_on_wasd(&self.tabs, traverse_key);
-                                Some(new_focus_index)
-                            }
-                            _ => panic!(),
+                        self.mode = Mode::ChoosingFocus { 
+                            focusing_index: match key.to_char() {
+                                Some('\n') => new_focus_index.clone(),
+                                Some(traverse_key) if TREE_TRAVERSE_KEYS.contains(&traverse_key) => {
+                                    new_focus_index
+                                        .clamped_traverse_based_on_wasd(&self.tabs, traverse_key)
+                                }
+                                _ => panic!(),
+                            },
+                            plucked: plucked.clone(),
                         };
                     }
-                    dbg!(&self.app_focuser_index);
+                    dbg!(&self.mode);
                     // dbg!(&self.focused_tab_path);
                 }
                 UIEvent::KeyPress(
@@ -260,21 +331,58 @@ impl ProjectManager {
                 {
                     // Alt + Windows + traversal key swaps position of focused and what would be the new focused
                     
-                    let prev_focus_index = self.app_focuser_index.clone().unwrap_or(
-                        self.tabs
-                        .get_tab_path(&self.tabs.get_focused_tab_id())
-                        .unwrap()
-                        .clone(),
-                    );
+                    let (prev_focus_index, plucked) = match &self.mode {
+                        Mode::Normal => (&self.tabs
+                            .get_tab_path(&self.tabs.get_focused_tab_id())
+                            .unwrap(), &None),
+                        Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
+                    };
                     
                     let new_focus_index = prev_focus_index.clamped_traverse_based_on_wasd(&self.tabs, key.to_char().unwrap());
                     
-                    self.tabs.org_swap([self.tabs.get_id_by_org_path(&prev_focus_index).unwrap(), self.tabs.get_id_by_org_path(&new_focus_index).unwrap()]);
+                    self.tabs.org_swap([self.tabs.get_id_by_org_path(prev_focus_index).unwrap(), self.tabs.get_id_by_org_path(&new_focus_index).unwrap()]);
                     
                     // self.tabs.set_focused_tab_path(&new_focus_index);
-                    self.app_focuser_index = Some(new_focus_index);
+                    self.mode = Mode::ChoosingFocus{ focusing_index: new_focus_index, plucked: plucked.clone() };
                     
-                    dbg!(&self.app_focuser_index);
+                    dbg!(&self.mode);
+                }
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: true,
+                        caps_lock: false,
+                        logo: false,
+                        num_lock: false,
+                    },
+                ) if // `' '` is a placeholder for some key that isn't in tree traverse
+                    key.to_char()==Some('P') =>
+                {
+                    // Alt + Windows + P does pluck/place
+
+                    let (focusing_index, plucked) = match self.mode {
+                        Mode::Normal => {
+                            (&self.tabs
+                                .get_tab_path(&self.tabs.get_focused_tab_id())
+                                .unwrap(), None)
+                        },
+                        Mode::ChoosingFocus { ref focusing_index, ref mut plucked } => (focusing_index, plucked.take()),
+                    };
+
+                    if let Some(plucked) = plucked {
+                        // place
+                        self.tabs.org_place(plucked, self.tabs.get_id_by_org_path(focusing_index).unwrap());
+                    } else {
+                        // pluck
+                        if !focusing_index.is_root() {
+                            self.mode = Mode::ChoosingFocus {
+                                focusing_index: focusing_index.traverse_to_parent().unwrap(),
+                                plucked: self.tabs.org_pluck(&self.tabs.get_id_by_org_path(focusing_index).unwrap())
+                            };
+                        }
+                    }
                 }
                 UIEvent::KeyPress(
                     key,
@@ -291,7 +399,7 @@ impl ProjectManager {
                 {
                     // Alt + Shift + S swaps actually focused and focusing
                     
-                    if let Some(focuser_path) = self.app_focuser_index.clone(){
+                    if let Some(focuser_path) = self.mode.try_get_focusing_index().cloned() {
                         let focusing = self.tabs.get_id_by_org_path(&focuser_path).unwrap();
                         let actually_focused = self.tabs.get_focused_tab_id();
 

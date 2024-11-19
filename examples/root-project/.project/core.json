@@ -42,6 +42,30 @@
           "session_data": "examples/root-project/file_to_edit.txt"
         }
       },
+      "3a5594e0-a98e-470e-a9a3-64978069cc62": {
+        "tab_area": [
+          {
+            "x": {
+              "Pixels": 0
+            },
+            "y": {
+              "Proportional": 0.125
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 0.25
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "EDITOR",
+          "session_data": "examples/root-project/file_to_edit.txt"
+        }
+      },
       "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
         "tab_area": [
           {
@@ -57,13 +81,37 @@
               "Proportional": 0.5
             },
             "y": {
-              "Proportional": 0.5
+              "Proportional": 0.125
             }
           }
         ],
         "tab_data": {
           "tab_type": "FILE_MANAGER",
           "session_data": "examples/root-project"
+        }
+      },
+      "938c9fa0-e4c0-4cfe-9792-5f4d0f124914": {
+        "tab_area": [
+          {
+            "x": {
+              "Pixels": 0
+            },
+            "y": {
+              "Proportional": 0.25
+            }
+          },
+          {
+            "x": {
+              "Proportional": 0.5
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "EDITOR",
+          "session_data": "examples/root-project/lorem_ipsum.txt"
         }
       },
       "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
@@ -92,29 +140,50 @@
       }
     },
     "org_tree": {
-      "root_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
+      "root_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
       "nodes": {
         "0e6c605e-5055-41dc-be10-74a3f7552dcf": {
+          "children": [
+            "3a5594e0-a98e-470e-a9a3-64978069cc62",
+            "938c9fa0-e4c0-4cfe-9792-5f4d0f124914"
+          ],
+          "parent": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+        },
+        "3a5594e0-a98e-470e-a9a3-64978069cc62": {
           "children": [],
-          "parent": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+          "parent": "0e6c605e-5055-41dc-be10-74a3f7552dcf"
         },
         "8f600939-9d8b-4273-8bd3-075f9bf73bcf": {
-          "children": [],
-          "parent": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
-        },
-        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
           "children": [
-            "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
+            "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
             "0e6c605e-5055-41dc-be10-74a3f7552dcf"
           ],
           "parent": null
+        },
+        "938c9fa0-e4c0-4cfe-9792-5f4d0f124914": {
+          "children": [],
+          "parent": "0e6c605e-5055-41dc-be10-74a3f7552dcf"
+        },
+        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
+          "children": [],
+          "parent": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
         }
       }
     },
-    "focused_tab": "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
+    "focused_tab": "8f600939-9d8b-4273-8bd3-075f9bf73bcf",
     "display_tiles": {
       "root_id": "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa",
       "tiles": {
+        "18283716-790e-4c33-b6d1-f50c6909c3f3": {
+          "Container": {
+            "children": [
+              "edb8abf7-9895-4c68-868e-1a0a5cf8d68d",
+              "43170cff-17e3-4d02-8eeb-1239cc371edf"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
+          }
+        },
         "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa": {
           "Container": {
             "children": [
@@ -126,8 +195,18 @@
           }
         },
         "423384fd-7af6-4967-9ac8-ddefdec3518d": {
+          "Container": {
+            "children": [
+              "18283716-790e-4c33-b6d1-f50c6909c3f3",
+              "c926131e-9677-4b07-b73e-e95ee6a511dc"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
+          }
+        },
+        "43170cff-17e3-4d02-8eeb-1239cc371edf": {
           "Tab": {
-            "tab_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
+            "tab_id": "3a5594e0-a98e-470e-a9a3-64978069cc62"
           }
         },
         "a1222c7c-06ba-4dc7-b08d-daa23b415b11": {
@@ -138,6 +217,16 @@
         "b3cb696d-a39b-45d1-91e4-866a3473477b": {
           "Tab": {
             "tab_id": "0e6c605e-5055-41dc-be10-74a3f7552dcf"
+          }
+        },
+        "c926131e-9677-4b07-b73e-e95ee6a511dc": {
+          "Tab": {
+            "tab_id": "938c9fa0-e4c0-4cfe-9792-5f4d0f124914"
+          }
+        },
+        "edb8abf7-9895-4c68-868e-1a0a5cf8d68d": {
+          "Tab": {
+            "tab_id": "8f600939-9d8b-4273-8bd3-075f9bf73bcf"
           }
         },
         "fd71644a-8f4c-4973-a332-0d1fe0b89d85": {
@@ -153,7 +242,9 @@
       },
       "leaf_registry": {
         "0e6c605e-5055-41dc-be10-74a3f7552dcf": "b3cb696d-a39b-45d1-91e4-866a3473477b",
-        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": "423384fd-7af6-4967-9ac8-ddefdec3518d",
+        "3a5594e0-a98e-470e-a9a3-64978069cc62": "43170cff-17e3-4d02-8eeb-1239cc371edf",
+        "8f600939-9d8b-4273-8bd3-075f9bf73bcf": "edb8abf7-9895-4c68-868e-1a0a5cf8d68d",
+        "938c9fa0-e4c0-4cfe-9792-5f4d0f124914": "c926131e-9677-4b07-b73e-e95ee6a511dc",
         "995c64ed-840e-4de2-b9a6-7311b7c8f21c": "a1222c7c-06ba-4dc7-b08d-daa23b415b11"
       }
     }
