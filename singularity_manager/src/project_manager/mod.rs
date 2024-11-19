@@ -276,6 +276,30 @@ impl ProjectManager {
                     
                     dbg!(&self.app_focuser_index);
                 }
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: true,
+                        caps_lock: false,
+                        logo: false,
+                        num_lock: false,
+                    },
+                ) if // `' '` is a placeholder for some key that isn't in tree traverse
+                key.to_char()==Some('S') =>
+                {
+                    // Alt + Shift + S swaps actually focused and focusing
+                    
+                    if let Some(focuser_path) = self.app_focuser_index.clone(){
+                        let focusing = self.tabs.get_id_by_org_path(&focuser_path).unwrap();
+                        let actually_focused = self.tabs.get_focused_tab_id();
+
+                        self.tabs.org_swap([focusing, actually_focused]);
+
+                        // self.app_focuser_index = Some(todo!());
+                    }
+                }
                 // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
                 //     // Alt+ArrowUp
                 //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
