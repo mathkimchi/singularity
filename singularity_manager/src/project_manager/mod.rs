@@ -213,7 +213,7 @@ impl ProjectManager {
                 UIElement::CharGrid(subapps_focuser_display)
                     .fill_bg(Color::DARK_GRAY)
                     .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea::new((0.4, 0.4), (0.5, 0.6)))
+                    .contain(DisplayArea::new((0.4, 0.4), (0.6, 0.6)))
             );
 
             if let Some(plucked) = plucked {
