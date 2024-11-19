@@ -1,6 +1,6 @@
 use super::tree_node_path::{TraversableTree, TreeNodePath};
 use crate::utils::id_map::Id;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Technically, children are ordered
 struct Node<T> {
@@ -42,33 +42,45 @@ impl<T> IdTree<T> {
         Some(child_id)
     }
 
-    /// removes node corresponding to id and all its children
+    /// recursively removes id and all its posterity, and creates a new id tree with the id being root
     ///
-    /// If this is root, then don't remove
-    ///
-    /// TODO: do this with loop instead?
-    pub fn remove_recursive(&mut self, id: Id<T>) -> bool {
-        for child in self.nodes.get(&id).unwrap().children.clone() {
-            self.remove_recursive(child);
-        }
+    /// If this is root, then don't change anything
+    pub fn pluck(&mut self, new_root_id: &Id<T>) -> Option<IdTree<T>> {
+        // disconnect from parent
+        let root_parent_id = self.nodes.get(new_root_id).unwrap().parent?;
+        self.nodes
+            .get_mut(&root_parent_id)
+            .unwrap()
+            .children
+            .retain(|id| id != new_root_id);
+        self.nodes.get_mut(new_root_id).unwrap().parent = None;
 
-        if let Some(parent_id) = self.nodes.get(&id).unwrap().parent {
-            // remove this from parent
-            self.nodes
-                .get_mut(&parent_id)
-                .unwrap()
-                .children
-                .retain(|i| i != &id);
-            // remove this from nodes
-            self.nodes.remove(&id);
+        // move this and all its children into a new tree
+        let nodes = {
+            let mut nodes = BTreeMap::new();
 
-            true
-        } else {
-            // this is root
-            println!("Tried to call remove on root");
+            // bfs search
+            let mut unprocessed_ids = BTreeSet::from_iter([*new_root_id]);
+            while !unprocessed_ids.is_empty() {
+                let mut new_unprocessed_ids = BTreeSet::new(); // children of the previously unprocessed
+                for unprocessed_id in &unprocessed_ids {
+                    // process by taking it out of old tree, noting its children, and putting in the new tree
+                    let unprocessed_node = self.nodes.remove(unprocessed_id).unwrap();
+                    for child in unprocessed_node.children.clone() {
+                        new_unprocessed_ids.insert(child);
+                    }
+                    nodes.insert(*unprocessed_id, unprocessed_node);
+                }
+                unprocessed_ids = new_unprocessed_ids;
+            }
 
-            false
-        }
+            nodes
+        };
+
+        Some(IdTree::<T> {
+            root_id: *new_root_id,
+            nodes,
+        })
     }
 
     pub fn get_root_id(&self) -> Id<T> {
@@ -158,7 +170,7 @@ impl<T> IdTree<T> {
         Ok(())
     }
 
-    pub fn update_parent_connections(&mut self, parent_id: &Id<T>) {
+    fn update_parent_connections(&mut self, parent_id: &Id<T>) {
         dbg!("Hey");
         for child_id in self.get_children(parent_id).clone() {
             dbg!("Hi");

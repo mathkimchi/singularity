@@ -237,7 +237,7 @@ impl Tabs {
             self.close_tab_recursively(&child_id);
         }
 
-        if self.org_tree.remove_recursive(*id) {
+        if self.org_tree.pluck(id).is_some() {
             self.tabs.remove(id);
             self.display_tiles.remove(*id);
         } else {
