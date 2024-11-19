@@ -233,7 +233,7 @@ impl Tabs {
     ///
     /// TODO: do this with loop instead?
     fn close_tab_recursively(&mut self, id: &Id<TabHandler>) {
-        for child_id in self.org_tree.get_children(*id).clone() {
+        for child_id in self.org_tree.get_children(id).clone() {
             self.close_tab_recursively(&child_id);
         }
 
@@ -250,6 +250,10 @@ impl Tabs {
         self.close_tab_recursively(&self.get_focused_tab_id());
         // TODO: self focused tab to parent
         self.set_focused_tab_id(self.get_root_id());
+    }
+
+    pub fn org_swap(&mut self, ids: [Id<TabHandler>; 2]) {
+        self.org_tree.swap_ids(ids);
     }
 
     /// Save this session

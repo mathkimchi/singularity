@@ -86,8 +86,8 @@ impl<T> IdTree<T> {
         Some(node_id)
     }
 
-    pub fn get_children(&self, parent_id: Id<T>) -> &Vec<Id<T>> {
-        &self.nodes.get(&parent_id).unwrap().children
+    pub fn get_children(&self, parent_id: &Id<T>) -> &Vec<Id<T>> {
+        &self.nodes.get(parent_id).unwrap().children
     }
 
     /// climb upwards
@@ -112,6 +112,150 @@ impl<T> IdTree<T> {
         path_vec.reverse();
 
         Some(path_vec.into())
+    }
+
+    /// NOTE: will not detect long term cycles
+    fn locally_consistent(&self, id: Id<T>) -> Result<(), String> {
+        let node = &self.nodes[&id];
+
+        // parent notes this as child
+        if let Some(parent_id) = &node.parent {
+            if !self.nodes[parent_id].children.contains(&id) {
+                return Err(format!(
+                    "Node {:?}'s parent {:?} does not have node as child out of children {:?}",
+                    id, parent_id, self.nodes[parent_id].children
+                ));
+            }
+            if self.root_id == id {
+                return Err(format!(
+                    "Node {:?} has parent {:?} but is also root",
+                    id, parent_id
+                ));
+            }
+            if parent_id == &id {
+                return Err(format!("Node {:?} is its own parent", id));
+            }
+        } else {
+            // root pointer serves as pointer if no parent
+            if self.root_id != id {
+                return Err(format!(
+                    "Node {:?} has no parent but is not root {:?}",
+                    id, self.root_id
+                ));
+            }
+        }
+
+        // children notes this as parent
+        for child_id in &node.children {
+            if self.nodes[child_id].parent != Some(id) {
+                return Err(format!(
+                    "Node {:?}'s child {:?}'s parent {:?} is not node'",
+                    id, child_id, self.nodes[child_id].parent
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn update_parent_connections(&mut self, parent_id: &Id<T>) {
+        dbg!("Hey");
+        for child_id in self.get_children(parent_id).clone() {
+            dbg!("Hi");
+            self.nodes.get_mut(&child_id).unwrap().parent = Some(*parent_id);
+        }
+    }
+
+    pub fn swap_ids(&mut self, ids_to_swap: [Id<T>; 2]) {
+        // swap for parents, if root, then the "parent" is root_id
+        unsafe {
+            // using unsafe raw pointers is the only "elegant" way I could think of doing this
+            // TODO: I realize that I can just set it equal to the other, ^ is wrong
+
+            // represents pointers to the ids from the parent's perspective
+            let ptrs: [*mut Id<T>; 2] = ids_to_swap.map(|id| {
+                if let Some(parent_id) = self.nodes[&id].parent {
+                    self.nodes
+                        .get_mut(&parent_id)
+                        .unwrap()
+                        .children
+                        .iter_mut()
+                        .find(|other| other == &&id)
+                        .unwrap() as *mut Id<T>
+                } else {
+                    &mut self.root_id as *mut Id<T>
+                }
+            });
+
+            std::ptr::swap(ptrs[0], ptrs[1]);
+        }
+
+        // swap children
+        unsafe {
+            // using unsafe raw pointers is the only "elegant" way I could think of doing this
+            // TODO: like `swap for parents` and `swap parents`, there is actually a better way
+
+            // represents pointers to the ids from the parent's perspective
+            let children: [*mut Vec<Id<T>>; 2] = ids_to_swap
+                .map(|id| &mut self.nodes.get_mut(&id).unwrap().children as *mut Vec<Id<T>>);
+
+            std::ptr::swap(children[0], children[1]);
+        }
+
+        // now, all the children connections should be correct
+        // update all parent connections to match all children connections
+        {
+            // pretty redundant, but should work
+            self.nodes.get_mut(&self.root_id).unwrap().parent = None;
+            for id in &ids_to_swap {
+                if let Some(parent_id) = self.nodes.get_mut(id).unwrap().parent {
+                    self.update_parent_connections(&parent_id);
+                }
+            }
+            for id in &ids_to_swap {
+                self.update_parent_connections(id);
+            }
+
+            // for id in self.nodes.clone().keys() {
+            //     self.update_parent_connections(id);
+            // }
+        }
+
+        // // swap node values
+        // unsafe {
+        //     // using unsafe raw pointers is the only "elegant" way I could think of doing this
+        //     // TODO: like `swap for parents` and `swap parents`, there is actually a better way
+
+        //     // represents pointers to the ids from the parent's perspective
+        //     let node: [*mut Node<T>; 2] =
+        //         ids_to_swap.map(|id| self.nodes.get_mut(&id).unwrap() as *mut Node<T>);
+
+        //     std::ptr::swap(node[0], node[1]);
+        // }
+
+        // // swap for children
+        // for id in ids_to_swap {
+        //     let other_id = ids_to_swap.iter().find(|o| o == &&id).unwrap();
+        //     for child in self.nodes.get(&id).unwrap().children.clone() {
+        //         self.nodes.get_mut(&child).unwrap().parent = Some(*other_id);
+        //     }
+        // }
+
+        // // swap parents
+        // unsafe {
+        //     // using unsafe raw pointers is the only "elegant" way I could think of doing this
+        //     // TODO: like `swap for parents`, there is actually a better way
+
+        //     // represents pointers to the ids from the parent's perspective
+        //     let parents: [*mut Option<Id<T>>; 2] = ids_to_swap
+        //         .map(|id| &mut self.nodes.get_mut(&id).unwrap().parent as *mut Option<Id<T>>);
+
+        //     std::ptr::swap(parents[0], parents[1]);
+        // }
+
+        dbg!(&self);
+        self.locally_consistent(ids_to_swap[0]).unwrap();
+        self.locally_consistent(ids_to_swap[1]).unwrap();
     }
 }
 impl<T> TraversableTree for IdTree<T> {

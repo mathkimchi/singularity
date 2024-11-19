@@ -675,6 +675,7 @@ mod ui_display_wayland_impls {
                 // dbg when caps lock is on
                 println!("key pressed in dbg mode (capslock)");
                 dbg!(&event);
+                dbg!(&event.keysym.key_char());
                 dbg!(&self.key_modifiers);
             }
             self.ui_event_queue

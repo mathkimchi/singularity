@@ -1237,3 +1237,23 @@ Notes:
     - I didn't watch the whole thing, but unfortunately, it seems the slides only go over adding tiles so it doesn't really help me
 
 I tried to look elsewhere for similar sources, but could not find anything.
+
+For moving tabs within the tab hierarchy, I think I have a way:
+I already have tab hierarchy traversal, where given the current tab path and a keybind (Alt+some char), I get a new tab path.
+I can have a corresponding keybind for each traversal (Mod+Alt+same char) (I wanted to do Alt+Shift, but that would make things harder bc it would modify the character) where the move keybind just swaps the current path's tab and the new path's tab in the tab hierarchy.
+
+Actually, while implementing the above method, I realized that there was already an easy way of implementing this.
+There was already a selecting screen, so algorithms like pluck and place as well as swapping will be obvious.
+But, I will first implement and commit the other way because of sunk cost fallacy.
+
+Gee, I am really struggling with swapping two nodes in a doubly-linked tree (doubly linked referring to the fact that parents and children both link to each other)...
+When they are unrelated or are siblings, everything works normally, but with parent-child, everything breaks apart.
+I might need to go back to baisics by considering how to swap a doubly-linked list.
+
+2024/11/19
+
+I just drew the connection diagrams on a whiteboard and tried algorithms until I found one that worked:
+1. Update all the children connections (for all children connections, replace A and B)
+   1. Swap the children A and B for their parents
+   2. Swap A and B's children
+2. Update all parent connections to match the children connections
