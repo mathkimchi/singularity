@@ -284,13 +284,15 @@ impl ProjectManager {
                     if key.to_char() == Some('\n') && self.mode.try_as_choosing_focus().is_some() {
                         // place if needed, save tree index, and close window
 
-                        let (new_focus_index, pluck) = self.mode.try_as_choosing_focus_mut().take().unwrap();
+                        let (new_focus_index, pluck) = self.mode.try_as_choosing_focus_mut().unwrap();
 
                         if let Some(pluck) = pluck.take() {
                             self.tabs.org_place(pluck, self.tabs.get_id_by_org_path(new_focus_index).unwrap());
                         }
 
                         self.tabs.set_focused_tab_path(new_focus_index);
+
+                        self.mode = Mode::Normal;
                     } else {
                         let (new_focus_index, plucked) = match &self.mode {
                             Mode::Normal => {
