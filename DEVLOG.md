@@ -1257,3 +1257,92 @@ I just drew the connection diagrams on a whiteboard and tried algorithms until I
    1. Swap the children A and B for their parents
    2. Swap A and B's children
 2. Update all parent connections to match the children connections
+
+My next goal is to get the Task Organizer to a very good point.
+I will brainstorm now:
+
+Though have left Java and many of its ideals of OOP long ago, I believe that approaching the Task Organizer in an MVVM (model, view, view-model) approach might be an elegant way of thinking about it.
+
+- Model
+  - The first component of MVVM is the model, which refers to how the data is represented.
+  - In the case of the Task Organizer, the model will store the tasks and all relevant data.
+  - Most of the model can change as I work on the view and the view-model, but an important task regarding the model is file representation.
+    - So far, I overlooked the file representation of everything by making rust structures and using Serde to convert data into JSON.
+    - For now, there are more urgent matters, but I ultimately want people to be able to edit these files manually with a text editor.
+    - Until then, the graphical editor will suffice.
+  - Model could also include some logic, but I will be referring to only the representation of the data as the model.
+- View
+  - The view refers to the UI, including displaying data to the user and recieving user input.
+- View-Model
+  - The View-Model can be thought of as the connection between the View and the Model.
+  - A critical aspect of the View-Model's responsibility is modifying data.
+
+Now that I wrote all that, I am not exactly sure why I did, but I guess it is a good reminder.
+
+Features I want to work on:
+
+- Time management
+  - Regulate and log time spent on each task
+  - Different from deadlines but I should do that later as well
+  - Regulate time with blocking method
+  - Log time by recording all timer related actions along with when that action happened
+- Templates/repeating task types
+- Links
+- Online webpage access
+
+Blocking method idea:
+I haven't tested this so I don't know if it is actually efficient, but the idea is to work on a task for specific blocks at a time.
+A block is a continuous period of time dedicated to a single purpose (like working on a task).
+A standard block should have a set-up, work, and clean-up period.
+The setup would include setting up prerequisites for the work, finding a good playlist, using the bathroom, clearing the mind of all else (ex: check gmail to not worry about missing emails), and setting up the task and block in the task organizer.
+During the setup period, make the work period as smooth and productive as possible.
+Cool down during the clean-up period, and take care of the physical workspace so that whatever comes next can be started in a fresh state.
+For an hour-long block, a good delegation of times could be a 5 min, 50 min, and 5 min, respectively.
+Unfortunately, school and other obligations exist, so I can not divide my life into perfect 1-hour blocks.
+I also must consider the fact that the time it takes most tasks (often tasks with objective requirements) can not be perfectly predicted, let alone fit into 50 minutes.
+
+Actually, I am going to just test different ways of being productive and try something new each time I don't like something.
+
+### Trials
+
+Control Trial
+
+For my first trial with tasks, I will start with blocks and a timer that shows overall time spent on each task and logs each start and stop time (can only be viewed from the JSON, meant for future data analysis or debugging) with no time limits or target times.
+
+Future features that I want to test in trials that are not in this trial:
+- Reusable block and task templates
+  - Ex of block template:
+    - Set-up, work, and clean-up
+- Pacer
+  - Flexible target time
+- Try seperating blocks and tasks entirely
+  - Task can be analogous to GH issue and block can be analogous to a commit
+  - Blocks don't necessarily need to be under a task, but blocks can reference tasks in descriptions (think how descriptions will work)
+  - If this test produces fruitful results, could later even have a different app (tab) just for blocks, where references between each are allowed
+  - Sub feature to test: descriptions that are like commit descriptions
+    - Could have something like a small devlog accompany each block (would kill 2 birds with 1 stone bc I wouldn't need to build a whole new app for devlog and I can save redundant time that would be spent on writing devlogs bc it automatically stores it)
+    - Can reference tasks and other stuff (much later, I should standardize linking)
+    - Can also have special regions for the description or just templates for descriptions
+      - Like a goal section and reflection section
+    - Having this will allow users to work on multiple related tasks in one block, and this might be bad if strictness is desired, but I hope it will strike a balance between flow and structure, because it all
+      - Having subblocks would be better organizationally, but that is getting out of hand, even for me (if I did this, it would be supplimentary to block descriptions)
+- Rigid predefined blocks
+  - Set target time limit before each block, and the block must end when the timer goes off
+  - If you don't finish by then, start a new block either right afterwards or after doing somthing else
+  - I don't really like this
+
+I want to try all these in different branches to test all seperately, but I also don't want to bloat up the number of branches.
+Do I make a fork? Can github issues or some other GH feature help me? I guess the feature I am looking for is literally just branches.
+
+Features to add after all the trials are done:
+- Blocks report
+  - Overview of task worked on at each point in the day per project
+  - Have this work with nested projects as well
+  - Have a complete overview for all projects for a single person
+    - Can also have a special thing to note non-project blocks like sleeping and eating
+
+Many of the features promote data collection at the sake of short term flow, and I am actually fine with that because it means I can continuously learn from this data and improve singularity, and I also predict that being able to visualize productivity will help gamify productiveness.
+TBH, I just like seeing data.
+I am not worried about privacy, because 1: I might be the only one who uses singularity, 2: this is all locally run, 3: I can add opt-out/in and encryption later if needed.
+
+By the end of the trials, I want to be able to use singularity because it is good.
