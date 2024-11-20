@@ -1346,3 +1346,12 @@ TBH, I just like seeing data.
 I am not worried about privacy, because 1: I might be the only one who uses singularity, 2: this is all locally run, 3: I can add opt-out/in and encryption later if needed.
 
 By the end of the trials, I want to be able to use singularity because it is good.
+
+2024/11/20 12:13AM
+
+NOOOOOO, I thought of the name `chronoschism` meaning time (`chrono`) and divide (`schism`), but it turns out that someone else came up with it first!!!!
+Grrr...
+
+I am going to use that name though because I came up with it seperately and it is cool.
+
+Also, I was thinking about the trials, and I realized I am not going to do that in the scientist way, instead of testing all the variables seperately, I am going to use an iterative approach and just use common sense.
