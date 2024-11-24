@@ -90,46 +90,4 @@ macro_rules! query_macro {
     }};
 }
 query_macro!(OrgPath => TreeNodePath, TabName => String, TabData => TabData);
-// fn a() {
-//     let (ask, answer) = create_query_channels();
-
-//     ask_query!(ask, OrgPath);
-// }
-
-// /// TODO: auto generate this with macro
-// pub enum Query {
-//     Path,
-//     Name,
-//     TabData,
-// }
-
-// #[derive(Debug)]
-// pub enum Response {
-//     Path(TreeNodePath),
-//     Name(String),
-//     TabData(TabData),
-// }
-// /// TODO: macro this
-// impl Response {
-//     pub fn try_as_path(self) -> Option<TreeNodePath> {
-//         if let Self::Path(path) = self {
-//             Some(path)
-//         } else {
-//             None
-//         }
-//     }
-//     pub fn try_as_name(self) -> Option<String> {
-//         if let Self::Name(name) = self {
-//             Some(name)
-//         } else {
-//             None
-//         }
-//     }
-//     pub fn try_as_tab_data(self) -> Option<TabData> {
-//         if let Self::TabData(tab_data) = self {
-//             Some(tab_data)
-//         } else {
-//             None
-//         }
-//     }
-// }
+// TODO: add something to get the project directory

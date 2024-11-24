@@ -1354,4 +1354,13 @@ Grrr...
 
 I am going to use that name though because I came up with it seperately and it is cool.
 
-Also, I was thinking about the trials, and I realized I am not going to do that in the scientist way, instead of testing all the variables seperately, I am going to use an iterative approach and just use common sense.
+Also, I was thinking about the trials, and I realized I am not going to do that in the scientist way; instead of testing all the variables seperately, I am going to use an iterative approach and just use common sense.
+
+2024/11/21
+
+I am going to make a seperate subapp for blocks, called time manager.
+The name chronoschism would be better for a name of an idea or game, but it doesn't feel like it should be a name of a tool.
+
+2024/11/23
+
+I had to somehow start a time manager tab, but I don't have a way of starting tabs (TODO), so I temporarily made tabs public and inside the manager's testing code, I made it add a new time manager, then ran it once, and removed it.

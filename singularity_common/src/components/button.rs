@@ -1,8 +1,9 @@
 use super::Component;
 use singularity_ui::ui_element::UIElement;
 
+/// TODO: make button's `was_clicked` feature a macro so it is more flexible
 pub struct Button {
-    inner_element: UIElement,
+    pub inner_element: UIElement,
 
     /// because unpress isn't an event, clicked only represents whether it has been clicked since the most recent clicked query
     clicked: bool,

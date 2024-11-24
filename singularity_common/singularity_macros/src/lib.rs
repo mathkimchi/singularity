@@ -2,6 +2,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
+
+/// REVIEW: I realize that this is actually very arbitrary and unflexible for most use-cases
+/// I mean, I am starting to feel that I don't even need a macro
+/// I could also make an attribute macro that can be applied to each component, which would increase redundancy but make it suitable for a wider variety of usage
 #[proc_macro_derive(ComposeComponents, attributes(component, tree_component, focused_component))]
 pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();

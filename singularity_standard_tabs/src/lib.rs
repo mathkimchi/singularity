@@ -2,6 +2,7 @@ pub mod demo;
 pub mod editor;
 pub mod file_manager;
 pub mod task_organizer;
+pub mod time_manager;
 
 /// FIXME
 pub fn get_tab_creator_from_type(tab_type: &str) -> Box<dyn singularity_common::tab::TabCreator> {
@@ -10,6 +11,7 @@ pub fn get_tab_creator_from_type(tab_type: &str) -> Box<dyn singularity_common::
         "EDITOR" => Box::new(editor::Editor::new_tab_creator()),
         "FILE_MANAGER" => Box::new(file_manager::FileManager::new_tab_creator()),
         "TASK_ORGANIZER" => Box::new(task_organizer::TaskOrganizer::new_tab_creator()),
+        "TIME_MANAGER" => Box::new(time_manager::TimeManager::new_tab_creator()),
         // "DEMO" => Box::new(demo::Test::new_tab_creator(
         //     serde_json::from_value::<String>(tab_data).unwrap(),
         // )),

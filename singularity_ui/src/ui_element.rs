@@ -13,6 +13,7 @@ pub enum UIElement {
     /// TODO: better name
     Backgrounded(Box<UIElement>, Color),
 
+    /// FIXME: literally just doesn't work
     Text(String),
 
     /// should display like a terminal
