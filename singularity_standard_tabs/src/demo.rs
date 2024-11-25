@@ -16,9 +16,9 @@ use std::sync::Mutex;
 pub struct Test {
     /// this name is a keyword for ComposeComponents
     focused_component: usize,
-    #[component((DisplayArea::new((0.0, 0.0), (1.0, 0.05))), (0))]
+    #[component((DisplayArea::new((0.0, 0.0), (0.25, 0.05))), (0))]
     button: Button,
-    #[component((DisplayArea::new((0.0, 0.0), (1.0, 0.05))), (1))]
+    #[component((DisplayArea::new((0.7, 0.0), (0.9, 0.05))), (1))]
     button2: Button,
 
     /// REVIEW: this doesn't directly have anything to do with compose components (might need to decouple)
@@ -65,12 +65,21 @@ pub fn run_test() {
 
     let mut test_widget = Test {
         focused_component: 0,
-        button: Button::new(singularity_ui::ui_element::UIElement::CharGrid(
-            CharGrid::new_monostyled("button1".to_string(), Color::WHITE, Color::BLACK),
-        )),
-        button2: Button::new(singularity_ui::ui_element::UIElement::CharGrid(
-            CharGrid::new_monostyled("button1".to_string(), Color::WHITE, Color::BLACK),
-        )),
+        button: Button::new(
+            singularity_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
+                "button1".to_string(),
+                Color::WHITE,
+                Color::BLACK,
+            )), // .bordered(Color::LIGHT_GREEN),
+        ),
+        button2: Button::new(
+            singularity_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
+                "button1".to_string(),
+                Color::WHITE,
+                Color::BLACK,
+            ))
+            .bordered(Color::ORANGE),
+        ),
         tree: RootedTree::from_root(TextBox::new("tree button".to_string()))
             .builder_add_node(TextBox::new("text".to_string()), &TreeNodePath::new_root()),
     };

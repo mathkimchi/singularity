@@ -14,7 +14,7 @@ use std::{path::PathBuf, time::SystemTime};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct Block {
-    /// I think SystemTime should be more or less the same as Instant, just compatable with serde
+    /// NOTE: SystemTime should be more or less the same as Instant, just compatable with serde
     start_time: SystemTime,
     end_time: SystemTime,
 }
@@ -33,7 +33,7 @@ pub struct TimeManager {
     mode: Mode,
 
     focused_component: usize,
-    #[component((DisplayArea::new((0.0, 0.0), (1.0, 0.05))), (0))]
+    #[component((DisplayArea::new((0.0, 0.5), (1.0, 1.0))), (0))]
     button: Button,
 }
 impl TimeManager {
@@ -126,7 +126,7 @@ impl singularity_common::tab::BasicTab for TimeManager {
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
         self.update_button_ui();
-        Some(self.render_components())
+        Some(self.render_components().bordered(Color::LIGHT_GREEN))
     }
 
     fn handle_tab_event(

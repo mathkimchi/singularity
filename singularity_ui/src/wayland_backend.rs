@@ -243,14 +243,14 @@ mod drawing_impls {
                             container_area.0.x.pixels(dt.width()) as f32,
                             container_area.0.y.pixels(dt.height()) as f32,
                             1.,
-                            container_area.size().width.pixels(dt.height()) as f32,
+                            container_area.size().height.pixels(dt.height()) as f32,
                         );
                         // right
                         pb.rect(
                             container_area.1.x.pixels(dt.width()) as f32,
                             container_area.0.y.pixels(dt.height()) as f32,
                             1.,
-                            container_area.size().width.pixels(dt.height()) as f32,
+                            container_area.size().height.pixels(dt.height()) as f32,
                         );
                         pb.finish()
                     };
@@ -268,6 +268,10 @@ mod drawing_impls {
                         ),
                     )
                     .map_onto(container_area);
+
+                    // dbg!(&container_area);
+                    // dbg!(&container_area.size());
+                    // dbg!(&inner_area);
 
                     // draw the inner widget
                     inner_element.draw(dt, inner_area, font);

@@ -1364,3 +1364,8 @@ The name chronoschism would be better for a name of an idea or game, but it does
 2024/11/23
 
 I had to somehow start a time manager tab, but I don't have a way of starting tabs (TODO), so I temporarily made tabs public and inside the manager's testing code, I made it add a new time manager, then ran it once, and removed it.
+
+2024/11/25
+
+Should making borders around each tab be a responsibility of the tab or the manager?
+Right now, I am putting borders around each tab's inner elements in the tab's code.

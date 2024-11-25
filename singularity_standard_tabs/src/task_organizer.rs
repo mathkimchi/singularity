@@ -347,7 +347,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
         //         .fill_bg(Color::DARK_GRAY)
         //         .bordered(Color::LIGHT_GREEN),
         // )
-        Some(self.render_components())
+        Some(self.render_components().bordered(Color::LIGHT_GREEN))
     }
 
     fn handle_tab_event(
