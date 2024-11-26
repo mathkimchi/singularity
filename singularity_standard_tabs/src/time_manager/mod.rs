@@ -10,8 +10,12 @@ use singularity_ui::{
     display_units::DisplayArea,
     ui_element::{CharGrid, UIElement},
 };
-use std::{path::PathBuf, time::SystemTime};
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime},
+};
 
+/// NOTE: Immutable
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct Block {
     /// NOTE: SystemTime should be more or less the same as Instant, just compatable with serde
@@ -19,6 +23,15 @@ struct Block {
     end_time: SystemTime,
 }
 type Blocks = Vec<Block>;
+impl Block {
+    pub fn duration(&self) -> Duration {
+        // SystemTime isn't perfect, so duration_since's type is result
+        // should be negligible though
+        self.end_time
+            .duration_since(self.start_time)
+            .unwrap_or_default()
+    }
+}
 
 enum Mode {
     Timing { start_time: SystemTime },
@@ -33,7 +46,7 @@ pub struct TimeManager {
     mode: Mode,
 
     focused_component: usize,
-    #[component((DisplayArea::new((0.0, 0.5), (1.0, 1.0))), (0))]
+    #[component((DisplayArea::new((0.4, 0.7), (0.6, 0.8))), (0))]
     button: Button,
 }
 impl TimeManager {
@@ -126,7 +139,23 @@ impl singularity_common::tab::BasicTab for TimeManager {
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
         self.update_button_ui();
-        Some(self.render_components().bordered(Color::LIGHT_GREEN))
+
+        // render the past blocks
+        let blocks = self
+            .blocks
+            .iter()
+            .enumerate()
+            .map(|(index, block)| format!("Block {}: {:#?}", index, block.duration()))
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Some(
+            UIElement::Container(vec![
+                UIElement::CharGrid(CharGrid::from(blocks)),
+                self.render_components(),
+            ])
+            .bordered(Color::LIGHT_GREEN),
+        )
     }
 
     fn handle_tab_event(
