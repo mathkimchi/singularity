@@ -1369,3 +1369,43 @@ I had to somehow start a time manager tab, but I don't have a way of starting ta
 
 Should making borders around each tab be a responsibility of the tab or the manager?
 Right now, I am putting borders around each tab's inner elements in the tab's code.
+
+2024/11/26
+
+Ideas relating to what I am implementing right now (the time manager/the block thingy):
+- Log every action saved
+  - Like git but it commits when you save (every keystroke is crazy even for me), modify tasks, execute cli command (like a more verbose/intrusive version of `history`), etc
+  - Possible rule of thumb: at least every time "data" is modified
+  - PRO: Would help automate blocks
+    - Instead of starting a timer, doing stuff, and stopping, you could just do a bunch of stuff, and the time manager automatically clusters into groups, like "N saves, cli commands, and etc all with a maximum of a T minute gap between each consecutive action? sounds like a block just happened from x to z O'clock"
+  - PRO: Would also be useful if connected to internet
+    - Allow for backups
+    - Like a middle ground between google docs and git commits (just me, or does anyone else get git commit anxiety, like a feeling of paranoia that a commit is too small: "oh no, people are gonna think I am just farming my github statistics" or simply not wanting to name an insignificant change so I sneak it in with a major change under the name of that change)
+      - Google docs reminds me that a good alternative name for "block" is "session"
+    - Should figure out how to make this work with git
+      - Maybe all the block stuff (and even the .project directory) should be .gitignore'd, especially considering multiple branches or multiple collaborators
+    - Connect to self-hosted server?
+      - Would be jank, but highly customizable, could have a web interface so it is accessible from my phone
+  - PRO: yay data
+  - CON: Too much data?
+    - Hard to store
+    - Intrusive
+  - would have to actually implement it (side effects)
+    - there would need to be some standardized system for 
+      - good bc it could potentially be useful for other stuff
+      - bad bc sounds like a pain
+    - Customizable user scripts for clustering also sounds fun to use but like a pain to make
+- Block notes and title
+  - When should I let the user edit this?
+    - Before starting and during the block
+    - Do I let the user edit afterwards?
+  - Notes can be optional
+  - Title defaults to "Block N" for the N-th block
+- Linking between tabs
+  - To quote Kylo Ren: "I know what I have to do but I don't know if I have the strength to do it."
+  - Prerequesite to this would be some standardization to the list of 
+  - Implementation idea based on the web:
+    - Each tab type is like a server, imagine task-organizer.net and time-manager.net
+    - That is, there are tab-wise (server-wise)
+    - Each instance of a tab is like a webpage session
+    - Ex workflow: If an open time manager tab wants to focus a specific task by id, then the task organizer would create a task-organizer packet object with the relevant data (probably an enum like `Packet::FocusTask(task_id)`), serialize it into a json object (or some other standardized but versatile datatype), then tell the manager to forward the json packet to the task organizer tab type/"server" (figure out how to identify tab types, ideally something better than just mapping string to impls of some tab trait). On the "server"-side, somehow try to see if there is already a task-organizer tab open. If so, then somehow identify it and tell it to focus on the relevant task. If there are no task organizer tabs open, then ask manager to create one with the focus on the relevant task.
