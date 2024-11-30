@@ -177,11 +177,14 @@ mod tree_node_path_traversal_impls {
             }
         }
 
-        /// FIXME
-        pub fn traverse_dfs_prev(&self) -> Option<Self> {
+        pub fn traverse_dfs_prev<T: TraversableTree>(&self, tree_to_traverse: &T) -> Option<Self> {
             if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
-                // FIXME: traverse to previous sibling's last child
-                Some(previous_sibling)
+                // traverse to previous sibling's last child's last child...
+                let mut path = previous_sibling;
+                while let Some(last_child) = path.traverse_to_last_child(tree_to_traverse) {
+                    path = last_child;
+                }
+                Some(path)
             } else {
                 // current is oldest sibling, traverse up to parent
                 self.traverse_to_parent()
@@ -211,7 +214,7 @@ mod tree_node_path_traversal_impls {
                 'd' => self.traverse_to_first_child(tree_to_traverse),
                 'w' => self.traverse_to_previous_sibling(),
                 's' => self.traverse_to_next_sibling(tree_to_traverse),
-                'q' => self.traverse_dfs_prev(),
+                'q' => self.traverse_dfs_prev(tree_to_traverse),
                 'e' => self.traverse_dfs_next(tree_to_traverse),
                 '0' => self.traverse_to_parent(), // same as 'a'
                 '1'..='8' => self
