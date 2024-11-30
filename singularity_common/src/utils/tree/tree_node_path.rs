@@ -177,8 +177,10 @@ mod tree_node_path_traversal_impls {
             }
         }
 
+        /// FIXME
         pub fn traverse_dfs_prev(&self) -> Option<Self> {
             if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
+                // FIXME: traverse to previous sibling's last child
                 Some(previous_sibling)
             } else {
                 // current is oldest sibling, traverse up to parent

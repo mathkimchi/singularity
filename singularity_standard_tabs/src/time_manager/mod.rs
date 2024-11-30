@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{button::Button, Component},
+    components::{button::Button, text_box::TextBox, Component},
     tab::packets::Event,
 };
 use singularity_macros::ComposeComponents;
@@ -16,11 +16,13 @@ use std::{
 };
 
 /// NOTE: Immutable
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Block {
     /// NOTE: SystemTime should be more or less the same as Instant, just compatable with serde
     start_time: SystemTime,
     end_time: SystemTime,
+    title: String,
+    notes: String,
 }
 type Blocks = Vec<Block>;
 impl Block {
@@ -46,7 +48,12 @@ pub struct TimeManager {
     mode: Mode,
 
     focused_component: usize,
-    #[component((DisplayArea::new((0.4, 0.7), (0.6, 0.8))), (0))]
+
+    #[component((DisplayArea::new((0.5, 0.0), (1.0, 0.3))), (0))]
+    title_editor: TextBox,
+    #[component((DisplayArea::new((0.5, 0.3), (1.0, 0.8))), (1))]
+    body_editor: TextBox,
+    #[component((DisplayArea::new((0.4, 0.7), (0.6, 0.8))), (2))]
     button: Button,
 }
 impl TimeManager {
@@ -74,6 +81,7 @@ impl TimeManager {
         PathBuf: std::convert::From<P>,
     {
         let blocks = Self::parse_blocks(&blocks_file_path).unwrap_or_default();
+        let num_blocks = blocks.len();
 
         manager_handler.send_request(singularity_common::tab::packets::Request::ChangeName(
             "Time Manager".to_string(),
@@ -85,6 +93,8 @@ impl TimeManager {
             mode: Mode::Idle,
 
             focused_component: 0,
+            title_editor: TextBox::new(format!("Block {}", num_blocks)),
+            body_editor: TextBox::default(),
             button: Button::new(
                 singularity_ui::ui_element::UIElement::CharGrid(CharGrid::from(
                     "Idle - Click to Start".to_string(),
@@ -144,8 +154,7 @@ impl singularity_common::tab::BasicTab for TimeManager {
         let blocks = self
             .blocks
             .iter()
-            .enumerate()
-            .map(|(index, block)| format!("Block {}: {:#?}", index, block.duration()))
+            .map(|block| format!("{}: {:#?}", block.title, block.duration()))
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -168,24 +177,37 @@ impl singularity_common::tab::BasicTab for TimeManager {
             if key.to_char() == Some('s') {
                 self.save_to_file();
             }
-        } else if self.forward_events_to_focused(event).is_ok() && self.button.was_clicked() {
-            // alternate mode
-            match self.mode {
-                Mode::Timing { start_time } => {
-                    // was timing, now can stop timing
+        } else {
+            if let Err(Some(focused_component)) = self.forward_events_to_focused(event.clone()) {
+                self.focused_component = focused_component;
+                self.forward_events_to_focused(event).unwrap();
+            }
+            if self.button.was_clicked() {
+                // alternate mode
+                match self.mode {
+                    Mode::Timing { start_time } => {
+                        // was timing, now can stop timing
 
-                    let new_block = Block {
-                        start_time,
-                        end_time: SystemTime::now(),
-                    };
-                    self.blocks.push(new_block);
+                        // log the finished block
+                        let new_block = Block {
+                            start_time,
+                            end_time: SystemTime::now(),
+                            title: self.title_editor.get_text_as_string(),
+                            notes: self.body_editor.get_text_as_string(),
+                        };
+                        self.blocks.push(new_block);
 
-                    self.mode = Mode::Idle;
-                }
-                Mode::Idle => {
-                    // was idle, now start timing
-                    self.mode = Mode::Timing {
-                        start_time: SystemTime::now(),
+                        // restart the ui
+                        self.title_editor = TextBox::new(format!("Block {}", self.blocks.len()));
+                        self.body_editor = TextBox::default();
+
+                        self.mode = Mode::Idle;
+                    }
+                    Mode::Idle => {
+                        // was idle, now start timing
+                        self.mode = Mode::Timing {
+                            start_time: SystemTime::now(),
+                        }
                     }
                 }
             }

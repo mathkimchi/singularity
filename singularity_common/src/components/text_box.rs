@@ -11,7 +11,6 @@ pub struct TextBox {
     /// (x, y) or (col, row)
     cursor_logical_position: (usize, usize),
 }
-#[allow(unused)]
 impl TextBox {
     pub fn new(text: String) -> Self {
         Self {
@@ -97,7 +96,6 @@ impl TextBox {
             .push(singularity_ui::ui_element::CharCell::new(' '));
 
         // highlight cursor
-        use singularity_ui::color::Color;
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
             cursor_bg;
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
