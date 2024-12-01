@@ -15,9 +15,9 @@ impl DisplayUnits {
     pub const HALF: DisplayUnits = DisplayUnits::Proportional(0.5);
     pub const FULL: DisplayUnits = DisplayUnits::Proportional(1.0);
 
-    pub fn from_mixed(pixels: i32, proportion: f32) -> Self {
+    pub const fn from_mixed(pixels: i32, proportion: f32) -> Self {
         match (pixels, proportion) {
-            (pixels, 0.0) => Self::Pixels(pixels),
+            // (pixels, 0.) => Self::Pixels(pixels), // can not use non-const ops in const fn
             (0, proportion) => Self::Proportional(proportion),
             (pixels, proportion) => Self::MixedUnits { pixels, proportion },
         }
@@ -178,6 +178,19 @@ impl DisplayArea {
             DisplayCoord {
                 x: x1.into(),
                 y: y1.into(),
+            },
+        )
+    }
+
+    pub const fn new_proportional(corners: [[f32; 2]; 2]) -> Self {
+        Self(
+            DisplayCoord {
+                x: DisplayUnits::Proportional(corners[0][0]),
+                y: DisplayUnits::Proportional(corners[0][1]),
+            },
+            DisplayCoord {
+                x: DisplayUnits::Proportional(corners[1][0]),
+                y: DisplayUnits::Proportional(corners[1][1]),
             },
         )
     }

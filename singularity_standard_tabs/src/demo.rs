@@ -29,12 +29,8 @@ pub struct Test {
     tree: RootedTree<TextBox>,
 }
 impl Test {
-    fn button1_area() -> DisplayArea {
-        DisplayArea::new((0.0, 0.0), (0.25, 0.05))
-    }
-    fn button2_area() -> DisplayArea {
-        DisplayArea::new((0.7, 0.0), (0.9, 0.05))
-    }
+    const BUTTON1_AREA: DisplayArea = DisplayArea::new_proportional([[0.0, 0.0], [0.25, 0.05]]);
+    const BUTTON2_AREA: DisplayArea = DisplayArea::new_proportional([[0.7, 0.0], [0.9, 0.05]]);
 
     /// REVIEW: technically, index is redundant, but makes things easier
     fn generate_tree_area(index: usize, path: &TreeNodePath) -> DisplayArea {
@@ -58,8 +54,8 @@ impl Test {
 impl Component for Test {
     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
         singularity_ui::ui_element::UIElement::Container(vec![
-            self.button1.render().contain(Self::button1_area()),
-            self.button2.render().contain(Self::button2_area()),
+            self.button1.render().contain(Self::BUTTON1_AREA),
+            self.button2.render().contain(Self::BUTTON2_AREA),
             singularity_ui::ui_element::UIElement::Container(
                 self.tree
                     .collect_paths_dfs()
@@ -77,13 +73,13 @@ impl Component for Test {
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
         match self.focus {
             Focus::Button1 => {
-                if let Some(remapped_event) = remap_event(Self::button1_area(), event.clone()) {
+                if let Some(remapped_event) = remap_event(Self::BUTTON1_AREA, event.clone()) {
                     self.button1.handle_event(remapped_event);
                     return;
                 }
             }
             Focus::Button2 => {
-                if let Some(remapped_event) = remap_event(Self::button2_area(), event.clone()) {
+                if let Some(remapped_event) = remap_event(Self::BUTTON2_AREA, event.clone()) {
                     self.button2.handle_event(remapped_event);
                     return;
                 }
@@ -99,11 +95,11 @@ impl Component for Test {
             }
         }
 
-        if let Some(remapped_event) = remap_event(Self::button1_area(), event.clone()) {
+        if let Some(remapped_event) = remap_event(Self::BUTTON1_AREA, event.clone()) {
             self.focus = Focus::Button1;
             self.button1.handle_event(remapped_event);
             dbg!("focus updated {self.focus}");
-        } else if let Some(remapped_event) = remap_event(Self::button2_area(), event.clone()) {
+        } else if let Some(remapped_event) = remap_event(Self::BUTTON2_AREA, event.clone()) {
             self.focus = Focus::Button2;
             self.button2.handle_event(remapped_event);
             dbg!("focus updated {self.focus}");
