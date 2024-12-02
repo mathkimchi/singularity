@@ -1503,3 +1503,55 @@ On the plus side, I should be able to do this already.
 I will deprecate the `ComposeComponents` macro for now, RIP ComposeComponents.
 
 Button also seems unnecessary, but I will tackle one problem at a time.
+
+...
+
+I removed the compose components macro from time manager, but I am noticing a few patterns. 
+In fact, I might venture to call parts of it "repetitive" or even "automatable".
+In case the file has been changed and you don't know what I mean, this is the github permalink:
+
+https://github.com/mathkimchi/singularity/blob/0d16c4488b81f92a99c49e59d14d46202824f3e5/singularity_standard_tabs/src/time_manager/mod.rs#L213-L246
+
+(speaking of cool github features, I should start using GH issues and pull-requests; In the 2024/11/19 DEVLOG entry, I allude to wanting a feature that works just like this)
+
+Well, just look at these three specific snippets in the same file:
+
+```rust
+Focus::Title => Self::TITLE_EDITOR_AREA,
+Focus::Body => Self::BODY_EDITOR_AREA,
+Focus::Timer => Self::TIMER_BUTTON_AREA,
+``` 
+
+```rust
+else if let Some(remapped_event) = event.remap(Self::TITLE_EDITOR_AREA) {
+    self.focus = Focus::Title;
+    remapped_event
+} else if let Some(remapped_event) = event.remap(Self::BODY_EDITOR_AREA) {
+    self.focus = Focus::Body;
+    remapped_event
+} else if let Some(remapped_event) = event.remap(Self::TIMER_BUTTON_AREA) {
+    self.focus = Focus::Timer;
+    remapped_event
+}
+```
+
+```rust
+Focus::Title => {
+    self.title_editor.handle_event(remapped_event);
+}
+Focus::Body => {
+    self.body_editor.handle_event(remapped_event);
+}
+Focus::Timer => {
+    self.start_button.handle_event(remapped_event);
+}
+```
+
+There is a little voice telling me this is going to be not as good as I think, that I am overcomplicating this, but a meta macro could work.
+
+The big observation is that there are distinct triplets of a `Focus` variant, a field, and a DisplayArea.
+
+You know what, I am going to leave it at the observation for now, because I want to make fast changes today.
+This is definitely a TODO or REVIEW though.
+
+TODO
