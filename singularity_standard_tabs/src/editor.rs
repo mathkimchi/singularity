@@ -100,7 +100,7 @@ impl BasicTab for Editor {
         };
 
         Some(
-            UIElement::CharGrid(self.text_box.render_grid_with_color(cursor_fg, cursor_bg))
+            UIElement::CharGrid(self.text_box.render_grid_with_color((cursor_fg, cursor_bg)))
                 .fill_bg(Color::DARK_GRAY)
                 .bordered(Color::LIGHT_GREEN),
         )

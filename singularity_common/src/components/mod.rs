@@ -15,6 +15,9 @@ pub trait Component: Send {
 
 /// if mouseclick, return Some(remap area) if clicked within, else return None.
 /// For other events, just return normally
+///
+/// TODO: remove me
+#[deprecated = "use `event.remap(area)` instead"]
 pub fn remap_event(
     area: singularity_ui::display_units::DisplayArea,
     event: crate::tab::packets::Event,

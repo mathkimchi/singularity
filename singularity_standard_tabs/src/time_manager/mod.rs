@@ -4,7 +4,6 @@ use singularity_common::{
     components::{button::Button, text_box::TextBox, Component},
     tab::packets::Event,
 };
-use singularity_macros::ComposeComponents;
 use singularity_ui::{
     color::Color,
     display_units::DisplayArea,
@@ -39,24 +38,31 @@ enum Mode {
     Timing { start_time: SystemTime },
     Idle,
 }
+#[derive(PartialEq, Eq)]
+enum Focus {
+    Title,
+    Body,
+    Timer,
+}
 
-#[derive(ComposeComponents)]
 pub struct TimeManager {
     blocks_file_path: PathBuf,
 
     blocks: Blocks,
     mode: Mode,
 
-    focused_component: usize,
+    focus: Focus,
 
-    #[component((DisplayArea::new((0.5, 0.0), (1.0, 0.3))), (0))]
     title_editor: TextBox,
-    #[component((DisplayArea::new((0.5, 0.3), (1.0, 0.8))), (1))]
     body_editor: TextBox,
-    #[component((DisplayArea::new((0.4, 0.7), (0.6, 0.8))), (2))]
-    button: Button,
+    /// TODO: remove
+    start_button: Button,
 }
 impl TimeManager {
+    const TITLE_EDITOR_AREA: DisplayArea = DisplayArea::new_proportional([[0.5, 0.0], [1.0, 0.3]]);
+    const BODY_EDITOR_AREA: DisplayArea = DisplayArea::new_proportional([[0.5, 0.3], [1.0, 0.8]]);
+    const TIMER_BUTTON_AREA: DisplayArea = DisplayArea::new_proportional([[0.4, 0.7], [0.6, 0.8]]);
+
     pub fn new_from_project<P>(
         project_path: P,
         manager_handler: &singularity_common::tab::ManagerHandler,
@@ -92,10 +98,10 @@ impl TimeManager {
             blocks,
             mode: Mode::Idle,
 
-            focused_component: 0,
+            focus: Focus::Timer,
             title_editor: TextBox::new(format!("Block {}", num_blocks)),
             body_editor: TextBox::default(),
-            button: Button::new(
+            start_button: Button::new(
                 singularity_ui::ui_element::UIElement::CharGrid(CharGrid::from(
                     "Idle - Click to Start".to_string(),
                 ))
@@ -113,7 +119,7 @@ impl TimeManager {
 
     /// TODO: make button's `was_clicked` feature a macro so it is more flexible
     fn update_button_ui(&mut self) {
-        self.button.inner_element = UIElement::CharGrid(CharGrid::from(match self.mode {
+        self.start_button.inner_element = UIElement::CharGrid(CharGrid::from(match self.mode {
             Mode::Timing { start_time } => {
                 format!(
                     "Timing - {:#?} elapsed",
@@ -131,6 +137,18 @@ impl TimeManager {
             serde_json::to_string_pretty(&self.blocks).unwrap(),
         )
         .unwrap();
+    }
+
+    /// TODO: this should be more abstract and widespread
+    fn text_colors(focused: bool) -> (Color, Color) {
+        let cursor_fg = Color::BLACK;
+        let cursor_bg = if focused {
+            Color::LIGHT_YELLOW
+        } else {
+            Color::CYAN
+        };
+
+        (cursor_fg, cursor_bg)
     }
 }
 impl singularity_common::tab::BasicTab for TimeManager {
@@ -160,8 +178,18 @@ impl singularity_common::tab::BasicTab for TimeManager {
 
         Some(
             UIElement::Container(vec![
-                UIElement::CharGrid(CharGrid::from(blocks)),
-                self.render_components(),
+                CharGrid::from(blocks).element(),
+                self.title_editor
+                    .render_grid_with_color(Self::text_colors(self.focus == Focus::Title))
+                    .element()
+                    .contain(Self::TITLE_EDITOR_AREA)
+                    .bordered(Color::LIGHT_GREEN),
+                self.body_editor
+                    .render_grid_with_color(Self::text_colors(self.focus == Focus::Body))
+                    .element()
+                    .contain(Self::BODY_EDITOR_AREA)
+                    .bordered(Color::LIGHT_GREEN),
+                self.start_button.render().contain(Self::TIMER_BUTTON_AREA),
             ])
             .bordered(Color::LIGHT_GREEN),
         )
@@ -173,41 +201,75 @@ impl singularity_common::tab::BasicTab for TimeManager {
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
-        if let Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::CTRL)) = event {
+        if let Event::UIEvent(UIEvent::KeyPress(ref key, KeyModifiers::CTRL)) = event {
             if key.to_char() == Some('s') {
                 self.save_to_file();
+                return;
             }
+        }
+
+        // find remapped event and update focus
+
+        // if event can be remapped for the currently focused area, then good.
+        // otherwise, try to find another component where the remap is valid, set focus to that, and return remap
+        let remapped_event = if let Some(remapped_event) = event.remap(match self.focus {
+            Focus::Title => Self::TITLE_EDITOR_AREA,
+            Focus::Body => Self::BODY_EDITOR_AREA,
+            Focus::Timer => Self::TIMER_BUTTON_AREA,
+        }) {
+            remapped_event
+        } else if let Some(remapped_event) = event.remap(Self::TITLE_EDITOR_AREA) {
+            self.focus = Focus::Title;
+            remapped_event
+        } else if let Some(remapped_event) = event.remap(Self::BODY_EDITOR_AREA) {
+            self.focus = Focus::Body;
+            remapped_event
+        } else if let Some(remapped_event) = event.remap(Self::TIMER_BUTTON_AREA) {
+            self.focus = Focus::Timer;
+            remapped_event
         } else {
-            if let Err(Some(focused_component)) = self.forward_events_to_focused(event.clone()) {
-                self.focused_component = focused_component;
-                self.forward_events_to_focused(event).unwrap();
+            // event is unrelated to all components
+            return;
+        };
+
+        // now forward/process the remapped event
+        match self.focus {
+            Focus::Title => {
+                self.title_editor.handle_event(remapped_event);
             }
-            if self.button.was_clicked() {
-                // alternate mode
-                match self.mode {
-                    Mode::Timing { start_time } => {
-                        // was timing, now can stop timing
+            Focus::Body => {
+                self.body_editor.handle_event(remapped_event);
+            }
+            Focus::Timer => {
+                self.start_button.handle_event(remapped_event);
+            }
+        }
 
-                        // log the finished block
-                        let new_block = Block {
-                            start_time,
-                            end_time: SystemTime::now(),
-                            title: self.title_editor.get_text_as_string(),
-                            notes: self.body_editor.get_text_as_string(),
-                        };
-                        self.blocks.push(new_block);
+        if self.start_button.was_clicked() {
+            // alternate mode
+            match self.mode {
+                Mode::Timing { start_time } => {
+                    // was timing, now can stop timing
 
-                        // restart the ui
-                        self.title_editor = TextBox::new(format!("Block {}", self.blocks.len()));
-                        self.body_editor = TextBox::default();
+                    // log the finished block
+                    let new_block = Block {
+                        start_time,
+                        end_time: SystemTime::now(),
+                        title: self.title_editor.get_text_as_string(),
+                        notes: self.body_editor.get_text_as_string(),
+                    };
+                    self.blocks.push(new_block);
 
-                        self.mode = Mode::Idle;
-                    }
-                    Mode::Idle => {
-                        // was idle, now start timing
-                        self.mode = Mode::Timing {
-                            start_time: SystemTime::now(),
-                        }
+                    // restart the ui
+                    self.title_editor = TextBox::new(format!("Block {}", self.blocks.len()));
+                    self.body_editor = TextBox::default();
+
+                    self.mode = Mode::Idle;
+                }
+                Mode::Idle => {
+                    // was idle, now start timing
+                    self.mode = Mode::Timing {
+                        start_time: SystemTime::now(),
                     }
                 }
             }

@@ -22,7 +22,7 @@
         "tab_area": [
           {
             "x": {
-              "Pixels": 0
+              "Proportional": 0.0
             },
             "y": {
               "Proportional": 0.5
@@ -46,10 +46,10 @@
         "tab_area": [
           {
             "x": {
-              "Pixels": 0
+              "Proportional": 0.0
             },
             "y": {
-              "Pixels": 0
+              "Proportional": 0.0
             }
           },
           {

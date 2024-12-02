@@ -86,8 +86,7 @@ impl TextBox {
 
     pub fn render_grid_with_color(
         &self,
-        cursor_fg: singularity_ui::color::Color,
-        cursor_bg: singularity_ui::color::Color,
+        (cursor_fg, cursor_bg): (singularity_ui::color::Color, singularity_ui::color::Color),
     ) -> CharGrid {
         let mut text_clone = self.text.clone();
 

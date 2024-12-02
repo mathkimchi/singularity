@@ -11,6 +11,39 @@ pub enum Event {
     /// TODO: close forcibly
     Close,
 }
+impl Event {
+    /// if mouseclick, return Some(remap area) if clicked within, else return None.
+    /// For other events, just return normally
+    pub fn remap(
+        &self,
+        area: singularity_ui::display_units::DisplayArea,
+    ) -> Option<crate::tab::packets::Event> {
+        use crate::tab::packets::Event;
+        use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
+
+        let event = self.clone();
+
+        if let Event::UIEvent(singularity_ui::ui_event::UIEvent::MousePress(
+            [[click_x, click_y], [tot_width, tot_height]],
+            container,
+        )) = event
+        {
+            if area.map_onto(container).contains(
+                DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+                [tot_width as i32, tot_height as i32],
+            ) {
+                Some(Event::UIEvent(UIEvent::MousePress(
+                    [[click_x, click_y], [tot_width, tot_height]],
+                    area.map_onto(container),
+                )))
+            } else {
+                None
+            }
+        } else {
+            Some(event)
+        }
+    }
+}
 
 pub enum Request {
     ChangeName(String),

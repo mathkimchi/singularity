@@ -100,4 +100,8 @@ impl CharGrid {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    pub fn element(self) -> UIElement {
+        UIElement::CharGrid(self)
+    }
 }
