@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{button::Button, text_box::TextBox, Component},
+    components::{text_box::TextBox, Component},
     tab::packets::Event,
 };
 use singularity_ui::{
@@ -55,8 +55,6 @@ pub struct TimeManager {
 
     title_editor: TextBox,
     body_editor: TextBox,
-    /// TODO: remove
-    start_button: Button,
 }
 impl TimeManager {
     const TITLE_EDITOR_AREA: DisplayArea = DisplayArea::new_proportional([[0.5, 0.0], [1.0, 0.3]]);
@@ -101,12 +99,6 @@ impl TimeManager {
             focus: Focus::Timer,
             title_editor: TextBox::new(format!("Block {}", num_blocks)),
             body_editor: TextBox::default(),
-            start_button: Button::new(
-                singularity_ui::ui_element::UIElement::CharGrid(CharGrid::from(
-                    "Idle - Click to Start".to_string(),
-                ))
-                .bordered(Color::LIGHT_GREEN),
-            ),
         }
     }
 
@@ -115,20 +107,6 @@ impl TimeManager {
         P: AsRef<std::path::Path>,
     {
         serde_json::from_str(&std::fs::read_to_string(blocks_file_path).ok()?).ok()
-    }
-
-    /// TODO: make button's `was_clicked` feature a macro so it is more flexible
-    fn update_button_ui(&mut self) {
-        self.start_button.inner_element = UIElement::CharGrid(CharGrid::from(match self.mode {
-            Mode::Timing { start_time } => {
-                format!(
-                    "Timing - {:#?} elapsed",
-                    start_time.elapsed().unwrap_or_default()
-                )
-            }
-            Mode::Idle => "Idle - Click to Start".to_string(),
-        }))
-        .bordered(Color::LIGHT_GREEN);
     }
 
     fn save_to_file(&self) {
@@ -166,8 +144,6 @@ impl singularity_common::tab::BasicTab for TimeManager {
         &mut self,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
-        self.update_button_ui();
-
         // render the past blocks
         let blocks = self
             .blocks
@@ -175,6 +151,16 @@ impl singularity_common::tab::BasicTab for TimeManager {
             .map(|block| format!("{}: {:#?}", block.title, block.duration()))
             .collect::<Vec<String>>()
             .join("\n");
+
+        let timer_button_text = match self.mode {
+            Mode::Timing { start_time } => {
+                format!(
+                    "Timing - {:#?} elapsed",
+                    start_time.elapsed().unwrap_or_default()
+                )
+            }
+            Mode::Idle => "Idle - Click to Start".to_string(),
+        };
 
         Some(
             UIElement::Container(vec![
@@ -189,7 +175,9 @@ impl singularity_common::tab::BasicTab for TimeManager {
                     .element()
                     .contain(Self::BODY_EDITOR_AREA)
                     .bordered(Color::LIGHT_GREEN),
-                self.start_button.render().contain(Self::TIMER_BUTTON_AREA),
+                UIElement::CharGrid(CharGrid::from(timer_button_text))
+                    .bordered(Color::LIGHT_GREEN)
+                    .contain(Self::TIMER_BUTTON_AREA),
             ])
             .bordered(Color::LIGHT_GREEN),
         )
@@ -241,35 +229,44 @@ impl singularity_common::tab::BasicTab for TimeManager {
                 self.body_editor.handle_event(remapped_event);
             }
             Focus::Timer => {
-                self.start_button.handle_event(remapped_event);
-            }
-        }
+                let was_clicked = match remapped_event {
+                    Event::UIEvent(UIEvent::MousePress(..)) => true,
+                    Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE))
+                        if key.to_char() == Some(' ') =>
+                    {
+                        true
+                    }
+                    _ => false,
+                };
 
-        if self.start_button.was_clicked() {
-            // alternate mode
-            match self.mode {
-                Mode::Timing { start_time } => {
-                    // was timing, now can stop timing
+                if was_clicked {
+                    // button clicked ; alternate mode
+                    match self.mode {
+                        Mode::Timing { start_time } => {
+                            // was timing, now can stop timing
 
-                    // log the finished block
-                    let new_block = Block {
-                        start_time,
-                        end_time: SystemTime::now(),
-                        title: self.title_editor.get_text_as_string(),
-                        notes: self.body_editor.get_text_as_string(),
-                    };
-                    self.blocks.push(new_block);
+                            // log the finished block
+                            let new_block = Block {
+                                start_time,
+                                end_time: SystemTime::now(),
+                                title: self.title_editor.get_text_as_string(),
+                                notes: self.body_editor.get_text_as_string(),
+                            };
+                            self.blocks.push(new_block);
 
-                    // restart the ui
-                    self.title_editor = TextBox::new(format!("Block {}", self.blocks.len()));
-                    self.body_editor = TextBox::default();
+                            // restart the ui
+                            self.title_editor =
+                                TextBox::new(format!("Block {}", self.blocks.len()));
+                            self.body_editor = TextBox::default();
 
-                    self.mode = Mode::Idle;
-                }
-                Mode::Idle => {
-                    // was idle, now start timing
-                    self.mode = Mode::Timing {
-                        start_time: SystemTime::now(),
+                            self.mode = Mode::Idle;
+                        }
+                        Mode::Idle => {
+                            // was idle, now start timing
+                            self.mode = Mode::Timing {
+                                start_time: SystemTime::now(),
+                            }
+                        }
                     }
                 }
             }
