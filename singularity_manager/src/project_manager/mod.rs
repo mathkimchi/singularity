@@ -105,6 +105,10 @@ impl ProjectManager {
             self.handle_input();
             self.process_tab_requests();
             self.answer_tab_queries();
+
+            // FIXME: somehow prevent singularity from eating all of my CPU
+            // const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
+            // thread::sleep(SLEEP_DURATION);
         }
 
         ui_thread_handle.join().unwrap();
