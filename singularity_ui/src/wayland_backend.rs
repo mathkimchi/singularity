@@ -23,7 +23,10 @@ use smithay_client_toolkit::{
     },
 };
 use std::{
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 use ui_event::{KeyModifiers, UIEvent};
@@ -47,8 +50,8 @@ pub struct UIDisplay {
     shm: Shm,
     xdg_activation: Option<ActivationState>,
 
-    /// REVIEW: make sure rwlock is good for this
-    is_running: Arc<RwLock<bool>>,
+    /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
+    is_running: Arc<AtomicBool>,
     first_configure: bool,
     pool: SlotPool,
     width: u32,
@@ -67,7 +70,7 @@ impl UIDisplay {
     pub fn run_display(
         root_element: Arc<Mutex<UIElement>>,
         ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
-        is_running: Arc<RwLock<bool>>,
+        is_running: Arc<AtomicBool>,
     ) {
         // All Wayland apps start by connecting the compositor (server).
         let conn = Connection::connect_to_env().unwrap();
@@ -166,7 +169,7 @@ impl UIDisplay {
         };
 
         // We don't draw immediately, the configure will notify us when to first draw.
-        while *ui_display.is_running.read().unwrap() {
+        while ui_display.is_running.load(Ordering::Relaxed) {
             event_loop
                 .dispatch(
                     Duration::from_secs_f32(FRAME_DELTA_SECONDS),
@@ -216,6 +219,7 @@ mod drawing_impls {
                 UIElement::Contained(inner_element, area) => {
                     inner_element.draw(dt, area.map_onto(container_area), font);
                 }
+                // FIXME: there are weird border lines
                 UIElement::Bordered(inner_element, border_color) => {
                     // draw the border
                     let border_path = {
@@ -239,14 +243,14 @@ mod drawing_impls {
                             container_area.0.x.pixels(dt.width()) as f32,
                             container_area.0.y.pixels(dt.height()) as f32,
                             1.,
-                            container_area.size().width.pixels(dt.height()) as f32,
+                            container_area.size().height.pixels(dt.height()) as f32,
                         );
                         // right
                         pb.rect(
                             container_area.1.x.pixels(dt.width()) as f32,
                             container_area.0.y.pixels(dt.height()) as f32,
                             1.,
-                            container_area.size().width.pixels(dt.height()) as f32,
+                            container_area.size().height.pixels(dt.height()) as f32,
                         );
                         pb.finish()
                     };
@@ -264,6 +268,10 @@ mod drawing_impls {
                         ),
                     )
                     .map_onto(container_area);
+
+                    // dbg!(&container_area);
+                    // dbg!(&container_area.size());
+                    // dbg!(&inner_area);
 
                     // draw the inner widget
                     inner_element.draw(dt, inner_area, font);
@@ -345,6 +353,7 @@ mod drawing_impls {
                         }
                     }
                 }
+                UIElement::Nothing => {}
             }
         }
     }
@@ -418,6 +427,7 @@ mod ui_display_wayland_impls {
         ui_event::{Key, KeyModifiers},
         UIDisplay,
     };
+    use crate::display_units::DisplayArea;
     use smithay_client_toolkit::{
         activation::{ActivationHandler, RequestData},
         compositor::CompositorHandler,
@@ -527,7 +537,8 @@ mod ui_display_wayland_impls {
 
     impl WindowHandler for UIDisplay {
         fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
-            *self.is_running.write().unwrap() = false;
+            self.is_running
+                .store(false, std::sync::atomic::Ordering::Relaxed);
         }
 
         /// Called on first spawn and resize
@@ -665,8 +676,11 @@ mod ui_display_wayland_impls {
             event: Key,
         ) {
             if self.key_modifiers.caps_lock {
-                // dbg keycode when caps lock is on
-                dbg!(event.raw_code);
+                // dbg when caps lock is on
+                println!("key pressed in dbg mode (capslock)");
+                dbg!(&event);
+                dbg!(&event.keysym.key_char());
+                dbg!(&self.key_modifiers);
             }
             self.ui_event_queue
                 .lock()
@@ -725,10 +739,13 @@ mod ui_display_wayland_impls {
                     PointerEventKind::Motion { .. } => {}
                     PointerEventKind::Press { .. } => {
                         self.ui_event_queue.lock().unwrap().push(
-                            super::ui_event::UIEvent::MousePress([
-                                event.position.0 as u32,
-                                event.position.1 as u32,
-                            ]),
+                            super::ui_event::UIEvent::MousePress(
+                                [
+                                    [event.position.0 as u32, event.position.1 as u32],
+                                    [self.width, self.height],
+                                ],
+                                DisplayArea::FULL,
+                            ),
                         );
 
                         // println!("Press {:x} @ {:?}", button, event.position);
@@ -776,15 +793,25 @@ mod ui_display_wayland_impls {
 pub mod ui_event {
     use smithay_client_toolkit::seat::keyboard;
 
+    use crate::display_units::DisplayArea;
+
     /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
     /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
     ///
     /// TODO: also, figure out a way to easily match keypresses and shortcuts
+    ///
+    /// TODO: figure out a standard way of "forwarding" events to child
     #[derive(Debug, Clone)]
     pub enum UIEvent {
         KeyPress(Key, KeyModifiers),
         WindowResized([u32; 2]),
-        MousePress([u32; 2]),
+        /// ([mouse location [x, y], window size [w h]], container)
+        ///
+        /// REVIEW: definitely redundant, but might be helpful?
+        ///
+        /// NOTE: container should always be FULL for the outermost, but is helpful when trying to forward it to children:
+        /// the forwarded area should be: `child_area.map_onto(parent_area)`
+        MousePress([[u32; 2]; 2], DisplayArea),
     }
     #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
     pub struct KeyModifiers {
@@ -859,6 +886,15 @@ pub mod ui_event {
             shift: true,
             caps_lock: false,
             logo: false,
+            num_lock: false,
+        };
+
+        pub const LOGO: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: true,
             num_lock: false,
         };
     }

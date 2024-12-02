@@ -1,43 +1,37 @@
-[
-  {
-    "value": {
-      "title": "Ex",
-      "body": "Placeholder body.",
-      "is_complete": false
-    },
-    "children": [
-      {
-        "value": {
-          "title": "Ex Child",
-          "body": "json manually written",
-          "is_complete": false
-        },
-        "children": []
-      }
-    ]
+{
+  "value": {
+    "title": "Root",
+    "body": "Root body.",
+    "is_complete": false,
+    "timer": null
   },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Pasdfl\naceholder body.\n\nhello \\n \\\\ amog",
-      "is_complete": false
+  "children": [
+    {
+      "value": {
+        "title": "Ex Child",
+        "body": "Json manually written.",
+        "is_complete": true,
+        "timer": null
+      },
+      "children": []
     },
-    "children": []
-  },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Placeholder body.",
-      "is_complete": false
-    },
-    "children": []
-  },
-  {
-    "value": {
-      "title": "Placeholder Title",
-      "body": "Placeholder body.\nhello",
-      "is_complete": false
-    },
-    "children": []
-  }
-]
+    {
+      "value": {
+        "title": "timer demo",
+        "body": "Placeholder body.",
+        "is_complete": false,
+        "timer": {
+          "total": {
+            "secs": 30,
+            "nanos": 0
+          },
+          "elapsed": {
+            "secs": 4,
+            "nanos": 848351669
+          }
+        }
+      },
+      "children": []
+    }
+  ]
+}

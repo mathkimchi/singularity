@@ -1,5 +1,6 @@
 use crate::{color::Color, display_units::DisplayArea};
 
+/// TODO: rename most everything here
 #[derive(Debug, Clone)]
 pub enum UIElement {
     Container(Vec<UIElement>),
@@ -12,12 +13,15 @@ pub enum UIElement {
     /// TODO: better name
     Backgrounded(Box<UIElement>, Color),
 
+    /// FIXME: literally just doesn't work
     Text(String),
 
     /// should display like a terminal
     ///
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
+
+    Nothing,
 }
 impl UIElement {
     pub fn contain(self, area: DisplayArea) -> Self {
@@ -28,6 +32,11 @@ impl UIElement {
     }
     pub fn fill_bg(self, bg: Color) -> Self {
         Self::Backgrounded(Box::new(self), bg)
+    }
+}
+impl From<Option<UIElement>> for UIElement {
+    fn from(value: Option<UIElement>) -> Self {
+        value.unwrap_or(UIElement::Nothing)
     }
 }
 
@@ -66,6 +75,19 @@ impl From<String> for CharGrid {
     }
 }
 impl CharGrid {
+    pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
+        let mut content = Vec::new();
+        for line_str in raw_content.split('\n') {
+            let mut line = Vec::new();
+            for character in line_str.chars() {
+                line.push(CharCell { character, fg, bg });
+            }
+            content.push(line);
+        }
+
+        Self { content }
+    }
+
     pub fn get_text_as_string(&self) -> String {
         self.content
             .iter()
@@ -77,5 +99,9 @@ impl CharGrid {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    pub fn element(self) -> UIElement {
+        UIElement::CharGrid(self)
     }
 }

@@ -1,17 +1,24 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
-    components::text_box::TextBox,
-    utils::tree::{
-        recursive_tree::RecursiveTreeNode,
-        tree_node_path::{TraversableTree, TreeNodePath},
+    ask_query,
+    components::{button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component},
+    tab::packets::Event,
+    utils::{
+        timer::Timer,
+        tree::{
+            recursive_tree::RecursiveTreeNode,
+            tree_node_path::{TreeNodePath, TREE_TRAVERSE_KEYS},
+        },
     },
 };
+use singularity_macros::ComposeComponents;
 use singularity_ui::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplayUnits},
+    display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharGrid, UIElement},
+    ui_event::UIEvent,
 };
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 #[derive(Serialize, Deserialize)]
 pub struct IndividualTask {
@@ -19,6 +26,7 @@ pub struct IndividualTask {
     body: String,
 
     is_complete: bool,
+    timer: Option<Timer>,
 }
 impl Default for IndividualTask {
     fn default() -> Self {
@@ -26,16 +34,113 @@ impl Default for IndividualTask {
             title: "Placeholder Title".to_string(),
             body: "Placeholder body.".to_string(),
             is_complete: false,
+            // timer: None,
+            timer: Some(Timer::new_clean(Duration::from_secs(30))),
         }
     }
 }
 
+#[derive(ComposeComponents)]
+struct IndividualTaskWidget {
+    task_path: TreeNodePath,
+
+    #[component((DisplayArea::new((0.0, 0.0), (0.9, 0.05))), (0))]
+    title: TextBox,
+    #[component((DisplayArea::new((0.9, 0.0), (1.0, 0.05))), (1))]
+    checkbox: ToggleButton,
+    #[component((DisplayArea::new((0.0, 0.05), (1.0, 0.5))), (2))]
+    body_editor: TextBox,
+    #[component((DisplayArea::new((0.0, 0.5), (1.0, 1.0))), (3))]
+    timer_widget: Option<TimerWidget>,
+
+    /// this name is a keyword for ComposeComponents
+    focused_component: usize,
+}
+impl IndividualTaskWidget {
+    fn new(task: &IndividualTask, task_path: TreeNodePath) -> Self {
+        Self {
+            task_path,
+            title: TextBox::from(task.title.clone()),
+            checkbox: ToggleButton::new(
+                UIElement::CharGrid(CharGrid::from("DONE".to_string()))
+                    .bordered(Color::LIGHT_GREEN),
+                UIElement::CharGrid(CharGrid::from("TODO".to_string()))
+                    .bordered(Color::LIGHT_GREEN),
+                task.is_complete,
+            ),
+            body_editor: TextBox::from(task.body.clone()),
+            timer_widget: task
+                .timer
+                .as_ref()
+                .map(|timer| TimerWidget::new(*timer, false)),
+            focused_component: 1,
+        }
+    }
+
+    fn save_into(&self, tasks: &mut RecursiveTreeNode<IndividualTask>) {
+        tasks[&self.task_path].title = self.title.get_text_as_string();
+        tasks[&self.task_path].body = self.body_editor.get_text_as_string();
+        tasks[&self.task_path].is_complete = self.checkbox.toggle;
+
+        if let Some(timer_widget) = &self.timer_widget {
+            tasks[&self.task_path].timer = Some(*timer_widget.get_timer());
+        }
+    }
+}
+impl Component for IndividualTaskWidget {
+    /// TODO: add `focused` argument
+    fn render(&mut self) -> UIElement {
+        self.render_components()
+            .fill_bg(Color::DARK_GRAY)
+            .bordered(Color::LIGHT_GREEN)
+    }
+
+    fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
+        use singularity_common::tab::packets::Event;
+        use singularity_ui::ui_event::{KeyModifiers, UIEvent};
+        match event {
+            Event::UIEvent(ref ui_event) => match ui_event {
+                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 15 => {
+                    // TAB pressed, shift focus
+                    self.focused_component += 1;
+                    self.focused_component %= 3;
+                }
+                UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.raw_code == 15 => {}
+                // UIEvent::MousePress(..) => {
+                //     if let Some(timer_widget) = &mut self.timer_widget {
+                //         timer_widget.handle_event(event);
+                //         dbg!("mouse pressed on individual task");
+                //     }
+                // }
+                _ => {
+                    // forward to focused component
+                    if let Err(Some(clicked_component_index)) =
+                        self.forward_events_to_focused(event.clone())
+                    {
+                        // if mousclicked on another component, then change focus and re-forward
+                        self.focused_component = clicked_component_index;
+                        self.forward_events_to_focused(event).unwrap();
+                    }
+                }
+            },
+            Event::Focused => {}
+            Event::Unfocused => {}
+            Event::Resize(_) => {}
+            Event::Close => panic!("Event::Close should not have been forwarded"),
+        }
+    }
+}
+
+#[derive(Debug)]
 enum Mode {
     /// also traversing
     Viewing,
+    /// more accurately, this mode just means the "focus" should be on an individual task
     Editing,
 }
 
+#[derive(ComposeComponents)]
+#[focused_component((self.mode), (Mode))]
 pub struct TaskOrganizer {
     task_file_path: PathBuf,
     /// REVIEW: rooted tree or recursive tree?
@@ -50,11 +155,13 @@ pub struct TaskOrganizer {
     /// and I can maybe just ignore the root task or pretend like
     /// mandating a root task is a feature not a bug.
     /// REVIEW: what I said above ^
-    tasks: Vec<RecursiveTreeNode<IndividualTask>>,
+    #[tree_component((Self::generate_tree_area(__index, __path)), (self.render_task_list_item(__path)), (self.handle_item_event(__path, __event)), (Mode::Viewing))]
+    tasks: RecursiveTreeNode<IndividualTask>,
 
-    /// (root index, task path, body editor)
-    focused_task: Option<(usize, TreeNodePath, TextBox)>,
-    /// If editing mode, there should be some focused task
+    #[component((DisplayArea::new((0.5, 0.0), (1.0, 1.0))), (Mode::Editing))]
+    focused_task_widget: Option<IndividualTaskWidget>,
+
+    /// If editing mode, there should be Some focused task
     mode: Mode,
 }
 impl TaskOrganizer {
@@ -91,208 +198,244 @@ impl TaskOrganizer {
         Self {
             task_file_path: PathBuf::from(task_file_path),
             tasks,
-            focused_task: None,
+            focused_task_widget: None,
             mode: Mode::Viewing,
         }
     }
 
-    fn set_focused_task(&mut self, root_index: usize, task_path: TreeNodePath) {
-        self.focused_task = Some((
-            root_index,
+    fn set_focused_task(&mut self, task_path: &TreeNodePath) {
+        self.focused_task_widget = Some(IndividualTaskWidget::new(
+            &self.tasks[task_path],
             task_path.clone(),
-            TextBox::from(self.tasks[root_index][&task_path].body.clone()),
         ));
     }
 
-    /// Expects traverse key to be a traverse key (wasd); panics if it isn't
-    fn handle_traversal(&mut self, traverse_key: char) {
-        if let Some((root_index, task_path, _text_box)) = &self.focused_task {
-            match traverse_key {
-                'a' | 'd' => {
-                    // parent-child traversal works as it would normally
-
-                    self.set_focused_task(
-                        *root_index,
-                        task_path
-                            .clamped_traverse_based_on_wasd(&self.tasks[*root_index], traverse_key),
-                    );
-                }
-                'w' => {
-                    // sibling traversal needs to take care of the edge case of root
-                    if task_path.is_root() {
-                        // already root, go to previous task's root
-                        // if this is very first task, then change nothing
-                        self.set_focused_task(
-                            root_index.saturating_sub(1),
-                            TreeNodePath::new_root(),
-                        );
-                    } else {
-                        self.set_focused_task(
-                            *root_index,
-                            task_path
-                                .traverse_to_previous_sibling()
-                                .unwrap_or(task_path.clone()),
-                        );
-                    }
-                }
-                's' => {
-                    // sibling traversal needs to take care of the edge case of root
-                    if task_path.is_root() {
-                        // already root, go to next task's root
-                        // if there is no later root, then change nothing
-                        self.set_focused_task(
-                            root_index.saturating_add(1).clamp(0, self.tasks.len() - 1),
-                            TreeNodePath::new_root(),
-                        );
-                    } else {
-                        self.set_focused_task(
-                            *root_index,
-                            task_path
-                                .traverse_to_next_sibling(&self.tasks[*root_index])
-                                .unwrap_or(task_path.clone()),
-                        );
-                    }
-                }
-                _ => {
-                    panic!()
-                }
-            }
-        } else {
-            if self.tasks.is_empty() {
-                // if user tries traversing when there are no tasks, create a placeholder task
-                self.tasks
-                    .push(RecursiveTreeNode::from_value(IndividualTask::default()));
-            }
-
-            // user tried to traverse for the first time, select first task
-            self.set_focused_task(0, TreeNodePath::new_root());
-        }
-    }
-}
-impl<P> singularity_common::tab::BasicTab<P> for TaskOrganizer
-where
-    P: 'static + Clone + AsRef<std::path::Path> + Send,
-    PathBuf: std::convert::From<P>,
-{
-    fn initialize(
-        init_args: &mut P,
-        manager_handler: &singularity_common::tab::ManagerHandler,
-    ) -> Self {
-        Self::new_from_project(init_args.clone(), manager_handler)
-    }
-
-    fn render(
-        &mut self,
-        _manager_handler: &singularity_common::tab::ManagerHandler,
-    ) -> Option<UIElement> {
-        let mut elements = Vec::new();
-
-        // draw task list
-        {
-            let mut task_list_vec = Vec::new();
-            for (root_index, path) in self
-                .tasks
-                .iter()
-                .enumerate()
-                .flat_map(|(root_index, tree)| tree.iter_paths_dfs().map(move |x| (root_index, x)))
-            {
-                // TODO: style complete vs todo
-                let bg_color = if let Some((focused_index, focused_path, _)) = &self.focused_task {
-                    if (focused_index == &root_index) && (focused_path == &path) {
-                        Color::CYAN
-                    } else {
-                        Color::TRANSPARENT
-                    }
-                } else {
-                    Color::TRANSPARENT
-                };
-
-                let line = " ".repeat(2 * path.depth()) + &self.tasks[root_index][&path].title;
-
-                task_list_vec.push(
-                    line.chars()
-                        .map(|c| singularity_ui::ui_element::CharCell {
-                            character: c,
-                            fg: Color::LIGHT_YELLOW,
-                            bg: bg_color,
-                        })
-                        .collect(),
-                );
-            }
-            elements.push(
-                UIElement::CharGrid(CharGrid {
-                    content: (task_list_vec),
-                })
-                .contain(DisplayArea(
-                    DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                    DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::FULL),
-                )),
-            );
-        }
-
-        // draw focused task
-        if let Some((focused_index, focused_path, body_text_box)) = &mut self.focused_task {
-            let focused_task = &self.tasks[*focused_index][focused_path];
-
-            // title
-            elements.push(
-                UIElement::CharGrid(CharGrid::from(focused_task.title.clone())).contain(
-                    DisplayArea(
-                        DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::ZERO),
-                        DisplayCoord::new(DisplayUnits::FULL, 0.05.into()),
-                    ),
-                ),
-            );
-
-            // task body text
-            elements.push(
-                UIElement::CharGrid(body_text_box.render())
-                    .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea(
-                        DisplayCoord::new(DisplayUnits::HALF, 0.05.into()),
-                        DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                    )),
-            );
-        }
-
-        Some(
-            UIElement::Container(elements)
-                .fill_bg(Color::DARK_GRAY)
-                .bordered(Color::LIGHT_GREEN),
+    fn generate_tree_area(index: usize, path: &TreeNodePath) -> DisplayArea {
+        DisplayArea::from_corner_size(
+            DisplayCoord::new(
+                (path.depth() as i32 * 6 * 4).into(),
+                (index as i32 * 12).into(),
+            ),
+            singularity_ui::display_units::DisplaySize::new((12 * 40).into(), 12.into()),
         )
     }
 
-    fn handle_event(
+    fn set_mode(&mut self, new_mode: Mode) {
+        match new_mode {
+            Mode::Viewing => {
+                if let Some(focused_task_widget) = &self.focused_task_widget {
+                    // save before switching mode
+                    focused_task_widget.save_into(&mut self.tasks);
+                }
+
+                self.mode = Mode::Viewing;
+            }
+            Mode::Editing => {
+                if self.focused_task_widget.is_none() {
+                    // edit mode requires Some focused task so set one if n/a:
+                    // user tried to traverse for the first time, select root task
+                    self.set_focused_task(&TreeNodePath::new_root());
+                }
+
+                self.mode = Mode::Editing;
+            }
+        }
+    }
+
+    fn render_task_list_item(&mut self, path: &TreeNodePath) -> UIElement {
+        let fg = if self.tasks[path].is_complete {
+            Color::LIGHT_GREEN
+        } else {
+            Color::RED
+        };
+        let bg = if let Some(IndividualTaskWidget { task_path, .. }) = &self.focused_task_widget {
+            if task_path == path {
+                Color::CYAN
+            } else {
+                Color::TRANSPARENT
+            }
+        } else {
+            Color::TRANSPARENT
+        };
+
+        UIElement::CharGrid(CharGrid {
+            content: vec![self.tasks[path]
+                .title
+                .chars()
+                .map(|c| singularity_ui::ui_element::CharCell {
+                    character: c,
+                    fg,
+                    bg,
+                })
+                .collect()],
+        })
+    }
+
+    fn handle_item_event(&mut self, path: &TreeNodePath, event: Event) {
+        if let Event::UIEvent(UIEvent::MousePress(_, _)) = event {
+            self.set_focused_task(path);
+        }
+    }
+}
+impl singularity_common::tab::BasicTab for TaskOrganizer {
+    fn initialize_tab(manager_handler: &singularity_common::tab::ManagerHandler) -> Self {
+        Self::new_from_project(
+            serde_json::from_value::<String>(
+                ask_query!(manager_handler.get_query_channels(), TabData).session_data,
+            )
+            .unwrap(),
+            manager_handler,
+        )
+    }
+
+    fn render_tab(
+        &mut self,
+        _manager_handler: &singularity_common::tab::ManagerHandler,
+    ) -> Option<UIElement> {
+        // let mut elements = Vec::new();
+
+        // // draw task list
+        // {
+        //     let mut task_list_vec = Vec::new();
+        //     for path in self.tasks.iter_paths_dfs() {
+        //         // TODO: style complete vs todo
+        //         let bg_color = if let Some(EnclosedComponent {
+        //             inner_component: IndividualTaskWidget { task_path, .. },
+        //             ..
+        //         }) = &self.focused_task_widget
+        //         {
+        //             if task_path == &path {
+        //                 Color::CYAN
+        //             } else {
+        //                 Color::TRANSPARENT
+        //             }
+        //         } else {
+        //             Color::TRANSPARENT
+        //         };
+
+        //         let line = " ".repeat(2 * path.depth()) + &self.tasks[&path].title;
+
+        //         task_list_vec.push(
+        //             line.chars()
+        //                 .map(|c| singularity_ui::ui_element::CharCell {
+        //                     character: c,
+        //                     fg: Color::LIGHT_YELLOW,
+        //                     bg: bg_color,
+        //                 })
+        //                 .collect(),
+        //         );
+        //     }
+        //     elements.push(
+        //         UIElement::CharGrid(CharGrid {
+        //             content: (task_list_vec),
+        //         })
+        //         .contain(DisplayArea(
+        //             DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+        //             DisplayCoord::new(DisplayUnits::HALF, DisplayUnits::FULL),
+        //         )),
+        //     );
+        // }
+
+        // // draw focused task
+        // if let Some(focused_task_widget) = &mut self.focused_task_widget {
+        //     // task body text
+        //     elements.push(focused_task_widget.render().bordered(Color::LIGHT_GREEN));
+        // }
+
+        // Some(
+        //     UIElement::Container(elements)
+        //         .fill_bg(Color::DARK_GRAY)
+        //         .bordered(Color::LIGHT_GREEN),
+        // )
+        Some(self.render_components().bordered(Color::LIGHT_GREEN))
+    }
+
+    fn handle_tab_event(
         &mut self,
         event: singularity_common::tab::packets::Event,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) {
         use singularity_common::tab::packets::Event;
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
-        let (key, modifiers) =
-            if let Event::UIEvent(UIEvent::KeyPress(key, modifiers)) = event.clone() {
-                (key, modifiers)
-            } else {
-                // right now, no use for any other event type
-                return;
-            };
 
         match self.mode {
-            Mode::Viewing => match (key.to_char(), modifiers) {
-                (Some('+'), KeyModifiers::SHIFT) => {
-                    // add a placeholder root task & focus on it
+            Mode::Viewing => match event {
+                Event::UIEvent(ui_event) => match ui_event {
+                    UIEvent::KeyPress(key, KeyModifiers::SHIFT) if key.to_char() == Some('+') => {
+                        // add a placeholder root task & focus on it
 
-                    self.tasks
-                        .push(RecursiveTreeNode::from_value(IndividualTask::default()));
+                        let prev_focused_path = self.focused_task_widget.as_ref().map_or(
+                            TreeNodePath::new_root(),
+                            |focused_task_widget| focused_task_widget.task_path.clone());
 
-                    self.set_focused_task(self.tasks.len() - 1, TreeNodePath::new_root());
-                }
-                (Some('s'), KeyModifiers::CTRL) => {
+                        self.tasks.safe_get_mut(&prev_focused_path).unwrap().push_child_node(
+                                RecursiveTreeNode::from_value(IndividualTask::default()),
+                        );
+
+                        self.set_focused_task(&prev_focused_path.traverse_to_last_child(&self.tasks).unwrap());
+                    }
+                    UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('s') => {
+                        // save body
+                        if let Some(focused_task) = &self.focused_task_widget {
+                            focused_task.save_into(&mut self.tasks);
+                        }
+
+                        // save to file
+                        std::fs::write(
+                            &self.task_file_path,
+                            serde_json::to_string_pretty(&self.tasks).unwrap(),
+                        )
+                        .unwrap();
+                    }
+                    UIEvent::KeyPress(key, KeyModifiers::NONE) if key.to_char() == Some('\n') => {
+                        // NOTE: Enter+CONTROL doesn't work as an event for some reason
+                        // enter edit mode
+
+                        self.set_mode(Mode::Editing);
+                    }
+                    UIEvent::KeyPress(traverse_key, KeyModifiers::NONE)
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    if TREE_TRAVERSE_KEYS.contains(&traverse_key.to_char().unwrap_or(' ')) =>
+                    {
+                        if let Some(IndividualTaskWidget { task_path, .. },) = &self.focused_task_widget
+                        {
+                            self.set_focused_task(&task_path.clamped_traverse_based_on_wasd(
+                                &self.tasks,
+                                traverse_key.to_char().unwrap(),
+                            ));
+                        } else {
+                            self.set_focused_task(&TreeNodePath::new_root());
+                        }
+                    }
+                    UIEvent::MousePress(..) => {
+                        let forward_result = self.forward_events_to_focused(Event::UIEvent(ui_event.clone()));
+
+                        // even if focused_task_widget is none, forward events just checks if mouseclick is within area
+                        // FIXME fix ^
+                        if self.focused_task_widget.is_some() {
+                            if let Err(Some(Mode::Editing)) = forward_result {
+                                // index 1 should be the focused task widget
+                                self.set_mode(Mode::Editing);
+
+                                // re-forward the event
+                                self.forward_events_to_focused(Event::UIEvent(ui_event)).unwrap();
+                            }
+                        }
+                    }
+                    _ => {}
+                },
+                Event::Focused => {}
+                Event::Unfocused => {}
+                Event::Resize(_) => {}
+                Event::Close => panic!("Event::Close should not have been forwarded"),
+            },
+            Mode::Editing => match &event {
+                Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::CTRL))
+                    if key.to_char() == Some('s') =>
+                {
                     // save body
-                    if let Some((focused_index, focused_path, body_text_box)) = &self.focused_task {
-                        let focused_task = &mut self.tasks[*focused_index][focused_path];
-
-                        focused_task.body = body_text_box.get_text_as_string();
+                    if let Some(focused_task) = &self.focused_task_widget {
+                        focused_task.save_into(&mut self.tasks);
                     }
 
                     // save to file
@@ -302,46 +445,23 @@ where
                     )
                     .unwrap();
                 }
-                (Some('\n'), KeyModifiers::NONE) => {
-                    // NOTE: Enter+CONTROL doesn't work as an event for some reason
-                    // enter edit mode
-
-                    if self.focused_task.is_none() {
-                        // edit mode requires Some focused task so set one if n/a
-
-                        if self.tasks.is_empty() {
-                            // if user tries traversing when there are no tasks, create a placeholder task
-                            self.tasks
-                                .push(RecursiveTreeNode::from_value(IndividualTask::default()));
-                        }
-
-                        // user tried to traverse for the first time, select first task
-                        self.set_focused_task(0, TreeNodePath::new_root());
-                    }
-
-                    self.mode = Mode::Editing;
-                }
-                (Some(traverse_key), KeyModifiers::NONE)
-                    if matches!(traverse_key, 'w' | 'a' | 's' | 'd') =>
-                {
-                    self.handle_traversal(traverse_key);
-                }
-                _ => {}
-            },
-            Mode::Editing => match (key, modifiers) {
-                (key, KeyModifiers::NONE) if key.raw_code == 1 => {
+                Event::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE)) if key.raw_code == 1 => {
                     // ESCAPE KEY, switch to viewing mode
-                    let (root_index, task_path, text_box) = self.focused_task.as_ref().unwrap();
-                    self.tasks[*root_index][task_path].body = text_box.get_text_as_string();
 
-                    self.mode = Mode::Viewing;
+                    self.set_mode(Mode::Viewing);
                 }
+                Event::Resize(_) => {}
+                Event::Close => panic!("Event::Close should not have been forwarded"),
                 _ => {
-                    if let Some((_focused_index, _focused_path, body_text_box)) =
-                        &mut self.focused_task
-                    {
-                        body_text_box.handle_event(event);
+                    if self.forward_events_to_focused(event.clone()).is_err() {
+                        // clicked off of focus, either on tree or just on nothing
+                        self.set_mode(Mode::Viewing);
+
+                        self.forward_events_to_focused(event).unwrap();
                     }
+                    // if let Some(task_widget) = &mut self.focused_task_widget {
+                    //     task_widget.handle_event(event);
+                    // }
                 }
             },
         }

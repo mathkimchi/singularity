@@ -1,11 +1,13 @@
 use singularity_common::{
+    ask_query,
+    project::project_settings::TabData,
     tab::{
         packets::{Event, Request},
         BasicTab, ManagerHandler,
     },
     utils::tree::{
         rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath},
+        tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
     },
 };
 use std::path::PathBuf;
@@ -67,16 +69,18 @@ impl FileManager {
             .to_string()
     }
 }
-impl<P> BasicTab<P> for FileManager
-where
-    P: 'static + Clone + AsRef<std::path::Path> + Send,
-    PathBuf: std::convert::From<P>,
-{
-    fn initialize(init_args: &mut P, manager_handler: &ManagerHandler) -> Self {
-        Self::new(init_args.clone(), manager_handler)
+impl BasicTab for FileManager {
+    fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
+        Self::new(
+            serde_json::from_value::<String>(
+                ask_query!(manager_handler.get_query_channels(), TabData).session_data,
+            )
+            .unwrap(),
+            manager_handler,
+        )
     }
 
-    fn render(
+    fn render_tab(
         &mut self,
         _manager_handler: &ManagerHandler,
     ) -> Option<singularity_ui::ui_element::UIElement> {
@@ -119,12 +123,14 @@ where
         )
     }
 
-    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
+    fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             Event::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE)
-                    if matches!(key.to_char(), Some('\n' | 'w' | 'a' | 's' | 'd')) =>
+                    if key.to_char() == Some('\n')
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
                 {
                     self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
                         &self.directory_tree,
@@ -139,17 +145,22 @@ where
                     let selected_element = &self.directory_tree[&self.selected_path];
                     if selected_element.is_file() {
                         use crate::editor::Editor;
-                        manager_handler.send_request(Request::SpawnChildTab(Box::new(
-                            <Editor as BasicTab<PathBuf>>::new_tab_creator(
-                                selected_element.clone(),
-                            ),
-                        )));
+                        manager_handler.send_request(Request::SpawnChildTab(
+                            Box::new(Editor::new_tab_creator()),
+                            TabData {
+                                tab_type: "EDITOR".to_string(),
+                                session_data: serde_json::to_value(selected_element.clone())
+                                    .unwrap(),
+                            },
+                        ));
                     }
                     // if selected path isn't a file, then don't do anything
                 }
 
                 _ => {}
             },
+            Event::Focused => {}
+            Event::Unfocused => {}
             Event::Resize(_) => {}
             Event::Close => panic!("Event::Close should not have been forwarded"),
         }

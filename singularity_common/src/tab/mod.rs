@@ -1,4 +1,5 @@
-use packets::{Event, Query, Request, Response};
+use crate::project::project_settings::TabData;
+use packets::{create_query_channels, Event, QueryChannels, Request, RespondChannels};
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 use std::{
     sync::{
@@ -9,6 +10,7 @@ use std::{
 };
 
 pub mod packets;
+pub mod tile;
 
 /// REVIEW: name this tab runner?
 pub trait TabCreator: Send {
@@ -25,16 +27,17 @@ pub trait TabCreator: Send {
 // }
 impl TabCreator for Box<dyn TabCreator> {
     fn create_tab(&mut self, manager_handler: ManagerHandler) {
-        self.as_mut().create_tab(manager_handler);
+        self.as_mut().create_tab(manager_handler)
     }
 }
 
-pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
-    fn initialize(init_args: &mut InitArgs, manager_handler: &ManagerHandler) -> Self;
-    fn render(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
-    fn handle_event(&mut self, event: Event, manager_handler: &ManagerHandler);
+/// REVIEW: the parallel between this and `Component` is undeniable, maybe look into some higher level of abstraction in this
+pub trait BasicTab: Send + Sized {
+    fn initialize_tab(manager_handler: &ManagerHandler) -> Self;
+    fn render_tab(&mut self, manager_handler: &ManagerHandler) -> Option<UIElement>;
+    fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler);
 
-    fn new_tab_creator(mut init_args: InitArgs) -> impl TabCreator {
+    fn new_tab_creator() -> impl TabCreator {
         struct Inner(Box<dyn FnMut(ManagerHandler) + Send>);
         impl TabCreator for Inner {
             fn create_tab(&mut self, manager_handler: ManagerHandler) {
@@ -43,10 +46,10 @@ pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
         }
 
         Inner(Box::new(move |mut manager_handler: ManagerHandler| {
-            let mut tab = Self::initialize(&mut init_args, &manager_handler);
+            let mut tab = Self::initialize_tab(&manager_handler);
 
             'mainloop: loop {
-                if let Some(new_display_buffer) = tab.render(&manager_handler) {
+                if let Some(new_display_buffer) = tab.render_tab(&manager_handler) {
                     manager_handler.update_ui_element(new_display_buffer);
                 };
 
@@ -57,10 +60,18 @@ pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
                         }
                         Event::Resize(inner_area) => {
                             manager_handler.inner_area = inner_area;
-                            tab.handle_event(event, &manager_handler);
+                            tab.handle_tab_event(event, &manager_handler);
                         }
-                        event => {
-                            tab.handle_event(event, &manager_handler);
+                        Event::Focused => {
+                            manager_handler.focus = true;
+                            tab.handle_tab_event(event, &manager_handler);
+                        }
+                        Event::Unfocused => {
+                            manager_handler.focus = false;
+                            tab.handle_tab_event(event, &manager_handler);
+                        }
+                        Event::UIEvent(_) => {
+                            tab.handle_tab_event(event, &manager_handler);
                         }
                     }
                 }
@@ -74,8 +85,7 @@ pub trait BasicTab<InitArgs: 'static + Send>: Send + Sized {
 pub struct TabChannels {
     pub event_tx: Sender<Event>,
     pub request_rx: Receiver<Request>,
-    pub query_rx: Receiver<Query>,
-    pub response_tx: Sender<Response>,
+    pub respond_channels: RespondChannels,
 
     pub ui_element: Arc<Mutex<UIElement>>,
 }
@@ -84,8 +94,7 @@ pub struct TabChannels {
 struct ManagerChannels {
     event_rx: Receiver<Event>,
     request_tx: Sender<Request>,
-    query_tx: Sender<Query>,
-    response_rx: Receiver<Response>,
+    query_channels: QueryChannels,
 
     ui_element: Arc<Mutex<UIElement>>,
 }
@@ -93,8 +102,7 @@ struct ManagerChannels {
 fn create_channels() -> (TabChannels, ManagerChannels) {
     let (event_tx, event_rx) = mpsc::channel();
     let (request_tx, request_rx) = mpsc::channel();
-    let (query_tx, query_rx) = mpsc::channel();
-    let (response_tx, response_rx) = mpsc::channel();
+    let (query_channels, respond_channels) = create_query_channels();
     let display_buffer: Arc<Mutex<UIElement>> =
         Arc::new(Mutex::new(UIElement::Container(Vec::new())));
 
@@ -102,15 +110,13 @@ fn create_channels() -> (TabChannels, ManagerChannels) {
         TabChannels {
             event_tx,
             request_rx,
-            query_rx,
-            response_tx,
+            respond_channels,
             ui_element: display_buffer.clone(),
         },
         ManagerChannels {
             event_rx,
             request_tx,
-            query_tx,
-            response_rx,
+            query_channels,
             ui_element: display_buffer,
         },
     )
@@ -124,13 +130,19 @@ pub struct TabHandler {
 
     pub tab_name: String,
     tab_area: DisplayArea,
+    tab_data: TabData,
 
     /// REVIEW: idk if this will ever be used
     /// I realized I can't kill threads anyways
     _tab_thread: JoinHandle<()>,
 }
 impl TabHandler {
-    pub fn new<F: 'static + TabCreator>(mut tab_creator: F, tab_area: DisplayArea) -> Self {
+    /// TODO: allow setting focus
+    pub fn new<F: 'static + TabCreator>(
+        mut tab_creator: F,
+        initial_tab_data: TabData,
+        tab_area: DisplayArea,
+    ) -> Self {
         let (tab_channels, manager_channels) = create_channels();
 
         // create tab thread with manager proxy
@@ -138,6 +150,8 @@ impl TabHandler {
             tab_creator.create_tab(ManagerHandler {
                 manager_channels,
                 inner_area: tab_area,
+                // TODO
+                focus: false,
             })
         });
 
@@ -146,27 +160,9 @@ impl TabHandler {
             _tab_thread: tab_thread,
             tab_name: String::new(),
             tab_area,
+            tab_data: initial_tab_data,
         }
     }
-
-    // pub fn new_from_box(tab_creator: Box<dyn TabCreator + Send>, tab_area: DisplayArea) -> Self {
-    //     let (tab_channels, manager_channels) = create_channels();
-
-    //     // create tab thread with manager proxy
-    //     let tab_thread = thread::spawn(move || {
-    //         tab_creator.create_tab(ManagerHandler {
-    //             manager_channels,
-    //             inner_area: tab_area,
-    //         })
-    //     });
-
-    //     Self {
-    //         tab_channels,
-    //         _tab_thread: tab_thread,
-    //         tab_name: String::new(),
-    //         tab_area,
-    //     }
-    // }
 
     pub fn send_event(&self, event: Event) {
         self.tab_channels
@@ -180,13 +176,8 @@ impl TabHandler {
         self.tab_channels.request_rx.try_iter().collect()
     }
 
-    pub fn answer_query<F: FnOnce(Query) -> Response>(&self, f: F) {
-        if let Ok(query) = self.tab_channels.query_rx.try_recv() {
-            self.tab_channels
-                .response_tx
-                .send(f(query))
-                .expect("failed to send response");
-        }
+    pub fn get_respond_channels(&self) -> &RespondChannels {
+        &self.tab_channels.respond_channels
     }
 
     pub fn get_ui_element(&self) -> UIElement {
@@ -198,9 +189,18 @@ impl TabHandler {
     }
 
     pub fn set_area(&mut self, new_area: DisplayArea) {
+        if self.tab_area == new_area {
+            // optimization, but might cause annoying behavior
+            return;
+        }
+
         self.tab_area = new_area;
 
         self.send_event(Event::Resize(new_area));
+    }
+
+    pub fn get_tab_data(&self) -> &TabData {
+        &self.tab_data
     }
 }
 
@@ -209,6 +209,7 @@ pub struct ManagerHandler {
     manager_channels: ManagerChannels,
 
     pub inner_area: DisplayArea,
+    pub focus: bool,
 }
 impl ManagerHandler {
     pub fn send_request(&self, request: Request) {
@@ -218,16 +219,8 @@ impl ManagerHandler {
             .expect("failed to send request")
     }
 
-    pub fn query(&self, query: Query) -> Response {
-        self.manager_channels
-            .query_tx
-            .send(query)
-            .expect("failed to send query");
-
-        self.manager_channels
-            .response_rx
-            .recv()
-            .expect("failed to get response")
+    pub fn get_query_channels(&self) -> &QueryChannels {
+        &self.manager_channels.query_channels
     }
 
     pub fn update_ui_element(&mut self, ui_element: UIElement) {

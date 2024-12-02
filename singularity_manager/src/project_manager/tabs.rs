@@ -1,43 +1,14 @@
 use singularity_common::{
-    tab::TabHandler,
-    utils::tree::tree_node_path::{TraversableTree, TreeNodePath},
+    project::{project_settings::TabData, Project},
+    tab::{tile::Tiles, TabHandler},
+    utils::{
+        id_map::{Id, IdMap},
+        tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
+    },
 };
-use std::collections::BTreeMap;
-use uuid::Uuid;
+use singularity_ui::display_units::DisplayArea;
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
-/// This refers to the organizational tree hierarchy of the tabs.
-///
-/// REVIEW: store uuid in here?
-struct TabNode {
-    tab_handler: TabHandler,
-
-    org_children: Vec<Uuid>,
-    org_path: TreeNodePath,
-    _org_parent: Option<Uuid>,
-}
-impl TabNode {
-    pub fn new_root(tab_handler: TabHandler) -> Self {
-        TabNode {
-            tab_handler,
-            org_children: Vec::new(),
-            org_path: TreeNodePath::new_root(),
-            _org_parent: None,
-        }
-    }
-
-    fn register_child_id(&mut self, child_id: Uuid) -> TreeNodePath {
-        // NOTE: order matters
-        let child_path = self
-            .org_path
-            .unchecked_traverse_to_child(self.org_children.len());
-
-        self.org_children.push(child_id);
-
-        child_path
-    }
-}
-
 /// REVIEW: currently, must have at least one tab. change?
 ///
 /// There is a lot of redundancy in storage
@@ -49,104 +20,177 @@ impl TabNode {
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    tabs: BTreeMap<Uuid, TabNode>,
+    tabs: IdMap<TabHandler>,
 
-    org_root: Uuid,
-    focused_tab: Uuid,
+    /// ORGanizational tree
+    org_tree: IdTree<TabHandler>,
+    focused_tab: Id<TabHandler>,
 
-    /// currently, last in vec is "top" in gui
-    display_order: Vec<Uuid>,
+    // /// currently, last in vec is "top" in gui
+    // display_order: Vec<Uuid>,
+    display_tiles: Tiles,
 }
 impl Tabs {
-    pub fn new(root_tab: TabHandler) -> Self {
-        let root_id = Uuid::new_v4();
-        let mut tabs = BTreeMap::new();
-        tabs.insert(root_id, TabNode::new_root(root_tab));
+    pub fn parse_from_project(project: &Project) -> Self {
+        if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
+            Self {
+                tabs: open_tabs
+                    .tabs
+                    .into_iter()
+                    .map(|(id, open_tab)| {
+                        (
+                            uuid::Uuid::from(id).into(),
+                            TabHandler::new(
+                                singularity_standard_tabs::get_tab_creator_from_type(
+                                    open_tab.tab_data.tab_type.as_str(),
+                                ),
+                                open_tab.tab_data,
+                                open_tab.tab_area,
+                            ),
+                        )
+                    })
+                    .collect(),
+                org_tree: open_tabs.org_tree,
+                focused_tab: open_tabs.focused_tab,
+                display_tiles: open_tabs.display_tiles,
+            }
+        } else {
+            // create new project
+            use singularity_common::tab::BasicTab;
+            use singularity_standard_tabs::{
+                file_manager::FileManager, task_organizer::TaskOrganizer,
+            };
 
-        Self {
-            tabs,
-            org_root: root_id,
-            focused_tab: root_id,
-            display_order: vec![root_id],
+            let mut tabs = Tabs::new_from_root(TabHandler::new(
+                FileManager::new_tab_creator(),
+                TabData {
+                    tab_type: "FILE_MANAGER".to_string(),
+                    session_data: serde_json::to_value(project.get_project_directory().clone())
+                        .unwrap(),
+                },
+                DisplayArea::new((0., 0.), (0.5, 1.)),
+            ));
+
+            tabs.add(
+                TabHandler::new(
+                    TaskOrganizer::new_tab_creator(),
+                    TabData {
+                        tab_type: "TASK_ORGANIZER".to_string(),
+                        session_data: serde_json::to_value(project.get_project_directory().clone())
+                            .unwrap(),
+                    },
+                    DisplayArea::new((0.5, 0.), (1.0, 1.)),
+                ),
+                &tabs.get_root_id(),
+            );
+
+            tabs
         }
     }
 
-    pub fn add(&mut self, new_tab: TabHandler, parent_id: &Uuid) -> Option<Uuid> {
-        let uuid = Uuid::new_v4();
+    fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
+        let mut tabs = IdMap::new();
+        tabs.insert(root_id, root_tab);
 
-        // register child under parent
-        let path = self.tabs.get_mut(parent_id)?.register_child_id(uuid);
+        Self {
+            tabs,
+            org_tree: IdTree::new(root_id),
+            focused_tab: root_id,
+            display_tiles: Tiles::new_from_root(root_id),
+        }
+    }
 
+    pub fn new_from_root(root_tab: TabHandler) -> Self {
+        Self::new_from_root_with_id(root_tab, Id::generate())
+    }
+
+    pub fn add(
+        &mut self,
+        new_tab: TabHandler,
+        parent_id: &Id<TabHandler>,
+    ) -> Option<Id<TabHandler>> {
+        let uuid = Id::generate();
+
+        // add to `org_tree`
+        self.org_tree.add_child(*parent_id, uuid);
         // add to `tabs`
-        self.tabs.insert(
-            uuid,
-            TabNode {
-                tab_handler: new_tab,
-                org_children: Vec::new(),
-                org_path: path.clone(),
-                _org_parent: Some(*parent_id),
-            },
-        );
-
+        self.tabs.insert(uuid, new_tab);
         // add to top of display order
-        self.display_order.push(uuid);
+        self.display_tiles.give_sibling(self.focused_tab, uuid);
 
         // set focus to new tabs
         // REVIEW: is this bad?
-        self.set_focused_tab_path(&path);
+        self.set_focused_tab_id(uuid);
 
         Some(uuid)
     }
 
-    pub fn get_tab_handler(&self, uuid: Uuid) -> Option<&TabHandler> {
-        self.tabs.get(&uuid).map(|tab_node| &tab_node.tab_handler)
+    pub fn get_tab_handler(&self, uuid: Id<TabHandler>) -> Option<&TabHandler> {
+        self.tabs.get(&uuid)
     }
 
-    pub fn get_mut_tab_handler(&mut self, uuid: Uuid) -> Option<&mut TabHandler> {
-        self.tabs
-            .get_mut(&uuid)
-            .map(|tab_node| &mut tab_node.tab_handler)
+    pub fn get_mut_tab_handler(&mut self, uuid: Id<TabHandler>) -> Option<&mut TabHandler> {
+        self.tabs.get_mut(&uuid)
     }
 
     pub fn get_focused_tab_mut(&mut self) -> &mut TabHandler {
         self.get_mut_tab_handler(self.get_focused_tab_id()).unwrap()
     }
 
-    pub fn get_display_order(&self) -> &Vec<Uuid> {
-        &self.display_order
+    pub fn get_display_tiles(&self) -> &Tiles {
+        &self.display_tiles
     }
 
-    pub fn get_focused_tab_id(&self) -> Uuid {
+    pub fn transpose_focused_tile_parent(&mut self) {
+        let container_tile_id = self
+            .display_tiles
+            .get_parent_tile_id(
+                self.display_tiles
+                    .get_leaf_tile_id(self.focused_tab)
+                    .unwrap(),
+            )
+            .unwrap();
+
+        self.display_tiles.transpose_container(container_tile_id);
+    }
+
+    pub fn swap_focused_tile_siblings(&mut self) {
+        let container_tile_id = self
+            .display_tiles
+            .get_parent_tile_id(
+                self.display_tiles
+                    .get_leaf_tile_id(self.focused_tab)
+                    .unwrap(),
+            )
+            .unwrap();
+
+        self.display_tiles.swap_children(container_tile_id);
+    }
+
+    pub fn get_focused_tab_id(&self) -> Id<TabHandler> {
         self.focused_tab
     }
 
-    /// NOTE: has a side effect of putting the newly focused tab on display top
-    pub fn set_focused_tab_id(&mut self, focused_tab_id: Uuid) {
+    pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
+        // notify previously focused tab it is no longer focused
+        if let Some(old_focused_tab) = self.tabs.get(&self.focused_tab) {
+            old_focused_tab.send_event(singularity_common::tab::packets::Event::Unfocused);
+        }
         self.focused_tab = focused_tab_id;
+        // notify new focused tab it is now focused
+        self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Focused);
 
         // move the focused tab to end of display order (putting it on top)
         {
-            self.display_order
-                .retain(|tab_id| tab_id != &self.focused_tab);
+            // self.display_order
+            //     .retain(|tab_id| tab_id != &self.focused_tab);
 
-            self.display_order.push(self.focused_tab);
+            // self.display_order.push(self.focused_tab);
         }
     }
 
-    pub fn get_id_by_org_path(&self, org_path: &TreeNodePath) -> Option<Uuid> {
-        let mut current_node_id = self.org_root;
-        for child_number in &org_path.0 {
-            let current_node = &self.tabs.get(&current_node_id).unwrap();
-
-            let next_node_id = current_node.org_children.get(*child_number);
-
-            if let Some(next_node_id) = next_node_id {
-                current_node_id = *next_node_id;
-            } else {
-                return None;
-            }
-        }
-        Some(current_node_id)
+    pub fn get_id_by_org_path(&self, org_path: &TreeNodePath) -> Option<Id<TabHandler>> {
+        self.org_tree.get_id_from_path(org_path)
     }
 
     /// NOTE: has a side effect of putting the newly focused tab on display top
@@ -154,48 +198,99 @@ impl Tabs {
         self.set_focused_tab_id(self.get_id_by_org_path(focused_tab_path).unwrap());
     }
 
-    pub fn get_tab_path(&self, tab_uuid: &Uuid) -> Option<&TreeNodePath> {
-        self.tabs.get(tab_uuid).map(|tab_node| &tab_node.org_path)
+    pub fn get_tab_path(&self, tab_uuid: &Id<TabHandler>) -> Option<TreeNodePath> {
+        self.org_tree.get_path(*tab_uuid)
     }
 
-    pub fn minimize_focused_tab(&mut self) {
-        // remove the focused tab from the display order as to not render it
+    // pub fn minimize_focused_tab(&mut self) {
+    //     todo!()
 
-        self.display_order
-            .retain(|tab_id| tab_id != &self.focused_tab);
+    //     // // remove the focused tab from the display order as to not render it
 
-        // REVIEW: is this good?
-        // make the topmost tab the new focused tab
-        if let Some(uuid) = self.display_order.last() {
-            self.focused_tab = *uuid;
-        }
-    }
+    //     // self.display_order
+    //     //     .retain(|tab_id| tab_id != &self.focused_tab);
+
+    //     // // REVIEW: is this good?
+    //     // // make the topmost tab the new focused tab
+    //     // if let Some(uuid) = self.display_order.last() {
+    //     //     self.focused_tab = *uuid;
+    //     // }
+    // }
 
     pub fn num_tabs(&self) -> usize {
         self.tabs.len()
     }
 
-    // /// closes the tab and all its children
-    // ///
-    // /// TODO: do this with loop instead?
-    // fn close_tab_recursively(&mut self, id: &Uuid) {
-    //     for child_id in self.tabs.get(id).unwrap().org_children.clone() {
-    //         self.close_tab_recursively(&child_id);
-    //     }
+    pub fn collect_tab_ids(&self) -> Vec<Id<TabHandler>> {
+        self.tabs.keys().cloned().collect()
+    }
 
-    //     if let Some(parent_id) = &self.tabs.get(id).unwrap().org_parent {
-    //         self.tabs.get(parent_id).unwrap().org_children.retain(|c| );
-    //     } else {
-    //         println!("WARNING: TRIED TO CLOSE ROOT");
-    //     }
-    // }
+    pub fn get_root_id(&self) -> Id<TabHandler> {
+        self.org_tree.get_root_id()
+    }
 
-    // /// closes the focused tab and all its children
-    // pub fn close_focused_tab_recursively(&mut self) {
-    //     self.close_tab_recursively(&self.get_focused_tab_id());
-    // }
+    /// closes the tab and all its children
+    ///
+    /// TODO: do this with loop instead?
+    fn close_tab_recursively(&mut self, id: &Id<TabHandler>) {
+        for child_id in self.org_tree.get_children(id).clone() {
+            self.close_tab_recursively(&child_id);
+        }
+
+        if self.org_tree.pluck(id).is_some() {
+            self.tabs.remove(id);
+            self.display_tiles.remove(*id);
+        } else {
+            println!("Tried to close root");
+        }
+    }
+
+    /// closes the focused tab and all its children
+    pub fn close_focused_tab_recursively(&mut self) {
+        self.close_tab_recursively(&self.get_focused_tab_id());
+        // TODO: self focused tab to parent
+        self.set_focused_tab_id(self.get_root_id());
+    }
+
+    pub fn org_swap(&mut self, ids: [Id<TabHandler>; 2]) {
+        self.org_tree.swap_ids(ids);
+    }
+
+    pub fn org_pluck(&mut self, id: &Id<TabHandler>) -> Option<IdTree<TabHandler>> {
+        self.org_tree.pluck(id)
+    }
+
+    pub fn org_place(&mut self, structure_to_place: IdTree<TabHandler>, path: Id<TabHandler>) {
+        self.org_tree.place_as_children(structure_to_place, path)
+    }
+
+    /// Save this session
+    /// REVIEW: Rename to export?
+    pub fn save_session(&self) -> singularity_common::project::project_settings::OpenTabs {
+        use singularity_common::project::project_settings::{OpenTab, OpenTabs};
+
+        OpenTabs {
+            tabs: self
+                .tabs
+                .iter()
+                .map(|(id, handler)| {
+                    (
+                        uuid::Uuid::from(*id).into(),
+                        OpenTab {
+                            // TODO
+                            tab_area: handler.get_area(),
+                            tab_data: handler.get_tab_data().clone(),
+                        },
+                    )
+                })
+                .collect(),
+            org_tree: self.org_tree.clone(),
+            focused_tab: self.focused_tab,
+            display_tiles: self.display_tiles.clone(),
+        }
+    }
 }
-impl TraversableTree for Tabs {
+impl singularity_common::utils::tree::tree_node_path::TraversableTree for Tabs {
     fn exists_at(&self, path: &TreeNodePath) -> bool {
         self.get_id_by_org_path(path).is_some()
     }

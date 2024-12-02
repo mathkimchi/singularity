@@ -1007,3 +1007,551 @@ I was thinking about my vision for singularity, and I think this is the order of
 This is similar to how in nix, there is a configuration.nix which is for the user (or the machine), but when a user enters a nix-shell or dev flake, the packages/features available are a union of the packages from configuration.nix and shell.nix.
 Actually, now that I think about it, most apps are like this.
 As another example, VSCode has User Settings and Project Settings.
+
+2024/10/11
+
+In order to code faster, I am going to ignore the permission stuff for tabs, which seems like bad foreshadowing.
+Additionally, I will ignore things like abstraction, since the main priority is just the task organizer.
+
+2024/10/16
+
+I want to be able to standardize children elements (eg: components or widgets) for things like "forwarding" events (especially mouse-clicks) and possibly focus.
+Planned steps:
+
+1. Make a trait for elements
+   1. `Tab` kind of works for this, but something else might be better
+2. Create forwarding method
+   1. Only difference right now between `forward_event` and `handle_event` should be that `forward_event` somehow should take care of mapping mouse
+
+2024/10/17
+
+Ugh, I don't know how I want to do this...
+I might somehow make use of Mutexes of UIElements.
+
+Actually, it was pretty easy, barely an inconvenience.
+I did it with a new trait called `Component`
+
+Things I could implement/consider for the components stuff:
+- [ ] focus (should I even do this?)
+  - [ ] either make this an event (this is probably the way most other things do this), or give `focused` as a parameter for each render, or both
+  - [ ] implement setting focus
+  - [ ] implement different display for focused vs unfocused
+- [ ] vec of components as a component (like UIElement::Container)
+  - [ ] Somehow make this like map tuples and stuff, (like being able to write `Components<(A, B, C)>` and it works like a vec for Components, but it works like a tuple from the outside (you can call `component_bundle.0` and the compiler knows it is type `A`))
+    - [ ] Might be able to do this inductively, inspired by: [tuple tricks crate](https://crates.io/crates/tuple_tricks)
+    - [ ] Recursive Impls are probably better, it is also in the [std library](https://doc.rust-lang.org/src/core/fmt/mod.rs.html#2628)
+      - [ ] Same thing, but [simple example](https://stackoverflow.com/questions/55553281/is-it-possible-to-automatically-implement-a-trait-for-any-tuple-that-is-made-up)
+  - [ ] get focus working with this
+- [ ] make the components with inner components less bulky to write
+  - [ ] maybe mutexes might help?
+
+2024/10/24
+
+I don't like the way this is currently implemented, but since I am using macros anyways, I might look into having macros instead of using the complex types.
+
+I want to reattempt tab structure operations.
+My first change is going to have the tree path be not order based, but id based.
+This means I will need to reimplement all the tree traversal logic and very tightly couple the tree logic with the tab logic, but I am willing to make that sacrifice.
+
+2024/10/25
+
+Btw, I ended up having tree logic decoupled from all the tab stuff.
+
+Anyways, I am making procedural macros, and it was kind of annoying to start because there was not great documentation, but it feels pretty simple once you get started.
+Here are my tips:
+
+- My main source for getting started was a [video](https://youtu.be/crWfcA064is?si=AbTf290vzLE4bhR0) by Let's Get Rusty.
+- Use `cargo expand`
+- [this article](https://www.freecodecamp.org/news/procedural-macros-in-rust/) also seems good and very in-depth
+- use the `quote` macro
+
+
+2024/10/27
+
+I've been going on tangents from the `Organization` subsection, but I will get back on topic now.
+The thing I was supposed to improve was the `.project` stuff, with an initial focus on tasks.
+I think I will just start "drawing inspiration" from similar existing tools like VSCode and Nixos.
+
+First, I want to improve open/close behavior:
+- [x] be able to run and specify project path in cli, something like `singularity_manager --project examples/root-project`
+- [x] save the workspace's open tabs on close
+
+2024/10/28
+
+I am working on saving tab sessions on close, but how should the data transfer happen?
+I could just do something rather---contrived, if I only cared about this, but I would be avoiding the overarching matter of how information should travel between the tabs and the project.
+And in a way, this brings into question what singularity itself is.
+
+I initially thought singularity should simply be an app to host other apps.
+I still want an app that does that.
+But after inspiration from Wayland, I believe that an interface protocol between subapps/tabs and a centralized app can be much more powerful.
+
+Anyways, that is something I should keep in the back of my mind while I continue making progress.
+
+I think I can draw inspiration from webpages for saving data.
+These are the aspects of webpages I think are relavent:
+- Information for opening a webpage:
+  - The webpage location in the url (most of the url)
+    - Parallel the "tab_type"
+  - Extra parameters in the url (like the `url.link/page?parameter`)
+    - Examples of this are in many search pages and also when specifying sections (wikipedia)
+    - Data from the opener to the tab on initialization
+    - Should also remember/ask for this when saving a session, if you want to restore it later
+    - Already implemented this for opening, but I should also add it for closing
+  - Cookies/local storage/session storage
+    - Local storage
+      - Data per tab type (and per .project type)
+      - I think I can add this with queries
+    - Session storage
+      - Data per instance of tab
+      - This is just variables, already implemented
+
+2024/10/29
+
+I can add initialization parameters and something like local storage through queries.
+In essence, the initialization parameters are storing the session storage long term, from one close to the next init.
+
+Both extra parameters and local storage will not be generic types that are different per tab type.
+Instead, I will pull a javascript and just store a serde value or even just a string.
+
+I think there is a reason why webpages don't save data on closing like this (that I know of, +other than caching).
+Saving on close is a pain, especially with the current architecture with threads.
+Keeping with the webpage inspiration/theme, I think I will just save the initialization data throughout, and save it on close.
+Later on, I can modify that code slightly to have a more general tab data.
+Wait, I think I just reinvented session storage.
+(As much as I like to hate on JS and webdev standards, I am slowly recreating it with this project...)
+
+Though I could use Mutex for session storage (and later might), I will do it with queries for now.
+If I do that, the current infastructure for UIDisplay can be reused for session storage.
+
+I got expected behavior first try!
+However, I still need to find a way to figure out the tab type.
+In fact, I am not sure how I am going to handle tab type at all.
+But, I am ready to sleep now.
+
+2024/11/1
+
+Coder's worst nightmare, naming variables, strikes once again.
+I've been stuck working on automatically generating code for queries.
+I am trying to procedurally name variables, but that has turned out to be quite a hassle.
+
+Concat idents is unstable, and while the paste crate seems cool, but is deprecated for some reason.
+I tried to do my own implementation of the concat_idents macro, but it sometimes just doesn't work, so I will try using paste even though it is deprecated.
+
+Using paste, I automated generating the query type stuff, but it is not very readable, and I am also worried about its performance.
+Additionally, if something does go wrong, it will be a nightnmare to debug.
+I haven't used the auto-generated queries yet.
+
+Uhm, this feels noticably slower, I can't remember if it is because of my new changes though.
+
+2024/11/2
+
+I think that was just because I had so many tabs open from the open/close session test.
+
+2024/11/3
+
+I tried to do wayland embedding in another branch, but that didn't work out.
+
+Anyways, I want to work on organization in the form of tiling.
+I will ~~copy~~ gain inspiration from existing tiling window managers like hyprland.
+
+The problem is that a lot of the keybinds I want to use are already being used by KDE.
+I am going to disable them for my entire system, because there is no way to selectively change KDE keybinds based on app focus.
+
+2024/11/4
+
+I talked to a friend (@glolichen) who uses Hyprland, and it seems like everything can be stored in a binary tree, with leaves being the actual windows, and non-leaf nodes storing two children, and data about how they are organized (eg, hor vs vert split, split ratio).
+
+2024/11/6
+
+I am once again turning to Uuids for the binary trees, and I realized I wanted type safety with uuids, but the rust compiler is kind of annoying so I might use an external crate for this.
+I looked at the `typed_id` crate, and it just manually implements what would have been derived.
+But, I feel like there is something wrong with my logic as I rely more and more on Uuid's.
+
+2024/11/7
+
+I learned that hyprland has two ways of doing tiling: dwindle and master.
+Dwindle is what I was basing my tiling off of.
+
+2024/11/11 (technically 2024/11/12 1:09 AM)
+
+Plan:
+- [x] render based on focus state (boolean) (this sets up tree elements ui to change highlights on select)
+  - ideas
+    - pass `focused` boolean on render (idk, feels kinda jank)
+    - pass render_data on render (a more abstract version of the `focused` idea)
+    - use macros (this will be the hardest, but I want to do it)
+- [x] some abstraction for tree displaying
+- [ ] improve task organizer
+
+2024/11/12
+
+I think I was overcomplicating it.
+For tab focus, I need to standardize it, but with widgets, I might just have it be different for each.
+If I really wanted some standardization for widget focus, I could just add a trait.
+
+For the tree displaying thing, I will use macros.
+
+2024/11/13
+
+I think I can just add it to compose components.
+
+First, I implemented the logic without macros, then, in demo, I wrote what I wanted the macro use to look like, and then I implemented macros while changing the macro use to fit logistical constraints.
+
+(warning: the demo window has an empty background, and at first, it looks like it isn't running)
+
+2024/11/16
+
+I was using enclosed component along with compose component for the focus task editor, so there might be leftover redundant code from doing that.
+
+2024/11/17
+
+I tried to use lldb in VsCode, but unfortunately it requires extra setup in nix which doesn't seem worth my current time.
+Plus, it probably would have not worked with multithreading anyways.
+
+2024/11/18
+
+Bruh, why did I never find [this video](https://www.youtube.com/watch?v=Api6dFMlxAA)?
+The title isn't really descriptive but it is a video on tiling wm algorithms.
+Things I want to look for:
+- Moving tiles around
+  - (Representing tile structure and adding and deleting tiles are already implemented and are pretty intuitive)
+  - The current swapping system is limited
+- Inspiration for tab hierarchy as well if possible
+
+Notes:
+
+- 5:32 starts talking about approches to tiling
+  - 6:14 list-based
+    - 6:35 stack mode/master mode
+      - One master takes up half of the screen
+      - All others are just stacked on top of each other
+      - Lame (imo)
+    - 8:20 Max/ful/lmonocle
+      - Bruh
+      - Sucks
+      - Only full screen
+    - Continues talking about other stuff, but as expected, all the list-based methods are cringe
+  - 11:45 Tree-based
+    - The example's tree structure is similar to what I use and has parents being containers while leaves are actual windows (tiles in my case), but it is not a binary tree
+    - I didn't watch the whole thing, but unfortunately, it seems the slides only go over adding tiles so it doesn't really help me
+
+I tried to look elsewhere for similar sources, but could not find anything.
+
+For moving tabs within the tab hierarchy, I think I have a way:
+I already have tab hierarchy traversal, where given the current tab path and a keybind (Alt+some char), I get a new tab path.
+I can have a corresponding keybind for each traversal (Mod+Alt+same char) (I wanted to do Alt+Shift, but that would make things harder bc it would modify the character) where the move keybind just swaps the current path's tab and the new path's tab in the tab hierarchy.
+
+Actually, while implementing the above method, I realized that there was already an easy way of implementing this.
+There was already a selecting screen, so algorithms like pluck and place as well as swapping will be obvious.
+But, I will first implement and commit the other way because of sunk cost fallacy.
+
+Gee, I am really struggling with swapping two nodes in a doubly-linked tree (doubly linked referring to the fact that parents and children both link to each other)...
+When they are unrelated or are siblings, everything works normally, but with parent-child, everything breaks apart.
+I might need to go back to baisics by considering how to swap a doubly-linked list.
+
+2024/11/19
+
+I just drew the connection diagrams on a whiteboard and tried algorithms until I found one that worked:
+1. Update all the children connections (for all children connections, replace A and B)
+   1. Swap the children A and B for their parents
+   2. Swap A and B's children
+2. Update all parent connections to match the children connections
+
+My next goal is to get the Task Organizer to a very good point.
+I will brainstorm now:
+
+Though have left Java and many of its ideals of OOP long ago, I believe that approaching the Task Organizer in an MVVM (model, view, view-model) approach might be an elegant way of thinking about it.
+
+- Model
+  - The first component of MVVM is the model, which refers to how the data is represented.
+  - In the case of the Task Organizer, the model will store the tasks and all relevant data.
+  - Most of the model can change as I work on the view and the view-model, but an important task regarding the model is file representation.
+    - So far, I overlooked the file representation of everything by making rust structures and using Serde to convert data into JSON.
+    - For now, there are more urgent matters, but I ultimately want people to be able to edit these files manually with a text editor.
+    - Until then, the graphical editor will suffice.
+  - Model could also include some logic, but I will be referring to only the representation of the data as the model.
+- View
+  - The view refers to the UI, including displaying data to the user and recieving user input.
+- View-Model
+  - The View-Model can be thought of as the connection between the View and the Model.
+  - A critical aspect of the View-Model's responsibility is modifying data.
+
+Now that I wrote all that, I am not exactly sure why I did, but I guess it is a good reminder.
+
+Features I want to work on:
+
+- Time management
+  - Regulate and log time spent on each task
+  - Different from deadlines but I should do that later as well
+  - Regulate time with blocking method
+  - Log time by recording all timer related actions along with when that action happened
+- Templates/repeating task types
+- Links
+- Online webpage access
+
+Blocking method idea:
+I haven't tested this so I don't know if it is actually efficient, but the idea is to work on a task for specific blocks at a time.
+A block is a continuous period of time dedicated to a single purpose (like working on a task).
+A standard block should have a set-up, work, and clean-up period.
+The setup would include setting up prerequisites for the work, finding a good playlist, using the bathroom, clearing the mind of all else (ex: check gmail to not worry about missing emails), and setting up the task and block in the task organizer.
+During the setup period, make the work period as smooth and productive as possible.
+Cool down during the clean-up period, and take care of the physical workspace so that whatever comes next can be started in a fresh state.
+For an hour-long block, a good delegation of times could be a 5 min, 50 min, and 5 min, respectively.
+Unfortunately, school and other obligations exist, so I can not divide my life into perfect 1-hour blocks.
+I also must consider the fact that the time it takes most tasks (often tasks with objective requirements) can not be perfectly predicted, let alone fit into 50 minutes.
+
+Actually, I am going to just test different ways of being productive and try something new each time I don't like something.
+
+### Trials
+
+Control Trial
+
+For my first trial with tasks, I will start with blocks and a timer that shows overall time spent on each task and logs each start and stop time (can only be viewed from the JSON, meant for future data analysis or debugging) with no time limits or target times.
+
+Future features that I want to test in trials that are not in this trial:
+- Reusable block and task templates
+  - Ex of block template:
+    - Set-up, work, and clean-up
+- Pacer
+  - Flexible target time
+- Try seperating blocks and tasks entirely
+  - Task can be analogous to GH issue and block can be analogous to a commit
+  - Blocks don't necessarily need to be under a task, but blocks can reference tasks in descriptions (think how descriptions will work)
+  - If this test produces fruitful results, could later even have a different app (tab) just for blocks, where references between each are allowed
+  - Sub feature to test: descriptions that are like commit descriptions
+    - Could have something like a small devlog accompany each block (would kill 2 birds with 1 stone bc I wouldn't need to build a whole new app for devlog and I can save redundant time that would be spent on writing devlogs bc it automatically stores it)
+    - Can reference tasks and other stuff (much later, I should standardize linking)
+    - Can also have special regions for the description or just templates for descriptions
+      - Like a goal section and reflection section
+    - Having this will allow users to work on multiple related tasks in one block, and this might be bad if strictness is desired, but I hope it will strike a balance between flow and structure, because it all
+      - Having subblocks would be better organizationally, but that is getting out of hand, even for me (if I did this, it would be supplimentary to block descriptions)
+- Rigid predefined blocks
+  - Set target time limit before each block, and the block must end when the timer goes off
+  - If you don't finish by then, start a new block either right afterwards or after doing somthing else
+  - I don't really like this
+
+I want to try all these in different branches to test all seperately, but I also don't want to bloat up the number of branches.
+Do I make a fork? Can github issues or some other GH feature help me? I guess the feature I am looking for is literally just branches.
+
+Features to add after all the trials are done:
+- Blocks report
+  - Overview of task worked on at each point in the day per project
+  - Have this work with nested projects as well
+  - Have a complete overview for all projects for a single person
+    - Can also have a special thing to note non-project blocks like sleeping and eating
+
+Many of the features promote data collection at the sake of short term flow, and I am actually fine with that because it means I can continuously learn from this data and improve singularity, and I also predict that being able to visualize productivity will help gamify productiveness.
+TBH, I just like seeing data.
+I am not worried about privacy, because 1: I might be the only one who uses singularity, 2: this is all locally run, 3: I can add opt-out/in and encryption later if needed.
+
+By the end of the trials, I want to be able to use singularity because it is good.
+
+2024/11/20 12:13AM
+
+NOOOOOO, I thought of the name `chronoschism` meaning time (`chrono`) and divide (`schism`), but it turns out that someone else came up with it first!!!!
+Grrr...
+
+I am going to use that name though because I came up with it seperately and it is cool.
+
+Also, I was thinking about the trials, and I realized I am not going to do that in the scientist way; instead of testing all the variables seperately, I am going to use an iterative approach and just use common sense.
+
+2024/11/21
+
+I am going to make a seperate subapp for blocks, called time manager.
+The name chronoschism would be better for a name of an idea or game, but it doesn't feel like it should be a name of a tool.
+
+2024/11/23
+
+I had to somehow start a time manager tab, but I don't have a way of starting tabs (TODO), so I temporarily made tabs public and inside the manager's testing code, I made it add a new time manager, then ran it once, and removed it.
+
+2024/11/25
+
+Should making borders around each tab be a responsibility of the tab or the manager?
+Right now, I am putting borders around each tab's inner elements in the tab's code.
+
+2024/11/26
+
+Ideas relating to what I am implementing right now (the time manager/the block thingy):
+- Log every action saved
+  - Like git but it commits when you save (every keystroke is crazy even for me), modify tasks, execute cli command (like a more verbose/intrusive version of `history`), etc
+  - Possible rule of thumb: at least every time "data" is modified
+  - PRO: Would help automate blocks
+    - Instead of starting a timer, doing stuff, and stopping, you could just do a bunch of stuff, and the time manager automatically clusters into groups, like "N saves, cli commands, and etc all with a maximum of a T minute gap between each consecutive action? sounds like a block just happened from x to z O'clock"
+  - PRO: Would also be useful if connected to internet
+    - Allow for backups
+    - Like a middle ground between google docs and git commits (just me, or does anyone else get git commit anxiety, like a feeling of paranoia that a commit is too small: "oh no, people are gonna think I am just farming my github statistics" or simply not wanting to name an insignificant change so I sneak it in with a major change under the name of that change)
+      - Google docs reminds me that a good alternative name for "block" is "session"
+    - Should figure out how to make this work with git
+      - Maybe all the block stuff (and even the .project directory) should be .gitignore'd, especially considering multiple branches or multiple collaborators
+    - Connect to self-hosted server?
+      - Would be jank, but highly customizable, could have a web interface so it is accessible from my phone
+  - PRO: yay data
+  - CON: Too much data?
+    - Hard to store
+    - Intrusive
+  - would have to actually implement it (side effects)
+    - there would need to be some standardized system for 
+      - good bc it could potentially be useful for other stuff
+      - bad bc sounds like a pain
+    - Customizable user scripts for clustering also sounds fun to use but like a pain to make
+- Block notes and title
+  - When should I let the user edit this?
+    - Before starting and during the block
+    - Do I let the user edit afterwards?
+  - Notes can be optional
+  - Title defaults to "Block N" for the N-th block
+- Linking between tabs
+  - To quote Kylo Ren: "I know what I have to do but I don't know if I have the strength to do it."
+  - Prerequesite to this would be some standardization to the list of 
+  - Implementation idea based on the web:
+    - Each tab type is like a server, imagine task-organizer.net and time-manager.net
+    - That is, there are tab-wise (server-wise)
+    - Each instance of a tab is like a webpage session
+    - Ex workflow: If an open time manager tab wants to focus a specific task by id, then the task organizer would create a task-organizer packet object with the relevant data (probably an enum like `Packet::FocusTask(task_id)`), serialize it into a json object (or some other standardized but versatile datatype), then tell the manager to forward the json packet to the task organizer tab type/"server" (figure out how to identify tab types, ideally something better than just mapping string to impls of some tab trait). On the "server"-side, somehow try to see if there is already a task-organizer tab open. If so, then somehow identify it and tell it to focus on the relevant task. If there are no task organizer tabs open, then ask manager to create one with the focus on the relevant task.
+
+2024/11/30
+
+I have previously expressed discontent towards my current procedural macro implementation for components.
+I want the macro to be more versatile, I am thinking the user writes something like:
+
+```rust
+#[derive(Components)]
+struct Tab {
+    component_field!(some_component_name: String; 
+        clickable,
+        area = DisplayArea::FULL,
+        render = UIElement::CharGrid(CharGrid::from(self.some_component_name)),
+        event_handle = { ... },
+    ),
+}
+```
+which gets expanded to
+```rust
+struct Tab {
+    some_component_name: String,
+    /// Generated by macro `component_field` and not to be used directly
+    __some_component_name_clicked: bool,
+}
+#[automatically_generated]
+impl Tab {
+    fn some_component_name_clicked(&mut self) -> bool { ... }
+    fn render_some_component_name(&mut self, manager_handler: &ManagerHandler) { ... }
+    fn handle_event_some_component_name(&mut self, event: Event, manager_handler: &ManagerHandler) { ... }
+}
+```
+
+The macro to generate more fields was cool, but unnecessary.
+
+Actually, I can just have this, which in terms of the macro formatting, is very similar to the current system (that is to say, the difference is in what it gets turned into):
+
+```rust
+#[derive(Components)]
+struct Tab {
+    #[component(area = DisplayArea::FULL)]
+    some_component_name: String,
+}
+```
+which gets expanded to
+```rust
+...
+
+#[automatically_generated]
+impl Tab {
+    fn remap_event_some_component_name(event: Event) -> Option<Event> { ... }
+    fn contain_some_component_name_render(render: UIElement) -> UIElement { ... }
+}
+```
+
+hmmm...
+I don't want to say this, but how much of this is actually necessary?
+
+Let me take a step back:
+Once the excess (uselessly rigid) parts of the macro are removed, it seems all I am doing with the macro is ensuring that clicking and rendering are remapped by the same amount.
+And I only do this because I want components, tabs (tabs are slightly different), elements, etc to be allowed to be unaware of the context it exists inside.
+So far, context really just means its display area, and the two things impacted by display area is clicking and rendering.
+Even its pixel size doesn't need to be known for most purposes because of the relative unit.
+There is also focus, but I didn't really implement that, so it doesn't count right now.
+Anyways, this means that the burden of contextualizing lies on the container (the user of a component).
+This approach will allow components to do the bare minimum, but might create a lot of bloat on the container side.
+
+The meta purpose of the `Components` proc macro (which I might call the `ComponentsContainer`) is to create a flexible tool to help simplify as many container usecases as possible.
+
+Honestly, I might just make containers manually do this like:
+
+```rust
+struct Tab {
+    some_component_name: String,
+}
+impl Tab {
+    const SOME_COMPONENT_NAME_AREA: DisplayArea = DisplayArea::FULL;
+
+    fn render(&mut self) -> UIElement {
+        { todo!() }.contained(Self::SOME_COMPONENT_NAME_AREA)
+    }
+
+    fn handle_event(&mut self, event: Event) {
+        if let Some(some_component_remapped_event) = event.remap(Self::SOME_COMOPONENT_NAME_AREA) {
+            todo!()
+        }
+    }
+}
+```
+
+This is very boring but solid.
+On the plus side, I should be able to do this already.
+I will deprecate the `ComposeComponents` macro for now, RIP ComposeComponents.
+
+Button also seems unnecessary, but I will tackle one problem at a time.
+
+...
+
+I removed the compose components macro from time manager, but I am noticing a few patterns. 
+In fact, I might venture to call parts of it "repetitive" or even "automatable".
+In case the file has been changed and you don't know what I mean, this is the github permalink:
+
+https://github.com/mathkimchi/singularity/blob/0d16c4488b81f92a99c49e59d14d46202824f3e5/singularity_standard_tabs/src/time_manager/mod.rs#L213-L246
+
+(speaking of cool github features, I should start using GH issues and pull-requests; In the 2024/11/19 DEVLOG entry, I allude to wanting a feature that works just like this)
+
+Well, just look at these three specific snippets in the same file:
+
+```rust
+Focus::Title => Self::TITLE_EDITOR_AREA,
+Focus::Body => Self::BODY_EDITOR_AREA,
+Focus::Timer => Self::TIMER_BUTTON_AREA,
+``` 
+
+```rust
+else if let Some(remapped_event) = event.remap(Self::TITLE_EDITOR_AREA) {
+    self.focus = Focus::Title;
+    remapped_event
+} else if let Some(remapped_event) = event.remap(Self::BODY_EDITOR_AREA) {
+    self.focus = Focus::Body;
+    remapped_event
+} else if let Some(remapped_event) = event.remap(Self::TIMER_BUTTON_AREA) {
+    self.focus = Focus::Timer;
+    remapped_event
+}
+```
+
+```rust
+Focus::Title => {
+    self.title_editor.handle_event(remapped_event);
+}
+Focus::Body => {
+    self.body_editor.handle_event(remapped_event);
+}
+Focus::Timer => {
+    self.start_button.handle_event(remapped_event);
+}
+```
+
+There is a little voice telling me this is going to be not as good as I think, that I am overcomplicating this, but a meta macro could work.
+
+The big observation is that there are distinct triplets of a `Focus` variant, a field, and a DisplayArea.
+
+You know what, I am going to leave it at the observation for now, because I want to make fast changes today.
+This is definitely a TODO or REVIEW though.
+
+TODO

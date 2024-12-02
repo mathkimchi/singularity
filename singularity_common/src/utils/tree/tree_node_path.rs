@@ -44,6 +44,9 @@ pub trait TraversableTree {
         self.iter_paths_dfs().collect()
     }
 }
+pub const TREE_TRAVERSE_KEYS: [char; 16] = [
+    'w', 'a', 's', 'd', 'q', 'e', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+];
 /// For the traverse functions, some require the original tree to be safe
 mod tree_node_path_traversal_impls {
     use super::{TraversableTree, TreeNodePath};
@@ -65,6 +68,18 @@ mod tree_node_path_traversal_impls {
             child_path_vec.push(child_index);
 
             Self(child_path_vec)
+        }
+
+        pub fn children_paths<T: TraversableTree>(&self, tree_to_traverse: &T) -> Vec<Self> {
+            let mut children_paths = Vec::new();
+            for child_index in 0.. {
+                if let Some(child_path) = self.traverse_to_child(tree_to_traverse, child_index) {
+                    children_paths.push(child_path);
+                } else {
+                    break;
+                }
+            }
+            children_paths
         }
 
         /// Needs the tree to make sure that the child exists
@@ -95,6 +110,17 @@ mod tree_node_path_traversal_impls {
             tree_to_traverse: &T,
         ) -> Option<Self> {
             self.traverse_to_child(tree_to_traverse, 0)
+        }
+
+        /// Needs the tree to make sure that the child exists
+        pub fn traverse_to_last_child<T: TraversableTree>(
+            &self,
+            tree_to_traverse: &T,
+        ) -> Option<Self> {
+            self.traverse_to_child(
+                tree_to_traverse,
+                self.children_paths(tree_to_traverse).len().checked_sub(1)?,
+            )
         }
 
         /// No wrapping
@@ -151,12 +177,32 @@ mod tree_node_path_traversal_impls {
             }
         }
 
-        /// This is a helper function, traversing trees based on wasd input
+        pub fn traverse_dfs_prev<T: TraversableTree>(&self, tree_to_traverse: &T) -> Option<Self> {
+            if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
+                // traverse to previous sibling's last child's last child...
+                let mut path = previous_sibling;
+                while let Some(last_child) = path.traverse_to_last_child(tree_to_traverse) {
+                    path = last_child;
+                }
+                Some(path)
+            } else {
+                // current is oldest sibling, traverse up to parent
+                self.traverse_to_parent()
+            }
+        }
+
+        /// This is a helper function, traversing trees based on char input.
         ///
-        /// returns None if keycode isn't wasd or if the traversal is invalid
+        /// - "wasd" should vaguely correspond to how it looks when the tree is vertically displayed
+        /// - "qe" is bfs prev and next (chosen for their proximity to "wasd" in qwerty layout)
+        /// - "0" goes to parent (same as "a")
+        /// - 1-8 goes to n-th child, but is 1-indexed (eldest child is 1)
+        /// - "9" goes to last child
+        ///
+        /// returns None if keycode isn't recognized or if the traversal is invalid
         ///
         /// REVIEW: not sure if this belongs here, as it should be pure logic but this is more input handling
-        /// TODO: q and e for bfs next
+        ///
         /// TODO: seperate functions for wrapped traversal
         pub fn checked_traverse_based_on_wasd<T: TraversableTree>(
             &self,
@@ -168,6 +214,12 @@ mod tree_node_path_traversal_impls {
                 'd' => self.traverse_to_first_child(tree_to_traverse),
                 'w' => self.traverse_to_previous_sibling(),
                 's' => self.traverse_to_next_sibling(tree_to_traverse),
+                'q' => self.traverse_dfs_prev(tree_to_traverse),
+                'e' => self.traverse_dfs_next(tree_to_traverse),
+                '0' => self.traverse_to_parent(), // same as 'a'
+                '1'..='8' => self
+                    .traverse_to_child(tree_to_traverse, traverse_key.to_digit(10)? as usize - 1),
+                '9' => self.traverse_to_last_child(tree_to_traverse),
                 _ => None,
             }
         }

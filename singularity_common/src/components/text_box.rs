@@ -1,5 +1,7 @@
 use singularity_ui::ui_element::CharGrid;
 
+use super::Component;
+
 /// just plaintext
 pub struct TextBox {
     text: CharGrid,
@@ -9,7 +11,6 @@ pub struct TextBox {
     /// (x, y) or (col, row)
     cursor_logical_position: (usize, usize),
 }
-#[allow(unused)]
 impl TextBox {
     pub fn new(text: String) -> Self {
         Self {
@@ -83,7 +84,26 @@ impl TextBox {
         self.cursor_logical_position.1 += 1;
     }
 
-    pub fn render(&mut self) -> CharGrid {
+    pub fn render_grid_with_color(
+        &self,
+        (cursor_fg, cursor_bg): (singularity_ui::color::Color, singularity_ui::color::Color),
+    ) -> CharGrid {
+        let mut text_clone = self.text.clone();
+
+        // add this in case the cursor is rightmost
+        text_clone.content[self.cursor_logical_position.1]
+            .push(singularity_ui::ui_element::CharCell::new(' '));
+
+        // highlight cursor
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
+            cursor_bg;
+        text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
+            cursor_fg;
+
+        text_clone
+    }
+
+    pub fn render_grid(&self) -> CharGrid {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
@@ -99,8 +119,23 @@ impl TextBox {
 
         text_clone
     }
+}
+impl Default for TextBox {
+    fn default() -> Self {
+        Self::new(String::new())
+    }
+}
+impl From<String> for TextBox {
+    fn from(value: String) -> Self {
+        Self::new(value.lines().map(|s| s.to_string()).collect())
+    }
+}
+impl Component for TextBox {
+    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+        singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
+    }
 
-    pub fn handle_event(&mut self, event: crate::tab::packets::Event) {
+    fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
@@ -134,7 +169,7 @@ impl TextBox {
                     // Enter key
                     self.write_new_line();
                 }
-                UIEvent::KeyPress(key, KeyModifiers::NONE)
+                UIEvent::KeyPress(key, KeyModifiers::NONE | KeyModifiers::SHIFT)
                     if key
                         .to_char()
                         .is_some_and(|c| c.is_ascii_graphic() || c == ' ') =>
@@ -146,20 +181,12 @@ impl TextBox {
                 }
                 _ => {}
             },
+            Event::Focused => {}
+            Event::Unfocused => {}
             Event::Resize(_) => {}
             Event::Close => panic!("Event::Close should not have been forwarded"),
         }
 
         self.clamp_everything();
-    }
-}
-impl Default for TextBox {
-    fn default() -> Self {
-        Self::new(String::new())
-    }
-}
-impl From<String> for TextBox {
-    fn from(value: String) -> Self {
-        Self::new(value.lines().map(|s| s.to_string()).collect())
     }
 }

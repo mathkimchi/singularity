@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub enum DisplayUnits {
     Pixels(i32),
     /// 0 to 1
@@ -15,9 +15,9 @@ impl DisplayUnits {
     pub const HALF: DisplayUnits = DisplayUnits::Proportional(0.5);
     pub const FULL: DisplayUnits = DisplayUnits::Proportional(1.0);
 
-    pub fn from_mixed(pixels: i32, proportion: f32) -> Self {
+    pub const fn from_mixed(pixels: i32, proportion: f32) -> Self {
         match (pixels, proportion) {
-            (pixels, 0.0) => Self::Pixels(pixels),
+            // (pixels, 0.) => Self::Pixels(pixels), // can not use non-const ops in const fn
             (0, proportion) => Self::Proportional(proportion),
             (pixels, proportion) => Self::MixedUnits { pixels, proportion },
         }
@@ -114,7 +114,7 @@ impl std::ops::Sub for DisplayUnits {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplaySize {
     pub width: DisplayUnits,
     pub height: DisplayUnits,
@@ -125,7 +125,7 @@ impl DisplaySize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayCoord {
     pub x: DisplayUnits,
     pub y: DisplayUnits,
@@ -153,13 +153,47 @@ impl DisplayCoord {
 
 /// technically, any opposite extremes should work,
 /// but usually do (upper left, lower right)
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayArea(pub DisplayCoord, pub DisplayCoord);
 impl DisplayArea {
     pub const FULL: Self = Self(
         DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
         DisplayCoord::new(DisplayUnits::FULL, DisplayUnits::FULL),
     );
+
+    /// TODO: make this impl From, not be new
+    pub fn new(
+        // x0: impl Into<DisplayUnits>,
+        // y0: impl Into<DisplayUnits>,
+        // x1: impl Into<DisplayUnits>,
+        // y1: impl Into<DisplayUnits>,
+        (x0, y0): (impl Into<DisplayUnits>, impl Into<DisplayUnits>),
+        (x1, y1): (impl Into<DisplayUnits>, impl Into<DisplayUnits>),
+    ) -> Self {
+        Self(
+            DisplayCoord {
+                x: x0.into(),
+                y: y0.into(),
+            },
+            DisplayCoord {
+                x: x1.into(),
+                y: y1.into(),
+            },
+        )
+    }
+
+    pub const fn new_proportional(corners: [[f32; 2]; 2]) -> Self {
+        Self(
+            DisplayCoord {
+                x: DisplayUnits::Proportional(corners[0][0]),
+                y: DisplayUnits::Proportional(corners[0][1]),
+            },
+            DisplayCoord {
+                x: DisplayUnits::Proportional(corners[1][0]),
+                y: DisplayUnits::Proportional(corners[1][1]),
+            },
+        )
+    }
 
     pub fn size(&self) -> DisplaySize {
         DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
@@ -179,6 +213,7 @@ impl DisplayArea {
         )
     }
 
+    /// Use: `child_area.map_onto(parent_area)`
     pub fn map_onto(&self, container_area: Self) -> Self {
         Self(
             self.0.map_onto(container_area),

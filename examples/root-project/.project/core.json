@@ -1,19 +1,116 @@
 {
-    "subapps": {
-        "task_organizer": {
-            "location": "standard_subapps/task_organizer",
-            "subapp_standard_settings": {
-                "subapp_file_system_permissions": {
-                    "property": {
-                        "location": "[$project_directory]/.project/tasks.json",
-                        "read": true,
-                        "write": true
-                    }
-                }
-            },
-            "subapp_specific_settings": {
-                "debug_border": false
-            }
+  "subapps": {
+    "task_organizer": {
+      "subapp_standard_settings": {
+        "subapp_file_system_permissions": {
+          "property": {
+            "location": "[$project_directory]/.project/tasks.json",
+            "read": true,
+            "write": true,
+            "execute": false
+          }
         }
+      },
+      "subapp_specific_settings": {
+        "debug_border": false
+      }
     }
+  },
+  "open_tabs": {
+    "tabs": {
+      "6357c137-a415-40e1-92bb-7f1fbf37f2a9": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "TIME_MANAGER",
+          "session_data": "examples/root-project"
+        }
+      },
+      "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_type": "TASK_ORGANIZER",
+          "session_data": "examples/root-project"
+        }
+      }
+    },
+    "org_tree": {
+      "root_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
+      "nodes": {
+        "6357c137-a415-40e1-92bb-7f1fbf37f2a9": {
+          "children": [],
+          "parent": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+        },
+        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
+          "children": [
+            "6357c137-a415-40e1-92bb-7f1fbf37f2a9"
+          ],
+          "parent": null
+        }
+      }
+    },
+    "focused_tab": "6357c137-a415-40e1-92bb-7f1fbf37f2a9",
+    "display_tiles": {
+      "root_id": "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa",
+      "tiles": {
+        "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa": {
+          "Container": {
+            "children": [
+              "f5c814a5-b580-432e-bc33-c19409dd86a2",
+              "4d494978-e402-4709-822f-3a5db931c14c"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
+          }
+        },
+        "4d494978-e402-4709-822f-3a5db931c14c": {
+          "Tab": {
+            "tab_id": "6357c137-a415-40e1-92bb-7f1fbf37f2a9"
+          }
+        },
+        "f5c814a5-b580-432e-bc33-c19409dd86a2": {
+          "Tab": {
+            "tab_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+          }
+        }
+      },
+      "leaf_registry": {
+        "6357c137-a415-40e1-92bb-7f1fbf37f2a9": "4d494978-e402-4709-822f-3a5db931c14c",
+        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": "f5c814a5-b580-432e-bc33-c19409dd86a2"
+      }
+    }
+  }
 }
