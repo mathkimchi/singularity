@@ -59,7 +59,8 @@ pub struct TimeManager {
 impl TimeManager {
     const TITLE_EDITOR_AREA: DisplayArea = DisplayArea::new_proportional([[0.5, 0.0], [1.0, 0.3]]);
     const BODY_EDITOR_AREA: DisplayArea = DisplayArea::new_proportional([[0.5, 0.3], [1.0, 0.8]]);
-    const TIMER_BUTTON_AREA: DisplayArea = DisplayArea::new_proportional([[0.4, 0.7], [0.6, 0.8]]);
+    const TIMER_BUTTON_AREA: DisplayArea =
+        DisplayArea::new_proportional([[0.65, 0.85], [0.85, 0.95]]);
 
     pub fn new_from_project<P>(
         project_path: P,
@@ -168,13 +169,13 @@ impl singularity_common::tab::BasicTab for TimeManager {
                 self.title_editor
                     .render_grid_with_color(Self::text_colors(self.focus == Focus::Title))
                     .element()
-                    .contain(Self::TITLE_EDITOR_AREA)
-                    .bordered(Color::LIGHT_GREEN),
+                    .bordered(Color::LIGHT_GREEN)
+                    .contain(Self::TITLE_EDITOR_AREA),
                 self.body_editor
                     .render_grid_with_color(Self::text_colors(self.focus == Focus::Body))
                     .element()
-                    .contain(Self::BODY_EDITOR_AREA)
-                    .bordered(Color::LIGHT_GREEN),
+                    .bordered(Color::LIGHT_GREEN)
+                    .contain(Self::BODY_EDITOR_AREA),
                 UIElement::CharGrid(CharGrid::from(timer_button_text))
                     .bordered(Color::LIGHT_GREEN)
                     .contain(Self::TIMER_BUTTON_AREA),
