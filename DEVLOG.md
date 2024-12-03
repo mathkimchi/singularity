@@ -1577,3 +1577,28 @@ I will work on this issue (hopefully github recognizes this):
 ...
 
 Nope, but this should work: I will work on [#3](https://github.com/mathkimchi/singularity/issues/3) (apparently vscode recognizes these issues now, because it autocompleted).
+
+...
+
+Beware: Rambling (even more so than usual)
+
+My roommate is sleeping and I wanted to log my thoughts before I wash them away in slumber, so I have resorted to editing markdown on github mobile.
+I was thinking of having each process create as many windows as they wanted, if any.
+But, instinctually, I worry that jumping to this solution might not be the broghtest idea.
+I keep thinking of rust's ownership, not necessarily because the its solution to memory management might cleanly parallel a good solution to this problem, but because it is just so clever that I want to know how that idea was even conceived.
+In other words, I want to try to use the example of ownership to learn how to come up with good solutions.
+Like manual memory management, my idea pretty much maximizes the flexibility of how tabs are implemented.
+Flexibility is great, but in this case, making tabs too flexible will make it unsafe and hard to develop, like C.
+Moreover, learning about wayland has shown me that imposing logically arbitrary but practically useful works, which is reassuring especially since I intend to implement a system with the same functionality as wayland.
+(However, learning anout wayland has also taught me that it is a nightmare, so maybe it isn't the best role model.)
+
+The thought that initially motivated this was rust's mpsc.
+A rust message channel can have multiple senders and one receiver.
+There can only be one receiver, because the message can only have one owner.
+This is very intuitive if we think of a real mail.
+A channel is like a mailing address; there is no limit to how many people can send messages, but each mailing address has one house it refers to.
+Rust ownership makes more sense than loose memory management in the real world, even though following it sets a self imposed restriction that isn't necessary by the nature of where code lives.
+
+I wonder if I can draw any inspiration from real life to come up with a good solution.
+The takeaway from the above paragraphs is that the inspiration can be arbitrary from a purely logical view (in other words: restrict what the user (a developer using this code) can do even though allowing it would not be hard to implement), if it benefits safety or improves the usecases that will be allowed.
+I guess all that just says that guardrails are fine.
