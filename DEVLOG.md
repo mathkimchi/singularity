@@ -1555,3 +1555,21 @@ You know what, I am going to leave it at the observation for now, because I want
 This is definitely a TODO or REVIEW though.
 
 TODO
+
+2024/12/2
+
+Do you see this?
+I finally cleaned up the git branches and got around to using issues.
+
+From now on, I will put the technical brainstorming and ideas in github issues.
+In this file, until I actually deem singularity (specifically the time manager's block logging) good enough to actually start using, I will mostly be writing session-related things in here.
+This will be things like:
+- Writing down/logging issues I work on like I will right below
+- Journalling about the coding process, like writing down how I got over a specific problem, or if I didn't get over a problem, just ranting about it
+- Whatever miscellaneous things I feel like writing here
+
+The purpose of doing this is so there is a central place to see everything I did.
+
+I will work on this issue (hopefully github recognizes this):
+
+#3
