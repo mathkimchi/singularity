@@ -1573,3 +1573,7 @@ The purpose of doing this is so there is a central place to see everything I did
 I will work on this issue (hopefully github recognizes this):
 
 #3
+
+...
+
+Nope, but this should work: I will work on [#3](https://github.com/mathkimchi/singularity/issues/3) (apparently vscode recognizes these issues now, because it autocompleted).
