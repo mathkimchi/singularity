@@ -1602,3 +1602,18 @@ Rust ownership makes more sense than loose memory management in the real world, 
 I wonder if I can draw any inspiration from real life to come up with a good solution.
 The takeaway from the above paragraphs is that the inspiration can be arbitrary from a purely logical view (in other words: restrict what the user (a developer using this code) can do even though allowing it would not be hard to implement), if it benefits safety or improves the usecases that will be allowed.
 I guess all that just says that guardrails are fine.
+
+2024/12/4
+
+I haven't found a better solution than processes requesting to make windows.
+This is the most flexible way.
+
+But, I was thinking more and eventually, I should abstract away everything arbitrary, and for any feature like mouse click listening, have it work similarly to importing libraries.
+
+On account of my desire to open source this project by the end of December combined with my inability to dedicate myself wholly to this project at this moment in time due to urgent priorities (studying), I will continue to brainstorm until Saturday.
+On Saturday, I start implementing the least bad solution, even if it is the flexible way.
+This will let me:
+
+1. Prioritize my studies for the week, which is the most crucial period
+2. Brainstorm and ensure there are no glaring issues with whatever I settle on, so I probably don't prematurely work on a fundamentally flawed implementation (which I have done)
+3. Not get stuck on brainstorming, constantly doubting any solution I might do, and never start trying (which I have also done)
