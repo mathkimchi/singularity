@@ -1617,3 +1617,25 @@ This will let me:
 1. Prioritize my studies for the week, which is the most crucial period
 2. Brainstorm and ensure there are no glaring issues with whatever I settle on, so I probably don't prematurely work on a fundamentally flawed implementation (which I have done)
 3. Not get stuck on brainstorming, constantly doubting any solution I might do, and never start trying (which I have also done)
+
+2024/12/7
+
+A terminal app called Zellij is written in rust and supports rust plugins, but it is with WASM.
+Check out: https://zellij.dev/tutorials/developing-a-rust-plugin/
+
+Anyways, my deadline is up.
+
+I thought about the best ways of doing this, and I didn't get any big revelations.
+I will take it simple and do things similarly to window managers and desktop apps: each process can request an arbitrary amount of windows.
+
+I think I will have a singularity client toolkit.
+This is similar to the smithay client toolkit, and it is my attempt at making things safe when safety isn't guranteed with ipc.
+In theory, if the client toolkit and the server side are both working, then the actual client code should be safe.
+
+There is a [smithay handbook](https://smithay.github.io/book/client/general/intro.html) that I will gain inspiration from.
+In wayland, the wayland server has a listener at `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, and if you `echo $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, you should get something like `/run/user/1000/wayland-0`.
+So, I will have my own env variable called `$SINGULARITY_SERVER`, and the singularity server will make a socket at `$XDG_RUNTIME_DIR/$SINGULARITY_SERVER`.
+
+When the wayland client wants to make a window, they call `Connection::connect_to_env()`.
+Each `Connection` should represent one wayland window.
+I'll do something similar.
