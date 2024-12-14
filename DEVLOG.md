@@ -1639,3 +1639,25 @@ So, I will have my own env variable called `$SINGULARITY_SERVER`, and the singul
 When the wayland client wants to make a window, they call `Connection::connect_to_env()`.
 Each `Connection` should represent one wayland window.
 I'll do something similar.
+
+2024/12/13
+
+I haven't worked on this over the week, but it is the weekend, and I want a demo just for the unix sockets.
+I will make a chatting app to start simple with.
+
+I also think I should seperate singularity into:
+
+- singularity tab organizer (what I created this project with the intent of making)
+- singularity window manager/compositor
+- individual standard tabs
+  - Chro (name in progress), the time manager
+  - rest of the tabs (file manager, text editor, eg.) are whatever, just make them usable
+
+unix-stream seems to be the same for the server and client side, the process just seems to be:
+1. server makes a `UnixListener` (this is only for server side)
+2. client tries to connect
+3. server accepts, and the OS or whatever gives both the server and client each a `UnixSocket` that just communicates between the two
+
+I remember making a multiplayer game with TCP, and I think this is very similar.
+
+A group chat server is unnecessarily complicated, I will just do a simple turn based chat like thing between just client and server.

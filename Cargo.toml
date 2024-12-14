@@ -5,6 +5,7 @@ members = [
     "singularity_manager",
     "singularity_standard_tabs",
     "singularity_ui",
+    "usock_demo",
 ]
 resolver = "2"
 

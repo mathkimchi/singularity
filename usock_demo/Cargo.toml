@@ -1,0 +1,14 @@
+[package]
+name = "usock_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# serde = { workspace = true }
+# serde_json = { workspace = true }
+
+[[bin]]
+name = "client"
+
+[[bin]]
+name = "server"
