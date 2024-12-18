@@ -1661,3 +1661,27 @@ unix-stream seems to be the same for the server and client side, the process jus
 I remember making a multiplayer game with TCP, and I think this is very similar.
 
 A group chat server is unnecessarily complicated, I will just do a simple turn based chat like thing between just client and server.
+
+2024/12/14
+
+Now that I have the communication sockets figured out, I should actually use it to allow tabs to run in processes.
+Since I am pretty much making a window manager, I will use the term `app` from now.
+There should be a one to one mapping between an instance of an app and a connection.
+
+The singularity app protocol (sap ?) should support extensible features.
+What I mean is that, if the server and client both want to support dragging as an optional feature, then they should be able to send dragging packets to each other.
+But, if either of them don't know dragging, then dragging will not work, but the app should still work.
+
+I can't think of a way to make this work well at runtime or to ensure complete safety, but here is my idea:
+
+- Each feature (including the standard features) can be a crate or something
+  - Has a unique feature id of a constant size (like u64)
+  - Should have exactly one type each for `Event` and `Request`
+    - These should all be serializable to and deserializable from binary (`&[u8]`)
+    - These are the packets currently inside `singularity_common::tab::packets`
+    - I am grouping `Query` into `Request`, but idk how to do type safe responses right now.
+  - I think there is an error thing like this
+- If a message with binary b of feature id f is to be sent, then send the tuple (f, b).
+
+I was talking to a friend (@glolichen), and they suggested sharing a file that lists all the features that will be used.
+Maybe I could send an initial message just to say what features each side supports.

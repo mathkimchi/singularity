@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 # serde = { workspace = true }
 # serde_json = { workspace = true }
+singularity_common = { path = "../singularity_common" }
+singularity_ui = { path = "../singularity_ui" }
+
 
 [[bin]]
 name = "client"
