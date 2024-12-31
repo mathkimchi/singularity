@@ -1752,3 +1752,34 @@ So, you could call something like: `client_socket.std_querier().query_window_siz
 
 The information for queries, requests, and their relations can be reduced to a set of named mappings from query data to response data.
 Each element in the set can be represented like: Name: InputType -> OutputType.
+
+...
+
+I will now try to implement what I wrote inside of singularity macros.
+By the way, I think I already mentioned this link, but I believe this is the most helpful proc macro resource: https://www.freecodecamp.org/news/procedural-macros-in-rust.
+
+Trying to expand with `RUSTFLAGS='--cfg test' cargo expand --manifest-path singularity_common/Cargo.toml tests::macro_demo`
+has a weird error, and it seems to be caused by the `RUSTFLAGS='--cfg test'` portion.
+
+I got a little confused on the test targets, but it turns out, you are supposed to put the tests OUTSIDE of source, just like examples.
+You should also put benches outside, and I didn't even realize benches were a thing.
+This is the project layout guide: https://doc.rust-lang.org/cargo/guide/project-layout.html
+Very useful, especially since I haven't been adhering to best organizational practices.
+
+I remembered the thiserror crate, which I haven't used yet (I unfortunately don't do proper error handling).
+This is an example from their [crates.io](https://crates.io/crates/thiserror):
+
+```rust
+#[derive(Error, Debug)]
+pub enum MyError {
+    Io(#[from] io::Error),
+    Glob(#[from] globset::Error),
+}
+```
+
+I think I can do something like this for events and requests (query and response are slightly harder).
+I won't need the `#[from]` specification, because I would assume all event cases defined by the macro are already events themselves.
+(if the client or server both made their own custom events, it would get messy even if they agreed)
+
+By the way, if there are nested enums, (like MyEvent has ClipboardEvent has CopyEvent), then there would be multiple ids sent in a packet.
+I could optimize later, maybe by comparing the lists of all supported id types on connection.

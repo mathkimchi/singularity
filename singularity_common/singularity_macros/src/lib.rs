@@ -208,3 +208,16 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro]
+pub fn generate_universal_client_socket(input: TokenStream) -> TokenStream {
+    input
+}
+
+#[proc_macro]
+pub fn combine_events_macro(input: TokenStream) -> TokenStream {
+    quote! {
+        /// Hello
+        enum Event {}
+    }.into()
+}
