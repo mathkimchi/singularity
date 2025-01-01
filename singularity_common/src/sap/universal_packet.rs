@@ -1,8 +1,9 @@
 //! REVIEW: Parts of this might need to be put outside singularity common and into a sap_feature_tk
 
-use super::byte_stream::{ByteReader, ByteWriter};
-
-pub type IdType = u64;
+use super::{
+    byte_stream::{ByteReader, ByteWriter},
+    packet::IdType,
+};
 
 pub trait PacketConverter<InnerData, const ID: IdType> {
     // NOTE: I tried `... -> [u8]`, which compiled, but I couldn't impl it

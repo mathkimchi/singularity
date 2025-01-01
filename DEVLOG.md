@@ -1783,3 +1783,10 @@ I won't need the `#[from]` specification, because I would assume all event cases
 
 By the way, if there are nested enums, (like MyEvent has ClipboardEvent has CopyEvent), then there would be multiple ids sent in a packet.
 I could optimize later, maybe by comparing the lists of all supported id types on connection.
+
+I am going to write a declarative macro for event combine, which was done manually in macro_demo's MyEvent.
+I want the macro to look like:
+
+```rust
+combine_events!(MyEvent: [ClipboardEvent, DragEvent]);
+```

@@ -5,18 +5,12 @@
 
 // pub type Data = Vec<u8>;
 
-use singularity_common::sap::universal_packet::IdType;
+use singularity_common::{
+    combine_events,
+    sap::packet::{EventTrait, IdType, PacketTrait},
+};
 
-/// Like a more specific version of serde's serialize and deserialize
-trait PacketTrait: std::marker::Sized {
-    fn to_data(&self) -> Vec<u8>;
-    fn from_data(data: &[u8]) -> Option<Self>;
-    // fn from_data(data: &[u8]) -> Self;
-}
-
-trait EventTrait: PacketTrait {
-    const EVENT_TYPE_ID: IdType;
-}
+// SECTION - should be in shared 3rd party crate or singularity standard
 
 enum ClipboardEvent {
     Copied,
@@ -60,30 +54,34 @@ fn add_id(id: IdType, data: &[u8]) -> Vec<u8> {
     todo!()
 }
 
-enum MyEvent {
-    ClipboardEvent(ClipboardEvent),
-    DragEvent(DragEvent),
-}
-impl PacketTrait for MyEvent {
-    fn from_data(data: &[u8]) -> Option<Self> {
-        let (id, data) = seperate_id(data);
-        match id {
-            ClipboardEvent::EVENT_TYPE_ID => {
-                Some(Self::ClipboardEvent(ClipboardEvent::from_data(data)?))
-            }
-            DragEvent::EVENT_TYPE_ID => Some(Self::DragEvent(DragEvent::from_data(data)?)),
-            _ => None,
-        }
-    }
+// enum MyEvent {
+//     ClipboardEvent(ClipboardEvent),
+//     DragEvent(DragEvent),
+// }
+// impl PacketTrait for MyEvent {
+//     fn from_data(data: &[u8]) -> Option<Self> {
+//         let (id, data) = seperate_id(data);
+//         match id {
+//             ClipboardEvent::EVENT_TYPE_ID => {
+//                 Some(Self::ClipboardEvent(ClipboardEvent::from_data(data)?))
+//             }
+//             DragEvent::EVENT_TYPE_ID => Some(Self::DragEvent(DragEvent::from_data(data)?)),
+//             _ => None,
+//         }
+//     }
 
-    fn to_data(&self) -> Vec<u8> {
-        let (id, data) = match self {
-            MyEvent::ClipboardEvent(clipboard_event) => {
-                (ClipboardEvent::EVENT_TYPE_ID, clipboard_event.to_data())
-            }
-            MyEvent::DragEvent(drag_event) => (DragEvent::EVENT_TYPE_ID, drag_event.to_data()),
-        };
+//     fn to_data(&self) -> Vec<u8> {
+//         let (id, data) = match self {
+//             MyEvent::ClipboardEvent(clipboard_event) => {
+//                 (ClipboardEvent::EVENT_TYPE_ID, clipboard_event.to_data())
+//             }
+//             MyEvent::DragEvent(drag_event) => (DragEvent::EVENT_TYPE_ID, drag_event.to_data()),
+//         };
 
-        add_id(id, &data)
-    }
-}
+//         add_id(id, &data)
+//     }
+// }
+
+// above and below should be equivalent
+
+combine_events!(MyEvent => [ClipboardEvent, DragEvent]);
