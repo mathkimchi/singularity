@@ -1851,3 +1851,30 @@ and remembered union types.
 I looked it up, and it turns out rust actually does have a union keyword.
 It seems kinda cringe though, ngl.
 Regardless, I think `event_union` is a better name for the macro than `combine_events`.
+
+...
+
+It turns out I can't develop until I give smithay its dependencies,
+because VSCode rust analyzer breaks right now.
+I can run the dev flake in CLI, but I don't know how to enable it for all of vscode.
+On my nix system, I used the nix env and direnv extensions,
+but I can't enable flakes permenantly, so the automatic nix env breaks.
+I might be able to get it working with [Docker](https://docs.docker.com/engine/install/fedora/).
+VSCode has a [guide](https://code.visualstudio.com/docs/devcontainers/containers) on
+dev containers with Docker.
+
+That seemed like a hassle, so I just ran: `nix-env -iA nixpkgs.fontconfig`.
+
+I actually hate nix now.
+I tried to like it, but reproducible on any system is complete dog cheeks in practice.
+I'm going to try to figure out how to do this without nix at all.
+
+https://packages.fedoraproject.org/pkgs/rust-smithay-client-toolkit/ is a thing.
+Running `sudo dnf install rust-smithay-client-toolkit` says it isn't a package though.
+
+Okay, I just installed a bunch of dnf packages until it worked.
+For future reference, some of them are:
+- fontconfig
+- fontconfig-devel
+- libxkbcommon
+- libxkbcommon-devel
