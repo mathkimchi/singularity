@@ -21,7 +21,7 @@ macro_rules! combine_events {
     // };
 
     // I guess vis is special, so no need for the optional with ?
-    ($v:vis $new_name:ident => [$($subevent:ident),*]) => {
+    ($v:vis $new_name:ident => [$($subevent:ident),*], $event_id:expr) => {
         $v enum $new_name {
             $($subevent($subevent),)*
         }
@@ -42,6 +42,10 @@ macro_rules! combine_events {
 
                 add_id(id, &data)
             }
+        }
+
+        impl $crate::sap::packet::EventTrait for $new_name {
+            const EVENT_TYPE_ID: IdType = $event_id;
         }
     };
 }

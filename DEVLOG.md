@@ -1790,3 +1790,36 @@ I want the macro to look like:
 ```rust
 combine_events!(MyEvent: [ClipboardEvent, DragEvent]);
 ```
+
+...
+
+actually implemented, and it looks like:
+
+```rust
+combine_events!(pub MyEvent => [ClipboardEvent, DragEvent], 9000);
+```
+
+the differences:
+- I can add visibility qualifiers (an actual improvement)
+- `:` to `=>`, just because declarative macros don't support `:`
+- need to specify the event id
+  - should talk about this
+
+So, how should I procedurally assign the IDs?
+The the current state of the macro requires the caller of the macro to generate the id themselves,
+which is the safest way on my end, because if something goes wrong, then it is the user's fault.
+But, I want to eventually automate this as well.
+I will list ideas, and something to consider is how I am going to deal with versions:
+- Just generate a random number non-deterministically
+  - Would change at every compilation, I don't like this
+- Generate a random number based on contents
+  - Actually pretty good
+  - Would change every version but is deterministic
+  - Changing every version will preemptively catch possible inconsistencies, but will be finicky
+- Generate based on the name
+  - Would be same across versions, not sure if that is good
+  - The pro case for this would be when an event adds more subevents
+- Generate based on the name and the id's of the components
+  - It would change id when the contents change, but not if the impls change (I thought this was the best idea, but now that I explained it, I think just the name might be the best)
+
+For all the ideas, I should also include the name of the crate, so multiple crates could have distinct events with same names.

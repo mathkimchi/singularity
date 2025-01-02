@@ -82,6 +82,6 @@ fn add_id(id: IdType, data: &[u8]) -> Vec<u8> {
 //     }
 // }
 
-// above and below should be equivalent
+// below is better than above
 
-combine_events!(MyEvent => [ClipboardEvent, DragEvent]);
+combine_events!(pub MyEvent => [ClipboardEvent, DragEvent], 9000);
