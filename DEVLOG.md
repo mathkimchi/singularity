@@ -1891,3 +1891,8 @@ I don't think I need to use macros for universal client and server.
 2025/1/2
 
 At least for just events and requests, I can just do `UniversalClientSocket<Event, Request>` and same with server.
+
+...
+
+I think a derive macro would actually be better for making things into packets.
+It is more flexible and would allow for other derives as well.

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::DeriveInput;
+use syn::{DeriveInput, Fields};
 
 
 /// REVIEW: I realize that this is actually very arbitrary and unflexible for most use-cases
@@ -202,6 +202,74 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                 /// If passing it is desired behavior, then set the focused index to that and then rerun this.
                 pub fn forward_events_to_focused(&mut self, event: singularity_common::tab::packets::Event) -> Result<(), Option<#focused_component_type>> {
                     #forward_events_impl
+                }
+            }
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(PacketUnion)]
+pub fn packet_union_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+
+    let identitifier = ast.ident;
+    let enum_: syn::DataEnum = match ast.data {
+        syn::Data::Enum(data) => data,
+        syn::Data::Struct(_data) => panic!("Structs not yet supported"),
+        _ => panic!(),
+    };
+
+    // [(name, type), ...]
+    let variants = enum_.variants.iter().map(|variant| {
+        let inner_packet_type = match &variant.fields {
+            Fields::Unnamed(fields_unnamed) => {
+                assert_eq!(fields_unnamed.unnamed.len(), 1, "variants should have exactly 1 unnamed field");
+                fields_unnamed.unnamed.first().unwrap().clone()
+            },
+            _=> panic!("Expected unnamed fields for all variants")
+        };
+        
+        (variant.ident.clone(), inner_packet_type)
+    });
+
+    let from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
+        quote! {
+            #inner_type::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::from_data(data)?)),
+        }
+    ).collect();
+
+    let to_data_match_cases: proc_macro2::TokenStream = variants.map(|(ident, inner_type)|
+        quote! {
+            Self::#ident(inner_packet) => (#inner_type::PACKET_TYPE_ID, inner_packet.to_data()),
+        }
+    ).collect();
+
+    quote! {
+        const _: () = {
+            extern crate singularity_common as __singularity_common;
+            
+            #[automatically_derived]
+            impl __singularity_common::sap::packet::PacketTrait for #identitifier {
+                const PACKET_TYPE_ID: IdType = todo!();
+    
+                fn from_data(data: &[u8]) -> Option<Self> {
+                    let (id, data) = __singularity_common::sap::packet::split_id(data);
+                    match id {
+                        // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::from_data(data)?)),)*
+                        #from_data_match_cases
+                        _ => None,
+                    }
+                }
+    
+                fn to_data(&self) -> Vec<u8> {
+                    let (id, data) = match self {
+                        // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
+                        #to_data_match_cases
+                    };
+    
+                    __singularity_common::sap::packet::join_id(id, &data)
                 }
             }
         };
