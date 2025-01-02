@@ -1823,3 +1823,31 @@ I will list ideas, and something to consider is how I am going to deal with vers
   - It would change id when the contents change, but not if the impls change (I thought this was the best idea, but now that I explained it, I think just the name might be the best)
 
 For all the ideas, I should also include the name of the crate, so multiple crates could have distinct events with same names.
+
+2024/1/1
+
+Okay, I am on a new system with Fedora and Gnome (the one I've been working on and will continue to work mostly on was NixOS with KDE).
+Luckily, getting it to run wasn't too bad, I just had to run `nix --extra-experimental-features nix-command --extra-experimental-features flakes develop`
+because I don't know where my Nix global config file is and I can't permenantly enable nix commands and flakes.
+And when it ran with the dependencies, it ran smoother than what I expected.
+The display and mouse clicks worked, and the mouse clicks affected the display in the expected ways.
+Unfortunately, the keyboard input just had no effect on the app.
+For now, I will ignore this problem (sounds like something I will regret later),
+because I just need to set up the infastructure for IPC, which doesn't need me to run until much later.
+
+Anyways, the previous thing I did was make the `combine_events` macro.
+Next up: combine requests.
+After that, I think I can implement a 
+
+Requests should be so similar to events (I'm pretty much just reimplementing rust enums),
+that I have a very slight urge to create a meta macro that would be like:
+`meta_combine!(Event, Request)` which would define the `Event` and `Request` traits,
+and define the `combine_events` and `combine_requests` macro.
+But, I won't do this.
+Or, I could make everything under just the packet trait (not a bad idea, actually). 
+
+Sidenote: I was trying to think of a better name than `combine`,
+and remembered union types.
+I looked it up, and it turns out rust actually does have a union keyword.
+It seems kinda cringe though, ngl.
+Regardless, I think `event_union` is a better name for the macro than `combine_events`.
