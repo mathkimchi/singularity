@@ -2,20 +2,18 @@ pub type IdType = u64;
 
 /// Like a more specific version of serde's serialize and deserialize
 pub trait PacketTrait: std::marker::Sized {
+    const PACKET_TYPE_ID: IdType;
+
     fn to_data(&self) -> Vec<u8>;
     fn from_data(data: &[u8]) -> Option<Self>;
     // fn from_data(data: &[u8]) -> Self;
-}
-
-pub trait EventTrait: PacketTrait {
-    const EVENT_TYPE_ID: IdType;
 }
 
 /// NOTE: The subevents are actually both idents and types.
 /// Idents can be types, but types can't be idents (easily),
 /// which is why I told the macro subevents are idents.
 #[macro_export]
-macro_rules! combine_events {
+macro_rules! packet_union {
     // ($($v:vis)? $new_name:ident => [$($subevent:ty),*]) => {
     //     enum $new_name {}
     // };
@@ -27,25 +25,23 @@ macro_rules! combine_events {
         }
 
         impl $crate::sap::packet::PacketTrait for $new_name {
+            const PACKET_TYPE_ID: IdType = $event_id;
+
             fn from_data(data: &[u8]) -> Option<Self> {
                 let (id, data) = seperate_id(data);
                 match id {
-                    $($subevent::EVENT_TYPE_ID => Some(Self::$subevent($subevent::from_data(data)?)),)*
+                    $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::from_data(data)?)),)*
                     _ => None,
                 }
             }
 
             fn to_data(&self) -> Vec<u8> {
                 let (id, data) = match self {
-                    $(Self::$subevent(subevent) => ($subevent::EVENT_TYPE_ID, subevent.to_data()),)*
+                    $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
                 };
 
                 add_id(id, &data)
             }
-        }
-
-        impl $crate::sap::packet::EventTrait for $new_name {
-            const EVENT_TYPE_ID: IdType = $event_id;
         }
     };
 }

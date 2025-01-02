@@ -1878,3 +1878,8 @@ For future reference, some of them are:
 - fontconfig-devel
 - libxkbcommon
 - libxkbcommon-devel
+
+...
+
+I abstracted packets to not care about Event vs Request.
+Queries and Responses might need to be slightly different though.
