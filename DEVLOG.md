@@ -1883,3 +1883,11 @@ For future reference, some of them are:
 
 I abstracted packets to not care about Event vs Request.
 Queries and Responses might need to be slightly different though.
+
+...
+
+I don't think I need to use macros for universal client and server.
+
+2025/1/2
+
+At least for just events and requests, I can just do `UniversalClientSocket<Event, Request>` and same with server.

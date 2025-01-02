@@ -59,3 +59,56 @@ macro_rules! packet_union {
         }
     };
 }
+
+pub mod universal_client_socket {
+    use super::PacketTrait;
+    use crate::sap::byte_stream::{ByteReader, ByteWriter};
+    use std::{marker::PhantomData, os::unix::net::UnixStream};
+
+    /// To be used by the client.
+    ///
+    /// NOTE: technically, I could have the generics be per-function,
+    /// but that might require more boilerplate for most cases
+    pub struct UniversalClientSocket<Event: PacketTrait, Request: PacketTrait> {
+        _r: PhantomData<Request>,
+
+        event_queue: Vec<Event>,
+        connection: UnixStream,
+    }
+    impl<Event: PacketTrait, Request: PacketTrait> UniversalClientSocket<Event, Request> {
+        pub fn new(connection: UnixStream) -> Self {
+            // now, we should actually expect some reads to cause errors
+            // and the good error would be because of timeout/nonblocking
+            connection
+                .set_nonblocking(true)
+                .expect("Couldn't set nonblocking");
+
+            Self {
+                _r: PhantomData,
+                event_queue: Vec::new(),
+                connection,
+            }
+        }
+
+        fn update_event_queue(&mut self) {
+            for raw_data in self.connection.try_iter_bytes() {
+                // currently disregard parsing errors (from_data errors),
+                // because it might just be an unsupported feature
+                if let Some(event) = Event::from_data(&raw_data) {
+                    self.event_queue.push(event);
+                };
+            }
+        }
+
+        /// Nonblocking
+        pub fn read_events(&mut self) -> Vec<Event> {
+            self.update_event_queue();
+
+            std::mem::take(&mut self.event_queue)
+        }
+
+        pub fn send_request(&mut self, request: Request) {
+            self.connection.write_bytes(&request.to_data());
+        }
+    }
+}
