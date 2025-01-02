@@ -112,3 +112,62 @@ pub mod universal_client_socket {
         }
     }
 }
+
+pub mod universal_server_socket {
+    use super::PacketTrait;
+    use crate::sap::byte_stream::{ByteReader, ByteWriter};
+    use std::{marker::PhantomData, os::unix::net::UnixStream};
+
+    /// To be used by the server.
+    ///
+    /// Represents connection to one client.
+    ///
+    /// REVIEW: naming, should I name this: `ClientHandler`?
+    ///
+    /// Right now, server and client socket are literally just the same with event and request switched.
+    /// I could abstract to just `UniversalStream<SendPacket, RecvPacket>`,
+    /// but I am preparing for queries and responses.
+    /// TODO: I could still abstract though.
+    pub struct UniversalServerSocket<Event: PacketTrait, Request: PacketTrait> {
+        _r: PhantomData<Event>,
+
+        request_queue: Vec<Request>,
+        connection: UnixStream,
+    }
+    impl<Event: PacketTrait, Request: PacketTrait> UniversalServerSocket<Event, Request> {
+        pub fn new(connection: UnixStream) -> Self {
+            // now, we should actually expect some reads to cause errors
+            // and the good error would be because of timeout/nonblocking
+            connection
+                .set_nonblocking(true)
+                .expect("Couldn't set nonblocking");
+
+            Self {
+                _r: PhantomData,
+                request_queue: Vec::new(),
+                connection,
+            }
+        }
+
+        fn update_request_queue(&mut self) {
+            for raw_data in self.connection.try_iter_bytes() {
+                // currently disregard parsing errors (from_data errors),
+                // because it might just be an unsupported feature
+                if let Some(request) = Request::from_data(&raw_data) {
+                    self.request_queue.push(request);
+                };
+            }
+        }
+
+        /// Nonblocking
+        pub fn read_requests(&mut self) -> Vec<Request> {
+            self.update_request_queue();
+
+            std::mem::take(&mut self.request_queue)
+        }
+
+        pub fn send_event(&mut self, event: Event) {
+            self.connection.write_bytes(&event.to_data());
+        }
+    }
+}
