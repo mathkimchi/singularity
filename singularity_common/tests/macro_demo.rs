@@ -3,14 +3,12 @@
 //! this file is a proof of concept and if successful,
 //! many of the code should go inside the actual source code
 
-// pub type Data = Vec<u8>;
+#![allow(unused)]
 
 use singularity_common::{
     packet_union,
     sap::packet::{IdType, PacketTrait},
 };
-
-// SECTION - should be in shared 3rd party crate or singularity standard
 
 enum ClipboardEvent {
     Copied,
@@ -42,12 +40,31 @@ impl PacketTrait for DragEvent {
     }
 }
 
-/// returns the id (from the beginning) and the rest of the data
-fn seperate_id(data: &[u8]) -> (IdType, &[u8]) {
-    todo!()
-}
-fn add_id(id: IdType, data: &[u8]) -> Vec<u8> {
-    todo!()
-}
-
 packet_union!(pub MyEvent => [ClipboardEvent, DragEvent], 9000);
+
+#[test]
+fn split_and_join_id_test() {
+    use singularity_common::sap::packet::{join_id, split_id};
+
+    assert_eq!(split_id(&[0, 0, 0, 0, 0, 0, 0, 42]), (42u64, [].as_slice()));
+
+    assert_eq!(
+        split_id(&[0, 0, 0, 0, 0, 0, 0, 31, 41, 59, 26]),
+        (31u64, [41, 59, 26].as_slice())
+    );
+
+    assert_eq!(
+        split_id(&[0xab, 0xcd, 0, 0, 0, 0, 0, 0x2e, 41, 59, 26]),
+        (0xabcd00000000002e, [41, 59, 26].as_slice())
+    );
+
+    assert_eq!(
+        vec![0, 0, 0, 0, 0, 0, 0, 31, 41, 59, 26],
+        join_id(31u64, [41, 59, 26].as_slice())
+    );
+
+    assert_eq!(
+        vec![0xab, 0xcd, 0, 0, 0, 0, 0, 0x2e, 41, 59, 26],
+        join_id(0xabcd00000000002e, [41, 59, 26].as_slice())
+    );
+}
