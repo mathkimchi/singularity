@@ -1896,3 +1896,67 @@ At least for just events and requests, I can just do `UniversalClientSocket<Even
 
 I think a derive macro would actually be better for making things into packets.
 It is more flexible and would allow for other derives as well.
+
+2025/1/3
+
+I got communication between server and client on the same thread.
+Next up (in no particular order):
+- Set up testing for multiple processes
+  - Proper testing? Yuck! I'm not going to do that until I absolutely need to
+- Do Query and Response
+  - Need a macro
+- Set up the unix socket stuff inside of singularity_common
+- Improve the current derive `PacketUnion` macro
+- Implement into singularity
+- Organize properly
+
+I'm going to try setting up query and response.
+
+I want to add modularity, so that its not all just flat query and response pairs.
+I will try to come up with a basic example of usage (ignore implementation, because implementation is trivial with respect to usage):
+
+
+```rust
+let my_query_bundle: MyQueryBundle = todo!();
+let addition_response: AdditionQuery::ResponseType = my_query_bundle.get_math_query_bundle().query_addition(socket, AdditionQuery(1, 2));
+```
+
+so from the object `my_query_bundle`, we would get the sub-bundle of type `MathQueryBundle`,
+which would contain the query: `AdditionQuery`.
+
+I think I have an idea from this.
+The most basic type would be a `QueryPair`, which consists of a query type and a pair type.
+Then, there is the `QueryBundle`, which is a collection of sub `QueryBundle`s and `QueryPair`s.
+All `QueryPair`s have a default `QueryBundle` consisting of just that pair.
+
+Something like: `universal_client_socket.query(AdditionQuery(1, 2))`,
+would not reaveal the type of the response...
+Actually, it could.
+
+Holy guacamolie, I think I just talked myself into a brain blast!
+
+```rust
+pub trait UniversalQuerier {
+    fn query<Q: UniversalQuery>(query: Q) -> Q::ResponseType;
+}
+impl UniversalQuerier for UniversalClientSocket {
+    todo!()
+}
+
+// UniversalPacket is the one with the do and from data
+// as well as the packet id
+
+pub trait UniversalQuery: UniversalPacket {
+    type ResponseType: UniversalPacket;
+}
+```
+
+I think I was previously overcomplicating this whole thing.
+With this way, query and response should actually be easier than event and request.
+
+On the server-side, I was thinking of handling responses in the same way
+as I have done with the mpsc channels:
+`client_handler.respond(move |query| { ... })`.
+
+This approach is fine, but I think I need to just assume
+that the server will not return the wrong query type.
