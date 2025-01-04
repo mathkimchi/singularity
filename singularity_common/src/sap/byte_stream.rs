@@ -36,14 +36,20 @@ impl<R: Read> ByteReader for R {
         let raw_message_length = {
             let mut raw_message_length_buffer = [0; (MessageLength::BITS / 8) as usize];
 
-            self.read_exact(&mut raw_message_length_buffer)
-                // .map_err(|e| e.) // TODO
-                .expect("failed to read message length");
+            // TODO: I am just going to assume Err return is just
+            // because of timeout.
+            self.read_exact(&mut raw_message_length_buffer).ok()?;
 
             MessageLength::from_be_bytes(raw_message_length_buffer) as usize
         };
 
         let mut raw_message_buffer = vec![0u8; raw_message_length];
+        // I am fine with panicing in this case,
+        // because we are pretty screwed if only the message length was sent
+        // TODO: add actual error handling and correction
+        // also, unix sockets should be pretty stable, I don't think anything other
+        // than the nonblocking will cause an error, and if it does, that is beyond
+        // my current scope
         self.read_exact(&mut raw_message_buffer)
             .expect("failed to read message");
 

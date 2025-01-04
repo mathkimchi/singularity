@@ -26,6 +26,7 @@ pub fn join_id(id: IdType, inner_data: &[u8]) -> Vec<u8> {
 /// NOTE: The subevents are actually both idents and types.
 /// Idents can be types, but types can't be idents (easily),
 /// which is why I told the macro subevents are idents.
+#[deprecated = "use PacketUnion from singularity_macros instead"]
 #[macro_export]
 macro_rules! packet_union {
     // ($($v:vis)? $new_name:ident => [$($subevent:ty),*]) => {
