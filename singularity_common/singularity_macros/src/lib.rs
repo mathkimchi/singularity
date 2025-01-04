@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Fields};
@@ -220,6 +222,15 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
         syn::Data::Struct(_data) => panic!("Structs not yet supported"),
         _ => panic!(),
     };
+    let packet_type_id = {
+        let mut hasher = std::hash::DefaultHasher::new();
+        // TODO: hash `module_path!()`
+        identitifier.hash(&mut hasher);
+        // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
+        // to do something like: `hash as singularity_common::sap::packet::IdType`.
+        // right now, they are luckily the same
+        hasher.finish()
+    };
 
     // [(name, type), ...]
     let variants = enum_.variants.iter().map(|variant| {
@@ -252,7 +263,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             
             #[automatically_derived]
             impl __singularity_common::sap::packet::PacketTrait for #identitifier {
-                const PACKET_TYPE_ID: IdType = todo!();
+                const PACKET_TYPE_ID: __singularity_common::sap::packet::IdType = #packet_type_id;
     
                 fn from_data(data: &[u8]) -> Option<Self> {
                     let (id, data) = __singularity_common::sap::packet::split_id(data);
