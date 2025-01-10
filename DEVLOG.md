@@ -1945,6 +1945,7 @@ impl UniversalQuerier for UniversalClientSocket {
 
 // UniversalPacket is the one with the do and from data
 // as well as the packet id
+// It is currently called `PacketTrait`
 
 pub trait UniversalQuery: UniversalPacket {
     type ResponseType: UniversalPacket;
@@ -1958,5 +1959,104 @@ On the server-side, I was thinking of handling responses in the same way
 as I have done with the mpsc channels:
 `client_handler.respond(move |query| { ... })`.
 
-This approach is fine, but I think I need to just assume
+This approach is acceptable, but I think I need to just assume
 that the server will not return the wrong query type.
+
+With that, I will assume that the only packets are:
+queries from client to server and responses from server to client.
+
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a query and not a request
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+It might make more hierarchical sense to put the query type id
+before the instance id, but I think practically it makes more
+sense to do instance id first, because instance id should be read
+even if the query type id is unknown.
+(it really doesn't matter, even though my reasoning is kind of bad)
+Oh, another reason is that if I did have query bundles,
+and stored query type hierarchically in the raw data,
+then it would be better to have the instance id first
+(even though storing hierarchy would be inefficient).
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Response inner data (Optional)
+  - This would be defined by the response type
+
+For unknown queries, the server should just give a response with
+a special `Null` response type id (probably like 0).
+I considered having a `NullResponse` packet type, a `Null` response type id,
+no response type id and inner data on the null response,
+or just having an additional boolean represent
+whether the response is null or not.
+
+I like this system (of flat pairs instead of tree organization) a lot,
+that I might actually change the events and requests to this way.
+I don't like it for the fact that it is structured in a flat way,
+but it does seem to be the simplest implementation.
+Actually, I don't like it that much (I am an indecisive person).
+I think that sending should allow for flat sending to avoid boilerplate,
+but recieving should allow for a hierarchical structure.
+Maybe I am in denial because I can't figure out a way to get hierarchy
+for queries.
+
+In the end, I should stop caring the specific implementation.
+I just want to make reasonable progress in a reasonable time.
+
+Okay, I am going to start.
+
+...
+
+2025/1/10
+
+I realize that the standard is actually little endian, not big endian.
+I will change that later for everything.
+
+I think I should also write a new manifesto for singularity,
+since a lot of things have changed.
+The summary will be that I am trying to abstract things like UI so that
+everything can be organized by a central organizer and apps can work nicely
+with each other.
+Right now, there are different OS's which run apps and those apps have their
+own ways of organizing their UI components.
+With a browser, it is clearest to see how many layers of different protocols
+there are.
+This limits customizability on the user side
+(eg: no standard way to set color pallete,
+the closest thing to this is dark vs light which is just 2 options
+and apps need to go out of their way to support it;
+eg2: standard setting and shortcut management)
+and prevents compatibility between apps.
+HTML kind of does this, but it is bad.
+
+...
+
+There is something called `TypeId` in `std::any`,
+which might allow me to do the id stuff by default.

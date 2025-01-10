@@ -4,7 +4,7 @@
 //! many of the code should go inside the actual source code
 //! TODO: make `#[derive(Event)]` macro for things like ClipboardEvent
 
-#![allow(unused)]
+#![allow(unused, deprecated)]
 
 use singularity_common::{
     packet_union,
