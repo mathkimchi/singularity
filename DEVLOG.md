@@ -2060,3 +2060,20 @@ HTML kind of does this, but it is bad.
 
 There is something called `TypeId` in `std::any`,
 which might allow me to do the id stuff by default.
+
+...
+
+Adding onto the philosophy, I want to be able to remove the sidebar and line counter from my text editor
+very quickly, like doing inspect element and then save those settings into a view template.
+
+2025/01/15
+
+I have been working on other stuff, but today I worked on tests for the query response sandbox.
+I should have committed before, most of the changes in this commit will be from a few days ago.
+I have often worked on a pretty big change, almost gotten it finished, and then worked on other things for a few days before putting the finishing touch and committing later.
+Ideally, I would be using github issues more often, but it seems unnecessary right now.
+I will change my policy to just commit broken code at the end of the day if I know I will be working on other stuff for a few days.
+
+Also, I looked into Unix Domain Sockets and TCP sockets, and in TCP, it seems like they know what response corresponds
+to what request, because responses are ordered the same ways as requests.
+I think I like the Uuid way more, even though it has slightly more overhead.
