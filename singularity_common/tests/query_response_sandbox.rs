@@ -466,12 +466,12 @@ fn test() {
     println!("Hi!");
     std::io::stdout().flush().unwrap();
 
-    let server_thread = thread::spawn(|| {
+    let server = ServerHost::bind_new().unwrap();
+    println!("server side: server created");
+
+    let server_thread = thread::spawn(move || {
         println!("Hello from server thread");
         std::io::stdout().flush().unwrap();
-
-        let server = ServerHost::bind_new().unwrap();
-        println!("server side: server created");
 
         // blocks until connection (unless you set to non-blocking)
         let (server_side_conn, _address) = server.listener.accept().unwrap();
