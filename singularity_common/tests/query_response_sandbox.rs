@@ -5,12 +5,14 @@
 //! being sent.
 
 use secret_query::{SecretQuery0, SecretQuery1};
-use singularity_common::sap::{
-    byte_stream::{ByteReader, ByteWriter},
-    packet::{IdType, PacketTrait},
+use singularity_common::{
+    sap::{
+        byte_stream::{ByteReader, ByteWriter},
+        packet::{IdType, PacketTrait},
+    },
+    utils::usock_tools::{self, UnixServerHost},
 };
 use std::{io::Write, os::unix::net::UnixStream, thread, time};
-use unix_tools::{ServerHandle, ServerHost};
 use uuid::Uuid;
 
 pub type PacketType = u8;
@@ -419,75 +421,12 @@ impl MyQueryResponder {
  **********************************
  */
 
-/// from usock_demo::connection
-/// TODO: put this in singularity_common
-pub mod unix_tools {
-    use std::os::unix::net::{UnixListener, UnixStream};
-
-    const PATH_PREFIX_ENV_KEY: &str = "XDG_RUNTIME_DIR";
-    const PATH_SUFFIX_ENV_KEY: &str = "SINGULARITY_SERVER";
-
-    /// Server side
-    pub struct ServerHost {
-        path: String,
-        pub listener: UnixListener,
-    }
-    impl ServerHost {
-        pub fn bind_new() -> Option<Self> {
-            let path_prefix = std::env::var(PATH_PREFIX_ENV_KEY).ok()?;
-
-            // TODO
-            let path_suffix = "singularity-0";
-
-            // FIXME, I think this only applies to children processes
-            std::env::set_var(PATH_SUFFIX_ENV_KEY, path_suffix);
-
-            let path = format!("{}/{}", path_prefix, path_suffix);
-            Some(Self {
-                listener: UnixListener::bind(&path).ok()?,
-                path,
-            })
-        }
-    }
-    impl Drop for ServerHost {
-        fn drop(&mut self) {
-            // smh, rust should have some temp_set_env_var function which returns an empty object so it auto removes on drop
-            // std::env::remove_var(PATH_SUFFIX_ENV_KEY);
-            // ^ actually, processes might make this unnecessary
-
-            // unix listener doesn't remove the file on drop
-            if let Err(e) = std::fs::remove_file(&self.path) {
-                dbg!(e);
-            }
-        }
-    }
-
-    /// Client-side
-    pub struct ServerHandle {
-        pub stream: UnixStream,
-    }
-    impl ServerHandle {
-        /// Connect to unix socket at `$XDG_RUNTIME_DIR/$SINGULARITY_SERVER`
-        pub fn connect_from_env() -> Option<Self> {
-            let socket_path = format!(
-                "{}/{}",
-                std::env::var(PATH_PREFIX_ENV_KEY).ok()?,
-                std::env::var(PATH_SUFFIX_ENV_KEY).unwrap_or("singularity-0".to_string())
-            );
-
-            Some(Self {
-                stream: UnixStream::connect(socket_path).ok()?,
-            })
-        }
-    }
-}
-
 #[test]
 fn test() {
     println!("Hi!");
     std::io::stdout().flush().unwrap();
 
-    let server = ServerHost::bind_new().unwrap();
+    let server = UnixServerHost::bind_new().unwrap();
     println!("server side: server created");
 
     let server_thread = thread::spawn(move || {
@@ -530,7 +469,7 @@ fn test() {
     let client_thread = thread::spawn(|| {
         println!("Hello from client thread");
 
-        let client_side_conn = ServerHandle::connect_from_env().unwrap().stream;
+        let client_side_conn = usock_tools::client_connect_from_env().unwrap();
         client_side_conn.set_nonblocking(true).unwrap();
         println!("client side: connected");
         let mut querier = UniversalQuerier::new(client_side_conn);

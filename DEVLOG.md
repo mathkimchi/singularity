@@ -2105,3 +2105,8 @@ I got the sandbox to work, so here are next steps:
 - [ ] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
   - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.
 - [ ] Move the stuff in query response sandbox into sap
+
+2025/01/16
+
+It turns out query_response_sandbox sometimes non-deterministically fails,
+but I feel like it will be fine.
