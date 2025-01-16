@@ -120,3 +120,14 @@ impl<W: Write> ByteWriter for W {
 
 pub trait ByteStream: ByteReader + ByteWriter {}
 impl<S: ByteReader + ByteWriter> ByteStream for S {}
+
+pub trait ToData {
+    /// NOTE: using the name to_data instead of to_bytes to decrease chance of name collision
+    fn to_data(&self) -> Vec<u8>;
+}
+pub trait TryFromData: Sized {
+    fn try_from_data(data: &[u8]) -> Option<Self>;
+}
+/// Word I made up
+pub trait Datable: ToData + TryFromData {}
+impl<D: ToData + TryFromData> Datable for D {}

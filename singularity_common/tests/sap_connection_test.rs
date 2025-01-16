@@ -9,50 +9,59 @@ use singularity_common::{
 };
 
 pub mod events {
-    use singularity_common::sap::packet::{IdType, PacketTrait};
+    use singularity_common::sap::{
+        byte_stream::{ToData, TryFromData},
+        packet::{IdType, PacketTrait},
+    };
     use singularity_macros::PacketUnion;
 
     #[derive(Debug)]
     pub struct CopiedEvent;
-    impl PacketTrait for CopiedEvent {
-        const PACKET_TYPE_ID: IdType = 98752896453;
-
+    impl ToData for CopiedEvent {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(_: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for CopiedEvent {
+        fn try_from_data(_: &[u8]) -> Option<Self> {
             Some(Self)
         }
+    }
+    impl PacketTrait for CopiedEvent {
+        const PACKET_TYPE_ID: IdType = 98752896453;
     }
 
     #[derive(Debug)]
     pub struct PastedEvent(pub String);
-    impl PacketTrait for PastedEvent {
-        const PACKET_TYPE_ID: IdType = 4325678983412657;
-
+    impl ToData for PastedEvent {
         fn to_data(&self) -> Vec<u8> {
             // utf8
             self.0.as_bytes().to_vec()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for PastedEvent {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             Some(Self(String::from_utf8(data.to_vec()).unwrap()))
         }
+    }
+    impl PacketTrait for PastedEvent {
+        const PACKET_TYPE_ID: IdType = 4325678983412657;
     }
 
     #[derive(Debug)]
     pub struct DraggedEvent;
-    impl PacketTrait for DraggedEvent {
-        const PACKET_TYPE_ID: IdType = 17859015767526;
-
+    impl ToData for DraggedEvent {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(_: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for DraggedEvent {
+        fn try_from_data(_: &[u8]) -> Option<Self> {
             Some(Self)
         }
+    }
+    impl PacketTrait for DraggedEvent {
+        const PACKET_TYPE_ID: IdType = 17859015767526;
     }
 
     #[derive(Debug, PacketUnion)]
@@ -73,20 +82,25 @@ pub mod events {
 
 /// NOTE: mostly testing events rn
 pub mod requests {
-    use singularity_common::sap::packet::{IdType, PacketTrait};
+    use singularity_common::sap::{
+        byte_stream::{ToData, TryFromData},
+        packet::{IdType, PacketTrait},
+    };
 
     #[derive(Debug)]
     pub struct MyRequest;
-    impl PacketTrait for MyRequest {
-        const PACKET_TYPE_ID: IdType = 17859015767526;
-
+    impl ToData for MyRequest {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(_: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for MyRequest {
+        fn try_from_data(_: &[u8]) -> Option<Self> {
             Some(Self)
         }
+    }
+    impl PacketTrait for MyRequest {
+        const PACKET_TYPE_ID: IdType = 17859015767526;
     }
 }
 

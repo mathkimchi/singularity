@@ -1,12 +1,23 @@
+use uuid::Uuid;
+
+use super::byte_stream::Datable;
+
+pub type PacketType = u8;
+pub const EVENT_PACKET_TYPE: PacketType = 0;
+pub const REQUEST_PACKET_TYPE: PacketType = 1;
+pub const QUERY_PACKET_TYPE: PacketType = 2;
+pub const RESPONSE_PACKET_TYPE: PacketType = 3;
+
+pub type QueryInstanceId = Uuid;
+
+pub const UNKNOWN_RESPONSE_TYPE_ID: IdType = 404;
+pub const UNKNOWN_RESPONSE_TYPE_ID_BYTES: [u8; 8] = UNKNOWN_RESPONSE_TYPE_ID.to_be_bytes();
+
 pub type IdType = u64;
 
 /// Like a more specific version of serde's serialize and deserialize
-pub trait PacketTrait: std::marker::Sized {
+pub trait PacketTrait: Datable {
     const PACKET_TYPE_ID: IdType;
-
-    fn to_data(&self) -> Vec<u8>;
-    fn from_data(data: &[u8]) -> Option<Self>;
-    // fn from_data(data: &[u8]) -> Self;
 }
 
 /// returns the id (from the beginning) and the rest of the data
@@ -39,17 +50,7 @@ macro_rules! packet_union {
             $($subevent($subevent),)*
         }
 
-        impl $crate::sap::packet::PacketTrait for $new_name {
-            const PACKET_TYPE_ID: IdType = $event_id;
-
-            fn from_data(data: &[u8]) -> Option<Self> {
-                let (id, data) = $crate::sap::packet::split_id(data);
-                match id {
-                    $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::from_data(data)?)),)*
-                    _ => None,
-                }
-            }
-
+        impl $crate::sap::byte_stream::ToData for $new_name {
             fn to_data(&self) -> Vec<u8> {
                 let (id, data) = match self {
                     $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
@@ -57,6 +58,20 @@ macro_rules! packet_union {
 
                 $crate::sap::packet::join_id(id, &data)
             }
+        }
+
+        impl $crate::sap::byte_stream::TryFromData for $new_name {
+            fn try_from_data(data: &[u8]) -> Option<Self> {
+                let (id, data) = $crate::sap::packet::split_id(data);
+                match id {
+                    $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
+                    _ => None,
+                }
+            }
+        }
+
+        impl $crate::sap::packet::PacketTrait for $new_name {
+            const PACKET_TYPE_ID: IdType = $event_id;
         }
     };
 }
@@ -84,9 +99,9 @@ pub mod universal_client_socket {
 
         fn update_event_queue(&mut self) {
             for raw_data in self.connection.try_iter_bytes() {
-                // currently disregard parsing errors (from_data errors),
+                // currently disregard parsing errors (try_from_data errors),
                 // because it might just be an unsupported feature
-                if let Some(event) = Event::from_data(&raw_data) {
+                if let Some(event) = Event::try_from_data(&raw_data) {
                     self.event_queue.push(event);
                 };
             }
@@ -137,9 +152,9 @@ pub mod universal_server_socket {
 
         fn update_request_queue(&mut self) {
             for raw_data in self.connection.try_iter_bytes() {
-                // currently disregard parsing errors (from_data errors),
+                // currently disregard parsing errors (try_from_data errors),
                 // because it might just be an unsupported feature
-                if let Some(request) = Request::from_data(&raw_data) {
+                if let Some(request) = Request::try_from_data(&raw_data) {
                     self.request_queue.push(request);
                 };
             }

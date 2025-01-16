@@ -245,9 +245,9 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
         (variant.ident.clone(), inner_packet_type)
     });
 
-    let from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
+    let try_from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
         quote! {
-            #inner_type::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::from_data(data)?)),
+            #inner_type::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(data)?)),
         }
     ).collect();
 
@@ -262,28 +262,70 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             extern crate singularity_common as __singularity_common;
             
             #[automatically_derived]
-            impl __singularity_common::sap::packet::PacketTrait for #identitifier {
-                const PACKET_TYPE_ID: __singularity_common::sap::packet::IdType = #packet_type_id;
-    
-                fn from_data(data: &[u8]) -> Option<Self> {
-                    let (id, data) = __singularity_common::sap::packet::split_id(data);
-                    match id {
-                        // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::from_data(data)?)),)*
-                        #from_data_match_cases
-                        _ => None,
-                    }
-                }
-    
+            impl __singularity_common::sap::byte_stream::ToData for #identitifier {
                 fn to_data(&self) -> Vec<u8> {
                     let (id, data) = match self {
                         // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
                         #to_data_match_cases
                     };
-    
+                    
                     __singularity_common::sap::packet::join_id(id, &data)
                 }
+            }
+            #[automatically_derived]
+            impl __singularity_common::sap::byte_stream::TryFromData for #identitifier {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    let (id, data) = __singularity_common::sap::packet::split_id(data);
+                    match id {
+                        // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
+                        #try_from_data_match_cases
+                        _ => None,
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl __singularity_common::sap::packet::PacketTrait for #identitifier {
+                const PACKET_TYPE_ID: __singularity_common::sap::packet::IdType = #packet_type_id;
             }
         };
     }
     .into()
+}
+
+#[proc_macro_derive(Datable)]
+pub fn datable_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+
+    let identitifier = ast.ident;
+    let struct_items = match ast.data {
+        syn::Data::Struct(struct_data) => struct_data,
+        _ => panic!(),
+    };
+
+    quote! {
+        const _: () = {
+            extern crate singularity_common as __singularity_common;
+            
+            #[automatically_derived]
+            impl __singularity_common::sap::byte_stream::ToData for #identitifier {
+                fn to_data(&self) -> Vec<u8> {
+                    todo!()
+                }
+            }
+            #[automatically_derived]
+            impl __singularity_common::sap::byte_stream::TryFromData for #identitifier {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    todo!()
+                }
+            }
+            
+            // datable is automatically impl'd for any type to data and try from data
+
+            // #[automatically_derived]
+            // impl __singularity_common::sap::byte_stream::Datable for #identitifier {
+            // }
+        };
+    }.into()
 }

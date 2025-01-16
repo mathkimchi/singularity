@@ -8,52 +8,61 @@
 
 use singularity_common::{
     packet_union,
-    sap::packet::{IdType, PacketTrait},
+    sap::{
+        byte_stream::{ToData, TryFromData},
+        packet::{IdType, PacketTrait},
+    },
 };
 use singularity_macros::PacketUnion;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct CopiedEvent;
-impl PacketTrait for CopiedEvent {
-    const PACKET_TYPE_ID: IdType = 98752896453;
-
+impl ToData for CopiedEvent {
     fn to_data(&self) -> Vec<u8> {
         Vec::new()
     }
-
-    fn from_data(data: &[u8]) -> Option<Self> {
+}
+impl TryFromData for CopiedEvent {
+    fn try_from_data(data: &[u8]) -> Option<Self> {
         Some(Self)
     }
+}
+impl PacketTrait for CopiedEvent {
+    const PACKET_TYPE_ID: IdType = 98752896453;
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct PastedEvent(String);
-impl PacketTrait for PastedEvent {
-    const PACKET_TYPE_ID: IdType = 4325678983412657;
-
+impl ToData for PastedEvent {
     fn to_data(&self) -> Vec<u8> {
         // utf8
         self.0.as_bytes().to_vec()
     }
-
-    fn from_data(data: &[u8]) -> Option<Self> {
+}
+impl TryFromData for PastedEvent {
+    fn try_from_data(data: &[u8]) -> Option<Self> {
         Some(Self(String::from_utf8(data.to_vec()).unwrap()))
     }
+}
+impl PacketTrait for PastedEvent {
+    const PACKET_TYPE_ID: IdType = 4325678983412657;
 }
 
 packet_union!(pub ClipboardEvent => [CopiedEvent, PastedEvent], 23945086);
 
 pub struct DraggedEvent;
-impl PacketTrait for DraggedEvent {
-    const PACKET_TYPE_ID: IdType = 17859015767526;
-
+impl ToData for DraggedEvent {
     fn to_data(&self) -> Vec<u8> {
         Vec::new()
     }
-
-    fn from_data(data: &[u8]) -> Option<Self> {
+}
+impl TryFromData for DraggedEvent {
+    fn try_from_data(data: &[u8]) -> Option<Self> {
         Some(Self)
     }
+}
+impl PacketTrait for DraggedEvent {
+    const PACKET_TYPE_ID: IdType = 17859015767526;
 }
 
 packet_union!(pub DragEvent => [DraggedEvent], 982734516872348);

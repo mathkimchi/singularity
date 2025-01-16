@@ -7,7 +7,7 @@
 use secret_query::{SecretQuery0, SecretQuery1};
 use singularity_common::{
     sap::{
-        byte_stream::{ByteReader, ByteWriter},
+        byte_stream::{ByteReader, ByteWriter, TryFromData},
         packet::{IdType, PacketTrait},
     },
     utils::usock_tools::{self, UnixServerHost},
@@ -92,7 +92,7 @@ impl UniversalQuerier {
             {
                 if incoming_query_instance_id == query_instance_id {
                     break if response_type_id == Q::ResponseType::PACKET_TYPE_ID {
-                        Q::ResponseType::from_data(&inner_data)
+                        Q::ResponseType::try_from_data(&inner_data)
                     } else {
                         if response_type_id != UNKNOWN_RESPONSE_TYPE_ID {
                             // instance id matches but type isn't match or the standard unknown,
@@ -119,6 +119,8 @@ pub trait UniversalQuery: PacketTrait {
 }
 
 mod add_query {
+    use singularity_common::sap::byte_stream::ToData;
+
     use super::*;
 
     #[derive(Debug)]
@@ -126,14 +128,13 @@ mod add_query {
         pub lhs: f32,
         pub rhs: f32,
     }
-    impl PacketTrait for AddQuery {
-        const PACKET_TYPE_ID: u64 = 287561582341;
-
+    impl ToData for AddQuery {
         fn to_data(&self) -> Vec<u8> {
             [self.lhs.to_be_bytes(), self.rhs.to_be_bytes()].concat()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for AddQuery {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             // TODO: tuple to and from bytes abstraction
             let lhs_bytes: [u8; 4] = data[0..4].try_into().unwrap();
             let rhs_bytes: [u8; 4] = data[4..8].try_into().unwrap();
@@ -144,21 +145,26 @@ mod add_query {
             })
         }
     }
+    impl PacketTrait for AddQuery {
+        const PACKET_TYPE_ID: u64 = 287561582341;
+    }
 
     #[derive(Debug)]
     pub struct AddResponse(pub f32);
-    impl PacketTrait for AddResponse {
-        const PACKET_TYPE_ID: u64 = 1823795123589;
-
+    impl ToData for AddResponse {
         fn to_data(&self) -> Vec<u8> {
             self.0.to_be_bytes().to_vec()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for AddResponse {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             let bytes: [u8; 4] = data[0..4].try_into().unwrap();
 
             Some(Self(f32::from_be_bytes(bytes)))
         }
+    }
+    impl PacketTrait for AddResponse {
+        const PACKET_TYPE_ID: u64 = 1823795123589;
     }
 
     impl UniversalQuery for AddQuery {
@@ -168,18 +174,19 @@ mod add_query {
 use add_query::*;
 
 mod time_query {
+    use singularity_common::sap::byte_stream::ToData;
+
     use super::*;
 
     #[derive(Debug)]
     pub struct TimeQuery;
-    impl PacketTrait for TimeQuery {
-        const PACKET_TYPE_ID: u64 = 9857791231234;
-
+    impl ToData for TimeQuery {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for TimeQuery {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             if !data.is_empty() {
                 return None;
             }
@@ -187,19 +194,24 @@ mod time_query {
             Some(Self)
         }
     }
+    impl PacketTrait for TimeQuery {
+        const PACKET_TYPE_ID: u64 = 9857791231234;
+    }
 
     #[derive(Debug)]
     pub struct TimeResponse(pub String);
-    impl PacketTrait for TimeResponse {
-        const PACKET_TYPE_ID: u64 = 867532867123;
-
+    impl ToData for TimeResponse {
         fn to_data(&self) -> Vec<u8> {
             self.0.as_bytes().to_vec()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for TimeResponse {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             Some(Self(String::from_utf8(data.to_vec()).ok()?))
         }
+    }
+    impl PacketTrait for TimeResponse {
+        const PACKET_TYPE_ID: u64 = 867532867123;
     }
 
     impl UniversalQuery for TimeQuery {
@@ -210,38 +222,44 @@ use time_query::*;
 
 /// This simulates the query that the querier knows about but is unknown to the request
 mod secret_query {
-    use singularity_common::sap::packet::PacketTrait;
-
     use crate::UniversalQuery;
+    use singularity_common::sap::{
+        byte_stream::{ToData, TryFromData},
+        packet::PacketTrait,
+    };
 
     pub struct SecretQuery0(pub String);
-    impl PacketTrait for SecretQuery0 {
-        const PACKET_TYPE_ID: u64 = 435671234;
-
+    impl ToData for SecretQuery0 {
         fn to_data(&self) -> Vec<u8> {
             self.0.as_bytes().to_vec()
         }
-
-        fn from_data(_data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for SecretQuery0 {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
             unimplemented!("This shouldn't be called in the testing code")
         }
     }
+    impl PacketTrait for SecretQuery0 {
+        const PACKET_TYPE_ID: u64 = 435671234;
+    }
     #[derive(Debug)]
     pub struct SecretResponse0;
-    impl PacketTrait for SecretResponse0 {
-        const PACKET_TYPE_ID: u64 = 89273456234;
-
+    impl ToData for SecretResponse0 {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for SecretResponse0 {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             if !data.is_empty() {
                 return None;
             }
 
             Some(Self)
         }
+    }
+    impl PacketTrait for SecretResponse0 {
+        const PACKET_TYPE_ID: u64 = 89273456234;
     }
 
     impl UniversalQuery for SecretQuery0 {
@@ -249,14 +267,13 @@ mod secret_query {
     }
 
     pub struct SecretQuery1;
-    impl PacketTrait for SecretQuery1 {
-        const PACKET_TYPE_ID: u64 = 356473546542;
-
+    impl ToData for SecretQuery1 {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for SecretQuery1 {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             if !data.is_empty() {
                 return None;
             }
@@ -264,22 +281,27 @@ mod secret_query {
             Some(Self)
         }
     }
+    impl PacketTrait for SecretQuery1 {
+        const PACKET_TYPE_ID: u64 = 356473546542;
+    }
     #[derive(Debug)]
     pub struct SecretResponse1;
-    impl PacketTrait for SecretResponse1 {
-        const PACKET_TYPE_ID: u64 = 345346755674257;
-
+    impl ToData for SecretResponse1 {
         fn to_data(&self) -> Vec<u8> {
             Vec::new()
         }
-
-        fn from_data(data: &[u8]) -> Option<Self> {
+    }
+    impl TryFromData for SecretResponse1 {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
             if !data.is_empty() {
                 return None;
             }
 
             Some(Self)
         }
+    }
+    impl PacketTrait for SecretResponse1 {
+        const PACKET_TYPE_ID: u64 = 345346755674257;
     }
 
     impl UniversalQuery for SecretQuery1 {
@@ -322,13 +344,13 @@ impl MyQueryResponder {
 
         let query_enum = match query_type_id {
             AddQuery::PACKET_TYPE_ID => {
-                AddQuery::from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
+                AddQuery::try_from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
                     .map_or(MySupportedQuery::__UnsupportedQuery, |q| {
                         MySupportedQuery::AddQuery(q)
                     })
             }
             TimeQuery::PACKET_TYPE_ID => {
-                TimeQuery::from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
+                TimeQuery::try_from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
                     .map_or(MySupportedQuery::__UnsupportedQuery, |q| {
                         MySupportedQuery::TimeQuery(q)
                     })
