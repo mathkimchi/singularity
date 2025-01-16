@@ -9,7 +9,12 @@ use singularity_common::sap::{
     byte_stream::{ByteReader, ByteWriter},
     packet::{IdType, PacketTrait},
 };
-use std::{os::unix::net::UnixStream, thread, time};
+use std::{
+    io::Write,
+    os::unix::net::UnixStream,
+    thread,
+    time::{self, Duration},
+};
 use unix_tools::{ServerHandle, ServerHost};
 use uuid::Uuid;
 
@@ -458,61 +463,83 @@ pub mod unix_tools {
 
 #[test]
 fn test() {
+    println!("Hi!");
+    std::io::stdout().flush().unwrap();
+
     let server_thread = thread::spawn(|| {
+        println!("Hello from server thread");
+        std::io::stdout().flush().unwrap();
+
         let server = ServerHost::bind_new().unwrap();
+        println!("server side: server created");
 
         // blocks until connection (unless you set to non-blocking)
         let (server_side_conn, _address) = server.listener.accept().unwrap();
-        let mut responder = MyQueryResponder {
-            connection: server_side_conn,
-        };
+        println!("server side: connected");
+        // let mut responder = MyQueryResponder {
+        //     connection: server_side_conn,
+        // };
 
-        let mut num_time_queries = 0;
-        let mut to_continue = true;
+        // let mut num_time_queries = 0;
+        // let mut to_continue = true;
 
-        while to_continue {
-            responder.respond_all(
-                |AddQuery { lhs, rhs }| {
-                    if lhs == 666.0 && rhs == 666.0 {
-                        to_continue = false;
-                    }
-                    AddResponse(lhs + rhs)
-                },
-                |TimeQuery| {
-                    num_time_queries += 1;
-                    TimeResponse(format!(
-                        "The time is: {:?}. This is my {}th time responding to a time query.",
-                        time::Instant::now(),
-                        num_time_queries
-                    ))
-                },
-            );
-        }
+        // while to_continue {
+        //     println!("Started a loop of respond all.");
+        //     std::io::stdout().flush().unwrap();
+        //     responder.respond_all(
+        //         |AddQuery { lhs, rhs }| {
+        //             if lhs == 666.0 && rhs == 666.0 {
+        //                 to_continue = false;
+        //             }
+        //             AddResponse(lhs + rhs)
+        //         },
+        //         |TimeQuery| {
+        //             num_time_queries += 1;
+        //             TimeResponse(format!(
+        //                 "The time is: {:?}. This is my {}th time responding to a time query.",
+        //                 time::Instant::now(),
+        //                 num_time_queries
+        //             ))
+        //         },
+        //     );
+        //     println!("Finished a loop of respond all.");
+
+        //     thread::sleep(Duration::from_secs(1));
+        // }
+
+        println!("before sleep");
+        // thread::sleep(Duration::from_nanos(1));
+
+        println!("ending server thread");
     });
 
     let client_thread = thread::spawn(|| {
+        println!("Hello from client thread");
+
         let client_side_conn = ServerHandle::connect_from_env().unwrap().stream;
+        println!("client side: connected");
         let mut querier = UniversalQuerier::new(client_side_conn);
-        dbg!(querier.query(AddQuery {
-            lhs: 1200.,
-            rhs: 34.,
-        }));
-        dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
-        dbg!(querier.query(TimeQuery));
-        dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
-        dbg!(querier.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
-        dbg!(querier.query(SecretQuery0("Hello".to_string())));
-        dbg!(querier.query(TimeQuery));
-        dbg!(querier.query(TimeQuery));
-        dbg!(querier.query(SecretQuery0("Goodmorning".to_string())));
-        dbg!(querier.query(SecretQuery1));
-        dbg!(querier.query(TimeQuery));
-        dbg!(querier.query(TimeQuery));
-        dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
-        dbg!(querier.query(AddQuery {
-            lhs: 666.,
-            rhs: 666.
-        }));
+        // dbg!(querier.query(AddQuery {
+        //     lhs: 1200.,
+        //     rhs: 34.,
+        // }));
+        // dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
+        // dbg!(querier.query(TimeQuery));
+        // dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
+        // dbg!(querier.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
+        // dbg!(querier.query(SecretQuery0("Hello".to_string())));
+        // dbg!(querier.query(TimeQuery));
+        // dbg!(querier.query(TimeQuery));
+        // dbg!(querier.query(SecretQuery0("Goodmorning".to_string())));
+        // dbg!(querier.query(SecretQuery1));
+        // dbg!(querier.query(TimeQuery));
+        // dbg!(querier.query(TimeQuery));
+        // dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
+        // // this is the temporary, jank quitting
+        // dbg!(querier.query(AddQuery {
+        //     lhs: 666.,
+        //     rhs: 666.
+        // }));
     });
 
     server_thread.join().unwrap();

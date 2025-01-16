@@ -2077,3 +2077,6 @@ I will change my policy to just commit broken code at the end of the day if I kn
 Also, I looked into Unix Domain Sockets and TCP sockets, and in TCP, it seems like they know what response corresponds
 to what request, because responses are ordered the same ways as requests.
 I think I like the Uuid way more, even though it has slightly more overhead.
+
+Erhm, I made thread_test to generate the minimal reproducible example, but it worked and then the simplified version of the original code started working too.
+I will commit the two minimized versions before it doesn't work again.
