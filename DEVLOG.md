@@ -2090,3 +2090,8 @@ After further teseting, it seems to be non-deterministic because threads.
 Okay, I fixed it (well, I ran it ten times in a row and it worked) and now I know why.
 I had to do the listener creation before starting both threads, to ensure that the client wouldn't ask to connect on a socket before it even was created.
 The fact that the error was non-deterministic actually led me to try this fix.
+
+...
+
+By the way, adding the `--show-output` flag to `cargo test` does show output, but only after the test ends.
+I had to add `--nocapture` to debug why it doesn't even end.

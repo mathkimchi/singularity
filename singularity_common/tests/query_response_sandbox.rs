@@ -64,7 +64,7 @@ impl UniversalQuerier {
         let query_instance_id = Uuid::new_v4();
 
         let query_bytes = {
-            const PACKET_TYPE: [u8; 1] = REQUEST_PACKET_TYPE.to_be_bytes();
+            const PACKET_TYPE: [u8; 1] = QUERY_PACKET_TYPE.to_be_bytes();
             let query_instance_id_bytes = query_instance_id.to_bytes_le();
             let query_type_id = Q::PACKET_TYPE_ID.to_be_bytes();
             let query_inner_data = query.to_data();
@@ -122,6 +122,7 @@ pub trait UniversalQuery: PacketTrait {
 mod add_query {
     use super::*;
 
+    #[derive(Debug)]
     pub struct AddQuery {
         pub lhs: f32,
         pub rhs: f32,
@@ -170,6 +171,7 @@ use add_query::*;
 mod time_query {
     use super::*;
 
+    #[derive(Debug)]
     pub struct TimeQuery;
     impl PacketTrait for TimeQuery {
         const PACKET_TYPE_ID: u64 = 9857791231234;
@@ -290,6 +292,7 @@ mod secret_query {
  * below should be macro generated
  */
 
+#[derive(Debug)]
 pub enum MySupportedQuery {
     AddQuery(AddQuery),
     TimeQuery(TimeQuery),
@@ -304,29 +307,35 @@ impl MyQueryResponder {
     /// Returns [`None`] if the packet was not a query
     /// TODO: in the actual thing, make this return an enum of Query or Request
     fn bytes_to_query(query_bytes: &[u8]) -> Option<(QueryInstanceId, MySupportedQuery)> {
-        let packet_type = query_bytes[0];
+        let packet_type = PacketType::from_be_bytes(query_bytes[0..1].try_into().unwrap());
+        dbg!(&packet_type);
         if packet_type != QUERY_PACKET_TYPE {
+            dbg!("NOOO!");
             return None;
         }
 
         let query_instance_id =
-            QueryInstanceId::from_bytes_le(query_bytes[1..(1 + 8)].try_into().ok()?);
+            QueryInstanceId::from_bytes_le(query_bytes[1..(1 + 16)].try_into().ok()?);
+
+        dbg!(&query_instance_id);
 
         let query_type_id = IdType::from_be_bytes(
-            query_bytes[(1 + 8)..(1 + 8 + (IdType::BITS as usize) / 8)]
+            query_bytes[(1 + 16)..(1 + 16 + (IdType::BITS as usize) / 8)]
                 .try_into()
                 .ok()?,
         );
 
+        dbg!(&query_type_id);
+
         let query_enum = match query_type_id {
             AddQuery::PACKET_TYPE_ID => {
-                AddQuery::from_data(&query_bytes[(1 + 8 + (IdType::BITS as usize) / 8)..])
+                AddQuery::from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
                     .map_or(MySupportedQuery::__UnsupportedQuery, |q| {
                         MySupportedQuery::AddQuery(q)
                     })
             }
             TimeQuery::PACKET_TYPE_ID => {
-                TimeQuery::from_data(&query_bytes[(1 + 8 + (IdType::BITS as usize) / 8)..])
+                TimeQuery::from_data(&query_bytes[(1 + 16 + (IdType::BITS as usize) / 8)..])
                     .map_or(MySupportedQuery::__UnsupportedQuery, |q| {
                         MySupportedQuery::TimeQuery(q)
                     })
@@ -334,18 +343,28 @@ impl MyQueryResponder {
             _ => MySupportedQuery::__UnsupportedQuery,
         };
 
+        dbg!(&query_enum);
+
         Some((query_instance_id, query_enum))
     }
 
     /// Doesn't wait
     ///
     /// TODO: right now, just assumes query. later, should handle events as well
+    ///
+    /// NOTE: also assumes nonblocking as well
     fn try_get_queries(&mut self) -> Vec<(QueryInstanceId, MySupportedQuery)> {
         let mut queries = Vec::new();
 
         while let Some(query_bytes) = self.connection.try_read_bytes() {
             if let Some(q) = Self::bytes_to_query(&query_bytes) {
+                println!("query bytes: {:?}, q: {:?}", query_bytes, q);
+                std::io::stdout().flush().unwrap();
+
                 queries.push(q);
+            } else {
+                println!("unparsable query bytes: {:?}", query_bytes);
+                std::io::stdout().flush().unwrap();
             }
         }
 
@@ -354,7 +373,7 @@ impl MyQueryResponder {
 
     fn send_response<R: PacketTrait>(&mut self, query_instance_id: QueryInstanceId, response: R) {
         let request_bytes = {
-            const PACKET_TYPE: [u8; 1] = REQUEST_PACKET_TYPE.to_be_bytes();
+            const PACKET_TYPE: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
             let query_instance_id_bytes = query_instance_id.to_bytes_le();
             let response_type_id = R::PACKET_TYPE_ID.to_be_bytes();
             let response_inner_data = response.to_data();
@@ -380,6 +399,9 @@ impl MyQueryResponder {
         mut time_responder: TimeResponder,
     ) {
         for (query_instance_id, query_enum) in self.try_get_queries() {
+            println!("query instance id: {}", query_instance_id);
+            std::io::stdout().flush().unwrap();
+
             match query_enum {
                 MySupportedQuery::AddQuery(add_query) => {
                     self.send_response(query_instance_id, add_responder(add_query));
@@ -470,59 +492,53 @@ fn test() {
     println!("server side: server created");
 
     let server_thread = thread::spawn(move || {
-        println!("Hello from server thread");
-        std::io::stdout().flush().unwrap();
-
         // blocks until connection (unless you set to non-blocking)
         let (server_side_conn, _address) = server.listener.accept().unwrap();
-        println!("server side: connected");
-        // let mut responder = MyQueryResponder {
-        //     connection: server_side_conn,
-        // };
+        server_side_conn.set_nonblocking(true).unwrap();
+        let mut responder = MyQueryResponder {
+            connection: server_side_conn,
+        };
 
-        // let mut num_time_queries = 0;
-        // let mut to_continue = true;
+        let mut num_time_queries = 0;
+        let mut to_continue = true;
 
-        // while to_continue {
-        //     println!("Started a loop of respond all.");
-        //     std::io::stdout().flush().unwrap();
-        //     responder.respond_all(
-        //         |AddQuery { lhs, rhs }| {
-        //             if lhs == 666.0 && rhs == 666.0 {
-        //                 to_continue = false;
-        //             }
-        //             AddResponse(lhs + rhs)
-        //         },
-        //         |TimeQuery| {
-        //             num_time_queries += 1;
-        //             TimeResponse(format!(
-        //                 "The time is: {:?}. This is my {}th time responding to a time query.",
-        //                 time::Instant::now(),
-        //                 num_time_queries
-        //             ))
-        //         },
-        //     );
-        //     println!("Finished a loop of respond all.");
+        while to_continue {
+            // println!("Started a loop of respond all.");
+            // std::io::stdout().flush().unwrap();
 
-        //     thread::sleep(Duration::from_secs(1));
-        // }
+            responder.respond_all(
+                |AddQuery { lhs, rhs }| {
+                    if lhs == 666.0 && rhs == 666.0 {
+                        to_continue = false;
+                    }
+                    AddResponse(lhs + rhs)
+                },
+                |TimeQuery| {
+                    num_time_queries += 1;
+                    TimeResponse(format!(
+                        "The time is: {:?}. This is my {}th time responding to a time query.",
+                        time::Instant::now(),
+                        num_time_queries
+                    ))
+                },
+            );
+            // println!("Finished a loop of respond all.");
 
-        println!("before sleep");
-        // thread::sleep(Duration::from_nanos(1));
-
-        println!("ending server thread");
+            // thread::sleep(Duration::from_secs(1));
+        }
     });
 
     let client_thread = thread::spawn(|| {
         println!("Hello from client thread");
 
         let client_side_conn = ServerHandle::connect_from_env().unwrap().stream;
+        client_side_conn.set_nonblocking(true).unwrap();
         println!("client side: connected");
         let mut querier = UniversalQuerier::new(client_side_conn);
-        // dbg!(querier.query(AddQuery {
-        //     lhs: 1200.,
-        //     rhs: 34.,
-        // }));
+        dbg!(querier.query(AddQuery {
+            lhs: 1200.,
+            rhs: 34.,
+        }));
         // dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
         // dbg!(querier.query(TimeQuery));
         // dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
@@ -535,11 +551,11 @@ fn test() {
         // dbg!(querier.query(TimeQuery));
         // dbg!(querier.query(TimeQuery));
         // dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
-        // // this is the temporary, jank quitting
-        // dbg!(querier.query(AddQuery {
-        //     lhs: 666.,
-        //     rhs: 666.
-        // }));
+        // this is the temporary, jank quitting
+        dbg!(querier.query(AddQuery {
+            lhs: 666.,
+            rhs: 666.
+        }));
     });
 
     server_thread.join().unwrap();
