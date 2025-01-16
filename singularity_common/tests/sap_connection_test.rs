@@ -1,9 +1,11 @@
+use std::os::unix::net::UnixStream;
+
 use events::{ClipboardEvent, CopiedEvent, DragEvent, DraggedEvent, MyEvent, PastedEvent};
 use requests::MyRequest;
 use singularity_common::{
     sap::packet::{
-        universal_client_socket::UniversalClientSocket,
-        universal_server_socket::UniversalServerSocket,
+        universal_client_stream::UniversalClientStream,
+        universal_server_stream::UniversalServerStream,
     },
     utils::usock_tools::{self, UnixServerHost},
 };
@@ -114,11 +116,11 @@ fn sap_connection_test() {
     // blocks until connection (unless you set to non-blocking)
     let (server_side_conn, _address) = server.listener.accept().unwrap();
 
-    let mut client_socket: UniversalClientSocket<MyEvent> =
-        UniversalClientSocket::new(client_side_conn);
+    let mut client_socket: UniversalClientStream<UnixStream, MyEvent> =
+        UniversalClientStream::new(client_side_conn);
 
-    let mut server_socket: UniversalServerSocket<MyEvent, MyRequest> =
-        UniversalServerSocket::new(server_side_conn);
+    let mut server_socket: UniversalServerStream<UnixStream, MyEvent, MyRequest> =
+        UniversalServerStream::new(server_side_conn);
 
     println!("Connected on both ends.");
     println!("Starting basic tests:");

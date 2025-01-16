@@ -76,29 +76,29 @@ macro_rules! packet_union {
     };
 }
 
-pub mod universal_client_socket {
+pub mod universal_client_stream {
     use super::PacketTrait;
-    use crate::sap::byte_stream::{ByteReader, ByteWriter};
-    use std::os::unix::net::UnixStream;
+    use crate::sap::byte_stream::ByteStream;
 
     /// To be used by the client.
     ///
     /// NOTE: technically, I could have the generics be per-function,
     /// but that might require more boilerplate for most cases
-    pub struct UniversalClientSocket<Event: PacketTrait> {
+    pub struct UniversalClientStream<Stream: ByteStream, Event: PacketTrait> {
+        stream: Stream,
+
         event_queue: Vec<Event>,
-        connection: UnixStream,
     }
-    impl<Event: PacketTrait> UniversalClientSocket<Event> {
-        pub fn new(connection: UnixStream) -> Self {
+    impl<Stream: ByteStream, Event: PacketTrait> UniversalClientStream<Stream, Event> {
+        pub fn new(stream: Stream) -> Self {
             Self {
+                stream,
                 event_queue: Vec::new(),
-                connection,
             }
         }
 
         fn update_event_queue(&mut self) {
-            for raw_data in self.connection.try_iter_bytes() {
+            for raw_data in self.stream.try_iter_bytes() {
                 // currently disregard parsing errors (try_from_data errors),
                 // because it might just be an unsupported feature
                 if let Some(event) = Event::try_from_data(&raw_data) {
@@ -115,15 +115,15 @@ pub mod universal_client_socket {
         }
 
         pub fn send_request<Request: PacketTrait>(&mut self, request: Request) {
-            self.connection.write_bytes(&request.to_data());
+            self.stream.write_bytes(&request.to_data());
         }
     }
 }
 
-pub mod universal_server_socket {
+pub mod universal_server_stream {
     use super::PacketTrait;
-    use crate::sap::byte_stream::{ByteReader, ByteWriter};
-    use std::{marker::PhantomData, os::unix::net::UnixStream};
+    use crate::sap::byte_stream::ByteStream;
+    use std::marker::PhantomData;
 
     /// To be used by the server.
     ///
@@ -135,23 +135,26 @@ pub mod universal_server_socket {
     /// I could abstract to just `UniversalStream<SendPacket, RecvPacket>`,
     /// but I am preparing for queries and responses.
     /// TODO: I could still abstract though.
-    pub struct UniversalServerSocket<Event: PacketTrait, Request: PacketTrait> {
-        _r: PhantomData<Event>,
+    pub struct UniversalServerStream<Stream: ByteStream, Event: PacketTrait, Request: PacketTrait> {
+        stream: Stream,
 
         request_queue: Vec<Request>,
-        connection: UnixStream,
+
+        _r: PhantomData<Event>,
     }
-    impl<Event: PacketTrait, Request: PacketTrait> UniversalServerSocket<Event, Request> {
-        pub fn new(connection: UnixStream) -> Self {
+    impl<Stream: ByteStream, Event: PacketTrait, Request: PacketTrait>
+        UniversalServerStream<Stream, Event, Request>
+    {
+        pub fn new(stream: Stream) -> Self {
             Self {
-                _r: PhantomData,
+                stream,
                 request_queue: Vec::new(),
-                connection,
+                _r: PhantomData,
             }
         }
 
         fn update_request_queue(&mut self) {
-            for raw_data in self.connection.try_iter_bytes() {
+            for raw_data in self.stream.try_iter_bytes() {
                 // currently disregard parsing errors (try_from_data errors),
                 // because it might just be an unsupported feature
                 if let Some(request) = Request::try_from_data(&raw_data) {
@@ -168,7 +171,7 @@ pub mod universal_server_socket {
         }
 
         pub fn send_event(&mut self, event: Event) {
-            self.connection.write_bytes(&event.to_data());
+            self.stream.write_bytes(&event.to_data());
         }
     }
 }
