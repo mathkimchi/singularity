@@ -64,28 +64,19 @@ macro_rules! packet_union {
 pub mod universal_client_socket {
     use super::PacketTrait;
     use crate::sap::byte_stream::{ByteReader, ByteWriter};
-    use std::{marker::PhantomData, os::unix::net::UnixStream};
+    use std::os::unix::net::UnixStream;
 
     /// To be used by the client.
     ///
     /// NOTE: technically, I could have the generics be per-function,
     /// but that might require more boilerplate for most cases
-    pub struct UniversalClientSocket<Event: PacketTrait, Request: PacketTrait> {
-        _r: PhantomData<Request>,
-
+    pub struct UniversalClientSocket<Event: PacketTrait> {
         event_queue: Vec<Event>,
         connection: UnixStream,
     }
-    impl<Event: PacketTrait, Request: PacketTrait> UniversalClientSocket<Event, Request> {
+    impl<Event: PacketTrait> UniversalClientSocket<Event> {
         pub fn new(connection: UnixStream) -> Self {
-            // now, we should actually expect some reads to cause errors
-            // and the good error would be because of timeout/nonblocking
-            connection
-                .set_nonblocking(true)
-                .expect("Couldn't set nonblocking");
-
             Self {
-                _r: PhantomData,
                 event_queue: Vec::new(),
                 connection,
             }
@@ -102,13 +93,13 @@ pub mod universal_client_socket {
         }
 
         /// Nonblocking
-        pub fn read_events(&mut self) -> Vec<Event> {
+        pub fn try_read_events(&mut self) -> Vec<Event> {
             self.update_event_queue();
 
             std::mem::take(&mut self.event_queue)
         }
 
-        pub fn send_request(&mut self, request: Request) {
+        pub fn send_request<Request: PacketTrait>(&mut self, request: Request) {
             self.connection.write_bytes(&request.to_data());
         }
     }
@@ -137,12 +128,6 @@ pub mod universal_server_socket {
     }
     impl<Event: PacketTrait, Request: PacketTrait> UniversalServerSocket<Event, Request> {
         pub fn new(connection: UnixStream) -> Self {
-            // now, we should actually expect some reads to cause errors
-            // and the good error would be because of timeout/nonblocking
-            connection
-                .set_nonblocking(true)
-                .expect("Couldn't set nonblocking");
-
             Self {
                 _r: PhantomData,
                 request_queue: Vec::new(),

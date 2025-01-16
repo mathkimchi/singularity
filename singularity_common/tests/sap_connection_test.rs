@@ -100,7 +100,7 @@ fn sap_connection_test() {
     // blocks until connection (unless you set to non-blocking)
     let (server_side_conn, _address) = server.listener.accept().unwrap();
 
-    let mut client_socket: UniversalClientSocket<MyEvent, MyRequest> =
+    let mut client_socket: UniversalClientSocket<MyEvent> =
         UniversalClientSocket::new(client_side_conn);
 
     let mut server_socket: UniversalServerSocket<MyEvent, MyRequest> =
@@ -109,10 +109,10 @@ fn sap_connection_test() {
     println!("Connected on both ends.");
     println!("Starting basic tests:");
 
-    assert!(dbg!(client_socket.read_events()).is_empty());
+    assert!(dbg!(client_socket.try_read_events()).is_empty());
     assert!(dbg!(server_socket.read_requests()).is_empty());
     // test reading twice just to be safe
-    assert!(dbg!(client_socket.read_events()).is_empty());
+    assert!(dbg!(client_socket.try_read_events()).is_empty());
     assert!(dbg!(server_socket.read_requests()).is_empty());
 
     println!("Sending `CopiedEvent`...");
@@ -120,10 +120,10 @@ fn sap_connection_test() {
         CopiedEvent,
     )));
 
-    dbg!(client_socket.read_events());
+    dbg!(client_socket.try_read_events());
     dbg!(server_socket.read_requests());
     // test reading twice just to be safe
-    assert!(dbg!(client_socket.read_events()).is_empty());
+    assert!(dbg!(client_socket.try_read_events()).is_empty());
     assert!(dbg!(server_socket.read_requests()).is_empty());
 
     println!("Sending `PastedEvent` with \"Hello World!\"...");
@@ -131,10 +131,10 @@ fn sap_connection_test() {
         PastedEvent("Hello World!".to_string()),
     )));
 
-    dbg!(client_socket.read_events());
+    dbg!(client_socket.try_read_events());
     dbg!(server_socket.read_requests());
     // test reading twice just to be safe
-    assert!(dbg!(client_socket.read_events()).is_empty());
+    assert!(dbg!(client_socket.try_read_events()).is_empty());
     assert!(dbg!(server_socket.read_requests()).is_empty());
 
     println!("Sending `PastedEvent` with \"Good Morning!\"...");
@@ -142,10 +142,10 @@ fn sap_connection_test() {
         PastedEvent("Good Morning!".to_string()),
     )));
 
-    dbg!(client_socket.read_events());
+    dbg!(client_socket.try_read_events());
     dbg!(server_socket.read_requests());
     // test reading twice just to be safe
-    assert!(dbg!(client_socket.read_events()).is_empty());
+    assert!(dbg!(client_socket.try_read_events()).is_empty());
     assert!(dbg!(server_socket.read_requests()).is_empty());
 
     println!("Testing multiple sends:");
@@ -157,9 +157,9 @@ fn sap_connection_test() {
     println!("Sending `DraggedEvent`...");
     server_socket.send_event(MyEvent::DragEvent(DragEvent::DraggedEvent(DraggedEvent)));
 
-    dbg!(client_socket.read_events());
+    dbg!(client_socket.try_read_events());
     dbg!(server_socket.read_requests());
     // test reading twice just to be safe
-    dbg!(client_socket.read_events());
+    dbg!(client_socket.try_read_events());
     dbg!(server_socket.read_requests());
 }

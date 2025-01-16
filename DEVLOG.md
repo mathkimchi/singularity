@@ -2100,7 +2100,7 @@ I had to add `--nocapture` to debug why it doesn't even end.
 
 I got the sandbox to work, so here are next steps:
 
-- [ ] Move unix domain socket helpers to `singularity_common`
+- [x] Move unix domain socket helpers to `singularity_common`
 - [ ] Abstraction for bytes unwrapping/splitting
 - [ ] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
   - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.

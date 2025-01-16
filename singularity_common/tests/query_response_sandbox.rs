@@ -12,7 +12,12 @@ use singularity_common::{
     },
     utils::usock_tools::{self, UnixServerHost},
 };
-use std::{io::Write, os::unix::net::UnixStream, thread, time};
+use std::{
+    io::Write,
+    os::unix::net::UnixStream,
+    thread,
+    time::{self, Duration},
+};
 use uuid::Uuid;
 
 pub type PacketType = u8;
@@ -78,38 +83,34 @@ impl UniversalQuerier {
 
         self.connection.write_bytes(&query_bytes);
 
-        // FIXME: I really gotta do something standard about the nonblocking
-        self.connection.set_nonblocking(false).unwrap();
-        let response = loop {
-            if let Some(incoming_packet_bytes) = self.connection.try_read_bytes() {
-                if let Some((incoming_query_instance_id, response_type_id, inner_data)) =
-                    Self::split_response_bytes(&incoming_packet_bytes)
-                {
-                    if incoming_query_instance_id == query_instance_id {
-                        break if response_type_id == Q::ResponseType::PACKET_TYPE_ID {
-                            Q::ResponseType::from_data(&inner_data)
-                        } else {
-                            if response_type_id != UNKNOWN_RESPONSE_TYPE_ID {
-                                // instance id matches but type isn't match or the standard unknown,
-                                // just debug
+        loop {
+            // need to wait for response packet anyways, so use `wait_read_bytes`
+            let incoming_packet_bytes = self.connection.wait_read_bytes();
 
-                                // (likely two different versions)
-                                dbg!(response_type_id);
-                            }
-                            // the instance id matches but the type doesn't
-                            // just assume it is the null response
-                            None
-                        };
-                    }
+            if let Some((incoming_query_instance_id, response_type_id, inner_data)) =
+                Self::split_response_bytes(&incoming_packet_bytes)
+            {
+                if incoming_query_instance_id == query_instance_id {
+                    break if response_type_id == Q::ResponseType::PACKET_TYPE_ID {
+                        Q::ResponseType::from_data(&inner_data)
+                    } else {
+                        if response_type_id != UNKNOWN_RESPONSE_TYPE_ID {
+                            // instance id matches but type isn't match or the standard unknown,
+                            // just debug
+
+                            // (likely two different versions)
+                            dbg!(response_type_id);
+                        }
+                        // the instance id matches but the type doesn't
+                        // just assume it is the null response
+                        None
+                    };
                 }
-
-                // didn't break, the incoming packet is for something else
-                self.queue.push(incoming_packet_bytes);
             }
-        };
-        self.connection.set_nonblocking(true).unwrap();
 
-        response
+            // didn't break, the incoming packet is for something else
+            self.queue.push(incoming_packet_bytes);
+        }
     }
 }
 
@@ -341,8 +342,6 @@ impl MyQueryResponder {
     /// Doesn't wait
     ///
     /// TODO: right now, just assumes query. later, should handle events as well
-    ///
-    /// NOTE: also assumes nonblocking as well
     fn try_get_queries(&mut self) -> Vec<(QueryInstanceId, MySupportedQuery)> {
         let mut queries = Vec::new();
 
@@ -432,10 +431,11 @@ fn test() {
     let server_thread = thread::spawn(move || {
         // blocks until connection (unless you set to non-blocking)
         let (server_side_conn, _address) = server.listener.accept().unwrap();
-        server_side_conn.set_nonblocking(true).unwrap();
         let mut responder = MyQueryResponder {
             connection: server_side_conn,
         };
+
+        thread::sleep(Duration::from_nanos(1));
 
         let mut num_time_queries = 0;
         let mut to_continue = true;
@@ -463,6 +463,7 @@ fn test() {
             // println!("Finished a loop of respond all.");
 
             // thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_nanos(1));
         }
     });
 
@@ -470,8 +471,10 @@ fn test() {
         println!("Hello from client thread");
 
         let client_side_conn = usock_tools::client_connect_from_env().unwrap();
-        client_side_conn.set_nonblocking(true).unwrap();
         println!("client side: connected");
+
+        thread::sleep(Duration::from_nanos(1));
+
         let mut querier = UniversalQuerier::new(client_side_conn);
         dbg!(querier.query(AddQuery {
             lhs: 1200.,
