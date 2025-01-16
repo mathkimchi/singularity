@@ -2095,3 +2095,13 @@ The fact that the error was non-deterministic actually led me to try this fix.
 
 By the way, adding the `--show-output` flag to `cargo test` does show output, but only after the test ends.
 I had to add `--nocapture` to debug why it doesn't even end.
+
+...
+
+I got the sandbox to work, so here are next steps:
+
+- [ ] Move unix domain socket helpers to `singularity_common`
+- [ ] Abstraction for bytes unwrapping/splitting
+- [ ] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
+  - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.
+- [ ] Move the stuff in query response sandbox into sap

@@ -9,12 +9,7 @@ use singularity_common::sap::{
     byte_stream::{ByteReader, ByteWriter},
     packet::{IdType, PacketTrait},
 };
-use std::{
-    io::Write,
-    os::unix::net::UnixStream,
-    thread,
-    time::{self, Duration},
-};
+use std::{io::Write, os::unix::net::UnixStream, thread, time};
 use unix_tools::{ServerHandle, ServerHost};
 use uuid::Uuid;
 
@@ -27,6 +22,7 @@ pub const RESPONSE_PACKET_TYPE: PacketType = 3;
 pub type QueryInstanceId = Uuid;
 
 pub const UNKNOWN_RESPONSE_TYPE_ID: IdType = 404;
+pub const UNKNOWN_RESPONSE_TYPE_ID_BYTES: [u8; 8] = UNKNOWN_RESPONSE_TYPE_ID.to_be_bytes();
 
 pub struct UniversalQuerier {
     connection: UnixStream,
@@ -308,24 +304,18 @@ impl MyQueryResponder {
     /// TODO: in the actual thing, make this return an enum of Query or Request
     fn bytes_to_query(query_bytes: &[u8]) -> Option<(QueryInstanceId, MySupportedQuery)> {
         let packet_type = PacketType::from_be_bytes(query_bytes[0..1].try_into().unwrap());
-        dbg!(&packet_type);
         if packet_type != QUERY_PACKET_TYPE {
-            dbg!("NOOO!");
             return None;
         }
 
         let query_instance_id =
             QueryInstanceId::from_bytes_le(query_bytes[1..(1 + 16)].try_into().ok()?);
 
-        dbg!(&query_instance_id);
-
         let query_type_id = IdType::from_be_bytes(
             query_bytes[(1 + 16)..(1 + 16 + (IdType::BITS as usize) / 8)]
                 .try_into()
                 .ok()?,
         );
-
-        dbg!(&query_type_id);
 
         let query_enum = match query_type_id {
             AddQuery::PACKET_TYPE_ID => {
@@ -343,8 +333,6 @@ impl MyQueryResponder {
             _ => MySupportedQuery::__UnsupportedQuery,
         };
 
-        dbg!(&query_enum);
-
         Some((query_instance_id, query_enum))
     }
 
@@ -358,25 +346,22 @@ impl MyQueryResponder {
 
         while let Some(query_bytes) = self.connection.try_read_bytes() {
             if let Some(q) = Self::bytes_to_query(&query_bytes) {
-                println!("query bytes: {:?}, q: {:?}", query_bytes, q);
-                std::io::stdout().flush().unwrap();
-
                 queries.push(q);
-            } else {
-                println!("unparsable query bytes: {:?}", query_bytes);
-                std::io::stdout().flush().unwrap();
             }
         }
 
         queries
     }
 
-    fn send_response<R: PacketTrait>(&mut self, query_instance_id: QueryInstanceId, response: R) {
+    fn send_response_bytes(
+        &mut self,
+        query_instance_id: QueryInstanceId,
+        response_type_id: [u8; 8],
+        response_inner_data: Vec<u8>,
+    ) {
         let request_bytes = {
             const PACKET_TYPE: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
             let query_instance_id_bytes = query_instance_id.to_bytes_le();
-            let response_type_id = R::PACKET_TYPE_ID.to_be_bytes();
-            let response_inner_data = response.to_data();
 
             [
                 &PACKET_TYPE[..],
@@ -390,6 +375,19 @@ impl MyQueryResponder {
         self.connection.write_bytes(&request_bytes);
     }
 
+    fn send_response_packet<R: PacketTrait>(
+        &mut self,
+        query_instance_id: QueryInstanceId,
+        response: R,
+    ) {
+        self.send_response_bytes(
+            query_instance_id,
+            R::PACKET_TYPE_ID.to_be_bytes(),
+            response.to_data(),
+        );
+    }
+
+    /// TODO: make the responders output Option?
     pub fn respond_all<
         AddResponder: FnMut(AddQuery) -> <AddQuery as UniversalQuery>::ResponseType,
         TimeResponder: FnMut(TimeQuery) -> <TimeQuery as UniversalQuery>::ResponseType,
@@ -399,17 +397,18 @@ impl MyQueryResponder {
         mut time_responder: TimeResponder,
     ) {
         for (query_instance_id, query_enum) in self.try_get_queries() {
-            println!("query instance id: {}", query_instance_id);
-            std::io::stdout().flush().unwrap();
-
             match query_enum {
                 MySupportedQuery::AddQuery(add_query) => {
-                    self.send_response(query_instance_id, add_responder(add_query));
+                    self.send_response_packet(query_instance_id, add_responder(add_query));
                 }
                 MySupportedQuery::TimeQuery(time_query) => {
-                    self.send_response(query_instance_id, time_responder(time_query));
+                    self.send_response_packet(query_instance_id, time_responder(time_query));
                 }
-                MySupportedQuery::__UnsupportedQuery => {}
+                MySupportedQuery::__UnsupportedQuery => self.send_response_bytes(
+                    query_instance_id,
+                    UNKNOWN_RESPONSE_TYPE_ID_BYTES,
+                    Vec::new(),
+                ),
             }
         }
     }
@@ -539,18 +538,18 @@ fn test() {
             lhs: 1200.,
             rhs: 34.,
         }));
-        // dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
-        // dbg!(querier.query(TimeQuery));
-        // dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
-        // dbg!(querier.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
-        // dbg!(querier.query(SecretQuery0("Hello".to_string())));
-        // dbg!(querier.query(TimeQuery));
-        // dbg!(querier.query(TimeQuery));
-        // dbg!(querier.query(SecretQuery0("Goodmorning".to_string())));
-        // dbg!(querier.query(SecretQuery1));
-        // dbg!(querier.query(TimeQuery));
-        // dbg!(querier.query(TimeQuery));
-        // dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
+        dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
+        dbg!(querier.query(TimeQuery));
+        dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
+        dbg!(querier.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
+        dbg!(querier.query(SecretQuery0("Hello".to_string())));
+        dbg!(querier.query(TimeQuery));
+        dbg!(querier.query(TimeQuery));
+        dbg!(querier.query(SecretQuery0("Goodmorning".to_string())));
+        dbg!(querier.query(SecretQuery1));
+        dbg!(querier.query(TimeQuery));
+        dbg!(querier.query(TimeQuery));
+        dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
         // this is the temporary, jank quitting
         dbg!(querier.query(AddQuery {
             lhs: 666.,
