@@ -2105,6 +2105,7 @@ I got the sandbox to work, so here are next steps:
 - [ ] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
   - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.
 - [ ] Move the stuff in query response sandbox into sap
+- [ ] Change all big endian to little endian
 
 2025/01/16
 
@@ -2129,3 +2130,27 @@ providing the actual parsing, versus just letting them define the parsing stuff 
 I just realized that the server side connection doesn't even need a queue,
 because I only needed queue because client might ask for a specific request.
 I will fix this after committing though.
+
+I think I figured out a way to jank the type system.
+First, use the `type Query` instead of `<Query>`.
+Then, I think I can make helper methods inside of the query responder,
+which I believe will let me avoid problems with unknown size errors I would
+have gotten if I put the helper functions there.
+Additionally, I can make an InnerQueryRespond to prevent the helper functions
+from being overridden and to prevent them from clogging the user's list of usable methods.
+
+The actual calculations that need to be done when sending back a query response, given that we know it is a query:
+
+1. Split `packet data` -> (`query instance id`, `query type id`, `query inner data`)
+2. Try to match `query type id` to an actual `query type`
+   1. In our case, we need to find the `query responder` with this `query type`
+3. Generate `query object` of the correct `query type` from the `query inner data`
+4. Generate the `response object` by asking the correct `query responder`
+5. Generate `response inner data` from `response object`
+6. Generate `response data` by combing `query instance id`, `response type id`, and `response inner data`
+
+I think steps 2-5 should be in the trait helper functions,
+because they require information about the type that I am not sure how to get from `&mut dyn QueryResponder<Query = dyn Any>`.
+
+Uhh, the trait stuff is stricter than I thought.
+You know what, that actually sounds like a problem for future me.

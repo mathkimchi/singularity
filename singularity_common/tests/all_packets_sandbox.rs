@@ -1,10 +1,11 @@
 use singularity_common::sap::{
-    byte_stream::{ByteStream, TryFromData},
+    byte_stream::{ByteStream, ToData, TryFromData},
     packet::{
         IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
         QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
     },
 };
+use std::any::Any;
 use uuid::Uuid;
 
 /// To be used by the client.
@@ -160,70 +161,91 @@ impl<Stream: ByteStream, Event: PacketTrait> UniversalClientStream<Stream, Event
     }
 }
 
-// /// To be used by the server.
-// ///
-// /// Represents connection to one client.
-// ///
-// /// REVIEW: naming, should I name this: `ClientHandler`?
-// ///
-// /// Right now, server and client socket are literally just the same with event and request switched.
-// /// I could abstract to just `UniversalStream<SendPacket, RecvPacket>`,
-// /// but I am preparing for queries and responses.
-// /// TODO: I could still abstract though.
-// ///
-// /// TODO: I have an idea: I don't think the server side actually requires a manual queue storage implementation
-// pub struct UniversalServerStream<Stream: ByteStream, Request: PacketTrait> {
-//     stream: Stream,
+/// To be used by the server.
+///
+/// Represents connection to one client.
+///
+/// REVIEW: naming, should I name this: `ClientHandler`?
+///
+/// Right now, server and client socket are literally just the same with event and request switched.
+/// I could abstract to just `UniversalStream<SendPacket, RecvPacket>`,
+/// but I am preparing for queries and responses.
+/// TODO: I could still abstract though.
+///
+/// TODO: I have an idea: I don't think the server side actually requires a manual queue storage implementation
+pub struct UniversalServerStream<Stream: ByteStream> {
+    stream: Stream,
+}
+impl<Stream: ByteStream> UniversalServerStream<Stream> {
+    pub fn new(stream: Stream) -> Self {
+        Self { stream }
+    }
 
-//     request_queue: Vec<Request>,
-//     // TODO
-//     query_data_queue: Vec<(QueryInstanceId, Vec<u8>)>,
-// }
-// impl<Stream: ByteStream, Request: PacketTrait> UniversalServerStream<Stream, Request> {
-//     pub fn new(stream: Stream) -> Self {
-//         Self {
-//             stream,
-//             request_queue: Vec::new(),
-//             query_data_queue: Vec::new(),
-//         }
-//     }
+    /// Returns: (Packet type, packet data)
+    /// For server recieving, packet type ids should be request and query
+    fn split_packet_type(data: &[u8]) -> (PacketType, &[u8]) {
+        (data[0], &data[1..])
+    }
 
-//     /// Returns: (Packet type, packet data)
-//     /// For server recieving, packet type ids should be request and query
-//     fn split_packet_type(data: &[u8]) -> (PacketType, &[u8]) {
-//         (data[0], &data[1..])
-//     }
+    /// responds to all incoming queries and returns a vec of all incoming requests
+    pub fn handle_incoming(
+        &mut self,
+        query_responders: Vec<&mut dyn QueryResponder<Query = dyn Any>>,
+    ) {
+        {
+            let a: Vec<u8> = Vec::new();
 
-//     fn try_update_queues(&mut self) {
-//         for incoming_data in self.stream.try_iter_bytes() {
-//             let (packet_type, packet_data) = Self::split_packet_type(&data);
-//             match packet_type {
-//                 REQUEST_PACKET_TYPE => {
-//                     if let Some(event) = Event::try_from_data(packet_data) {
-//                         event_queue.push(event);
-//                     } else {
-//                         // event not known
-//                         eprintln!("Warning: Event {:?} could not be parsed", packet_data);
-//                     }
-//                 }
-//                 QUERY_PACKET_TYPE => {
-//                     response_data_queue.push(packet_data.to_vec());
-//                 }
-//                 other => {
-//                     eprintln!("Warning: Client stream recieved a packet type {other} that is not an event or response with data {:?}", packet_data)
-//                 }
-//             }
-//         }
-//     }
+            for query_responder in query_responders {
+                // query_responder
 
-//     /// Nonblocking
-//     pub fn read_requests(&mut self) -> Vec<Request> {
-//         self.try_update_queues();
+                QueryResponder::__respond_data(query_responder, query_data, query_instance_id);
 
-//         std::mem::take(&mut self.request_queue)
-//     }
+                // InnerQueryResponder::__respond_data(&mut self, query_data, query_instance_id)
+                // query_responder.__try_data_to_query();
+            }
+        }
+    }
 
-//     pub fn send_event<Event: PacketTrait>(&mut self, event: Event) {
-//         self.stream.write_bytes(&event.to_data());
-//     }
-// }
+    pub fn send_event<Event: PacketTrait>(&mut self, event: Event) {
+        self.stream.write_bytes(&event.to_data());
+    }
+}
+
+pub trait QueryResponder {
+    type Query: UniversalQuery;
+
+    fn respond(
+        &mut self,
+        query: Self::Query,
+        query_instance_id: QueryInstanceId,
+    ) -> Option<<Self::Query as UniversalQuery>::ResponseType>;
+
+    fn __get_query_type_id() -> IdType {
+        Self::Query::PACKET_TYPE_ID
+    }
+
+    fn __generate_respond_data(
+        &mut self,
+        query_data: &[u8],
+        query_instance_id: QueryInstanceId,
+    ) -> Option<Vec<u8>> {
+        let response_object: <Self::Query as UniversalQuery>::ResponseType =
+            self.respond(Self::Query::try_from_data(query_data)?, query_instance_id)?;
+
+        Some(
+            [
+                query_instance_id.to_bytes_le().as_slice(),
+                <Self::Query as UniversalQuery>::ResponseType::PACKET_TYPE_ID
+                    .to_be_bytes()
+                    .as_slice(),
+                response_object.to_data().as_slice(),
+            ]
+            .concat(),
+        )
+    }
+}
+/// I am doing some very questionable type gymnastics,
+/// but hopefully, it will work.
+trait InnerQueryResponder: QueryResponder {}
+// impl<R: QueryResponder> InnerQueryResponder for R {}
+// impl InnerQueryResponder for dyn QueryResponder<Query = dyn UniversalQuery> {}
