@@ -2110,3 +2110,22 @@ I got the sandbox to work, so here are next steps:
 
 It turns out query_response_sandbox sometimes non-deterministically fails,
 but I feel like it will be fine.
+
+2025/01/17
+
+I have an abstraction idea that might be really bad,
+so I won't implement it, but I wanted to write it down
+for the sake of ...whatever.
+
+I think I can further abstract event and response by just having
+a general packet thing.
+
+I think I am going slightly mad right now.
+The difference is between defining a basic structure for packets and
+providing the actual parsing, versus just letting them define the parsing stuff themselves.
+
+...
+
+I just realized that the server side connection doesn't even need a queue,
+because I only needed queue because client might ask for a specific request.
+I will fix this after committing though.

@@ -1,6 +1,7 @@
+use super::byte_stream::Datable;
 use uuid::Uuid;
 
-use super::byte_stream::Datable;
+pub type IdType = u64;
 
 pub type PacketType = u8;
 pub const EVENT_PACKET_TYPE: PacketType = 0;
@@ -13,11 +14,13 @@ pub type QueryInstanceId = Uuid;
 pub const UNKNOWN_RESPONSE_TYPE_ID: IdType = 404;
 pub const UNKNOWN_RESPONSE_TYPE_ID_BYTES: [u8; 8] = UNKNOWN_RESPONSE_TYPE_ID.to_be_bytes();
 
-pub type IdType = u64;
-
 /// Like a more specific version of serde's serialize and deserialize
 pub trait PacketTrait: Datable {
     const PACKET_TYPE_ID: IdType;
+}
+
+pub trait UniversalQuery: PacketTrait {
+    type ResponseType: PacketTrait;
 }
 
 /// returns the id (from the beginning) and the rest of the data
@@ -32,48 +35,6 @@ pub fn join_id(id: IdType, inner_data: &[u8]) -> Vec<u8> {
     let id_bytes: &[u8] = &id.to_be_bytes();
 
     [id_bytes, inner_data].concat()
-}
-
-/// NOTE: The subevents are actually both idents and types.
-/// Idents can be types, but types can't be idents (easily),
-/// which is why I told the macro subevents are idents.
-#[deprecated = "use PacketUnion from singularity_macros instead"]
-#[macro_export]
-macro_rules! packet_union {
-    // ($($v:vis)? $new_name:ident => [$($subevent:ty),*]) => {
-    //     enum $new_name {}
-    // };
-
-    // I guess vis is special, so no need for the optional with ?
-    ($v:vis $new_name:ident => [$($subevent:ident),*], $event_id:expr) => {
-        $v enum $new_name {
-            $($subevent($subevent),)*
-        }
-
-        impl $crate::sap::byte_stream::ToData for $new_name {
-            fn to_data(&self) -> Vec<u8> {
-                let (id, data) = match self {
-                    $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
-                };
-
-                $crate::sap::packet::join_id(id, &data)
-            }
-        }
-
-        impl $crate::sap::byte_stream::TryFromData for $new_name {
-            fn try_from_data(data: &[u8]) -> Option<Self> {
-                let (id, data) = $crate::sap::packet::split_id(data);
-                match id {
-                    $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
-                    _ => None,
-                }
-            }
-        }
-
-        impl $crate::sap::packet::PacketTrait for $new_name {
-            const PACKET_TYPE_ID: IdType = $event_id;
-        }
-    };
 }
 
 pub mod universal_client_stream {
