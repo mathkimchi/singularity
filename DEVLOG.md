@@ -2216,3 +2216,12 @@ but I will consider fixing it by having yet another trait, if that is possible.
 ...
 
 I couldn't do that easily, so I just made it public with a sign that asked the user not to override it.
+
+2025/01/19
+
+Holy guacamole, I might be the GOAT of all time of all time.
+
+First time running, and no errors!
+
+Put in that meme of kronk going "Yeah, its all coming together"
+because it all really did just come together.
