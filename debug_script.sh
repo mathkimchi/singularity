@@ -8,4 +8,5 @@
 # cd singularity_standard_tabs ; cargo expand --test demo
 # cd singularity_common ; cargo expand tab::packets # -Z macro-backtrace
 # RUST_BACKTRACE=full cargo test --package singularity_common --test sap_connection_test -- sap_connection_test --exact --show-output
-RUST_BACKTRACE=full cargo test --package singularity_common --test query_response_sandbox -- test --exact --show-output --nocapture
+# RUST_BACKTRACE=full cargo test --package singularity_common --test query_response_sandbox -- test --exact --show-output --nocapture
+RUST_BACKTRACE=full cargo test --package singularity_common --test all_packets_sandbox -- test --exact --show-output --nocapture

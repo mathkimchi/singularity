@@ -188,17 +188,16 @@ impl<Stream: ByteStream> UniversalServerStream<Stream> {
     }
 
     /// responds to all incoming queries and returns a vec of all incoming requests
-    pub fn handle_incoming(
-        &mut self,
-        query_responders: Vec<&mut dyn QueryResponder<Query = dyn Any>>,
-    ) {
+    pub fn handle_incoming(&mut self, query_responders: Vec<&mut dyn InnerQueryResponder>) {
         {
-            let a: Vec<u8> = Vec::new();
+            // let a: Vec<u8> = Vec::new();
 
             for query_responder in query_responders {
                 // query_responder
 
-                QueryResponder::__respond_data(query_responder, query_data, query_instance_id);
+                // QueryResponder::__respond_data(query_responder, todo!(), todo!());
+
+                query_responder.__get_query_type_id();
 
                 // InnerQueryResponder::__respond_data(&mut self, query_data, query_instance_id)
                 // query_responder.__try_data_to_query();
@@ -220,8 +219,26 @@ pub trait QueryResponder {
         query_instance_id: QueryInstanceId,
     ) -> Option<<Self::Query as UniversalQuery>::ResponseType>;
 
-    fn __get_query_type_id() -> IdType {
-        Self::Query::PACKET_TYPE_ID
+    // fn __generate_respond_data(
+    //     &mut self,
+    //     query_data: &[u8],
+    //     query_instance_id: QueryInstanceId,
+    // ) -> Option<Vec<u8>> {
+    // }
+}
+/// I am doing some very questionable type gymnastics,
+/// but hopefully, it will work.
+trait InnerQueryResponder {
+    fn __get_query_type_id(&self) -> IdType;
+    fn __generate_respond_data(
+        &mut self,
+        query_data: &[u8],
+        query_instance_id: QueryInstanceId,
+    ) -> Option<Vec<u8>>;
+}
+impl<R: QueryResponder> InnerQueryResponder for R {
+    fn __get_query_type_id(&self) -> IdType {
+        R::Query::PACKET_TYPE_ID
     }
 
     fn __generate_respond_data(
@@ -229,13 +246,13 @@ pub trait QueryResponder {
         query_data: &[u8],
         query_instance_id: QueryInstanceId,
     ) -> Option<Vec<u8>> {
-        let response_object: <Self::Query as UniversalQuery>::ResponseType =
-            self.respond(Self::Query::try_from_data(query_data)?, query_instance_id)?;
+        let response_object: <R::Query as UniversalQuery>::ResponseType =
+            self.respond(R::Query::try_from_data(query_data)?, query_instance_id)?;
 
         Some(
             [
                 query_instance_id.to_bytes_le().as_slice(),
-                <Self::Query as UniversalQuery>::ResponseType::PACKET_TYPE_ID
+                <R::Query as UniversalQuery>::ResponseType::PACKET_TYPE_ID
                     .to_be_bytes()
                     .as_slice(),
                 response_object.to_data().as_slice(),
@@ -244,8 +261,4 @@ pub trait QueryResponder {
         )
     }
 }
-/// I am doing some very questionable type gymnastics,
-/// but hopefully, it will work.
-trait InnerQueryResponder: QueryResponder {}
-// impl<R: QueryResponder> InnerQueryResponder for R {}
 // impl InnerQueryResponder for dyn QueryResponder<Query = dyn UniversalQuery> {}

@@ -2154,3 +2154,51 @@ because they require information about the type that I am not sure how to get fr
 
 Uhh, the trait stuff is stricter than I thought.
 You know what, that actually sounds like a problem for future me.
+
+---
+
+2025/01/18
+
+Gosh, I wish I could take credit for this, but I asked chat gpt to help me debug or brainstorm a new way,
+and it actually thought of a good solution.
+It is like learning that CRANE (technically SALET, whatever) is the best worlde starter;
+you don't want to use it because it is not your solution, but you kind of have to because it is the best.
+The important section is this:
+
+```rust
+pub trait TypeErasedResponder {
+    fn respond_erased(&mut self, query_data: &[u8], query_instance_id: QueryInstanceId) -> Option<Vec<u8>>;
+    fn get_query_type_id(&self) -> IdType;
+}
+
+impl<Q, R, T> TypeErasedResponder for T
+where
+    T: QueryResponder<Query = Q>,
+    Q: UniversalQuery<ResponseType = R> + TryFromData + 'static,
+    R: PacketTrait + 'static,
+{
+    ...
+}
+```
+
+and I swear I only looked at the type hinting part of its code, because I don't want to just use generative AI
+for singularity.
+I just used it to get an idea and I will write the code myself.
+
+But dang, I really don't know how to feel about all this AI stuff.
+Like, I saw a video about a writer who was replaced by AI, and now I am just wondering if that is going to happen to me.
+That, in addition to the oversaturation of CS people in general is quite frightening.
+
+At least I can look at the current state of Devin and know that AI won't outperform humans yet,
+but it will only grow smarter.
+
+I'm not sure how the ethics of all this works either, because I suspect that Chat GPT was trained on lots of data
+without permission, and I kind of feel like I am stealing from those people, but my current position on the matter
+is that consulting Chat GPT is somewhere between a rubber duck on steroids and just looking at someone else's code.
+I believe that pretending like generated code is someone else's code is a pretty safe view (less likely to be
+intellectual theft), so I will just ask it for ideas and help debugging.
+
+To my credit, I was already trying to do something similar to this in the `InnerQueryResponder`.
+The big difference is that I just had to take in the argument of type `Vec<&mut dyn InnerQueryResponder>` to begin with.
+I actually feel like I could have thought of this if I gave myself a few more days,
+but I didn't and I was able to save those hours so I can make more progress, so I can't complain.
