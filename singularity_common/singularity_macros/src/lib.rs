@@ -299,7 +299,7 @@ pub fn datable_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
     let identitifier = ast.ident;
-    let struct_items = match ast.data {
+    let _struct_items = match ast.data {
         syn::Data::Struct(struct_data) => struct_data,
         _ => panic!(),
     };

@@ -6,7 +6,12 @@ use std::process::Command;
 
 #[test]
 fn print_runner_directory() {
-    Command::new("ls").arg("-a").spawn().unwrap();
+    Command::new("ls")
+        .arg("-a")
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
 }
 
 #[test]

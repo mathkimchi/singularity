@@ -338,7 +338,7 @@ mod derive_macro_impls {
                 {
                     struct FieldVisitor;
 
-                    impl<'de> serde::de::Visitor<'de> for FieldVisitor {
+                    impl serde::de::Visitor<'_> for FieldVisitor {
                         type Value = Field;
 
                         fn expecting(
@@ -455,7 +455,7 @@ mod derive_macro_impls {
             #[doc(hidden)]
             struct __FieldVisitor;
 
-            impl<'de> serde::de::Visitor<'de> for __FieldVisitor {
+            impl serde::de::Visitor<'_> for __FieldVisitor {
                 type Value = __Field;
                 fn expecting(
                     &self,

@@ -75,7 +75,7 @@ mod id_derive_impls {
                 phantom_data: PhantomData<Item>,
             }
 
-            impl<'de, Item> serde::de::Visitor<'de> for IdVisitor<Item> {
+            impl<Item> serde::de::Visitor<'_> for IdVisitor<Item> {
                 type Value = Id<Item>;
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     write!(formatter, "a UUID string")

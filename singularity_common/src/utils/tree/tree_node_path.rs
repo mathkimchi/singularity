@@ -247,7 +247,7 @@ pub struct DfsPathsIterator<'a, T: 'a + TraversableTree> {
     tree_to_traverse: &'a T,
     next_path: Option<TreeNodePath>,
 }
-impl<'a, T: TraversableTree> Iterator for DfsPathsIterator<'a, T> {
+impl<T: TraversableTree> Iterator for DfsPathsIterator<'_, T> {
     type Item = TreeNodePath;
 
     /// # Explanation of finding the next path non-recursively:
