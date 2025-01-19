@@ -197,10 +197,10 @@ impl<Stream: ByteStream> UniversalServerStream<Stream> {
     /// Returns (query instance id, query id type, query inner data)
     fn split_query_data(query_packet_data: &[u8]) -> (QueryInstanceId, IdType, &[u8]) {
         let query_instance_id =
-            QueryInstanceId::from_bytes_le(query_packet_data[0..(16)].try_into().unwrap());
+            QueryInstanceId::from_bytes_le(query_packet_data[0..16].try_into().unwrap());
 
         let query_type_id = IdType::from_be_bytes(
-            query_packet_data[(16)..(16 + (IdType::BITS as usize) / 8)]
+            query_packet_data[16..(16 + (IdType::BITS as usize) / 8)]
                 .try_into()
                 .unwrap(),
         );
@@ -213,7 +213,7 @@ impl<Stream: ByteStream> UniversalServerStream<Stream> {
     /// responds to all incoming queries and returns a vec of all incoming requests
     pub fn handle_incoming<Request: PacketTrait>(
         &mut self,
-        query_responders: &mut Vec<&mut dyn InnerQueryResponder>,
+        query_responders: &mut Vec<&mut dyn QueryDataResponder>,
     ) -> Vec<Request> {
         let mut requests = Vec::new();
 
@@ -280,9 +280,9 @@ pub trait QueryResponder {
         query_instance_id: QueryInstanceId,
     ) -> Option<<Self::Query as UniversalQuery>::ResponseType>;
 }
-/// I am doing some very questionable type gymnastics,
-/// but hopefully, it will work.
-trait InnerQueryResponder {
+/// NOTE: don't override this
+/// TODO: make this somehow public but not overridable
+pub trait QueryDataResponder {
     fn __get_query_type_id(&self) -> IdType;
     fn __generate_response_packet_data(
         &mut self,
@@ -290,7 +290,7 @@ trait InnerQueryResponder {
         query_instance_id: QueryInstanceId,
     ) -> Option<Vec<u8>>;
 }
-impl<R: QueryResponder> InnerQueryResponder for R {
+impl<R: QueryResponder> QueryDataResponder for R {
     fn __get_query_type_id(&self) -> IdType {
         R::Query::PACKET_TYPE_ID
     }

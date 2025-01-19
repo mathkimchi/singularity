@@ -2212,3 +2212,7 @@ I am getting an annoying clippy warning about `InnerQueryResponder` being more p
 than the `handle_incoming` function,
 and I still want to keep it private to prevent tampering,
 but I will consider fixing it by having yet another trait, if that is possible.
+
+...
+
+I couldn't do that easily, so I just made it public with a sign that asked the user not to override it.
