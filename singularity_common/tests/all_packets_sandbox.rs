@@ -4,6 +4,7 @@
 use std::{
     marker::PhantomData,
     os::unix::net::UnixStream,
+    process::Command,
     thread,
     time::{self, Duration},
 };
@@ -674,6 +675,7 @@ pub mod testing_packets {
 use testing_packets::*;
 
 /// NOTE: This should be ran before the client side test
+#[test]
 fn test_server_side() {
     let server = UnixServerHost::bind_new().unwrap();
     println!("server side: server created");
@@ -726,6 +728,7 @@ fn test_server_side() {
     }
 }
 
+#[test]
 fn test_client_side() {
     println!("Hello from client test");
 
@@ -776,4 +779,41 @@ fn test_same_process() {
 
     server_handle.join().unwrap();
     client_handle.join().unwrap();
+}
+
+#[test]
+fn test_multi_process() {
+    let server_handle = Command::new("cargo")
+        .args([
+            "test",
+            "--package",
+            "singularity_common",
+            "--test",
+            "all_packets_sandbox",
+            "--",
+            "test_server_side",
+            "--exact",
+            "--show-output",
+            "--nocapture",
+        ])
+        .spawn()
+        .unwrap();
+    let client_handle = Command::new("cargo")
+        .args([
+            "test",
+            "--package",
+            "singularity_common",
+            "--test",
+            "all_packets_sandbox",
+            "--",
+            "test_client_side",
+            "--exact",
+            "--show-output",
+            "--nocapture",
+        ])
+        .spawn()
+        .unwrap();
+
+    dbg!(server_handle.wait_with_output().unwrap());
+    dbg!(client_handle.wait_with_output().unwrap());
 }
