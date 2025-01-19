@@ -2202,3 +2202,13 @@ To my credit, I was already trying to do something similar to this in the `Inner
 The big difference is that I just had to take in the argument of type `Vec<&mut dyn InnerQueryResponder>` to begin with.
 I actually feel like I could have thought of this if I gave myself a few more days,
 but I didn't and I was able to save those hours so I can make more progress, so I can't complain.
+
+...
+
+I will actually implement the rest of the logic for `handle_incoming` now.
+
+TODO:
+I am getting an annoying clippy warning about `InnerQueryResponder` being more private
+than the `handle_incoming` function,
+and I still want to keep it private to prevent tampering,
+but I will consider fixing it by having yet another trait, if that is possible.

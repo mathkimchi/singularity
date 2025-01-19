@@ -23,9 +23,21 @@ pub trait ByteReader {
     /// Blocks the thread until the first object is sent
     fn wait_read_bytes(&mut self) -> Vec<u8>;
 
+    /// Look at [`std::sync::mpsc::Receiver::try_iter`]
     fn try_iter_bytes(&mut self) -> TryIter<Self>
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        TryIter { reader: self }
+    }
+
+    /// Maybe not the most performant, but whatever
+    fn collect_try_iter_bytes(&mut self) -> Vec<Vec<u8>>
+    where
+        Self: Sized,
+    {
+        self.try_iter_bytes().collect()
+    }
 }
 impl ByteReader for UnixStream {
     /// Returns [`None`] if the socket was timed out,
@@ -85,14 +97,6 @@ impl ByteReader for UnixStream {
             .expect("failed to read message");
 
         raw_message_buffer
-    }
-
-    /// Look at [`std::sync::mpsc::Receiver::try_iter`]
-    fn try_iter_bytes(&mut self) -> TryIter<Self>
-    where
-        Self: Sized,
-    {
-        TryIter { reader: self }
     }
 }
 

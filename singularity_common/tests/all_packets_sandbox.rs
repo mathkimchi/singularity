@@ -1,11 +1,14 @@
+//! NOTE: this whole bytes thing is a naming nightmare,
+//! especially since everything is just bytes, so the types are all the same
+
 use singularity_common::sap::{
     byte_stream::{ByteStream, ToData, TryFromData},
     packet::{
         IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
         QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
+        UNKNOWN_RESPONSE_TYPE_ID_BYTES,
     },
 };
-use std::any::Any;
 use uuid::Uuid;
 
 /// To be used by the client.
@@ -183,26 +186,84 @@ impl<Stream: ByteStream> UniversalServerStream<Stream> {
 
     /// Returns: (Packet type, packet data)
     /// For server recieving, packet type ids should be request and query
+    ///
+    /// REVIEW: this function is also in the universal_client_stream
+    ///
+    /// REVIEW: make packet type an enum?
     fn split_packet_type(data: &[u8]) -> (PacketType, &[u8]) {
         (data[0], &data[1..])
     }
 
+    /// Returns (query instance id, query id type, query inner data)
+    fn split_query_data(query_packet_data: &[u8]) -> (QueryInstanceId, IdType, &[u8]) {
+        let query_instance_id =
+            QueryInstanceId::from_bytes_le(query_packet_data[0..(16)].try_into().unwrap());
+
+        let query_type_id = IdType::from_be_bytes(
+            query_packet_data[(16)..(16 + (IdType::BITS as usize) / 8)]
+                .try_into()
+                .unwrap(),
+        );
+
+        let query_inner_data = &query_packet_data[(16 + (IdType::BITS as usize) / 8)..];
+
+        (query_instance_id, query_type_id, query_inner_data)
+    }
+
     /// responds to all incoming queries and returns a vec of all incoming requests
-    pub fn handle_incoming(&mut self, query_responders: Vec<&mut dyn InnerQueryResponder>) {
-        {
-            // let a: Vec<u8> = Vec::new();
+    pub fn handle_incoming<Request: PacketTrait>(
+        &mut self,
+        query_responders: &mut Vec<&mut dyn InnerQueryResponder>,
+    ) -> Vec<Request> {
+        let mut requests = Vec::new();
 
-            for query_responder in query_responders {
-                // query_responder
+        for incoming_data in self.stream.collect_try_iter_bytes() {
+            let (packet_type, packet_data) = Self::split_packet_type(&incoming_data);
 
-                // QueryResponder::__respond_data(query_responder, todo!(), todo!());
+            match packet_type {
+                REQUEST_PACKET_TYPE => {
+                    if let Some(request) = Request::try_from_data(packet_data) {
+                        requests.push(request);
+                    } else {
+                        // request not known
+                        eprintln!("Warning: Request {:?} could not be parsed", packet_data);
+                    }
+                }
+                QUERY_PACKET_TYPE => {
+                    let (query_instance_id, query_id_type, query_inner_data) =
+                        Self::split_query_data(packet_data);
 
-                query_responder.__get_query_type_id();
+                    let response_packet_data = query_responders.iter_mut().find_map(|query_responder| {
+                        if query_id_type != query_responder.__get_query_type_id() {
+                            return None;
+                        }
 
-                // InnerQueryResponder::__respond_data(&mut self, query_data, query_instance_id)
-                // query_responder.__try_data_to_query();
+                        query_responder
+                            .__generate_response_packet_data(query_inner_data, query_instance_id)
+                    }).unwrap_or_else(|| {
+                        eprintln!("Warning: Query of packet data: `{:?}` could not be parsed or responded to", packet_data);
+
+                        /// TODO: duplicate in `____generate_response_packet_data`
+                        const RESPONSE_PACKET_TYPE_BYTES: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
+
+                        [
+                            RESPONSE_PACKET_TYPE_BYTES.as_slice(),
+                            query_instance_id.to_bytes_le().as_slice(),
+                            UNKNOWN_RESPONSE_TYPE_ID_BYTES.as_slice(),
+                            &[],
+                        ]
+                        .concat()
+                    });
+
+                    self.stream.write_bytes(&response_packet_data);
+                }
+                _ => {
+                    eprintln!("Warning: Server stream recieved a packet type {packet_type} that is not a request or query with data {:?}", packet_data)
+                }
             }
         }
+
+        requests
     }
 
     pub fn send_event<Event: PacketTrait>(&mut self, event: Event) {
@@ -218,19 +279,12 @@ pub trait QueryResponder {
         query: Self::Query,
         query_instance_id: QueryInstanceId,
     ) -> Option<<Self::Query as UniversalQuery>::ResponseType>;
-
-    // fn __generate_respond_data(
-    //     &mut self,
-    //     query_data: &[u8],
-    //     query_instance_id: QueryInstanceId,
-    // ) -> Option<Vec<u8>> {
-    // }
 }
 /// I am doing some very questionable type gymnastics,
 /// but hopefully, it will work.
 trait InnerQueryResponder {
     fn __get_query_type_id(&self) -> IdType;
-    fn __generate_respond_data(
+    fn __generate_response_packet_data(
         &mut self,
         query_data: &[u8],
         query_instance_id: QueryInstanceId,
@@ -241,7 +295,7 @@ impl<R: QueryResponder> InnerQueryResponder for R {
         R::Query::PACKET_TYPE_ID
     }
 
-    fn __generate_respond_data(
+    fn __generate_response_packet_data(
         &mut self,
         query_data: &[u8],
         query_instance_id: QueryInstanceId,
@@ -249,8 +303,11 @@ impl<R: QueryResponder> InnerQueryResponder for R {
         let response_object: <R::Query as UniversalQuery>::ResponseType =
             self.respond(R::Query::try_from_data(query_data)?, query_instance_id)?;
 
+        const RESPONSE_PACKET_TYPE_BYTES: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
+
         Some(
             [
+                RESPONSE_PACKET_TYPE_BYTES.as_slice(),
                 query_instance_id.to_bytes_le().as_slice(),
                 <R::Query as UniversalQuery>::ResponseType::PACKET_TYPE_ID
                     .to_be_bytes()
@@ -261,4 +318,3 @@ impl<R: QueryResponder> InnerQueryResponder for R {
         )
     }
 }
-// impl InnerQueryResponder for dyn QueryResponder<Query = dyn UniversalQuery> {}
