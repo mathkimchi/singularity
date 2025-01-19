@@ -9,7 +9,7 @@ use std::{
 };
 
 use add_query::{AddQuery, AddResponse};
-use events::MyEvent;
+use events::{CopiedEvent, MyEvent};
 use secret_query::{SecretQuery0, SecretQuery1};
 use singularity_common::{
     sap::{
@@ -115,6 +115,17 @@ impl<Stream: ByteStream, Event: PacketTrait> UniversalClientStream<Stream, Event
         let inner_data = &response_bytes[(16 + (IdType::BITS as usize) / 8)..];
 
         (query_instance_id, response_type_id, inner_data)
+    }
+
+    pub fn send_request<R: PacketTrait>(&mut self, request: R) {
+        let request_bytes = {
+            const REQUEST_PACKET_TYPE_DATA: [u8; 1] = REQUEST_PACKET_TYPE.to_be_bytes();
+            let request_data = &request.to_data();
+
+            [&REQUEST_PACKET_TYPE_DATA[..], request_data].concat()
+        };
+
+        self.stream.write_bytes(&request_bytes);
     }
 
     pub fn query<Q: UniversalQuery>(&mut self, query: Q) -> Option<Q::ResponseType> {
@@ -354,6 +365,8 @@ pub fn as_query_data_responder<Q: UniversalQuery, F: FnMut(Q) -> Option<Q::Respo
 }
 
 pub mod testing_packets {
+    use singularity_macros::PacketUnion;
+
     use super::*;
     pub mod add_query {
         use singularity_common::sap::byte_stream::ToData;
@@ -546,7 +559,7 @@ pub mod testing_packets {
 
     #[derive(Debug)]
     pub struct PrintRequest {
-        msg: String,
+        pub msg: String,
     }
     impl ToData for PrintRequest {
         fn to_data(&self) -> Vec<u8> {
@@ -562,6 +575,28 @@ pub mod testing_packets {
     }
     impl PacketTrait for PrintRequest {
         const PACKET_TYPE_ID: u64 = 78543290324;
+    }
+
+    #[derive(Debug)]
+    pub struct QuitRequest;
+    impl ToData for QuitRequest {
+        fn to_data(&self) -> Vec<u8> {
+            Vec::new()
+        }
+    }
+    impl TryFromData for QuitRequest {
+        fn try_from_data(_: &[u8]) -> Option<Self> {
+            Some(Self)
+        }
+    }
+    impl PacketTrait for QuitRequest {
+        const PACKET_TYPE_ID: u64 = 751529872348;
+    }
+
+    #[derive(Debug, PacketUnion)]
+    pub enum MyRequest {
+        PrintRequest(PrintRequest),
+        QuitRequest(QuitRequest),
     }
 
     pub mod events {
@@ -639,9 +674,6 @@ pub mod testing_packets {
 use testing_packets::*;
 
 /// NOTE: This should be ran before the client side test
-///
-/// FIXME: this and client side test will ruin a total test, if I ever did one. Make this like a main runner, not a test
-#[test]
 fn test_server_side() {
     let server = UnixServerHost::bind_new().unwrap();
     println!("server side: server created");
@@ -657,17 +689,16 @@ fn test_server_side() {
     let mut num_time_queries = 0;
     let mut to_continue = true;
 
+    universal_server_stream.send_event(MyEvent::ClipboardEvent(
+        events::ClipboardEvent::CopiedEvent(CopiedEvent),
+    ));
+
     while to_continue {
         // println!("Started a loop of respond all.");
         // std::io::stdout().flush().unwrap();
 
-        let requests: Vec<PrintRequest> = universal_server_stream.handle_incoming(&mut vec![
-            &mut as_query_data_responder(|AddQuery { lhs, rhs }| {
-                if lhs == 666.0 && rhs == 666.0 {
-                    to_continue = false;
-                }
-                Some(AddResponse(lhs + rhs))
-            }),
+        let requests: Vec<MyRequest> = universal_server_stream.handle_incoming(&mut vec![
+            &mut as_query_data_responder(|AddQuery { lhs, rhs }| Some(AddResponse(lhs + rhs))),
             &mut as_query_data_responder(|TimeQuery| {
                 num_time_queries += 1;
                 Some(TimeResponse(format!(
@@ -681,12 +712,20 @@ fn test_server_side() {
 
         println!("Requests: {:?}", requests);
 
+        for request in requests {
+            match request {
+                MyRequest::PrintRequest(print_request) => {
+                    println!("Got print request: {}", print_request.msg)
+                }
+                MyRequest::QuitRequest(QuitRequest) => to_continue = false,
+            }
+        }
+
         // thread::sleep(Duration::from_secs(1));
         thread::sleep(Duration::from_nanos(1));
     }
 }
 
-#[test]
 fn test_client_side() {
     println!("Hello from client test");
 
@@ -695,29 +734,36 @@ fn test_client_side() {
 
     thread::sleep(Duration::from_nanos(1));
 
-    let mut querier: UniversalClientStream<UnixStream, MyEvent> =
+    let mut client_stream: UniversalClientStream<UnixStream, MyEvent> =
         UniversalClientStream::new(client_side_conn);
-    dbg!(querier.query(AddQuery {
+
+    dbg!(client_stream.try_read_events());
+
+    dbg!(client_stream.query(AddQuery {
         lhs: 1200.,
         rhs: 34.,
     }));
-    dbg!(querier.query(AddQuery { lhs: 10., rhs: 10. }));
-    dbg!(querier.query(TimeQuery));
-    dbg!(querier.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
-    dbg!(querier.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
-    dbg!(querier.query(SecretQuery0("Hello".to_string())));
-    dbg!(querier.query(TimeQuery));
-    dbg!(querier.query(TimeQuery));
-    dbg!(querier.query(SecretQuery0("Goodmorning".to_string())));
-    dbg!(querier.query(SecretQuery1));
-    dbg!(querier.query(TimeQuery));
-    dbg!(querier.query(TimeQuery));
-    dbg!(querier.query(AddQuery { lhs: 1., rhs: -1. }));
-    // this is the temporary, jank quitting
-    dbg!(querier.query(AddQuery {
-        lhs: 666.,
-        rhs: 666.
-    }));
+    dbg!(client_stream.query(AddQuery { lhs: 10., rhs: 10. }));
+    dbg!(client_stream.query(TimeQuery));
+    dbg!(client_stream.query(AddQuery { lhs: 1.0, rhs: 2.0 }));
+    dbg!(client_stream.query(AddQuery { lhs: 2.0, rhs: 2.0 }));
+    dbg!(client_stream.query(SecretQuery0("Hello".to_string())));
+    dbg!(client_stream.query(TimeQuery));
+    dbg!(client_stream.query(TimeQuery));
+    dbg!(client_stream.query(SecretQuery0("Goodmorning".to_string())));
+    dbg!(client_stream.query(SecretQuery1));
+    dbg!(
+        client_stream.send_request(MyRequest::PrintRequest(PrintRequest {
+            msg: "Request to print".to_string(),
+        }))
+    );
+    dbg!(client_stream.query(TimeQuery));
+    dbg!(client_stream.query(TimeQuery));
+    dbg!(client_stream.query(AddQuery { lhs: 1., rhs: -1. }));
+
+    dbg!(client_stream.try_read_events());
+
+    client_stream.send_request(MyRequest::QuitRequest(QuitRequest));
 }
 
 /// Tests both sides on one process, two different thread
