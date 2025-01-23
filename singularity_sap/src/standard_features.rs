@@ -1,11 +1,11 @@
 //! REVIEW: Move
 
 pub mod display {
-    use crate::sap::universal_packet::PacketConverter;
-    use serde::{Deserialize, Serialize};
     use singularity_ui::display_units::DisplayArea;
 
-    #[derive(Serialize, Deserialize)]
+    pub struct ResizeEvent(DisplayArea);
+
+    #[derive(Debug)]
     pub enum DisplayEvent {
         // UIEvent(UIEvent),
         Resize(DisplayArea),

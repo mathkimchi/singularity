@@ -1,11 +1,13 @@
 [workspace]
 members = [
+    "singularity_ui",
+    "singularity_sap",
+
     "singularity_common",
     "singularity_common/singularity_macros",
-    "singularity_manager",
+    "singularity_sporg",
+    "singularity_sde",
     "singularity_standard_tabs",
-    "singularity_ui",
-    "usock_demo",
 ]
 resolver = "2"
 

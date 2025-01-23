@@ -2101,10 +2101,10 @@ I had to add `--nocapture` to debug why it doesn't even end.
 I got the sandbox to work, so here are next steps:
 
 - [x] Move unix domain socket helpers to `singularity_common`
-- [ ] Abstraction for bytes unwrapping/splitting
-- [ ] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
+- [x] Abstraction for bytes unwrapping/splitting
+- [x] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
   - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.
-- [ ] Move the stuff in query response sandbox into sap
+- [x] Move the stuff in query response sandbox into sap
 - [ ] Change all big endian to little endian
 
 2025/01/16
@@ -2244,3 +2244,94 @@ I will commit then move it to the actual libraries.
 ...
 
 The little warnings were driving me crazy, so I got rid of them.
+
+---
+
+2025/01/19
+
+There are still things to improve with `sap`, but I think I can start incorporating it
+into singularity now.
+
+I think I should give a high level overview of the sub-projects for singularity:
+
+- Singularity Application Protocol (SAP)
+  - It describes a way to send extensible packets between any sap supporting server and a sap supporting client
+  - Sap is like the wayland protocol, the sap server would be your desktop environment, and the client would be any wayland app
+  - For now, each SAP connection corresponds to exactly one window
+- Singularity Project Manager
+  - A way of organizing projects so that projects can talk to each other
+  - This will be used by the singularity tab manager
+  - Primary purpose is to neatly organize how persistent data related to singularity is stored
+- Singularity Tab Manager
+  - Possible name: Stabor (singularity tab organizer)
+  - This is the official SAP server, the only one that I will be working on (probably)
+  - Its job is to manage and provide tools for sap clients (tabs)
+    - Handle compositing and UI
+    - Relay communication between tabs
+    - Organize tabs
+- Tabs
+  - Each tab is a SAP client
+  - Example Tabs:
+    - Chro
+      - The time manager
+      - I might make this a seperate thing, and have it support terminal or SAP Gui
+    - Terminal (Sterm ?)
+      - (realistically, once I have terminal, I unlock most apps I need)
+
+I will start deprecating the old methods of communication and integrating sap into the singularity tab manager now.
+
+As expected, there is a lot of things I need to rethink.
+
+2025/01/23
+
+Okay, I didn't commit like I planned, and you can tell from the log dates that its been a few days.
+
+Well, I guess I will think of everything before committing since I am late anyways.
+
+I will split all my modules into these crates:
+
+- Singularity Common/Utils
+  - Datastructures and stuff that are used by many things
+- Singularity Macros
+  - Should be in `singularity_common`; this would ideally just be a module in common but proc macros currently need their own crates
+- Singularity UI
+  - Abstracts all the Backend specific stuff to provide the bare minimum UI support
+  - Currently just supports wayland
+  - No change needed
+- Singularity Project Organizer
+  - (SPORG?)
+  - Not sure about this name
+  - Used to be in `singularity_common`
+- Singularity SAP
+  - Yes, the name is redundant, whatever
+  - Used to be in `singularity_common`
+- Singularity STABOR/SDE
+  - Alternative name: Singularity Desktop Environment
+  - This is the canonical implementation of the SAP server to handle tabs
+  - This used to be just `singularity_manager`
+- All the tabs can be in their own crates or something
+
+Something I want is extensible UI widgets with shared libraries,
+and this idea can be extended to things outside of UI.
+There are UI primitives. For the sake of example,
+lets just say that the only UI primitive is the pixel grid.
+The set of all primitives is already agreed upon,
+and must be standardized.
+But, suppose an app wanted to display text.
+Without widgets, the app would have to draw the text
+itself onto a pixel grid.
+This is bad for a few reasons.
+First, this lacks standardization.
+If there were multiple apps, that had to do it themselves,
+then all of them would have different fonts and it would be ugly.
+Secondly, due to the lack of standardization,
+user side customization would be difficult.
+Also, this could add performance overhead.
+
+The solution would be to have shared widgets.
+Each tab can return some composite of widget and primitives.
+If some widget protocol is manually implemented by the user's
+display environment, then that implementation is used.
+But, when a tab uses a widget protocol, it must also define
+some shared library type thing that would handle the default
+case.
