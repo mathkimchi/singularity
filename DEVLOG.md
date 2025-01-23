@@ -2335,3 +2335,7 @@ display environment, then that implementation is used.
 But, when a tab uses a widget protocol, it must also define
 some shared library type thing that would handle the default
 case.
+
+...
+
+I think I might just rewrite most of sporg and the tabs.

@@ -1,6 +1,6 @@
 /// TODO: use cfg attributes for client and server, or just make new crates
 pub mod universal_client_stream {
-    use crate::sap::{
+    use crate::{
         byte_stream::{ByteStream, TryFromData},
         packet::{
             IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
@@ -179,7 +179,7 @@ pub mod universal_client_stream {
 }
 
 pub mod universal_server_stream {
-    use crate::sap::{
+    use crate::{
         byte_stream::{ByteStream, ToData, TryFromData},
         packet::{
             IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, QUERY_PACKET_TYPE,

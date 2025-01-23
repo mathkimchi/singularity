@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-singularity_ui = { path = "../singularity_ui" }
 singularity_macros = { path = "./singularity_macros" }
 
 serde = { workspace = true }

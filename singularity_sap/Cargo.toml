@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+singularity_macros = { path = "../singularity_common/singularity_macros" }
+
+uuid = { workspace = true }

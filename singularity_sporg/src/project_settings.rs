@@ -1,5 +1,8 @@
-use crate::{tab::tile::Tiles, utils::id_map::IdMap};
 use serde::{Deserialize, Serialize};
+use singularity_common::utils::{
+    id_map::{Id, IdMap},
+    tree::id_tree::IdTree,
+};
 use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
 
@@ -55,14 +58,14 @@ pub struct OpenTab {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct OpenTabs {
     pub tabs: IdMap<OpenTab>,
+    //
+    // /// ORGanizational tree
+    // pub org_tree: IdTree<crate::tab::TabHandler>,
+    // pub focused_tab: Id<crate::tab::TabHandler>,
 
-    /// ORGanizational tree
-    pub org_tree: crate::utils::tree::id_tree::IdTree<crate::tab::TabHandler>,
-    pub focused_tab: crate::utils::id_map::Id<crate::tab::TabHandler>,
-
-    // /// currently, last in vec is "top" in gui
-    // pub display_order: Vec<Uuid>,
-    pub display_tiles: Tiles,
+    // // /// currently, last in vec is "top" in gui
+    // // pub display_order: Vec<Uuid>,
+    // pub display_tiles: Tiles,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
