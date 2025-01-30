@@ -1,4 +1,4 @@
-use std::hash::{Hash, Hasher};
+use std::{hash::{Hash, Hasher}, str::FromStr};
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -268,29 +268,38 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 /// Figure that out later.
 /// REVIEW: could have try from data return how much of the data was used.
 fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
-    // [(name, type), ...]
-    let fields = data_struct.fields.iter().enumerate().map(|(i, field)| { 
-        let identifier = match &field.ident {
-            Some(ident) => quote!{#ident},
-            None => quote! {#i}
-        };
-        
-        (identifier, field.ty.clone())
-    });
+    let mut is_tuple_struct = false;
 
-    if fields.len() == 0 {
+    // [(name, type), ...]
+    let fields: Vec<_> = data_struct.fields.iter().enumerate().map(|(index, field)| { 
+        let identifier = match &field.ident {
+            Some(ident) => quote! { #ident },
+            None => {
+                is_tuple_struct = true;
+                proc_macro2::TokenStream::from_str(&index.to_string()).unwrap()
+            }
+        };
+
+        (identifier, field.ty.clone())
+    }).collect();
+
+    if fields.is_empty() {
         let to_data_impl = quote! {
             Vec::new()
         };
     
         let try_from_data_impl = quote!{
-            todo!()
+            if data.len() != 0 {
+                return None;
+            }
+
+            Some(Self)
         };
     
         return (to_data_impl, try_from_data_impl);
     }
 
-    let define_field_data: proc_macro2::TokenStream = fields.clone().map(|(field_ident, _ty)| {
+    let define_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
             let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
@@ -303,7 +312,7 @@ fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStre
         }
     ).collect();
 
-    let combine_field_data: proc_macro2::TokenStream = fields.clone().map(|(field_ident, _ty)| {
+    let combine_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
             let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
@@ -323,8 +332,54 @@ fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStre
         ].concat()
     };
 
+    let self_constructor = if is_tuple_struct {
+        let fields: proc_macro2::TokenStream = fields.iter().map(|(_ident, ty)| {
+            quote! {
+                {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+
+                    #ty::try_from_data(inner_data)?
+                },
+            }
+        }).collect();
+        quote! {
+            Self(#fields)
+        }
+    } else {
+        let fields: proc_macro2::TokenStream = fields.iter().map(|(ident, ty)| {
+            quote! {
+                #ident: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+
+                    #ty::try_from_data(inner_data)?
+                },
+            }
+        }).collect();
+
+        quote! {
+            Self {
+                #fields
+            }
+        }
+    };
+
     let try_from_data_impl = quote!{
-        todo!()
+        let mut index = 0;
+        let constructed_self = #self_constructor;
+
+        if index != data.len() {
+            return None;
+        }
+
+        Some(constructed_self)
     };
 
     (to_data_impl, try_from_data_impl)
@@ -379,40 +434,40 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(Datable)]
-pub fn datable_derive(input: TokenStream) -> TokenStream {
-    let tokens = input.clone();
-    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+// #[proc_macro_derive(Datable)]
+// pub fn datable_derive(input: TokenStream) -> TokenStream {
+//     let tokens = input.clone();
+//     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-    let identitifier = ast.ident;
-    let _struct_items = match ast.data {
-        syn::Data::Struct(struct_data) => struct_data,
-        _ => panic!(),
-    };
+//     let identitifier = ast.ident;
+//     let _struct_items = match ast.data {
+//         syn::Data::Struct(struct_data) => struct_data,
+//         _ => panic!(),
+//     };
 
-    quote! {
-        const _: () = {
-            // extern crate singularity_sap as __singularity_sap;
-            use crate as __singularity_sap;
+//     quote! {
+//         const _: () = {
+//             // extern crate singularity_sap as __singularity_sap;
+//             use crate as __singularity_sap;
             
-            #[automatically_derived]
-            impl __singularity_sap::byte_stream::ToData for #identitifier {
-                fn to_data(&self) -> Vec<u8> {
-                    todo!()
-                }
-            }
-            #[automatically_derived]
-            impl __singularity_sap::byte_stream::TryFromData for #identitifier {
-                fn try_from_data(data: &[u8]) -> Option<Self> {
-                    todo!()
-                }
-            }
+//             #[automatically_derived]
+//             impl __singularity_sap::byte_stream::ToData for #identitifier {
+//                 fn to_data(&self) -> Vec<u8> {
+//                     todo!()
+//                 }
+//             }
+//             #[automatically_derived]
+//             impl __singularity_sap::byte_stream::TryFromData for #identitifier {
+//                 fn try_from_data(data: &[u8]) -> Option<Self> {
+//                     todo!()
+//                 }
+//             }
             
-            // datable is automatically impl'd for any type to data and try from data
+//             // datable is automatically impl'd for any type to data and try from data
 
-            // #[automatically_derived]
-            // impl __singularity_common::sap::byte_stream::Datable for #identitifier {
-            // }
-        };
-    }.into()
-}
+//             // #[automatically_derived]
+//             // impl __singularity_common::sap::byte_stream::Datable for #identitifier {
+//             // }
+//         };
+//     }.into()
+// }

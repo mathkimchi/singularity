@@ -1,4 +1,9 @@
-use singularity_sap::byte_stream::{ToData, TryFromData};
+use singularity_macros::Packet;
+use singularity_sap::{
+    byte_stream::{ToData, TryFromData},
+    packet,
+};
+use singularity_ui::display_units::DisplayArea;
 
 /// Not how I would actually do paste, but I just want to test with multiple unknown size fields.
 pub struct PastePacket {
@@ -54,3 +59,12 @@ impl TryFromData for PastePacket {
         Some(s)
     }
 }
+
+// #[derive(Debug, Packet)]
+// pub struct AEvent {
+//     d: DisplayArea,
+// }
+// #[derive(Debug, Packet)]
+// pub struct ResizeEvent(DisplayArea);
+// #[derive(Debug, Packet)]
+// pub struct FocusedEvent;
