@@ -260,52 +260,42 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 }
 
 /// (to_data_impl, try_from_data_impl)
+/// 
+/// The number of fields is known and constant, and everything can just be ordered.
+/// 
+/// Before each field data, we give the size of that field.
+/// This is kind of inefficient though if we have a lot of constant size fields.
+/// Figure that out later.
+/// REVIEW: could have try from data return how much of the data was used.
 fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
-    // // [(name, type), ...]
-    // let fields = data_struct.fields.iter().map(|field| {
-    //     let inner_packet_type = match &field {
-    //         Fields::Unnamed(fields_unnamed) => {
-    //             assert_eq!(fields_unnamed.unnamed.len(), 1, "variants should have exactly 1 unnamed field");
-    //             fields_unnamed.unnamed.first().unwrap().clone()
-    //         },
-    //         _=> panic!("Expected unnamed fields for all variants")
-    //     };
+    // [(name, type), ...]
+    let fields = data_struct.fields.iter().enumerate().map(|(i, field)| { 
+        let identifier = match &field.ident {
+            Some(ident) => quote!{#ident},
+            None => quote! {#i}
+        };
         
-    //     (field.ident.clone(), inner_packet_type)
-    // });
+        (identifier, field.ty.clone())
+    });
 
-    // let try_from_data_match_cases: proc_macro2::TokenStream = fields.clone().map(|(ident, inner_type)|
-    //     quote! {
-    //         #inner_type::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(data)?)),
-    //     }
-    // ).collect();
+    let define_field_data: proc_macro2::TokenStream = fields.map(|(ident, ty)| {
+            quote! {
+                let #ident
+            }
+        }
+    ).collect();
 
-    // let to_data_match_cases: proc_macro2::TokenStream = fields.map(|(ident, inner_type)|
-    //     quote! {
-    //         Self::#ident(inner_packet) => (#inner_type::PACKET_TYPE_ID, inner_packet.to_data()),
-    //     }
-    // ).collect();
+    let to_data_impl = quote! {
+        [
+            
+        ].into()
+    };
 
-    // let to_data_impl = quote! {
-    //     let (id, data) = match self {
-    //         // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
-    //         #to_data_match_cases
-    //     };
+    let try_from_data_impl = quote!{
         
-    //     __singularity_sap::packet::join_id(id, &data)
-    // };
+    };
 
-    // let try_from_data_impl = quote!{
-    //     let (id, data) = __singularity_sap::packet::split_id(data);
-    //     match id {
-    //         // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
-    //         #try_from_data_match_cases
-    //         _ => None,
-    //     }
-    // };
-
-    // (to_data_impl, try_from_data_impl)
-    (quote! {todo!()}, quote! {todo!()})
+    (to_data_impl, try_from_data_impl)
 }
 
 #[proc_macro_derive(Packet)]

@@ -2,7 +2,7 @@
 
 pub mod display_packets {
     // use crate::packet::PacketTrait;
-    use singularity_macros::{Datable, Packet};
+    use singularity_macros::Packet;
     use singularity_ui::display_units::DisplayArea;
 
     #[derive(Debug, Packet)]

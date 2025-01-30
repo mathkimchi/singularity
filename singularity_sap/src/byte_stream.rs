@@ -135,3 +135,33 @@ pub trait TryFromData: Sized {
 /// Word I made up
 pub trait Datable: ToData + TryFromData {}
 impl<D: ToData + TryFromData> Datable for D {}
+
+mod std_impls {
+    use super::{ToData, TryFromData};
+
+    impl ToData for String {
+        fn to_data(&self) -> Vec<u8> {
+            self.as_bytes().to_vec()
+        }
+    }
+    impl TryFromData for String {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            String::from_utf8(data.to_vec()).ok()
+        }
+    }
+}
+#[cfg(feature = "singularity_ui")]
+mod singularity_ui_impls {
+    use super::{ToData, TryFromData};
+
+    impl ToData for singularity_ui::display_units::DisplayArea {
+        fn to_data(&self) -> Vec<u8> {
+            todo!()
+        }
+    }
+    impl TryFromData for singularity_ui::display_units::DisplayArea {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
+}
