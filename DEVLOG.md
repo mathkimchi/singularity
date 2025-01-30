@@ -2339,3 +2339,43 @@ case.
 ...
 
 I think I might just rewrite most of sporg and the tabs.
+
+2025/01/30 12:52AM
+
+(I am writing this entry to talk about talking to someone about singularity.
+The other changes are things I've been working on and is unrelated to this.
+Ik, I said I will commit more but too late.)
+
+I talked to someone who has a lot of experience.
+Other than the one friend I talk to (@glolichen), this person is
+kind of the first person I've talked to about singularity in a pretty deep level.
+They didn't care about the actual code, but they asked a lot about the idea itself.
+We talked over email for a few days, and today (technically 2025/01/29 7-8PM),
+we talked over phone.
+
+I really have to sleep so I'll keep this short.
+If it really matters, I will put in the email logs later, so I will just summarize the call.
+
+The main question/advice was to just make an actual window manager.
+The pros are performance, simplicity, and the fact that I can simply use any app that already exists for wayland (or x11 if I make a x11 wm).
+But, the inter-app stuff wouldn't be a part of the wm.
+They mentioned `ocl` for the office suite.
+They also said that Xserver was a program on its own, and I should experiment by running bare xserver from terminal then running apps manually from the cli as well,
+like xclock.
+
+I suggested, for the inter app stuff, if I were to make a window manager, I could have a special app to handle all
+the inter app stuff.
+But, I didn't really explain my use-case fully.
+
+I am not completely sold on the idea of making a window manager yet, for a few reasons.
+The first is the inter-app stuf.
+Secondly, they said making a text editor and terminal from scratch is impossible for just one person.
+But, I think I can embed some other open source terminal for singularity at the worse case and run vim on it
+(but at that point, I could have just made a terminal session manager).
+I will do research on that though:
+[this reddit thread](https://www.reddit.com/r/rust/comments/1d47bl1/suggestions_on_a_gui_framework_for_embedding_a/)
+says I can embed alacritty.
+It suggests using [alacritty embeds](https://docs.rs/alacritty_terminal/latest/alacritty_terminal/#reexports).
+It gives [this example](https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/src/ui/bin/terminal/).
+
+I will have to think about this for a while.

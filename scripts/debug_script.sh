@@ -1,5 +1,5 @@
 # cargo build --release
-# WINIT_UNIX_BACKEND=wayland RUST_BACKTRACE=full cargo run --bin singularity_manager
+# WINIT_UNIX_BACKEND=wayland RUST_BACKTRACE=full cargo run --bin singularity_sde
 # cargo test --package singularity_common --lib -- tests::dylib_test --exact --show-output
 # cargo test --package singularity_standard_tabs --lib -- demo::run_test --exact --show-output
 # cargo test --package singularity_ui --lib -- test --show-output
@@ -10,4 +10,5 @@
 # RUST_BACKTRACE=full cargo test --package singularity_common --test sap_connection_test -- sap_connection_test --exact --show-output
 # RUST_BACKTRACE=full cargo test --package singularity_common --test query_response_sandbox -- test --exact --show-output --nocapture
 # RUST_BACKTRACE=full cargo test --package singularity_common --test all_packets_sandbox -- test_same_process --exact --show-output --nocapture
-RUST_BACKTRACE=full cargo test --package singularity_common --test all_packets_sandbox -- test_multi_process --exact --show-output --nocapture
+# RUST_BACKTRACE=full cargo test --package singularity_common --test all_packets_sandbox -- test_multi_process --exact --show-output --nocapture
+cd singularity_sap ; cargo expand standard_packets # -Z macro-backtrace

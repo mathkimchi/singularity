@@ -1,5 +1,5 @@
 [package]
-name = "singularity_manager"
+name = "singularity_sde"
 version = "0.1.0"
 edition = "2021"
 

@@ -5,6 +5,7 @@ members = [
 
     "singularity_common",
     "singularity_common/singularity_macros",
+
     "singularity_sporg",
     "singularity_sde",
     "singularity_standard_tabs",
