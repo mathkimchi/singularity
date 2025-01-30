@@ -278,21 +278,53 @@ fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStre
         (identifier, field.ty.clone())
     });
 
-    let define_field_data: proc_macro2::TokenStream = fields.map(|(ident, ty)| {
+    if fields.len() == 0 {
+        let to_data_impl = quote! {
+            Vec::new()
+        };
+    
+        let try_from_data_impl = quote!{
+            todo!()
+        };
+    
+        return (to_data_impl, try_from_data_impl);
+    }
+
+    let define_field_data: proc_macro2::TokenStream = fields.clone().map(|(field_ident, _ty)| {
+            // REVIEW: figure out what call site actually is
+            // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
+            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
+            let data_len_ident = proc_macro2::Ident::new(&format!("len_{}", field_ident), proc_macro2::Span::call_site());
             quote! {
-                let #ident
+                let #data_bytes_ident = self.#field_ident.to_data();
+                // TODO: make this le bytes
+                let #data_len_ident = #data_bytes_ident.len().to_be_bytes();
+            }
+        }
+    ).collect();
+
+    let combine_field_data: proc_macro2::TokenStream = fields.clone().map(|(field_ident, _ty)| {
+            // REVIEW: figure out what call site actually is
+            // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
+            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
+            let data_len_ident = proc_macro2::Ident::new(&format!("len_{}", field_ident), proc_macro2::Span::call_site());
+            quote! {
+                #data_bytes_ident.as_slice(),
+                #data_len_ident.as_slice(),
             }
         }
     ).collect();
 
     let to_data_impl = quote! {
+        #define_field_data
+
         [
-            
-        ].into()
+            #combine_field_data
+        ].concat()
     };
 
     let try_from_data_impl = quote!{
-        
+        todo!()
     };
 
     (to_data_impl, try_from_data_impl)
