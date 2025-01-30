@@ -2379,3 +2379,16 @@ It suggests using [alacritty embeds](https://docs.rs/alacritty_terminal/latest/a
 It gives [this example](https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/src/ui/bin/terminal/).
 
 I will have to think about this for a while.
+
+2025/01/30 1:35AM
+
+Roadmap to recovering from restructuring:
+- [ ] Implement the TODO's in singularity macros
+  - [ ] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
+- [ ] Complete `standard_packets`
+  - [ ] TODO: bare minimimum packets for standard packets
+- [ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)
+- [ ] Start the actual sde, that just displays the UI, no organization
+- [ ] Implement some basic thing in std tabs, like the worst cookie clicker ever
+- [ ] Add organization code back into it
+- Figure out the rest (eg: adding sporg into it)
