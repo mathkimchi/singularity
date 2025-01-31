@@ -2392,3 +2392,12 @@ Roadmap to recovering from restructuring:
 - [ ] Implement some basic thing in std tabs, like the worst cookie clicker ever
 - [ ] Add organization code back into it
 - Figure out the rest (eg: adding sporg into it)
+
+2025/01/30 7:34 PM
+
+I posted a [question on macro expansion](https://users.rust-lang.org/t/expanding-inner-macros/124887) to the rust lang forum
+because I realized I needed to learn to ask for help.
+There is a chance that no one answers, but that is fine.
+I had to create a simpler version of my question, but if that simpler version is answered,
+I should be able to jjust apply that solution to my actual macros.
+I will just commit now to log this.

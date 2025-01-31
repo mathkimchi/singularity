@@ -471,3 +471,32 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
 //         };
 //     }.into()
 // }
+
+#[proc_macro]
+pub fn hashing_macro(_input: TokenStream) -> TokenStream {
+    let mut hasher = std::hash::DefaultHasher::new();
+    module_path!().hash(&mut hasher);
+    line!().hash(&mut hasher);
+    let hash = hasher.finish();
+
+    quote! {
+        #hash
+    }.into()
+}
+
+#[proc_macro]
+pub fn jank_hashing_helper(input: TokenStream) -> TokenStream {
+    let mut hasher = std::hash::DefaultHasher::new();
+    input.to_string().hash(&mut hasher);
+    let hash = hasher.finish();
+
+    quote! {
+        #hash
+    }.into()
+}
+#[proc_macro]
+pub fn jank_hashing_macro(_input: TokenStream) -> TokenStream {
+    quote! {
+        jank_hashing_helper!(module_path!())
+    }.into()
+}
