@@ -228,13 +228,13 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 
     let try_from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
         quote! {
-            <#inner_type as __singularity_sap::packet::PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(data)?)),
+            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(data)?)),
         }
     ).collect();
 
     let to_data_match_cases: proc_macro2::TokenStream = variants.map(|(ident, inner_type)|
         quote! {
-            Self::#ident(inner_packet) => (<#inner_type as __singularity_sap::packet::PacketTrait>::PACKET_TYPE_ID, inner_packet.to_data()),
+            Self::#ident(inner_packet) => (<#inner_type as PacketTrait>::PACKET_TYPE_ID, inner_packet.to_data()),
         }
     ).collect();
 
@@ -244,11 +244,11 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
             #to_data_match_cases
         };
         
-        __singularity_sap::packet::join_id(id, &data)
+        packet::join_id(id, &data)
     };
 
     let try_from_data_impl = quote!{
-        let (id, data) = __singularity_sap::packet::split_id(data);
+        let (id, data) = packet::split_id(data);
         match id {
             // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
             #try_from_data_match_cases
@@ -411,24 +411,25 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
         const _: () = {
             // extern crate singularity_common as __singularity_common;
             // extern crate singularity_sap as __singularity_sap;
-            use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
-            
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+
             #[automatically_derived]
-            impl __singularity_sap::byte_stream::ToData for #identitifier {
+            impl ToData for #identitifier {
                 fn to_data(&self) -> Vec<u8> {
                     #to_data_impl
                 }
             }
             #[automatically_derived]
-            impl __singularity_sap::byte_stream::TryFromData for #identitifier {
+            impl TryFromData for #identitifier {
                 fn try_from_data(data: &[u8]) -> Option<Self> {
                     #try_from_data_impl
                 }
             }
 
             #[automatically_derived]
-            impl __singularity_sap::packet::PacketTrait for #identitifier {
-                const PACKET_TYPE_ID: __singularity_sap::packet::IdType = #packet_type_id;
+            impl PacketTrait for #identitifier {
+                const PACKET_TYPE_ID: IdType = #packet_type_id;
             }
         };
     }

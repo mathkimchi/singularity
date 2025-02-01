@@ -1,7 +1,7 @@
 use singularity_macros::Packet;
 use singularity_sap::{
     byte_stream::{ToData, TryFromData},
-    packet,
+    packet::{IdType, PacketTrait},
 };
 use singularity_ui::display_units::DisplayArea;
 
@@ -60,11 +60,11 @@ impl TryFromData for PastePacket {
     }
 }
 
-// #[derive(Debug, Packet)]
-// pub struct AEvent {
-//     d: DisplayArea,
-// }
-// #[derive(Debug, Packet)]
-// pub struct ResizeEvent(DisplayArea);
-// #[derive(Debug, Packet)]
-// pub struct FocusedEvent;
+#[derive(Debug, Packet)]
+pub struct AEvent {
+    d: DisplayArea,
+}
+#[derive(Debug, Packet)]
+pub struct ResizeEvent(DisplayArea);
+#[derive(Debug, Packet)]
+pub struct FocusedEvent;
