@@ -395,6 +395,7 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
         let mut hasher = std::hash::DefaultHasher::new();
         // TODO: hash `module_path!()`
         identitifier.hash(&mut hasher);
+        input.to_string().hash(&mut hasher);
         // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
         // to do something like: `hash as singularity_common::sap::packet::IdType`.
         // right now, they are luckily the same
@@ -471,32 +472,3 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
 //         };
 //     }.into()
 // }
-
-#[proc_macro]
-pub fn hashing_macro(_input: TokenStream) -> TokenStream {
-    let mut hasher = std::hash::DefaultHasher::new();
-    module_path!().hash(&mut hasher);
-    line!().hash(&mut hasher);
-    let hash = hasher.finish();
-
-    quote! {
-        #hash
-    }.into()
-}
-
-#[proc_macro]
-pub fn jank_hashing_helper(input: TokenStream) -> TokenStream {
-    let mut hasher = std::hash::DefaultHasher::new();
-    input.to_string().hash(&mut hasher);
-    let hash = hasher.finish();
-
-    quote! {
-        #hash
-    }.into()
-}
-#[proc_macro]
-pub fn jank_hashing_macro(_input: TokenStream) -> TokenStream {
-    quote! {
-        jank_hashing_helper!(module_path!())
-    }.into()
-}

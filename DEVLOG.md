@@ -2401,3 +2401,16 @@ There is a chance that no one answers, but that is fine.
 I had to create a simpler version of my question, but if that simpler version is answered,
 I should be able to jjust apply that solution to my actual macros.
 I will just commit now to log this.
+
+2025/02/01
+
+I got two responses so far.
+Feels unusual that Steffahn replied, because I've seen their replies on a lot of
+the rust threads in the past, and I kind of assumed they were a celebrity or
+something.
+But it does make sense that the people who comment the most would be the ones to
+comment on mine.
+
+The responses said that it isn't really possible.
+But, there is a [nightly feature](https://users.rust-lang.org/t/expanding-inner-macros/124887/5)
+which should hopefully make it possible eventually.
