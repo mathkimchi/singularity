@@ -2384,7 +2384,7 @@ I will have to think about this for a while.
 
 Roadmap to recovering from restructuring:
 - [x] Implement the TODO's in singularity macros
-  - [ ] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
+  - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
 - [ ] Complete `standard_packets`
   - [ ] TODO: bare minimimum packets for standard packets
 - [ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)

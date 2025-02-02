@@ -182,8 +182,9 @@ pub mod universal_server_stream {
     use crate::{
         byte_stream::{ByteStream, ToData, TryFromData},
         packet::{
-            IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, QUERY_PACKET_TYPE,
-            REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID_BYTES,
+            IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
+            QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE,
+            UNKNOWN_RESPONSE_TYPE_ID_BYTES,
         },
     };
     use std::marker::PhantomData;
@@ -258,26 +259,26 @@ pub mod universal_server_stream {
                             Self::split_query_data(packet_data);
 
                         let response_packet_data = query_responders.iter_mut().find_map(|query_responder| {
-                        if query_id_type != query_responder.__get_query_type_id() {
-                            return None;
-                        }
+                                if query_id_type != query_responder.__get_query_type_id() {
+                                    return None;
+                                }
 
-                        query_responder
-                            .__generate_response_packet_data(query_inner_data, query_instance_id)
-                    }).unwrap_or_else(|| {
-                        eprintln!("Warning: Query of packet data: `{:?}` could not be parsed or responded to", packet_data);
+                                query_responder
+                                    .__generate_response_packet_data(query_inner_data, query_instance_id)
+                            }).unwrap_or_else(|| {
+                                eprintln!("Warning: Query of packet data: `{:?}` could not be parsed or responded to", packet_data);
 
-                        /// TODO: duplicate in `____generate_response_packet_data`
-                        const RESPONSE_PACKET_TYPE_BYTES: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
+                                /// TODO: duplicate in `____generate_response_packet_data`
+                                const RESPONSE_PACKET_TYPE_BYTES: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
 
-                        [
-                            RESPONSE_PACKET_TYPE_BYTES.as_slice(),
-                            query_instance_id.to_bytes_le().as_slice(),
-                            UNKNOWN_RESPONSE_TYPE_ID_BYTES.as_slice(),
-                            &[],
-                        ]
-                        .concat()
-                    });
+                                [
+                                    RESPONSE_PACKET_TYPE_BYTES.as_slice(),
+                                    query_instance_id.to_bytes_le().as_slice(),
+                                    UNKNOWN_RESPONSE_TYPE_ID_BYTES.as_slice(),
+                                    &[],
+                                ]
+                                .concat()
+                            });
 
                         self.stream.write_bytes(&response_packet_data);
                     }
@@ -291,7 +292,16 @@ pub mod universal_server_stream {
         }
 
         pub fn send_event<Event: PacketTrait>(&mut self, event: Event) {
-            self.stream.write_bytes(&event.to_data());
+            const EVENT_PACKET_TYPE_BYTES: [u8; 1] = EVENT_PACKET_TYPE.to_be_bytes();
+
+            self.stream.write_bytes(
+                &[
+                    EVENT_PACKET_TYPE_BYTES.as_slice(),
+                    Event::PACKET_TYPE_ID.to_be_bytes().as_slice(),
+                    &event.to_data(),
+                ]
+                .concat(),
+            );
         }
     }
 
