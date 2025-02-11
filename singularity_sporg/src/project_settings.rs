@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
-use singularity_common::utils::{
-    id_map::{Id, IdMap},
-    tree::id_tree::IdTree,
-};
+use singularity_common::utils::id_map::IdMap;
 use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
 

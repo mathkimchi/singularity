@@ -22,17 +22,3 @@ pub trait PacketTrait: Datable {
 pub trait UniversalQuery: PacketTrait {
     type ResponseType: PacketTrait;
 }
-
-/// returns the id (from the beginning) and the rest of the data
-pub fn split_id(data: &[u8]) -> (IdType, &[u8]) {
-    let (id_bytes, inner_data) = data.split_at((IdType::BITS / 8) as usize);
-
-    let id = IdType::from_be_bytes(id_bytes.try_into().unwrap());
-
-    (id, inner_data)
-}
-pub fn join_id(id: IdType, inner_data: &[u8]) -> Vec<u8> {
-    let id_bytes: &[u8] = &id.to_be_bytes();
-
-    [id_bytes, inner_data].concat()
-}

@@ -2385,7 +2385,7 @@ I will have to think about this for a while.
 Roadmap to recovering from restructuring:
 - [x] Implement the TODO's in singularity macros
   - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
-- [ ] Complete `standard_packets`
+- [ ] Add basic `standard_packets`
   - [ ] TODO: bare minimimum packets for standard packets
 - [ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)
 - [ ] Start the actual sde, that just displays the UI, no organization
@@ -2414,3 +2414,34 @@ comment on mine.
 The responses said that it isn't really possible.
 But, there is a [nightly feature](https://users.rust-lang.org/t/expanding-inner-macros/124887/5)
 which should hopefully make it possible eventually.
+
+---
+
+I am adding the basic `standard_packets`, and I am not sure how to do `SpawnChildTab` because
+I have to represent the idea of a generic tab.
+This is definitely an important feature, but I don't think it should be a standard feature,
+so I will just have it not be one.
+A related feature would be `SpawnDefaultEditor`, `SpawnDefaultBrowser`, and etc
+(or I could have `DefaultEditorQuery`, and etc).
+Well, now that tabs are processes, I could represent a generic tab with the path to run the process
+along with the arguments, much like `Command`.
+
+Also, I think the display should be done with shared memory but the problem is that I don't know how to do that in rust.
+
+2025-02-11
+
+I felt pretty stuck, but I am working on changing how the derive macros work.
+There are now 3 different derive macros:
+- `Packet`
+  - Impl's `PacketTrait`, but assumes `Datable` is implemented elsewhere
+  - Mainly just generates the `PACKET_TYPE_ID`
+- `PacketUnion`
+  - To be used on an enum where each variant corresponds to a unique `PacketTrait`
+  - Impl's `Datable` (`ToData` and `TryFromData`)
+- `Datable`
+  - Impl's `Datable` for an enum or a struct composed of `Datable`'s
+
+The change that isn't obvious but should be mentioned is Datable impl for enums.
+The previous impl is now packet union, and used the packet type id to differentiate
+between variants.
+The new impl for this is to define the numbers corresponding to variants in the macro.

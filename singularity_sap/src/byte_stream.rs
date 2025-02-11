@@ -149,10 +149,54 @@ mod std_impls {
             String::from_utf8(data.to_vec()).ok()
         }
     }
+
+    macro_rules! number_data_impl {
+        ($T:ty) => {
+            impl ToData for $T {
+                fn to_data(&self) -> Vec<u8> {
+                    self.to_le_bytes().to_vec()
+                }
+            }
+            impl TryFromData for $T {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    Some(<$T>::from_le_bytes(data.try_into().unwrap()))
+                }
+            }
+        };
+        ($($T:ty),*) => {
+            $(
+                number_data_impl!($T);
+            )*
+        }
+    }
+    number_data_impl!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
 }
 #[cfg(feature = "singularity_ui")]
 mod singularity_ui_impls {
     use super::{ToData, TryFromData};
+    use crate::packet::PacketTrait;
+    use singularity_macros::Datable;
+    // use singularity_ui::display_units::DisplayUnits;
+
+    #[derive(Datable)]
+    pub enum DisplayUnits {
+        Pixels(i32),
+        /// 0 to 1
+        /// REVIEW: there would be some benefits to making this an uint and dividing my the max int each time
+        Proportional(f32),
+        // MixedUnits((i32, f32)),
+    }
+
+    // impl ToData for DisplayUnits {
+    //     fn to_data(&self) -> Vec<u8> {
+    //         todo!()
+    //     }
+    // }
+    // impl TryFromData for DisplayUnits {
+    //     fn try_from_data(_data: &[u8]) -> Option<Self> {
+    //         todo!()
+    //     }
+    // }
 
     impl ToData for singularity_ui::display_units::DisplayArea {
         fn to_data(&self) -> Vec<u8> {
@@ -163,5 +207,31 @@ mod singularity_ui_impls {
         fn try_from_data(_data: &[u8]) -> Option<Self> {
             todo!()
         }
+    }
+
+    impl ToData for singularity_ui::ui_element::UIElement {
+        fn to_data(&self) -> Vec<u8> {
+            todo!()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_element::UIElement {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
+
+    impl ToData for singularity_ui::ui_event::UIEvent {
+        fn to_data(&self) -> Vec<u8> {
+            todo!()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_event::UIEvent {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
+    impl PacketTrait for singularity_ui::ui_event::UIEvent {
+        /// I just mashed my keyboard
+        const PACKET_TYPE_ID: crate::packet::IdType = 3159320418745789;
     }
 }

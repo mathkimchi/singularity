@@ -212,7 +212,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
 }
 
 /// (to_data_impl, try_from_data_impl)
-fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     // [(name, type), ...]
     let variants = data_enum.variants.iter().map(|variant| {
         let inner_packet_type = match &variant.fields {
@@ -228,7 +228,7 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 
     let try_from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
         quote! {
-            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(data)?)),
+            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(inner_data)?)),
         }
     ).collect();
 
@@ -239,16 +239,70 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
     ).collect();
 
     let to_data_impl = quote! {
-        let (id, data) = match self {
+        let (id, inner_data) = match self {
             // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
             #to_data_match_cases
         };
         
-        packet::join_id(id, &data)
+        let id_bytes: &[u8] = &id.to_be_bytes();
+        [id_bytes, &inner_data].concat()
     };
 
     let try_from_data_impl = quote!{
-        let (id, data) = packet::split_id(data);
+        let (id_bytes, inner_data) = data.split_at((IdType::BITS / 8) as usize);
+        let id = IdType::from_be_bytes(id_bytes.try_into().unwrap());
+
+        match id {
+            // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
+            #try_from_data_match_cases
+            _ => None,
+        }
+    };
+
+    (to_data_impl, try_from_data_impl)
+}
+
+/// (to_data_impl, try_from_data_impl)
+fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    // [(name, type), ...]
+    let variants: Vec<_> = data_enum.variants.iter().map(|variant| {
+        let inner_packet_type = match &variant.fields {
+            Fields::Unnamed(fields_unnamed) => {
+                assert_eq!(fields_unnamed.unnamed.len(), 1, "variants with more than 1 unnamed field not implemented");
+                fields_unnamed.unnamed.first().unwrap().clone()
+            },
+            _=> todo!()
+        };
+        
+        (variant.ident.clone(), inner_packet_type)
+    }).collect();
+
+    let try_from_data_match_cases: proc_macro2::TokenStream = variants.iter().enumerate().map(|(variant_num, (ident, inner_type))|
+        quote! {
+            #variant_num => Some(Self::#ident(#inner_type::try_from_data(inner_data)?)),
+        }
+    ).collect();
+
+    let to_data_match_cases: proc_macro2::TokenStream = variants.iter().enumerate().map(|(variant_num, (ident, _inner_type))|
+        quote! {
+            Self::#ident(inner_packet) => (#variant_num, inner_packet.to_data()),
+        }
+    ).collect();
+
+    let to_data_impl = quote! {
+        let (id, inner_data) = match self {
+            // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
+            #to_data_match_cases
+        };
+        
+        let id_bytes: &[u8] = &id.to_be_bytes();
+        [id_bytes, &inner_data].concat()
+    };
+
+    let try_from_data_impl = quote!{
+        let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
+        let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
+
         match id {
             // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
             #try_from_data_match_cases
@@ -267,7 +321,7 @@ fn enum_packet_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 /// This is kind of inefficient though if we have a lot of constant size fields.
 /// Figure that out later.
 /// REVIEW: could have try from data return how much of the data was used.
-fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let mut is_tuple_struct = false;
 
     // [(name, type), ...]
@@ -385,25 +439,15 @@ fn struct_packet_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStre
     (to_data_impl, try_from_data_impl)
 }
 
-#[proc_macro_derive(Packet)]
-pub fn packet_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Datable)]
+pub fn datable_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
     let identitifier = ast.ident;
-    let packet_type_id = {
-        let mut hasher = std::hash::DefaultHasher::new();
-        // TODO: hash `module_path!()`
-        identitifier.hash(&mut hasher);
-        input.to_string().hash(&mut hasher);
-        // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
-        // to do something like: `hash as singularity_common::sap::packet::IdType`.
-        // right now, they are luckily the same
-        hasher.finish()
-    };
     let (to_data_impl, try_from_data_impl) = match ast.data {
-        syn::Data::Enum(data_enum) => enum_packet_derive(data_enum),
-        syn::Data::Struct(data_struct) => struct_packet_derive(data_struct),
+        syn::Data::Enum(data_enum) => enum_datable_derive(data_enum),
+        syn::Data::Struct(data_struct) => struct_datable_derive(data_struct),
         syn::Data::Union(_data_union) => unimplemented!()
     };
 
@@ -426,6 +470,34 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
                     #try_from_data_impl
                 }
             }
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(Packet)]
+pub fn packet_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+
+    let identitifier = ast.ident;
+    let packet_type_id = {
+        let mut hasher = std::hash::DefaultHasher::new();
+        // TODO: hash `module_path!()`
+        identitifier.hash(&mut hasher);
+        input.to_string().hash(&mut hasher);
+        // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
+        // to do something like: `hash as singularity_common::sap::packet::IdType`.
+        // right now, they are luckily the same
+        hasher.finish()
+    };
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
 
             #[automatically_derived]
             impl PacketTrait for #identitifier {
@@ -436,40 +508,38 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-// #[proc_macro_derive(Datable)]
-// pub fn datable_derive(input: TokenStream) -> TokenStream {
-//     let tokens = input.clone();
-//     let ast = syn::parse_macro_input!(tokens as DeriveInput);
+#[proc_macro_derive(PacketUnion)]
+pub fn packet_union_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-//     let identitifier = ast.ident;
-//     let _struct_items = match ast.data {
-//         syn::Data::Struct(struct_data) => struct_data,
-//         _ => panic!(),
-//     };
+    let identitifier = ast.ident;
+    let (to_data_impl, try_from_data_impl) = match ast.data {
+        syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
+        syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
+        syn::Data::Union(_data_union) => unimplemented!()
+    };
 
-//     quote! {
-//         const _: () = {
-//             // extern crate singularity_sap as __singularity_sap;
-//             use crate as __singularity_sap;
-            
-//             #[automatically_derived]
-//             impl __singularity_sap::byte_stream::ToData for #identitifier {
-//                 fn to_data(&self) -> Vec<u8> {
-//                     todo!()
-//                 }
-//             }
-//             #[automatically_derived]
-//             impl __singularity_sap::byte_stream::TryFromData for #identitifier {
-//                 fn try_from_data(data: &[u8]) -> Option<Self> {
-//                     todo!()
-//                 }
-//             }
-            
-//             // datable is automatically impl'd for any type to data and try from data
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
 
-//             // #[automatically_derived]
-//             // impl __singularity_common::sap::byte_stream::Datable for #identitifier {
-//             // }
-//         };
-//     }.into()
-// }
+            #[automatically_derived]
+            impl ToData for #identitifier {
+                fn to_data(&self) -> Vec<u8> {
+                    #to_data_impl
+                }
+            }
+            #[automatically_derived]
+            impl TryFromData for #identitifier {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    #try_from_data_impl
+                }
+            }
+        };
+    }
+    .into()
+}
