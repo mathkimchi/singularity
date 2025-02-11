@@ -138,6 +138,8 @@ impl<D: ToData + TryFromData> Datable for D {}
 
 mod std_impls {
     use super::{ToData, TryFromData};
+    use paste::paste;
+    use singularity_macros::Datable;
 
     impl ToData for String {
         fn to_data(&self) -> Vec<u8> {
@@ -147,6 +149,12 @@ mod std_impls {
     impl TryFromData for String {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             String::from_utf8(data.to_vec()).ok()
+        }
+    }
+
+    impl<T: ToData> ToData for &T {
+        fn to_data(&self) -> Vec<u8> {
+            <T as ToData>::to_data(self)
         }
     }
 
@@ -170,42 +178,199 @@ mod std_impls {
         }
     }
     number_data_impl!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
+
+    #[derive(Datable)]
+    struct Test(String, u8, u8, String);
+
+    /// FIXME: Extremely mildly annoying; I couldn't figure out a way to do this in order.
+    macro_rules! tuple_impl {
+        () => {
+            impl ToData for () {
+                fn to_data(&self) -> Vec<u8> {
+                    Vec::new()
+                }
+            }
+            impl TryFromData for () {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    assert_eq!(data.len(), 0);
+                    Some(())
+                }
+            }
+        };
+
+        // Look at: https://doc.rust-lang.org/src/core/fmt/mod.rs.html#2628
+        ($A:tt -> $I:tt, $($REM:tt -> $REM_I:tt,)*) => {
+            tuple_impl!($($REM -> $REM_I,)*);
+
+            impl<$A: ToData, $($REM: ToData,)*> ToData for ($A, $($REM,)*) {
+                fn to_data(&self) -> Vec<u8> {
+                    let paste!([<bytes_ $I>]) = self.$I.to_data();
+                    let paste!([<len_ $I>]) = paste!([<bytes_ $I>]).len().to_be_bytes();
+                    $(
+                        let paste!([<bytes_ $REM_I>]) = self.$I.to_data();
+                        let paste!([<len_ $REM_I>]) = paste!([<bytes_ $REM_I>]).len().to_be_bytes();
+                    )*
+                    [
+                        paste!([<bytes_ $I>]).as_slice(),
+                        paste!([<len_ $I>]).as_slice(),
+                        $(
+                            paste!([<bytes_ $REM_I>]).as_slice(),
+                            paste!([<len_ $REM_I>]).as_slice(),
+                        )*
+                    ]
+                    .concat()
+                }
+            }
+            impl<$A: TryFromData, $($REM: TryFromData,)*> TryFromData for ($A, $($REM,)*) {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    let mut index = 0;
+                    let constructed_self = (
+                        {
+                            let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                            index += 8;
+                            let inner_data = &data[index..(index + len)];
+                            index += len;
+                            $A::try_from_data(inner_data)?
+                        },
+                        $({
+                            let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                            index += 8;
+                            let inner_data = &data[index..(index + len)];
+                            index += len;
+                            $REM::try_from_data(inner_data)?
+                        },)*
+                    );
+                    if index != data.len() {
+                        return None;
+                    }
+                    Some(constructed_self)
+                }
+            }
+        };
+    }
+
+    tuple_impl!(A -> 2, B -> 1, C -> 0,);
 }
+/// TODO: automate this somehow. Annoying I can't use derive for outer classes.
 #[cfg(feature = "singularity_ui")]
 mod singularity_ui_impls {
     use super::{ToData, TryFromData};
     use crate::packet::PacketTrait;
-    use singularity_macros::Datable;
-    // use singularity_ui::display_units::DisplayUnits;
 
-    #[derive(Datable)]
-    pub enum DisplayUnits {
-        Pixels(i32),
-        /// 0 to 1
-        /// REVIEW: there would be some benefits to making this an uint and dividing my the max int each time
-        Proportional(f32),
-        // MixedUnits((i32, f32)),
+    #[automatically_derived]
+    impl ToData for singularity_ui::display_units::DisplayUnits {
+        fn to_data(&self) -> Vec<u8> {
+            let (id, inner_data) = match self {
+                Self::Pixels(inner_packet) => (0usize, inner_packet.to_data()),
+                Self::Proportional(inner_packet) => (1usize, inner_packet.to_data()),
+                Self::MixedUnits { pixels, proportion } => (2usize, (pixels, proportion).to_data()),
+            };
+            let id_bytes: &[u8] = &id.to_be_bytes();
+            [id_bytes, &inner_data].concat()
+        }
+    }
+    #[automatically_derived]
+    impl TryFromData for singularity_ui::display_units::DisplayUnits {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
+            let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
+            match id {
+                0usize => Some(Self::Pixels(<i32 as TryFromData>::try_from_data(
+                    inner_data,
+                )?)),
+                1usize => Some(Self::Proportional(<f32 as TryFromData>::try_from_data(
+                    inner_data,
+                )?)),
+                2usize => {
+                    let (pixels, proportion) =
+                        <(i32, f32) as TryFromData>::try_from_data(inner_data)?;
+                    Some(Self::MixedUnits { pixels, proportion })
+                }
+                _ => None,
+            }
+        }
     }
 
-    // impl ToData for DisplayUnits {
-    //     fn to_data(&self) -> Vec<u8> {
-    //         todo!()
-    //     }
-    // }
-    // impl TryFromData for DisplayUnits {
-    //     fn try_from_data(_data: &[u8]) -> Option<Self> {
-    //         todo!()
-    //     }
-    // }
+    impl ToData for singularity_ui::display_units::DisplayCoord {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_x = self.x.to_data();
+            let len_x = bytes_x.len().to_be_bytes();
+            let bytes_y = self.y.to_data();
+            let len_y = bytes_y.len().to_be_bytes();
+            [
+                bytes_x.as_slice(),
+                len_x.as_slice(),
+                bytes_y.as_slice(),
+                len_y.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    impl TryFromData for singularity_ui::display_units::DisplayCoord {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                x: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::display_units::DisplayUnits::try_from_data(inner_data)?
+                },
+                y: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::display_units::DisplayUnits::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
 
     impl ToData for singularity_ui::display_units::DisplayArea {
         fn to_data(&self) -> Vec<u8> {
-            todo!()
+            let bytes_0 = self.0.to_data();
+            let len_0 = bytes_0.len().to_be_bytes();
+            let bytes_1 = self.1.to_data();
+            let len_1 = bytes_1.len().to_be_bytes();
+            [
+                bytes_0.as_slice(),
+                len_0.as_slice(),
+                bytes_1.as_slice(),
+                len_1.as_slice(),
+            ]
+            .concat()
         }
     }
+    #[automatically_derived]
     impl TryFromData for singularity_ui::display_units::DisplayArea {
-        fn try_from_data(_data: &[u8]) -> Option<Self> {
-            todo!()
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self(
+                {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::display_units::DisplayCoord::try_from_data(inner_data)?
+                },
+                {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::display_units::DisplayCoord::try_from_data(inner_data)?
+                },
+            );
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
         }
     }
 

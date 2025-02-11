@@ -271,7 +271,7 @@ fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, p
                 assert_eq!(fields_unnamed.unnamed.len(), 1, "variants with more than 1 unnamed field not implemented");
                 fields_unnamed.unnamed.first().unwrap().clone()
             },
-            _=> todo!()
+            _ => todo!()
         };
         
         (variant.ident.clone(), inner_packet_type)
@@ -279,7 +279,7 @@ fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, p
 
     let try_from_data_match_cases: proc_macro2::TokenStream = variants.iter().enumerate().map(|(variant_num, (ident, inner_type))|
         quote! {
-            #variant_num => Some(Self::#ident(#inner_type::try_from_data(inner_data)?)),
+            #variant_num => Some(Self::#ident(<#inner_type as TryFromData>::try_from_data(inner_data)?)),
         }
     ).collect();
 

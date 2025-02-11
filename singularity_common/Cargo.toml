@@ -11,4 +11,4 @@ serde_json = { workspace = true }
 
 uuid = { workspace = true }
 
-paste = { version = "1" }
+paste = { workspace = true }
