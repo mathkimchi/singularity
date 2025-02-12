@@ -139,7 +139,45 @@ impl<D: ToData + TryFromData> Datable for D {}
 mod std_impls {
     use super::{ToData, TryFromData};
     use paste::paste;
-    use singularity_macros::Datable;
+
+    impl<T: ToData> ToData for &T {
+        fn to_data(&self) -> Vec<u8> {
+            <T as ToData>::to_data(self)
+        }
+    }
+
+    impl<T: ToData> ToData for Box<T> {
+        fn to_data(&self) -> Vec<u8> {
+            <T as ToData>::to_data(self)
+        }
+    }
+    impl<T: TryFromData> TryFromData for Box<T> {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            Some(Box::new(T::try_from_data(data)?))
+        }
+    }
+
+    impl<T: ToData> ToData for Vec<T> {
+        fn to_data(&self) -> Vec<u8> {
+            todo!()
+        }
+    }
+    impl<T: TryFromData> TryFromData for Vec<T> {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
+
+    impl<T: ToData, const N: usize> ToData for [T; N] {
+        fn to_data(&self) -> Vec<u8> {
+            todo!()
+        }
+    }
+    impl<T: TryFromData, const N: usize> TryFromData for [T; N] {
+        fn try_from_data(_data: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 
     impl ToData for String {
         fn to_data(&self) -> Vec<u8> {
@@ -149,12 +187,6 @@ mod std_impls {
     impl TryFromData for String {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             String::from_utf8(data.to_vec()).ok()
-        }
-    }
-
-    impl<T: ToData> ToData for &T {
-        fn to_data(&self) -> Vec<u8> {
-            <T as ToData>::to_data(self)
         }
     }
 
@@ -177,79 +209,59 @@ mod std_impls {
             )*
         }
     }
-    number_data_impl!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
-
-    #[derive(Datable)]
-    struct Test(String, u8, u8, String);
+    number_data_impl!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, f32, f64);
 
     /// FIXME: Extremely mildly annoying; I couldn't figure out a way to do this in order.
     macro_rules! tuple_impl {
-        () => {
-            impl ToData for () {
-                fn to_data(&self) -> Vec<u8> {
-                    Vec::new()
-                }
-            }
-            impl TryFromData for () {
-                fn try_from_data(data: &[u8]) -> Option<Self> {
-                    assert_eq!(data.len(), 0);
-                    Some(())
-                }
-            }
-        };
-
         // Look at: https://doc.rust-lang.org/src/core/fmt/mod.rs.html#2628
-        ($A:tt -> $I:tt, $($REM:tt -> $REM_I:tt,)*) => {
-            tuple_impl!($($REM -> $REM_I,)*);
+        ($($REM_I:tt,)*) => {
 
-            impl<$A: ToData, $($REM: ToData,)*> ToData for ($A, $($REM,)*) {
-                fn to_data(&self) -> Vec<u8> {
-                    let paste!([<bytes_ $I>]) = self.$I.to_data();
-                    let paste!([<len_ $I>]) = paste!([<bytes_ $I>]).len().to_be_bytes();
-                    $(
-                        let paste!([<bytes_ $REM_I>]) = self.$I.to_data();
-                        let paste!([<len_ $REM_I>]) = paste!([<bytes_ $REM_I>]).len().to_be_bytes();
-                    )*
-                    [
-                        paste!([<bytes_ $I>]).as_slice(),
-                        paste!([<len_ $I>]).as_slice(),
+            paste!(
+                impl<$([<T $REM_I>]: ToData,)*> ToData for ($([<T $REM_I>],)*) {
+                    fn to_data(&self) -> Vec<u8> {
                         $(
-                            paste!([<bytes_ $REM_I>]).as_slice(),
-                            paste!([<len_ $REM_I>]).as_slice(),
+                            let [<bytes_ $REM_I>] = self.[<$REM_I>].to_data();
+                            let [<len_ $REM_I>] = [<bytes_ $REM_I>].len().to_be_bytes();
                         )*
-                    ]
-                    .concat()
-                }
-            }
-            impl<$A: TryFromData, $($REM: TryFromData,)*> TryFromData for ($A, $($REM,)*) {
-                fn try_from_data(data: &[u8]) -> Option<Self> {
-                    let mut index = 0;
-                    let constructed_self = (
-                        {
-                            let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                            index += 8;
-                            let inner_data = &data[index..(index + len)];
-                            index += len;
-                            $A::try_from_data(inner_data)?
-                        },
-                        $({
-                            let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                            index += 8;
-                            let inner_data = &data[index..(index + len)];
-                            index += len;
-                            $REM::try_from_data(inner_data)?
-                        },)*
-                    );
-                    if index != data.len() {
-                        return None;
+                        let slices: &[&[u8]] = &[
+                            $(
+                                &[<len_ $REM_I>],
+                                &[<bytes_ $REM_I>],
+                            )*
+                        ];
+                        slices.concat()
                     }
-                    Some(constructed_self)
                 }
-            }
+            );
+            paste!(
+                impl<$([<T $REM_I>]: TryFromData,)*> TryFromData for ($([<T $REM_I>],)*) {
+                    fn try_from_data(data: &[u8]) -> Option<Self> {
+                        #[allow(unused_mut)] // for the `()` case
+                        let mut index = 0;
+                        let constructed_self = (
+                            $({
+                                let len = usize::from_be_bytes(data[index..(index + (usize::BITS as usize / 8))].try_into().ok()?);
+                                index += (usize::BITS as usize / 8);
+                                let inner_data = &data[index..(index + len)];
+                                index += len;
+                                [<T $REM_I>]::try_from_data(inner_data)?
+                            },)*
+                        );
+                        if index != data.len() {
+                            return None;
+                        }
+                        Some(constructed_self)
+                    }
+                }
+            );
         };
     }
 
-    tuple_impl!(A -> 2, B -> 1, C -> 0,);
+    tuple_impl!();
+    tuple_impl!(0,);
+    tuple_impl!(0, 1,);
+    tuple_impl!(0, 1, 2,);
+    tuple_impl!(0, 1, 2, 3,);
 }
 /// TODO: automate this somehow. Annoying I can't use derive for outer classes.
 #[cfg(feature = "singularity_ui")]
@@ -298,10 +310,10 @@ mod singularity_ui_impls {
             let bytes_y = self.y.to_data();
             let len_y = bytes_y.len().to_be_bytes();
             [
-                bytes_x.as_slice(),
                 len_x.as_slice(),
-                bytes_y.as_slice(),
+                bytes_x.as_slice(),
                 len_y.as_slice(),
+                bytes_y.as_slice(),
             ]
             .concat()
         }
@@ -339,10 +351,10 @@ mod singularity_ui_impls {
             let bytes_1 = self.1.to_data();
             let len_1 = bytes_1.len().to_be_bytes();
             [
-                bytes_0.as_slice(),
                 len_0.as_slice(),
-                bytes_1.as_slice(),
+                bytes_0.as_slice(),
                 len_1.as_slice(),
+                bytes_1.as_slice(),
             ]
             .concat()
         }

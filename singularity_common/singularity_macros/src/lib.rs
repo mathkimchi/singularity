@@ -372,8 +372,8 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
             let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
             let data_len_ident = proc_macro2::Ident::new(&format!("len_{}", field_ident), proc_macro2::Span::call_site());
             quote! {
-                #data_bytes_ident.as_slice(),
                 #data_len_ident.as_slice(),
+                #data_bytes_ident.as_slice(),
             }
         }
     ).collect();
