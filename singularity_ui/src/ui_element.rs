@@ -1,7 +1,7 @@
 use crate::{color::Color, display_units::DisplayArea};
 
 /// TODO: rename most everything here
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UIElement {
     Container(Vec<UIElement>),
 
@@ -40,7 +40,7 @@ impl From<Option<UIElement>> for UIElement {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharCell {
     pub character: char,
     pub fg: Color,
@@ -56,7 +56,7 @@ impl CharCell {
     }
 }
 
-#[derive(Debug, Clone, Hash, Default)]
+#[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharGrid {
     pub content: Vec<Vec<CharCell>>,
 }

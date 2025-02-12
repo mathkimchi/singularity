@@ -2445,3 +2445,17 @@ The change that isn't obvious but should be mentioned is Datable impl for enums.
 The previous impl is now packet union, and used the packet type id to differentiate
 between variants.
 The new impl for this is to define the numbers corresponding to variants in the macro.
+
+---
+
+I implemented Datable for a bunch of classic types, and also added proper unit tests
+for them.
+
+I am also implementing Datable for `singularity_ui` elements,
+and I've just been copy and pasting the types into another file that can access the Datable macro
+and singularity_sap, then using the derive, then expanding,
+copying the expanded output, and pasting it into byte_stream.
+I am doing all this because rust doesn't allow circular imports easily,
+and I also can only use derive macros at teh struct/enum definition.
+Maybe there is a way to automate this in `build.rs`,
+but for this scale, that would be more work.

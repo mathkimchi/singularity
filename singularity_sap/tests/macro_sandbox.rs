@@ -3,7 +3,11 @@ use singularity_sap::{
     byte_stream::{ToData, TryFromData},
     packet::{IdType, PacketTrait},
 };
-use singularity_ui::display_units::{DisplayArea, DisplayCoord, DisplayUnits};
+use singularity_ui::{
+    color::Color,
+    display_units::{DisplayArea, DisplayCoord, DisplayUnits},
+    ui_element::UIElement,
+};
 
 /// Not how I would actually do paste, but I just want to test with multiple unknown size fields.
 #[derive(Datable, Packet, PartialEq, Debug)]
@@ -113,4 +117,13 @@ fn test_data_conversion() {
         MyPacket::F(FocusedEvent),
     ];
     assert_eq!(<[MyPacket; 2]>::try_from_data(&a.to_data()), Some(a));
+
+    let ui_element = UIElement::Backgrounded(
+        Box::new(UIElement::Text("Sup?".to_string())),
+        Color::LIGHT_GREEN,
+    );
+    assert_eq!(
+        UIElement::try_from_data(&ui_element.to_data()),
+        Some(ui_element)
+    );
 }

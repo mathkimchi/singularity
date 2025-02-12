@@ -241,6 +241,17 @@ mod std_impls {
     }
     number_data_impl!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, f32, f64);
 
+    impl ToData for char {
+        fn to_data(&self) -> Vec<u8> {
+            (*self as u32).to_data()
+        }
+    }
+    impl TryFromData for char {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            char::from_u32(u32::try_from_data(data)?)
+        }
+    }
+
     /// FIXME: Extremely mildly annoying; I couldn't figure out a way to do this in order.
     macro_rules! tuple_impl {
         // Look at: https://doc.rust-lang.org/src/core/fmt/mod.rs.html#2628
@@ -413,14 +424,177 @@ mod singularity_ui_impls {
         }
     }
 
+    impl ToData for singularity_ui::color::Color {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_0 = self.0.to_data();
+            let len_0 = bytes_0.len().to_be_bytes();
+            [len_0.as_slice(), bytes_0.as_slice()].concat()
+        }
+    }
+    impl TryFromData for singularity_ui::color::Color {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self({
+                let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                index += 8;
+                let inner_data = &data[index..(index + len)];
+                index += len;
+                <[u8; 4]>::try_from_data(inner_data)?
+            });
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
+    impl ToData for singularity_ui::ui_element::CharCell {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_character = self.character.to_data();
+            let len_character = bytes_character.len().to_be_bytes();
+            let bytes_fg = self.fg.to_data();
+            let len_fg = bytes_fg.len().to_be_bytes();
+            let bytes_bg = self.bg.to_data();
+            let len_bg = bytes_bg.len().to_be_bytes();
+            [
+                len_character.as_slice(),
+                bytes_character.as_slice(),
+                len_fg.as_slice(),
+                bytes_fg.as_slice(),
+                len_bg.as_slice(),
+                bytes_bg.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_element::CharCell {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                character: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    char::try_from_data(inner_data)?
+                },
+                fg: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::color::Color::try_from_data(inner_data)?
+                },
+                bg: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    singularity_ui::color::Color::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
+    impl ToData for singularity_ui::ui_element::CharGrid {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_content = self.content.to_data();
+            let len_content = bytes_content.len().to_be_bytes();
+            [len_content.as_slice(), bytes_content.as_slice()].concat()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_element::CharGrid {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                content: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <Vec<Vec<singularity_ui::ui_element::CharCell>>>::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
     impl ToData for singularity_ui::ui_element::UIElement {
         fn to_data(&self) -> Vec<u8> {
-            todo!()
+            let (id, inner_data) = match self {
+                Self::Container(inner_packet) => (0usize, inner_packet.to_data()),
+                Self::Contained(inner_packet_0, inner_packet_1) => {
+                    (1usize, (inner_packet_0, inner_packet_1).to_data())
+                }
+                Self::Bordered(inner_packet_0, inner_packet_1) => {
+                    (2usize, (inner_packet_0, inner_packet_1).to_data())
+                }
+                Self::Backgrounded(inner_packet_0, inner_packet_1) => {
+                    (3usize, (inner_packet_0, inner_packet_1).to_data())
+                }
+                Self::Text(inner_packet) => (4usize, inner_packet.to_data()),
+                Self::CharGrid(inner_packet) => (5usize, inner_packet.to_data()),
+                Self::Nothing => (6usize, ().to_data()),
+            };
+            let id_bytes: &[u8] = &id.to_be_bytes();
+            [id_bytes, &inner_data].concat()
         }
     }
     impl TryFromData for singularity_ui::ui_element::UIElement {
-        fn try_from_data(_data: &[u8]) -> Option<Self> {
-            todo!()
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
+            let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
+            match id {
+                0usize => Some(Self::Container(
+                    <Vec<singularity_ui::ui_element::UIElement> as TryFromData>::try_from_data(
+                        inner_data,
+                    )?,
+                )),
+                1usize => {
+                    let (inner_data_0, inner_data_1) =
+                        <(
+                            Box<singularity_ui::ui_element::UIElement>,
+                            singularity_ui::display_units::DisplayArea,
+                        ) as TryFromData>::try_from_data(inner_data)?;
+
+                    Some(Self::Contained(inner_data_0, inner_data_1))
+                }
+                2usize => {
+                    let (inner_data_0, inner_data_1) =
+                        <(
+                            Box<singularity_ui::ui_element::UIElement>,
+                            singularity_ui::color::Color,
+                        ) as TryFromData>::try_from_data(inner_data)?;
+
+                    Some(Self::Bordered(inner_data_0, inner_data_1))
+                }
+                3usize => {
+                    let (inner_data_0, inner_data_1) =
+                        <(
+                            Box<singularity_ui::ui_element::UIElement>,
+                            singularity_ui::color::Color,
+                        ) as TryFromData>::try_from_data(inner_data)?;
+
+                    Some(Self::Backgrounded(inner_data_0, inner_data_1))
+                }
+                4usize => Some(Self::Text(<String as TryFromData>::try_from_data(
+                    inner_data,
+                )?)),
+                5usize => Some(Self::CharGrid(
+                    <singularity_ui::ui_element::CharGrid as TryFromData>::try_from_data(
+                        inner_data,
+                    )?,
+                )),
+                6usize => Some(Self::Nothing),
+                _ => None,
+            }
         }
     }
 

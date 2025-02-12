@@ -396,7 +396,7 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
                     let inner_data = &data[index..(index + len)];
                     index += len;
 
-                    #ty::try_from_data(inner_data)?
+                    <#ty>::try_from_data(inner_data)?
                 },
             }
         }).collect();
@@ -413,7 +413,7 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
                     let inner_data = &data[index..(index + len)];
                     index += len;
 
-                    #ty::try_from_data(inner_data)?
+                    <#ty>::try_from_data(inner_data)?
                 },
             }
         }).collect();
