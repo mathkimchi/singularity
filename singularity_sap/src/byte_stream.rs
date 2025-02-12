@@ -159,23 +159,53 @@ mod std_impls {
 
     impl<T: ToData> ToData for Vec<T> {
         fn to_data(&self) -> Vec<u8> {
-            todo!()
+            let mut bytes = Vec::new();
+            for item in self.iter() {
+                let item_bytes = item.to_data();
+                let item_len = item_bytes.len().to_be_bytes();
+                bytes.extend(item_len);
+                bytes.extend(item_bytes);
+            }
+            bytes
         }
     }
     impl<T: TryFromData> TryFromData for Vec<T> {
-        fn try_from_data(_data: &[u8]) -> Option<Self> {
-            todo!()
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let mut constructed_self = Self::new();
+            while index < data.len() {
+                let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                index += 8;
+                let inner_data = &data[index..(index + len)];
+                index += len;
+                let constructed_item = T::try_from_data(inner_data)?;
+                constructed_self.push(constructed_item);
+            }
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
         }
     }
 
+    // TODO: this is the same as for Vec<T>
     impl<T: ToData, const N: usize> ToData for [T; N] {
         fn to_data(&self) -> Vec<u8> {
-            todo!()
+            let mut bytes = Vec::new();
+            for item in self.iter() {
+                let item_bytes = item.to_data();
+                let item_len = item_bytes.len().to_be_bytes();
+                bytes.extend(item_len);
+                bytes.extend(item_bytes);
+            }
+            bytes
         }
     }
     impl<T: TryFromData, const N: usize> TryFromData for [T; N] {
-        fn try_from_data(_data: &[u8]) -> Option<Self> {
-            todo!()
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            // NOTE: currently, this is the safest option I found, despite possibly being slow.
+            // Mapping `[(); N]` might be faster, but to make it safe, I needed to use Option which I will have to reallocate anyways.
+            Vec::try_from_data(data)?.try_into().ok()
         }
     }
 
@@ -269,7 +299,6 @@ mod singularity_ui_impls {
     use super::{ToData, TryFromData};
     use crate::packet::PacketTrait;
 
-    #[automatically_derived]
     impl ToData for singularity_ui::display_units::DisplayUnits {
         fn to_data(&self) -> Vec<u8> {
             let (id, inner_data) = match self {
@@ -281,7 +310,6 @@ mod singularity_ui_impls {
             [id_bytes, &inner_data].concat()
         }
     }
-    #[automatically_derived]
     impl TryFromData for singularity_ui::display_units::DisplayUnits {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
@@ -359,7 +387,6 @@ mod singularity_ui_impls {
             .concat()
         }
     }
-    #[automatically_derived]
     impl TryFromData for singularity_ui::display_units::DisplayArea {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             let mut index = 0;

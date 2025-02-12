@@ -101,4 +101,16 @@ fn test_data_conversion() {
 
     let p = MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.))));
     assert_eq!(MyPacket::try_from_data(&p.to_data()), Some(p));
+
+    let v = vec![
+        MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.)))),
+        MyPacket::F(FocusedEvent),
+    ];
+    assert_eq!(<Vec<MyPacket>>::try_from_data(&v.to_data()), Some(v));
+
+    let a = [
+        MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.)))),
+        MyPacket::F(FocusedEvent),
+    ];
+    assert_eq!(<[MyPacket; 2]>::try_from_data(&a.to_data()), Some(a));
 }
