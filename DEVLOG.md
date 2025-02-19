@@ -2596,3 +2596,8 @@ but in serialization, represent tabs as commands.
 
 Actually, I am trying to fix the code I previously wrote,
 and a lot of the past code expects the tab to be initialized by the sde.
+
+2025/02/19
+
+Stdin doesn't have a vanilla way of polling,
+so I made a wrapper for `Read` using mpsc.
