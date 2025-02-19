@@ -1,6 +1,6 @@
 use singularity_macros::{Datable, Packet, PacketUnion};
 use singularity_sap::{
-    byte_stream::{ToData, TryFromData},
+    datable::{ToData, TryFromData},
     packet::{IdType, PacketTrait},
 };
 use singularity_ui::{

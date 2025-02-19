@@ -2,7 +2,7 @@
 
 pub mod display_packets {
     use crate::{
-        byte_stream::{ToData, TryFromData},
+        datable::{ToData, TryFromData},
         packet::{IdType, PacketTrait, UniversalQuery},
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;

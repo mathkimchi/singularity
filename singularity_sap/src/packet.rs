@@ -1,4 +1,4 @@
-use super::byte_stream::Datable;
+use super::datable::Datable;
 use uuid::Uuid;
 
 pub type IdType = u64;

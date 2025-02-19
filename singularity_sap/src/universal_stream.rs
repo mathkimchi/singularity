@@ -1,7 +1,8 @@
 /// TODO: use cfg attributes for client and server, or just make new crates
 pub mod universal_client_stream {
     use crate::{
-        byte_stream::{ByteStream, TryFromData},
+        byte_stream::ByteStream,
+        datable::TryFromData,
         packet::{
             IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
             QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
@@ -180,7 +181,8 @@ pub mod universal_client_stream {
 
 pub mod universal_server_stream {
     use crate::{
-        byte_stream::{ByteStream, ToData, TryFromData},
+        byte_stream::ByteStream,
+        datable::{ToData, TryFromData},
         packet::{
             IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
             QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE,
