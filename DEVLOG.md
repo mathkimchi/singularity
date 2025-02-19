@@ -2430,7 +2430,8 @@ Also, I think the display should be done with shared memory but the problem is t
 
 2025-02-11
 
-I felt pretty stuck, but I am working on changing how the derive macros work.
+I felt pretty stuck (both in this project and in life, ha ha ha ha...),
+but I am working on changing how the derive macros work.
 There are now 3 different derive macros:
 - `Packet`
   - Impl's `PacketTrait`, but assumes `Datable` is implemented elsewhere
@@ -2459,3 +2460,139 @@ I am doing all this because rust doesn't allow circular imports easily,
 and I also can only use derive macros at teh struct/enum definition.
 Maybe there is a way to automate this in `build.rs`,
 but for this scale, that would be more work.
+
+---
+
+I implemented this way recursively, until `UIElement`.
+I don't have the UI Events yet, but I can now get started with some very basic communication.
+
+I was going to make a boring tab called `UIElementDemo`,
+but life is too short to do boring stuff.
+I am going to make a fortune teller tab,
+which is functionally just a wallpaper, but I want it to be something fun.
+It is going to be like one of those quirky `.bashrc` settings.
+My friend pipes fortune into cowsay, and I think that is cool.
+
+I'll just have the fortune teller display the time and a fortune.
+
+...
+
+I have to think about how to represent tabs in singularity.
+
+2025/02/15
+
+I tried to get either nvim or emacs working,
+and I really want to get into emacs,
+but it has hour-long videos of just the basic config,
+and when I combine that with the fact that I use NixOS,
+I think I have a better chance of just finishing singularity
+than setting up Emacs.
+People joke about not being able to exit vim,
+but I can't even set up Emacs.
+(I know Doom emacs and spacemacs is a thing,
+but they work even less with NixOS.)
+
+Anyways, let me get back to singularity.
+The problem from before was to do with representing tabs.
+
+I will outsource the hard part of this decision to my future self,
+and for now, for the most basic purposes, I just need it to be
+a connection to the client.
+I will put this inside `singularity_sde`,
+even though this should belong in a singularity server toolkit.
+
+I think I can just reuse what I deleted in the restructuring,
+and the most up-to-date stuff for that is in:
+https://github.com/mathkimchi/singularity/tree/8e8e02348cb41f0d077783aaa2ca7d3d69288d22/singularity_common/src/tab.
+
+The hard part will be to somehow allow representing this in data
+for the following features:
+
+- Preserving tabs in between sessions
+- Spawning Children Tabs
+
+Now, the obvious way would be to store the commands that
+spawn the processes that spawn these.
+But, this idea on its own doesn't address the problem of
+matching tabs to actual processes.
+
+An example scenario of this would be:
+When the SDE spawns a process and expects the process
+to request a tab and the SDE wants to put that tab
+somewhere in the hierarchy.
+This is the case for both restoring the tabs from a past session
+(want to put each tab in the past session's hierarchy),
+and for spawning a child tab
+(want to put the child tab as a hierarchical child of parent).
+
+Also, it would be difficult to even get this for new tabs,
+so it is hard to even start.
+
+I can think of more than one way of resolving this:
+Firstly, just have the tabs give this information
+to the SDE.
+This could be like a normal request, or as a special request
+that is sent on connection start.
+Now I will explain the radical solution:
+Alternatively, rest the "burden of initiative"
+on the server.
+
+I explained it in the car with a voice recording,
+and I am too lazy to transcribe it all.
+I won't clutter the repo with the sound files,
+but on my phone, it is saved as:
+`Hobey Backer Memorial Ice Rink`,
+`Princeton University 63`,
+and `Princeton University 81`.
+(I am not sure why it skipped from 63 to 81.
+The phone was weird and kept stopping,
+maybe because the audio was connected to the car.)
+
+But, I am not sure about this idea.
+If there was a "singularity way" of doing things,
+then I think this idea would be 100% the singularity way.
+I can't explain why, but just this non-conforming,
+complicated, unnecessary challange of standard practice is precisely
+the type of thing an idiot like me would enjoy.
+Plus, "burden of initiative" is a cool term,
+so I guess I just forced myself into doing this.
+
+In all seriousness, I think a change of this magnitude,
+at this stage (when changes and commits are already slow),
+requires careful consideration.
+
+I am reminded of local web services like openwebui.
+But, to my knowledge, services mean that they run in the background,
+and I don't want to do that.
+
+I think I could have something similar that caters better to my wants
+with shared libraries.
+
+2025-02-17
+
+I don't think I will be doing the webpage-like way.
+but I still want to support many of the features like
+the redirect pages system.
+but I think the local storage should suffice for reopening tabs.
+
+I think piping stdio could actually be a not bad solution,
+and looking back at a [comparison of ipc methods](https://3tilley.github.io/posts/simple-ipc-ping-pong/#approach-1-pipes),
+I realized piping is actually faster than TCP/UDP sockets,
+and [a similar article](https://www.baeldung.com/linux/ipc-performance-comparison)
+shows compares pipes with Unix socket specifically, and says it is 30% faster
+(this much of a difference doesn't really matter, but knowing that a new approach
+is a speed upgrade makes me feel good about implementing it).
+Also, I think the piping is similar enough to unix sockets such that it wouldn't
+be difficult to support both.
+Piping will allow for SDE side initialization, but not the more webpagey features
+like redirecting.
+
+2025/02/18
+
+Okay, so, I decided I will implement just Unix Sockets for now,
+but in serialization, represent tabs as commands.
+
+...
+
+Actually, I am trying to fix the code I previously wrote,
+and a lot of the past code expects the tab to be initialized by the sde.

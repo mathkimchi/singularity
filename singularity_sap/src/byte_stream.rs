@@ -304,6 +304,22 @@ mod std_impls {
     tuple_impl!(0, 1, 2,);
     tuple_impl!(0, 1, 2, 3,);
 }
+#[cfg(feature = "singularity_common")]
+mod singularity_common_impls {
+    use super::{ToData, TryFromData};
+
+    impl ToData for singularity_common::utils::tree::tree_node_path::TreeNodePath {
+        fn to_data(&self) -> Vec<u8> {
+            self.0.to_data()
+        }
+    }
+    impl TryFromData for singularity_common::utils::tree::tree_node_path::TreeNodePath {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            Some(Self(Vec::<usize>::try_from_data(data)?))
+        }
+    }
+}
+
 /// TODO: automate this somehow. Annoying I can't use derive for outer classes.
 #[cfg(feature = "singularity_ui")]
 mod singularity_ui_impls {

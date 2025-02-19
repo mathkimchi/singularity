@@ -285,6 +285,12 @@ impl<T> IdTree<T> {
         self.locally_consistent(ids_to_swap[0]).unwrap();
         self.locally_consistent(ids_to_swap[1]).unwrap();
     }
+
+    /// Like re-casting, just change the types which is fine
+    /// for this struct since its all phantom data anyways
+    pub fn transmute<NewItem>(self) -> IdTree<NewItem> {
+        unsafe { std::mem::transmute(self) }
+    }
 }
 impl<T> TraversableTree for IdTree<T> {
     fn exists_at(&self, path: &TreeNodePath) -> bool {

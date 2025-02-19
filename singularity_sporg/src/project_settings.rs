@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
-use singularity_common::utils::id_map::IdMap;
+use singularity_common::utils::{
+    id_map::{Id, IdMap},
+    tree::id_tree::IdTree,
+};
 use singularity_ui::display_units::DisplayArea;
 use std::collections::HashMap;
+
+use crate::tile::Tiles;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappFileSystemPermission {
@@ -55,14 +60,14 @@ pub struct OpenTab {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct OpenTabs {
     pub tabs: IdMap<OpenTab>,
-    //
-    // /// ORGanizational tree
-    // pub org_tree: IdTree<crate::tab::TabHandler>,
-    // pub focused_tab: Id<crate::tab::TabHandler>,
 
-    // // /// currently, last in vec is "top" in gui
-    // // pub display_order: Vec<Uuid>,
-    // pub display_tiles: Tiles,
+    /// ORGanizational tree
+    pub org_tree: IdTree<OpenTab>,
+    pub focused_tab: Id<OpenTab>,
+
+    // /// currently, last in vec is "top" in gui
+    // pub display_order: Vec<Uuid>,
+    pub display_tiles: Tiles<OpenTab>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
