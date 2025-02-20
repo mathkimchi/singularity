@@ -2,7 +2,7 @@ use singularity_common::utils::{
     id_map::Id,
     tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
 };
-use singularity_sap::{standard_packets::display_packets::{NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestUpdateWindow}, universal_stream::universal_server_stream::as_query_data_responder};
+use singularity_sap::{standard_packets::display_packets::{CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestUpdateWindow}, universal_stream::universal_server_stream::as_query_data_responder};
 use singularity_sporg::{tile::{Orientation, Tile}, Project};
 use singularity_ui::{
     color::Color,
@@ -111,7 +111,14 @@ impl ProjectManager {
 
         ui_thread_handle.join().unwrap();
 
+        
         self.save_to_file();
+        
+        // close tab processes
+        for mut tab in self.tabs.tabs.into_values() {
+            tab.send_event(SDEEvent::Close(CloseWarningEvent));
+            tab.kill();
+        }
 
         Ok(())
     }
@@ -258,7 +265,7 @@ impl ProjectManager {
             UIElement::Container(tab_elements).fill_bg(Color::BLACK);
     }
 
-    fn save_to_file(mut self) {
+    fn save_to_file(&mut self) {
         // save the tabs session
         let open_tabs = self.tabs.save_session();
         self.project.project_settings.open_tabs = Some(open_tabs);
@@ -269,7 +276,7 @@ impl ProjectManager {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             use singularity_ui::ui_event::UIEvent;
             match ui_event {
-                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
+                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('q') => {
                     // Ctrl+Q
                     dbg!("Goodbye!");
                     self.is_running.store(false, Ordering::Relaxed);
@@ -611,9 +618,9 @@ impl ProjectManager {
     //     )
     // }
 }
-impl Drop for ProjectManager {
-    fn drop(&mut self) {
-        // revert the terminal to its original state
-        // drop is called even on panic
-    }
-}
+// impl Drop for ProjectManager {
+//     fn drop(&mut self) {
+//         // revert the terminal to its original state
+//         // drop is called even on panic
+//     }
+// }

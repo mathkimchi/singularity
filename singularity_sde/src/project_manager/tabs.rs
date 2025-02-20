@@ -1,5 +1,3 @@
-use std::process::Command;
-
 use crate::{packets::SDEEvent, tab::TabHandler};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
@@ -21,7 +19,7 @@ use singularity_ui::display_units::DisplayArea;
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    tabs: IdMap<TabHandler>,
+    pub tabs: IdMap<TabHandler>,
 
     /// ORGanizational tree
     org_tree: IdTree<TabHandler>,
@@ -107,26 +105,26 @@ impl Tabs {
         Self::new_from_root_with_id(root_tab, Id::generate())
     }
 
-    pub fn add(
-        &mut self,
-        new_tab: TabHandler,
-        parent_id: &Id<TabHandler>,
-    ) -> Option<Id<TabHandler>> {
-        let uuid = Id::generate();
+    // pub fn add(
+    //     &mut self,
+    //     new_tab: TabHandler,
+    //     parent_id: &Id<TabHandler>,
+    // ) -> Option<Id<TabHandler>> {
+    //     let uuid = Id::generate();
 
-        // add to `org_tree`
-        self.org_tree.add_child(*parent_id, uuid);
-        // add to `tabs`
-        self.tabs.insert(uuid, new_tab);
-        // add to top of display order
-        self.display_tiles.give_sibling(self.focused_tab, uuid);
+    //     // add to `org_tree`
+    //     self.org_tree.add_child(*parent_id, uuid);
+    //     // add to `tabs`
+    //     self.tabs.insert(uuid, new_tab);
+    //     // add to top of display order
+    //     self.display_tiles.give_sibling(self.focused_tab, uuid);
 
-        // set focus to new tabs
-        // REVIEW: is this bad?
-        self.set_focused_tab_id(uuid);
+    //     // set focus to new tabs
+    //     // REVIEW: is this bad?
+    //     self.set_focused_tab_id(uuid);
 
-        Some(uuid)
-    }
+    //     Some(uuid)
+    // }
 
     pub fn get_tab_handler(&self, uuid: Id<TabHandler>) -> Option<&TabHandler> {
         self.tabs.get(&uuid)
@@ -223,9 +221,9 @@ impl Tabs {
     //     // }
     // }
 
-    pub fn num_tabs(&self) -> usize {
-        self.tabs.len()
-    }
+    // pub fn num_tabs(&self) -> usize {
+    //     self.tabs.len()
+    // }
 
     pub fn collect_tab_ids(&self) -> Vec<Id<TabHandler>> {
         self.tabs.keys().cloned().collect()

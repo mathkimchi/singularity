@@ -15,7 +15,7 @@ pub struct TabHandler {
     pub tab_area: DisplayArea,
     pub tab_display: UIElement,
     pub tab_data: TabData,
-    _tab_process: Child,
+    tab_process: Child,
 }
 impl TabHandler {
     /// TODO: allow setting focus
@@ -34,7 +34,7 @@ impl TabHandler {
             tab_area,
             tab_display: UIElement::Nothing,
             tab_data: initial_tab_data,
-            _tab_process: tab_spawn_command,
+            tab_process: tab_spawn_command,
         }
     }
 
@@ -77,5 +77,9 @@ impl TabHandler {
 
     pub fn get_tab_data(&self) -> &TabData {
         &self.tab_data
+    }
+
+    pub fn kill(mut self) {
+        self.tab_process.kill().unwrap();
     }
 }

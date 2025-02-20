@@ -40,11 +40,11 @@ fn main() {
         Color::TRANSPARENT,
     ));
 
-    client_stream.send_request(RequestUpdateWindow {
-        contents: fortune_ui,
-    });
     client_stream.send_request(RequestChangeName {
         new_name: "Fortuna".to_string(),
+    });
+    client_stream.send_request(RequestUpdateWindow {
+        contents: fortune_ui,
     });
 
     loop {
