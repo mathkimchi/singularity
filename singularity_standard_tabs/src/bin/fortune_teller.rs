@@ -13,11 +13,17 @@ use std::{
     time::{self, Duration, UNIX_EPOCH},
 };
 
-pub const FORTUNES: [&str; 4] = [
+pub const FORTUNES: [&str; 7] = [
     "An idiot admires complexity, a genius admires simplicity.",
     "You'll never know if you don't go\nYou'll never shine if you don't glow",
     "To play a wrong note is insignificant; to play without passion is inexcusable.",
     "A monad is just a monoid in the category of endofunctors, what's the problem?",
+    "And so it must be, for so it is written
+On the doorway to paradise
+That those who falter and those who fall
+Must pay the price!",
+    "Act only according to that maxim by which you can at the same time will that it should become a universal law.",
+    "When the odds are saying you'll never win, that's when the grin should start!",
 ];
 
 fn main() {
@@ -26,28 +32,28 @@ fn main() {
         DisplayEvent,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
-    let now = time::SystemTime::now();
-    let seed = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let pseudo_rand = seed.count_ones() as usize;
-    let fortune_str = FORTUNES[pseudo_rand % (FORTUNES.len())];
-
-    // // Jank way of temporarily debugging
-    // eprintln!("Fortune: {fortune_str}");
-
-    let fortune_ui = UIElement::CharGrid(CharGrid::new_monostyled(
-        fortune_str.into(),
-        Color::LIGHT_GREEN,
-        Color::TRANSPARENT,
-    ));
-
     client_stream.send_request(RequestChangeName {
         new_name: "Fortuna".to_string(),
     });
-    client_stream.send_request(RequestUpdateWindow {
-        contents: fortune_ui,
-    });
 
     loop {
-        sleep(Duration::from_secs(1));
+        let now = time::SystemTime::now();
+        let seed = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let pseudo_rand = seed.count_ones() as usize;
+        let fortune_str = FORTUNES[pseudo_rand % (FORTUNES.len())];
+
+        // // Jank way of temporarily debugging
+        // eprintln!("Fortune: {fortune_str}");
+
+        let fortune_ui = UIElement::CharGrid(CharGrid::new_monostyled(
+            fortune_str.into(),
+            Color::LIGHT_GREEN,
+            Color::TRANSPARENT,
+        ));
+
+        client_stream.send_request(RequestUpdateWindow {
+            contents: fortune_ui,
+        });
+        sleep(Duration::from_secs(3));
     }
 }
