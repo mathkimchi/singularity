@@ -13,5 +13,5 @@ pub use wayland_backend::UIDisplay;
 #[cfg(not(any(feature = "wayland_backend")))]
 compile_error!("need to choose a gui backend");
 
-#[cfg(test)]
-mod test;
+// #[cfg(test)]
+// mod test;

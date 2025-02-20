@@ -1,6 +1,6 @@
-use singularity_common::utils::usock_tools::client_connect_from_env;
 use singularity_sap::{
-    standard_packets::display_packets::{DisplayEvent, RequestUpdateWindow},
+    byte_stream::{ByteReaderWrapper, CombinedByteStream},
+    standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };
 use singularity_ui::{
@@ -8,8 +8,9 @@ use singularity_ui::{
     ui_element::{CharGrid, UIElement},
 };
 use std::{
-    os::unix::net::UnixStream,
-    time::{self, UNIX_EPOCH},
+    io::Stdout,
+    thread::sleep,
+    time::{self, Duration, UNIX_EPOCH},
 };
 
 pub const FORTUNES: [&str; 4] = [
@@ -20,15 +21,18 @@ pub const FORTUNES: [&str; 4] = [
 ];
 
 fn main() {
-    let mut client_stream: UniversalClientStream<UnixStream, DisplayEvent> =
-        UniversalClientStream::new(client_connect_from_env().unwrap());
+    let mut client_stream: UniversalClientStream<
+        CombinedByteStream<ByteReaderWrapper, Stdout>,
+        DisplayEvent,
+    > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
     let now = time::SystemTime::now();
     let seed = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
     let pseudo_rand = seed.count_ones() as usize;
     let fortune_str = FORTUNES[pseudo_rand % (FORTUNES.len())];
 
-    println!("Fortune: {fortune_str}");
+    // // Jank way of temporarily debugging
+    // eprintln!("Fortune: {fortune_str}");
 
     let fortune_ui = UIElement::CharGrid(CharGrid::new_monostyled(
         fortune_str.into(),
@@ -39,4 +43,11 @@ fn main() {
     client_stream.send_request(RequestUpdateWindow {
         contents: fortune_ui,
     });
+    client_stream.send_request(RequestChangeName {
+        new_name: "Fortuna".to_string(),
+    });
+
+    loop {
+        sleep(Duration::from_secs(1));
+    }
 }

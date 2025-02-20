@@ -12,15 +12,15 @@ fn run() {
     let server_host = UnixServerHost::bind_new().unwrap();
     let client_command = Command::new("cargo")
         .args([
-            "test",
+            "run",
             "--package",
             "singularity_standard_tabs",
-            "--test",
+            "--bin",
             "print_test_tab",
-            "--",
-            "run",
-            "--exact",
-            "--show-output",
+            // "--",
+            // "run",
+            // "--exact",
+            // "--show-output",
         ])
         .spawn()
         .unwrap();

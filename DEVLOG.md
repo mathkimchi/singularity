@@ -2601,3 +2601,8 @@ and a lot of the past code expects the tab to be initialized by the sde.
 
 Stdin doesn't have a vanilla way of polling,
 so I made a wrapper for `Read` using mpsc.
+
+The downside of the piping is that my main tool for debugging just disappeared.
+Ways to debug would be to create a request, or to write to files.
+
+I am going to change the old idea of `tab_type` to `tab_command`.

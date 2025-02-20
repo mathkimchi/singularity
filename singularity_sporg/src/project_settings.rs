@@ -4,7 +4,7 @@ use singularity_common::utils::{
     tree::id_tree::IdTree,
 };
 use singularity_ui::display_units::DisplayArea;
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::OsString};
 
 use crate::tile::Tiles;
 
@@ -38,13 +38,14 @@ pub struct SubappSettings {
     subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
 }
 
-/// NOTE: Read devlog ~2024/10/29 for description; this is like SessionStorage for webdev
+/// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
 /// REVIEW: rename?
 /// REVIEW: include Area and UIElement and TabType into this?
 /// This type is kind of a black sheep
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct TabData {
-    pub tab_type: String,
+    /// Like `Command`. (program, args). The command and args to spawn tab.
+    pub tab_command: (OsString, Vec<OsString>),
     pub session_data: serde_json::Value,
 }
 

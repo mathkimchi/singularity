@@ -18,14 +18,14 @@
   },
   "open_tabs": {
     "tabs": {
-      "6357c137-a415-40e1-92bb-7f1fbf37f2a9": {
+      "04374f11-36e7-409d-827d-593acd7b4cde": {
         "tab_area": [
           {
             "x": {
-              "Proportional": 0.0
+              "Pixels": 0
             },
             "y": {
-              "Proportional": 0.5
+              "Pixels": 0
             }
           },
           {
@@ -38,78 +38,67 @@
           }
         ],
         "tab_data": {
-          "tab_type": "TIME_MANAGER",
-          "session_data": "examples/root-project"
-        }
-      },
-      "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.0
+          "tab_command": [
+            {
+              "Unix": [
+                46,
+                47,
+                116,
+                97,
+                114,
+                103,
+                101,
+                116,
+                47,
+                100,
+                101,
+                98,
+                117,
+                103,
+                47,
+                102,
+                111,
+                114,
+                116,
+                117,
+                110,
+                101,
+                95,
+                116,
+                101,
+                108,
+                108,
+                101,
+                114
+              ]
             },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 1.0
-            },
-            "y": {
-              "Proportional": 0.5
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_type": "TASK_ORGANIZER",
+            []
+          ],
           "session_data": "examples/root-project"
         }
       }
     },
     "org_tree": {
-      "root_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c",
+      "root_id": "04374f11-36e7-409d-827d-593acd7b4cde",
       "nodes": {
-        "6357c137-a415-40e1-92bb-7f1fbf37f2a9": {
+        "04374f11-36e7-409d-827d-593acd7b4cde": {
           "children": [],
-          "parent": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
-        },
-        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": {
-          "children": [
-            "6357c137-a415-40e1-92bb-7f1fbf37f2a9"
-          ],
           "parent": null
         }
       }
     },
-    "focused_tab": "6357c137-a415-40e1-92bb-7f1fbf37f2a9",
+    "focused_tab": "04374f11-36e7-409d-827d-593acd7b4cde",
     "display_tiles": {
-      "root_id": "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa",
+      "root_id": "25fca710-206c-4299-b884-4b79cab41ffc",
       "tiles": {
-        "2c9be9ce-27fe-4f0b-860a-12e89fbaa5fa": {
-          "Container": {
-            "children": [
-              "f5c814a5-b580-432e-bc33-c19409dd86a2",
-              "4d494978-e402-4709-822f-3a5db931c14c"
-            ],
-            "orientation": "Horizontal",
-            "split": 0.5
-          }
-        },
-        "4d494978-e402-4709-822f-3a5db931c14c": {
+        "25fca710-206c-4299-b884-4b79cab41ffc": {
           "Tab": {
-            "tab_id": "6357c137-a415-40e1-92bb-7f1fbf37f2a9"
-          }
-        },
-        "f5c814a5-b580-432e-bc33-c19409dd86a2": {
-          "Tab": {
-            "tab_id": "995c64ed-840e-4de2-b9a6-7311b7c8f21c"
+            "tab_id": "04374f11-36e7-409d-827d-593acd7b4cde"
           }
         }
       },
       "leaf_registry": {
-        "6357c137-a415-40e1-92bb-7f1fbf37f2a9": "4d494978-e402-4709-822f-3a5db931c14c",
-        "995c64ed-840e-4de2-b9a6-7311b7c8f21c": "f5c814a5-b580-432e-bc33-c19409dd86a2"
+        "04374f11-36e7-409d-827d-593acd7b4cde": "25fca710-206c-4299-b884-4b79cab41ffc"
       }
     }
   }

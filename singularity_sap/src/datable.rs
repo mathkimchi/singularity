@@ -489,12 +489,15 @@ mod singularity_ui_impls {
 
     impl ToData for singularity_ui::ui_event::UIEvent {
         fn to_data(&self) -> Vec<u8> {
-            todo!()
+            vec![]
+            // TODO
+            // todo!()
         }
     }
     impl TryFromData for singularity_ui::ui_event::UIEvent {
         fn try_from_data(_data: &[u8]) -> Option<Self> {
-            todo!()
+            // todo!()
+            None
         }
     }
     impl PacketTrait for singularity_ui::ui_event::UIEvent {

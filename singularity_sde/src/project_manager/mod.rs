@@ -6,7 +6,7 @@ use singularity_sap::{standard_packets::display_packets::{NameQuery, NameRespons
 use singularity_sporg::{tile::{Orientation, Tile}, Project};
 use singularity_ui::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplaySize},
+    display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
     UIDisplay,
@@ -595,21 +595,21 @@ impl ProjectManager {
         }
     }
 
-    /// TODO: now, with tiling, I don't need this
-    fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
-        const WIDTH: f32 = 0.5;
-        const HEIGHT: f32 = 0.5;
+    // /// TODO: now, with tiling, I don't need this
+    // fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
+    //     const WIDTH: f32 = 0.5;
+    //     const HEIGHT: f32 = 0.5;
 
-        let child_index = child_index as f32;
-        let depth = depth as f32;
-        DisplayArea::from_corner_size(
-            DisplayCoord::new(
-                ((0.1 * depth + 0.01 * child_index) % WIDTH).into(),
-                ((0.2 * child_index) % HEIGHT).into(),
-            ),
-            DisplaySize::new(WIDTH.into(), HEIGHT.into()),
-        )
-    }
+    //     let child_index = child_index as f32;
+    //     let depth = depth as f32;
+    //     DisplayArea::from_corner_size(
+    //         DisplayCoord::new(
+    //             ((0.1 * depth + 0.01 * child_index) % WIDTH).into(),
+    //             ((0.2 * child_index) % HEIGHT).into(),
+    //         ),
+    //         DisplaySize::new(WIDTH.into(), HEIGHT.into()),
+    //     )
+    // }
 }
 impl Drop for ProjectManager {
     fn drop(&mut self) {

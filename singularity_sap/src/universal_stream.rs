@@ -111,7 +111,12 @@ pub mod universal_client_stream {
                 const REQUEST_PACKET_TYPE_DATA: [u8; 1] = REQUEST_PACKET_TYPE.to_be_bytes();
                 let request_data = &request.to_data();
 
-                [&REQUEST_PACKET_TYPE_DATA[..], request_data].concat()
+                [
+                    &REQUEST_PACKET_TYPE_DATA[..],
+                    &R::PACKET_TYPE_ID.to_be_bytes(),
+                    request_data,
+                ]
+                .concat()
             };
 
             self.stream.write_bytes(&request_bytes);

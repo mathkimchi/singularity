@@ -22,6 +22,7 @@ impl UnixServerHost {
         std::env::set_var(PATH_SUFFIX_ENV_KEY, path_suffix);
 
         let path = format!("{}/{}", path_prefix, path_suffix);
+        let _ = std::fs::remove_file(&path);
         Some(Self {
             listener: UnixListener::bind(&path).ok()?,
             path,

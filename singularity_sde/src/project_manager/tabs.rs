@@ -1,10 +1,12 @@
+use std::process::Command;
+
 use crate::{packets::SDEEvent, tab::TabHandler};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
 };
 use singularity_sap::standard_packets::display_packets::{FocusedEvent, UnfocusedEvent};
-use singularity_sporg::{tile::Tiles, Project};
+use singularity_sporg::{project_settings::TabData, tile::Tiles, Project};
 use singularity_ui::display_units::DisplayArea;
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
@@ -31,61 +33,62 @@ pub struct Tabs {
 }
 impl Tabs {
     pub fn parse_from_project(project: &Project) -> Self {
-        // if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
-        //     Self {
-        //         tabs: open_tabs
-        //             .tabs
-        //             .into_iter()
-        //             .map(|(id, open_tab)| {
-        //                 (
-        //                     uuid::Uuid::from(id).into(),
-        //                     TabHandler::new(
-        //                         singularity_standard_tabs::get_tab_creator_from_type(
-        //                             open_tab.tab_data.tab_type.as_str(),
-        //                         ),
-        //                         open_tab.tab_data,
-        //                         open_tab.tab_area,
-        //                     ),
-        //                 )
-        //             })
-        //             .collect(),
-        //         org_tree: open_tabs.org_tree,
-        //         focused_tab: open_tabs.focused_tab.recast(),
-        //         display_tiles: open_tabs.display_tiles,
-        //     }
-        // } else {
-        //     // // create new project
-        //     // use singularity_standard_tabs::{
-        //     //     file_manager::FileManager, task_organizer::TaskOrganizer,
-        //     // };
+        if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
+            Self {
+                tabs: open_tabs
+                    .tabs
+                    .into_iter()
+                    .map(|(id, open_tab)| {
+                        (
+                            uuid::Uuid::from(id).into(),
+                            TabHandler::new(open_tab.tab_data, open_tab.tab_area),
+                        )
+                    })
+                    .collect(),
+                org_tree: open_tabs.org_tree.transmute(),
+                focused_tab: open_tabs.focused_tab.transmute(),
+                display_tiles: open_tabs.display_tiles.transmute(),
+            }
+        } else {
+            // create the default new project
 
-        //     // let mut tabs = Tabs::new_from_root(TabHandler::new(
-        //     //     FileManager::new_tab_creator(),
-        //     //     TabData {
-        //     //         tab_type: "FILE_MANAGER".to_string(),
-        //     //         session_data: serde_json::to_value(project.get_project_directory().clone())
-        //     //             .unwrap(),
-        //     //     },
-        //     //     DisplayArea::new((0., 0.), (0.5, 1.)),
-        //     // ));
+            // let mut tabs = Tabs::new_from_root(TabHandler::new(
+            //     FileManager::new_tab_creator(),
+            //     TabData {
+            //         tab_type: "FILE_MANAGER".to_string(),
+            //         session_data: serde_json::to_value(project.get_project_directory().clone())
+            //             .unwrap(),
+            //     },
+            //     DisplayArea::new((0., 0.), (0.5, 1.)),
+            // ));
 
-        //     // tabs.add(
-        //     //     TabHandler::new(
-        //     //         TaskOrganizer::new_tab_creator(),
-        //     //         TabData {
-        //     //             tab_type: "TASK_ORGANIZER".to_string(),
-        //     //             session_data: serde_json::to_value(project.get_project_directory().clone())
-        //     //                 .unwrap(),
-        //     //         },
-        //     //         DisplayArea::new((0.5, 0.), (1.0, 1.)),
-        //     //     ),
-        //     //     &tabs.get_root_id(),
-        //     // );
+            // tabs.add(
+            //     TabHandler::new(
+            //         TaskOrganizer::new_tab_creator(),
+            //         TabData {
+            //             tab_type: "TASK_ORGANIZER".to_string(),
+            //             session_data: serde_json::to_value(project.get_project_directory().clone())
+            //                 .unwrap(),
+            //         },
+            //         DisplayArea::new((0.5, 0.), (1.0, 1.)),
+            //     ),
+            //     &tabs.get_root_id(),
+            // );
 
-        //     // tabs
-        //     todo!()
-        // }
-        todo!()
+            let tabs = Tabs::new_from_root(TabHandler::new(
+                TabData {
+                    tab_command: (
+                        "./target/release/fortune_teller".into(),
+                        Vec::new(), // Vec::from([""].map(|s| s.into())),
+                    ),
+                    session_data: serde_json::to_value(project.get_project_directory().clone())
+                        .unwrap(),
+                },
+                DisplayArea::new((0., 0.), (0.5, 1.)),
+            ));
+
+            tabs
+        }
     }
 
     fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {

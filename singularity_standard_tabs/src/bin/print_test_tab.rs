@@ -5,8 +5,7 @@ use singularity_sap::{
 };
 use std::{os::unix::net::UnixStream, thread, time::Duration};
 
-#[test]
-fn run() {
+fn main() {
     println!("Hi from print_test_tab");
 
     let mut client_stream: UniversalClientStream<UnixStream, DisplayEvent> =

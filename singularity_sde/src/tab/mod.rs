@@ -1,50 +1,42 @@
 use crate::packets::{SDEEvent, SDERequest};
 use singularity_sap::{
+    byte_stream::{ByteReaderWrapper, CombinedByteStream},
     standard_packets::display_packets::ResizeEvent,
     universal_stream::universal_server_stream::{QueryDataResponder, UniversalServerStream},
 };
 use singularity_sporg::project_settings::TabData;
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
-use std::os::unix::net::UnixStream;
+use std::process::{Child, ChildStdin, Command, Stdio};
 
 pub struct TabHandler {
-    communication: UniversalServerStream<UnixStream>,
+    communication: UniversalServerStream<CombinedByteStream<ByteReaderWrapper, ChildStdin>>,
 
     pub tab_name: String,
     pub tab_area: DisplayArea,
     pub tab_display: UIElement,
     pub tab_data: TabData,
-    // /// REVIEW: idk if this will ever be used
-    // /// I realized I can't kill threads anyways
-    // _tab_thread: JoinHandle<()>,
+    _tab_process: Child,
 }
 impl TabHandler {
-    // /// TODO: allow setting focus
-    // pub fn new<F: 'static + TabCreator>(
-    //     mut tab_creator: F,
-    //     initial_tab_data: TabData,
-    //     tab_area: DisplayArea,
-    // ) -> Self {
-    //     let (tab_channels, manager_channels) = create_channels();
+    /// TODO: allow setting focus
+    pub fn new(initial_tab_data: TabData, tab_area: DisplayArea) -> Self {
+        let mut tab_spawn_command = Command::new(&initial_tab_data.tab_command.0)
+            .args(&initial_tab_data.tab_command.1)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let byte_stream = CombinedByteStream::take_from_child(&mut tab_spawn_command).unwrap();
 
-    //     // create tab thread with manager proxy
-    //     let tab_thread = thread::spawn(move || {
-    //         tab_creator.create_tab(ManagerHandler {
-    //             manager_channels,
-    //             inner_area: tab_area,
-    //             // TODO
-    //             focus: false,
-    //         })
-    //     });
-
-    //     Self {
-    //         tab_channels,
-    //         _tab_thread: tab_thread,
-    //         tab_name: String::new(),
-    //         tab_area,
-    //         tab_data: initial_tab_data,
-    //     }
-    // }
+        Self {
+            communication: UniversalServerStream::new(byte_stream),
+            tab_name: String::new(),
+            tab_area,
+            tab_display: UIElement::Nothing,
+            tab_data: initial_tab_data,
+            _tab_process: tab_spawn_command,
+        }
+    }
 
     pub fn send_event(&mut self, event: SDEEvent) {
         self.communication.send_event(event);

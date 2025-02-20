@@ -1,6 +1,7 @@
 use std::{
-    io::{Read, Stdin, Write},
+    io::{stdin, stdout, Read, Stdin, Stdout, Write},
     os::unix::net::UnixStream,
+    process::{Child, ChildStdin},
     sync::mpsc::{channel, Receiver},
     thread::{spawn, JoinHandle},
 };
@@ -210,6 +211,52 @@ impl<W: Write> ByteWriter for W {
 
         // Need to flush for buffered writers
         self.flush().unwrap();
+    }
+}
+
+/// Wrapper to combine two different read and write objects into one class
+pub struct CombinedByteStream<R: ByteReader, W: ByteWriter> {
+    read: R,
+    write: W,
+}
+impl<R: ByteReader, W: ByteWriter> CombinedByteStream<R, W> {
+    pub fn new(read: R, write: W) -> Self {
+        Self { read, write }
+    }
+}
+impl CombinedByteStream<ByteReaderWrapper, Stdout> {
+    pub fn take_from_stdio() -> Self {
+        Self::new(ByteReaderWrapper::new(stdin()), stdout())
+    }
+}
+impl CombinedByteStream<ByteReaderWrapper, ChildStdin> {
+    pub fn take_from_child(child: &mut Child) -> Option<Self> {
+        // NOTE: child's stdin and stdout are opposite to this process' from our perspective
+        Some(Self::new(
+            ByteReaderWrapper::new(child.stdout.take()?),
+            child.stdin.take()?,
+        ))
+    }
+}
+impl<R: ByteReader, W: ByteWriter> ByteReader for CombinedByteStream<R, W> {
+    fn try_read_bytes(&mut self) -> Option<Vec<u8>> {
+        self.read.try_read_bytes()
+    }
+
+    fn wait_read_bytes(&mut self) -> Vec<u8> {
+        self.read.wait_read_bytes()
+    }
+
+    fn try_iter_bytes(&mut self) -> impl Iterator<Item = Vec<u8>>
+    where
+        Self: Sized,
+    {
+        self.read.try_iter_bytes()
+    }
+}
+impl<R: ByteReader, W: ByteWriter> ByteWriter for CombinedByteStream<R, W> {
+    fn write_bytes(&mut self, bytes: &[u8]) {
+        self.write.write_bytes(bytes);
     }
 }
 
