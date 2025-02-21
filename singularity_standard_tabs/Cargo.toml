@@ -7,6 +7,7 @@ edition = "2021"
 singularity_common = { path = "../singularity_common" }
 singularity_macros = { path = "../singularity_common/singularity_macros" }
 singularity_ui = { path = "../singularity_ui" }
+singularity_sap = { path = "../singularity_sap" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -26,7 +27,3 @@ serde_json = { workspace = true }
 # [[bin]]
 # name = "demo"
 # path = "demo.rs"
-
-[[test]]
-name = "demo"
-path = "src/demo.rs"

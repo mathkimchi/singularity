@@ -103,7 +103,7 @@ impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> 
 
     /// currently, only special behavior is mouseclick
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
-        if let Some(remapped_event) = remap_event(self.area, event) {
+        if let Some(remapped_event) = event.remap(self.area) {
             self.inner_component.handle_event(remapped_event);
         }
     }

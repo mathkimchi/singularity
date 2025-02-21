@@ -1,5 +1,6 @@
+pub mod packets;
 pub mod project_manager;
-mod tests;
+pub mod tab;
 
 /// this should be run from cli
 fn main() -> Result<(), std::io::Error> {

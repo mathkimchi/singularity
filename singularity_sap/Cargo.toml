@@ -1,0 +1,24 @@
+[package]
+name = "singularity_sap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+singularity_common = { path = "../singularity_common", optional = true }
+singularity_macros = { path = "../singularity_common/singularity_macros" }
+singularity_ui = { path = "../singularity_ui", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+paste = { workspace = true }
+
+uuid = { workspace = true }
+
+[features]
+default = ["standard_packets"]
+standard_packets = [
+    "singularity_ui",
+    "singularity_common",
+    "serde",
+    "serde_json",
+]

@@ -15,6 +15,12 @@ impl<Item> Id<Item> {
     pub fn generate() -> Self {
         Uuid::new_v4().into()
     }
+
+    /// Like re-casting, just change the types which is fine
+    /// for this struct since its all phantom data anyways
+    pub fn transmute<NewItem>(self) -> Id<NewItem> {
+        unsafe { std::mem::transmute(self) }
+    }
 }
 /// Derive doesn't understand phantomdata
 mod id_derive_impls {
@@ -75,7 +81,7 @@ mod id_derive_impls {
                 phantom_data: PhantomData<Item>,
             }
 
-            impl<'de, Item> serde::de::Visitor<'de> for IdVisitor<Item> {
+            impl<Item> serde::de::Visitor<'_> for IdVisitor<Item> {
                 type Value = Id<Item>;
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     write!(formatter, "a UUID string")

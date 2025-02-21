@@ -2,6 +2,7 @@ use project_settings::ProjectSettings;
 use std::path::PathBuf;
 
 pub mod project_settings;
+pub mod tile;
 
 pub struct Project {
     project_directory: PathBuf,

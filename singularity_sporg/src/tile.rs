@@ -1,11 +1,9 @@
 //! this is for tab placement, like hyprland
 //! Tabs are stored in a binary tree method
 
-use crate::utils::id_map::{Id, IdMap};
 use serde::{Deserialize, Serialize};
+use singularity_common::utils::id_map::{Id, IdMap};
 use std::collections::BTreeMap;
-
-use super::TabHandler;
 
 #[derive(Clone, Serialize, Deserialize, Debug, Copy)]
 pub enum Orientation {
@@ -25,22 +23,28 @@ impl Orientation {
 ///
 /// REVIEW: abstract something about the pattern where items are represented by Uuids and stored in B-maps
 /// Maybe like ID map
-#[derive(Clone, Serialize, Deserialize, Debug, Copy)]
-pub enum Tile {
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Tile<Tab> {
     Container {
         // parent_tile: Option<Id<Tile>>,
-        children: [Id<Tile>; 2],
+        children: [Id<Self>; 2],
         orientation: Orientation,
         split: f32,
     },
     /// Leaf node points to a full window
     Tab {
         /// REVIEW: adding onto the id map idea, I want to be able to specify this is a Uuid pointing to Tab
-        tab_id: Id<TabHandler>,
+        tab_id: Id<Tab>,
     },
 }
-impl Tile {
-    pub fn try_as_container(&self) -> Option<([Id<Tile>; 2], Orientation, f32)> {
+impl<Tab> core::clone::Clone for Tile<Tab> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<Tab> core::marker::Copy for Tile<Tab> {}
+impl<Tab> Tile<Tab> {
+    pub fn try_as_container(&self) -> Option<([Id<Self>; 2], Orientation, f32)> {
         if let Tile::Container {
             children,
             orientation,
@@ -53,29 +57,33 @@ impl Tile {
         }
     }
 
-    pub fn try_as_tab(&self) -> Option<Id<TabHandler>> {
+    pub fn try_as_tab(&self) -> Option<Id<Tab>> {
         if let Tile::Tab { tab_id } = *self {
             Some(tab_id)
         } else {
             None
         }
     }
+
+    pub fn transmute<NewTab>(self) -> Tile<NewTab> {
+        unsafe { std::mem::transmute(self) }
+    }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Tiles {
-    root_id: Id<Tile>,
-    tiles: IdMap<Tile>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Tiles<Tab> {
+    root_id: Id<Tile<Tab>>,
+    tiles: IdMap<Tile<Tab>>,
     /// TODO: rename leaf to tab
     ///
     /// REVIEW: better to just not have this? removal might result in worse big O,
     /// but it will be insignificant at this scale and the benefits are:
     /// simplicity, safety, and slightly less storage.
     /// I mean, I am not storing the parent either, and that is working fine.
-    leaf_registry: BTreeMap<Id<TabHandler>, Id<Tile>>,
+    leaf_registry: BTreeMap<Id<Tab>, Id<Tile<Tab>>>,
 }
-impl Tiles {
-    pub fn new_from_root(tab_id: Id<TabHandler>) -> Self {
+impl<Tab> Tiles<Tab> {
+    pub fn new_from_root(tab_id: Id<Tab>) -> Self {
         let root_tile_id = Id::generate();
         let mut tiles = IdMap::new();
         tiles.insert(root_tile_id, Tile::Tab { tab_id });
@@ -89,7 +97,7 @@ impl Tiles {
         }
     }
 
-    pub fn give_sibling(&mut self, older_tab_id: Id<TabHandler>, younger_tab_id: Id<TabHandler>) {
+    pub fn give_sibling(&mut self, older_tab_id: Id<Tab>, younger_tab_id: Id<Tab>) {
         let original_tile_id = self.leaf_registry[&older_tab_id];
 
         let older_tile_id = Id::generate();
@@ -120,7 +128,7 @@ impl Tiles {
         };
     }
 
-    pub fn remove(&mut self, tab_id: Id<TabHandler>) {
+    pub fn remove(&mut self, tab_id: Id<Tab>) {
         let tile_to_remove = self.get_leaf_tile_id(tab_id).unwrap();
         let parent_tile_id = self
             .get_parent_tile_id(tile_to_remove)
@@ -148,7 +156,7 @@ impl Tiles {
         self.tiles.remove(&tile_to_remove).unwrap();
     }
 
-    pub fn get_root_tile(&self) -> Id<Tile> {
+    pub fn get_root_tile(&self) -> Id<Tile<Tab>> {
         self.root_id
     }
 
@@ -156,11 +164,11 @@ impl Tiles {
     //     self.leaf_registry.get(&tab_id).copied()
     // }
 
-    pub fn get_tile(&self, tile_id: Id<Tile>) -> Option<&Tile> {
+    pub fn get_tile(&self, tile_id: Id<Tile<Tab>>) -> Option<&Tile<Tab>> {
         self.tiles.get(&tile_id)
     }
 
-    pub fn transpose_container(&mut self, container_tile_id: Id<Tile>) {
+    pub fn transpose_container(&mut self, container_tile_id: Id<Tile<Tab>>) {
         if let Some(Tile::Container {
             children: _,
             orientation,
@@ -171,7 +179,7 @@ impl Tiles {
         }
     }
 
-    pub fn swap_children(&mut self, container_tile_id: Id<Tile>) {
+    pub fn swap_children(&mut self, container_tile_id: Id<Tile<Tab>>) {
         if let Some(Tile::Container {
             children,
             orientation: _,
@@ -184,7 +192,7 @@ impl Tiles {
 
     /// NOTE: currently searches for parent that has the child
     /// REVIEW: optimize by storing the parents
-    pub fn get_parent_tile_id(&mut self, child_tile_id: Id<Tile>) -> Option<Id<Tile>> {
+    pub fn get_parent_tile_id(&mut self, child_tile_id: Id<Tile<Tab>>) -> Option<Id<Tile<Tab>>> {
         self.tiles.iter().find_map(|(parent_id, parent_tile)| {
             if let Tile::Container { children, .. } = parent_tile {
                 if children.contains(&child_tile_id) {
@@ -198,7 +206,26 @@ impl Tiles {
         })
     }
 
-    pub fn get_leaf_tile_id(&self, tab_handler: Id<TabHandler>) -> Option<Id<Tile>> {
+    pub fn get_leaf_tile_id(&self, tab_handler: Id<Tab>) -> Option<Id<Tile<Tab>>> {
         self.leaf_registry.get(&tab_handler).copied()
+    }
+
+    pub fn transmute<NewTab>(self) -> Tiles<NewTab> {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+/// Derive doesn't understand phantomdata
+mod tile_derive_impls {
+    use super::Tiles;
+
+    impl<Tab> core::clone::Clone for Tiles<Tab> {
+        fn clone(&self) -> Self {
+            Tiles {
+                root_id: self.root_id,
+                tiles: self.tiles.clone(),
+                leaf_registry: self.leaf_registry.clone(),
+            }
+        }
     }
 }

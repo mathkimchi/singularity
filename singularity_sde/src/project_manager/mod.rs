@@ -1,14 +1,12 @@
-use singularity_common::{
-    project::Project,
-    tab::{packets::Request, tile::Tile, TabHandler},
-    utils::{
-        id_map::Id,
-        tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
-    },
+use singularity_common::utils::{
+    id_map::Id,
+    tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
 };
+use singularity_sap::{standard_packets::display_packets::{CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestUpdateWindow}, universal_stream::universal_server_stream::as_query_data_responder};
+use singularity_sporg::{tile::{Orientation, Tile}, Project};
 use singularity_ui::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplaySize},
+    display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
     UIDisplay,
@@ -22,6 +20,7 @@ use std::{
     thread,
 };
 use tabs::Tabs;
+use crate::{packets::{SDEEvent, SDERequest}, tab::TabHandler};
 
 mod tabs;
 
@@ -103,8 +102,7 @@ impl ProjectManager {
         while self.is_running.load(Ordering::Relaxed) {
             self.draw_app();
             self.handle_input();
-            self.process_tab_requests();
-            self.answer_tab_queries();
+            self.handle_incoming();
 
             // FIXME: somehow prevent singularity from eating all of my CPU
             // const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
@@ -113,14 +111,21 @@ impl ProjectManager {
 
         ui_thread_handle.join().unwrap();
 
+        
         self.save_to_file();
+        
+        // close tab processes
+        for mut tab in self.tabs.tabs.into_values() {
+            tab.send_event(SDEEvent::Close(CloseWarningEvent));
+            tab.kill();
+        }
 
         Ok(())
     }
 
     fn render_tile_recursive(
         &mut self,
-        tile_id: Id<Tile>,
+        tile_id: Id<Tile<TabHandler>>,
         container_area: DisplayArea,
     ) -> UIElement {
         let tile = *self.tabs.get_display_tiles().get_tile(tile_id).unwrap();
@@ -132,11 +137,11 @@ impl ProjectManager {
                 split,
             } => {
                 let area_splits = match orientation {
-                    singularity_common::tab::tile::Orientation::Horizontal => [
+                    Orientation::Horizontal => [
                         DisplayArea::new((0., 0.), (1., split)),
                         DisplayArea::new((0., split), (1., 1.)),
                     ],
-                    singularity_common::tab::tile::Orientation::Vertical => [
+                    Orientation::Vertical => [
                         DisplayArea::new((0., 0.), (split, 1.)),
                         DisplayArea::new((split, 0.), (1., 1.)),
                     ],
@@ -159,7 +164,7 @@ impl ProjectManager {
                 // NOTE: rn, this is how the tab area is updated, but there's gotta be a better way
                 tab.set_area(container_area);
 
-                tab.get_ui_element().contain(container_area)
+                tab.get_display().clone().contain(container_area)
             }
         }
     }
@@ -260,7 +265,7 @@ impl ProjectManager {
             UIElement::Container(tab_elements).fill_bg(Color::BLACK);
     }
 
-    fn save_to_file(mut self) {
+    fn save_to_file(&mut self) {
         // save the tabs session
         let open_tabs = self.tabs.save_session();
         self.project.project_settings.open_tabs = Some(open_tabs);
@@ -271,7 +276,7 @@ impl ProjectManager {
         for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
             use singularity_ui::ui_event::UIEvent;
             match ui_event {
-                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
+                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('q') => {
                     // Ctrl+Q
                     dbg!("Goodbye!");
                     self.is_running.store(false, Ordering::Relaxed);
@@ -454,7 +459,7 @@ impl ProjectManager {
                     let focused_tab = self.tabs.get_focused_tab_mut();
 
                     focused_tab
-                        .send_event(singularity_common::tab::packets::Event::UIEvent(ui_event));
+                        .send_event(SDEEvent::UIEvent(ui_event));
                 }
                 UIEvent::WindowResized(_ui_window_px) => {
                     // self.ui_window_px = ui_window_px;
@@ -466,14 +471,14 @@ impl ProjectManager {
                     {
                         let focused_tab = self
                             .tabs
-                            .get_tab_handler(self.tabs.get_focused_tab_id())
+                            .get_mut_tab_handler(self.tabs.get_focused_tab_id())
                             .unwrap();
                         if focused_tab.get_area().map_onto(container).contains(
                             DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                             [tot_width as i32, tot_height as i32],
                         ) {
                             focused_tab.send_event(
-                                singularity_common::tab::packets::Event::UIEvent(
+                                SDEEvent::UIEvent(
                                     singularity_ui::ui_event::UIEvent::MousePress(
                                         [[click_x, click_y], [tot_width, tot_height]],
                                         focused_tab.get_area().map_onto(container),
@@ -501,79 +506,121 @@ impl ProjectManager {
         }
     }
 
-    /// Requests from tab to manager
-    fn process_tab_requests(&mut self) {
-        for requestor_path in self.tabs.collect_paths_dfs() {
-            let requests = self
+    // /// Requests from tab to manager
+    // fn process_tab_requests(&mut self) {
+    //     for requestor_path in self.tabs.collect_paths_dfs() {
+    //         let requests = self
+    //             .tabs
+    //             .get_tab_handler(self.tabs.get_id_by_org_path(&requestor_path).unwrap())
+    //             .unwrap()
+    //             .handle_incoming();
+
+    //         for request in requests {
+    //             match request {
+    //                 SDERequest::RequestChangeName(RequestChangeName{ new_name}) => {
+    //                     self.tabs
+    //                         .get_mut_tab_handler(
+    //                             self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
+    //                         )
+    //                         .unwrap()
+    //                         .tab_name = new_name;
+    //                 }
+    //                 SDERequest::SpawnChildTab(tab_creator, tab_data) => {
+    //                     self.tabs.add(
+    //                         TabHandler::new(
+    //                             tab_creator,
+    //                             tab_data,
+    //                             // NOTE: the argument child index is technically incorrect,
+    //                             // but the purpose of the generator is to generally prevent all
+    //                             // tabs from being spawned all in one place.
+    //                             Self::generate_tab_area(
+    //                                 self.tabs.num_tabs(),
+    //                                 requestor_path.depth() + 1,
+    //                             ),
+    //                         ),
+    //                         &self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
+    //                     );
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    fn handle_incoming(&mut self) {
+        for tab_path in self.tabs.collect_paths_dfs() {
+            let sender = self
                 .tabs
-                .get_tab_handler(self.tabs.get_id_by_org_path(&requestor_path).unwrap())
-                .unwrap()
-                .collect_requests();
+                .get_mut_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
+                .unwrap();
+            let requests= {
+                let sender_name = sender.tab_name.clone();
+                sender.handle_incoming(
+                &mut vec![
+                    &mut as_query_data_responder(|PathQuery| Some(PathResponse(tab_path.clone()))),
+                    &mut as_query_data_responder(move |NameQuery| Some(NameResponse(sender_name.clone()))),
+                    // &mut as_query_data_responder(|TabDataQuery| Some(TabDataResponse(sender.get_tab_data().clone()))),
+                ]
+            )};
 
             for request in requests {
                 match request {
-                    Request::ChangeName(new_name) => {
+                    SDERequest::RequestChangeName(RequestChangeName{ new_name}) => {
                         self.tabs
                             .get_mut_tab_handler(
-                                self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
+                                self.tabs.get_id_by_org_path(&tab_path).unwrap(),
                             )
                             .unwrap()
                             .tab_name = new_name;
                     }
-                    Request::SpawnChildTab(tab_creator, tab_data) => {
-                        self.tabs.add(
-                            TabHandler::new(
-                                tab_creator,
-                                tab_data,
-                                // NOTE: the argument child index is technically incorrect,
-                                // but the purpose of the generator is to generally prevent all
-                                // tabs from being spawned all in one place.
-                                Self::generate_tab_area(
-                                    self.tabs.num_tabs(),
-                                    requestor_path.depth() + 1,
-                                ),
-                            ),
-                            &self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
-                        );
-                    }
+                    SDERequest::RequestUpdateWindow(RequestUpdateWindow{ contents: new_ui }) => {
+                        self.tabs
+                            .get_mut_tab_handler(
+                                self.tabs.get_id_by_org_path(&tab_path).unwrap(),
+                            )
+                            .unwrap()
+                            .tab_display = new_ui;
+                    },
+                    // SDERequest::SpawnChildTab(tab_creator, tab_data) => {
+                    //     self.tabs.add(
+                    //         TabHandler::new(
+                    //             tab_creator,
+                    //             tab_data,
+                    //             // NOTE: the argument child index is technically incorrect,
+                    //             // but the purpose of the generator is to generally prevent all
+                    //             // tabs from being spawned all in one place.
+                    //             Self::generate_tab_area(
+                    //                 self.tabs.num_tabs(),
+                    //                 requestor_path.depth() + 1,
+                    //             ),
+                    //         ),
+                    //         &self.tabs.get_id_by_org_path(&requestor_path).unwrap(),
+                    //     );
+                    // }
+                    
                 }
             }
         }
     }
 
-    fn answer_tab_queries(&self) {
-        for tab_path in self.tabs.collect_paths_dfs() {
-            let inquieror = self
-                .tabs
-                .get_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
-                .unwrap();
-            inquieror.get_respond_channels().answer_query(
-                move || tab_path.clone(),
-                move || inquieror.tab_name.clone(),
-                move || inquieror.get_tab_data().clone(),
-            );
-        }
-    }
+    // /// TODO: now, with tiling, I don't need this
+    // fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
+    //     const WIDTH: f32 = 0.5;
+    //     const HEIGHT: f32 = 0.5;
 
-    /// TODO: now, with tiling, I don't need this
-    fn generate_tab_area(child_index: usize, depth: usize) -> DisplayArea {
-        const WIDTH: f32 = 0.5;
-        const HEIGHT: f32 = 0.5;
-
-        let child_index = child_index as f32;
-        let depth = depth as f32;
-        DisplayArea::from_corner_size(
-            DisplayCoord::new(
-                ((0.1 * depth + 0.01 * child_index) % WIDTH).into(),
-                ((0.2 * child_index) % HEIGHT).into(),
-            ),
-            DisplaySize::new(WIDTH.into(), HEIGHT.into()),
-        )
-    }
+    //     let child_index = child_index as f32;
+    //     let depth = depth as f32;
+    //     DisplayArea::from_corner_size(
+    //         DisplayCoord::new(
+    //             ((0.1 * depth + 0.01 * child_index) % WIDTH).into(),
+    //             ((0.2 * child_index) % HEIGHT).into(),
+    //         ),
+    //         DisplaySize::new(WIDTH.into(), HEIGHT.into()),
+    //     )
+    // }
 }
-impl Drop for ProjectManager {
-    fn drop(&mut self) {
-        // revert the terminal to its original state
-        // drop is called even on panic
-    }
-}
+// impl Drop for ProjectManager {
+//     fn drop(&mut self) {
+//         // revert the terminal to its original state
+//         // drop is called even on panic
+//     }
+// }

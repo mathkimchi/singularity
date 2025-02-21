@@ -1555,3 +1555,1082 @@ You know what, I am going to leave it at the observation for now, because I want
 This is definitely a TODO or REVIEW though.
 
 TODO
+
+2024/12/2
+
+Do you see this?
+I finally cleaned up the git branches and got around to using issues.
+
+From now on, I will put the technical brainstorming and ideas in github issues.
+In this file, until I actually deem singularity (specifically the time manager's block logging) good enough to actually start using, I will mostly be writing session-related things in here.
+This will be things like:
+- Writing down/logging issues I work on like I will right below
+- Journalling about the coding process, like writing down how I got over a specific problem, or if I didn't get over a problem, just ranting about it
+- Whatever miscellaneous things I feel like writing here
+
+The purpose of doing this is so there is a central place to see everything I did.
+
+I will work on this issue (hopefully github recognizes this):
+
+#3
+
+...
+
+Nope, but this should work: I will work on [#3](https://github.com/mathkimchi/singularity/issues/3) (apparently vscode recognizes these issues now, because it autocompleted).
+
+...
+
+Beware: Rambling (even more so than usual)
+
+My roommate is sleeping and I wanted to log my thoughts before I wash them away in slumber, so I have resorted to editing markdown on github mobile.
+I was thinking of having each process create as many windows as they wanted, if any.
+But, instinctually, I worry that jumping to this solution might not be the broghtest idea.
+I keep thinking of rust's ownership, not necessarily because the its solution to memory management might cleanly parallel a good solution to this problem, but because it is just so clever that I want to know how that idea was even conceived.
+In other words, I want to try to use the example of ownership to learn how to come up with good solutions.
+Like manual memory management, my idea pretty much maximizes the flexibility of how tabs are implemented.
+Flexibility is great, but in this case, making tabs too flexible will make it unsafe and hard to develop, like C.
+Moreover, learning about wayland has shown me that imposing logically arbitrary but practically useful works, which is reassuring especially since I intend to implement a system with the same functionality as wayland.
+(However, learning anout wayland has also taught me that it is a nightmare, so maybe it isn't the best role model.)
+
+The thought that initially motivated this was rust's mpsc.
+A rust message channel can have multiple senders and one receiver.
+There can only be one receiver, because the message can only have one owner.
+This is very intuitive if we think of a real mail.
+A channel is like a mailing address; there is no limit to how many people can send messages, but each mailing address has one house it refers to.
+Rust ownership makes more sense than loose memory management in the real world, even though following it sets a self imposed restriction that isn't necessary by the nature of where code lives.
+
+I wonder if I can draw any inspiration from real life to come up with a good solution.
+The takeaway from the above paragraphs is that the inspiration can be arbitrary from a purely logical view (in other words: restrict what the user (a developer using this code) can do even though allowing it would not be hard to implement), if it benefits safety or improves the usecases that will be allowed.
+I guess all that just says that guardrails are fine.
+
+2024/12/4
+
+I haven't found a better solution than processes requesting to make windows.
+This is the most flexible way.
+
+But, I was thinking more and eventually, I should abstract away everything arbitrary, and for any feature like mouse click listening, have it work similarly to importing libraries.
+
+On account of my desire to open source this project by the end of December combined with my inability to dedicate myself wholly to this project at this moment in time due to urgent priorities (studying), I will continue to brainstorm until Saturday.
+On Saturday, I start implementing the least bad solution, even if it is the flexible way.
+This will let me:
+
+1. Prioritize my studies for the week, which is the most crucial period
+2. Brainstorm and ensure there are no glaring issues with whatever I settle on, so I probably don't prematurely work on a fundamentally flawed implementation (which I have done)
+3. Not get stuck on brainstorming, constantly doubting any solution I might do, and never start trying (which I have also done)
+
+2024/12/7
+
+A terminal app called Zellij is written in rust and supports rust plugins, but it is with WASM.
+Check out: https://zellij.dev/tutorials/developing-a-rust-plugin/
+
+Anyways, my deadline is up.
+
+I thought about the best ways of doing this, and I didn't get any big revelations.
+I will take it simple and do things similarly to window managers and desktop apps: each process can request an arbitrary amount of windows.
+
+I think I will have a singularity client toolkit.
+This is similar to the smithay client toolkit, and it is my attempt at making things safe when safety isn't guranteed with ipc.
+In theory, if the client toolkit and the server side are both working, then the actual client code should be safe.
+
+There is a [smithay handbook](https://smithay.github.io/book/client/general/intro.html) that I will gain inspiration from.
+In wayland, the wayland server has a listener at `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, and if you `echo $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, you should get something like `/run/user/1000/wayland-0`.
+So, I will have my own env variable called `$SINGULARITY_SERVER`, and the singularity server will make a socket at `$XDG_RUNTIME_DIR/$SINGULARITY_SERVER`.
+
+When the wayland client wants to make a window, they call `Connection::connect_to_env()`.
+Each `Connection` should represent one wayland window.
+I'll do something similar.
+
+2024/12/13
+
+I haven't worked on this over the week, but it is the weekend, and I want a demo just for the unix sockets.
+I will make a chatting app to start simple with.
+
+I also think I should seperate singularity into:
+
+- singularity tab organizer (what I created this project with the intent of making)
+- singularity window manager/compositor
+- individual standard tabs
+  - Chro (name in progress), the time manager
+  - rest of the tabs (file manager, text editor, eg.) are whatever, just make them usable
+
+unix-stream seems to be the same for the server and client side, the process just seems to be:
+1. server makes a `UnixListener` (this is only for server side)
+2. client tries to connect
+3. server accepts, and the OS or whatever gives both the server and client each a `UnixSocket` that just communicates between the two
+
+I remember making a multiplayer game with TCP, and I think this is very similar.
+
+A group chat server is unnecessarily complicated, I will just do a simple turn based chat like thing between just client and server.
+
+2024/12/14
+
+Now that I have the communication sockets figured out, I should actually use it to allow tabs to run in processes.
+Since I am pretty much making a window manager, I will use the term `app` from now.
+There should be a one to one mapping between an instance of an app and a connection.
+
+The singularity app protocol (sap ?) should support extensible features.
+What I mean is that, if the server and client both want to support dragging as an optional feature, then they should be able to send dragging packets to each other.
+But, if either of them don't know dragging, then dragging will not work, but the app should still work.
+
+I can't think of a way to make this work well at runtime or to ensure complete safety, but here is my idea:
+
+- Each feature (including the standard features) can be a crate or something
+  - Has a unique feature id of a constant size (like u64)
+  - Should have exactly one type each for `Event` and `Request`
+    - These should all be serializable to and deserializable from binary (`&[u8]`)
+    - These are the packets currently inside `singularity_common::tab::packets`
+    - I am grouping `Query` into `Request`, but idk how to do type safe responses right now.
+  - I think there is an error thing like this
+- If a message with binary b of feature id f is to be sent, then send the tuple (f, b).
+
+I was talking to a friend (@glolichen), and they suggested sharing a file that lists all the features that will be used.
+Maybe I could send an initial message just to say what features each side supports.
+
+2024/12/31
+
+OK so kind of liking off on singularity if you couldn't tell but I'd stuff up but I'm gonna work on singularity now hopefully. Enter line
+But anyways it's like 2 AM and my sleep is all messed up anyways so it's actually pretty early for me like I've been sleeping much later than this but anyways, I'm trying to sleep early today because I have to wake up early tomorrow, but I couldn't sleep just keeping this in my head because I was thinking about singularity instead of trying to sleep.
+So I decided I'm just gonna write down the idea I had using voice memo on my phone for like voice dictation. You know what I mean
+so the idea was anyways I've been thinking about I've been thinking about how to actually do like responses and stuff because it's kind of complicated to do it especially with multiple threads and now it's even multiple processes and before I go over my my current idea, I'm gonna try to go over the other ideas I had first so the first idea was not the first idea, but one of the ideas was to just create a new connection each time so if I wanted to get a response on like that, the overall window size in pixels then I would like somehow create a new response or a new new like form of process communication like maybe I could share some memory just to represent the response for that and then once that response, it's actually fulfilled then it would be useless and that is I think that would be the safest way so far but it's quite evident why that is not the best idea and the other way I was thinking was I was looking at how Wayland does just process communication between the client which are like the windows and the server which would be your your Wayland compositor and as looking at Wikipedia and the dogs and I actually also ask ChatGPT cause I couldn't really find a straight answer in the in the official documentation. I'm sure it's in there somewhere but I asked just how does Wayland manage like requests from the client that are expecting responses in my in singularity I'm gonna call these types of and chat. GPT told me I'm not sure if it's accurate but it makes sense so that's all I really need what it told me was that every request would have a unique ID associated with it and then for every every query would have ID associated with it and the response would somehow include the query ID in it so that we know exactly what the response is a response to. So and then.
+OK, the app decided to crash on me, but I'll try to pick up where I left off. I was talking about the ChatGPT solution so it would have a unique ID for each request and then the response would somehow represent that it would somehow include that request ID and ChatGPT mention that it also included time data but that not like fundamentally necessary so I'm gonna ignore that for now and everything else that I've already implemented like the the type ID so the ID for actually like what kind of thing this is as well as the as well as the message length ID are actually things in Wayland already I kind of expected the type ID but I was actually surprised that the message length ID was something well ended. Maybe I copied it and then forgot about it but anyways the request ID seems like a not horrible ID for it but the only the only problem I have right now with that would be that there's gonna be multiple threats on the server side and I don't really care about the multiple threats on the client side that doesn't really matter but for example, what if the client sends a query but before the server sends the response, it sends just a event to the client so it's on the client receiver side. It's gonna get the event and then the response and then I doubt there's ways you could try to solve this, but it's all quite tricky and there there is bound to be a better way so I was thinking I could still do the response and request ID idea, but the only difference would be I would have a rapper for it so my idea for the rapper would be something like the universal client socket or something like that for the client and then for the server, it would be the universal server socket and I already have something called like universal packet socket or something like that or like universal packet writer I think is what it's called but then I could have inside a singularity universe so like client connection or client socket and that would either be a generic... Either be a struck with a generic or better yet I think having having it be a macro might actually be better then
+I think I cut out again, but the big idea was just to have either struct with the generic or of a macro for a universal client socket and a universal server socket. This would work as a rapper around the around like even the unpacking ideally, but especially the ID for responses. One of the things it could do would be if you call like socket, query, blah blah blah then that would actually run a loop and then every time it receives any packet it would first check if it's the correct type of response and if it is the correct response then great that's like the basic case. We just return the packet response packet directly, but if it isn't, then maybe we could have it in the the message queue or something and then and then every time we get something from the server that isn't what we're actively looking for then we just put it in the queue and then we keep listening until we get what we're looking for and then later on, we can pass on the the socket or whatever to maybe like the main loop and then in the main loop it would just listen to all of the events that happened and it would start from the message Q and then it would listen if there was anything else and yeah I'm pretty sure that's already implemented for for sockets but from what I know, I don't know any way of directly modifying and accessing the message to that however you sockets does it so I guess we would just have a system of having two cues but that's really fine. I don't really care about the performance right now for something so trivial as that and the other idea I had with the universal socket macro was that I could have it so that we list all of the all of the event types somehow and then it would generate from that its own like Eno for that and maybe it could be called like universal events or something like that and universal events isn't actually defined in singularity because universal events could change depending on the events that the clients and servers want to support so I'll just be inside a macro so that it could change and actually the good thing about having a macro would be that since we're having it we're gonna have to manually serialize and deserialize it so it's fine to actually not have the the type itself defined in a common place cause the universal client and server sockets are going to be macro so they're not actually gonna define anything but it's gonna be like a blueprint for how to define the types and that's fine because we're gonna be manually serializing in deer realizing
+i'm starting to feel sleepy now, which is good. I should be sleeping right now but before I end my ramblings, I just had one more technical thing I wanted to say so I could get it out of my mind and that actually has to do with the implementation so I was planning for the universal rapper to be not run on a separate thread even though that actually wouldn't be a horrible idea I think just having universal rapper an actual I guess instance isn't really the word I'm looking for, but but like yeah, having an instance of a universal rapper just simply be an object and not be like in its own separate thread, and then you can have a bunch of connections to the universal rapper thread cause that kinda complicates everything again and also I feel like having a separate thread is gonna be a pretty significant cost in a way like I feel like if I was writing a client and I had to end I didn't even have the choice of not creating a separate thread then that would be a pretty big turn off for me, but I would have the actual universal rapper just be an object which stores maybe a message Q and then the actual connection to the UNIX socket itself and in terms of the rust borrow checker, I think for each connection there should only be one like one actual object of the universal rapper, but I think having it work with references will be would be useful and maybe I was thinking if you only have a reference to the universal rapper, the only thing you can do is call request and the reason why I thought good idea is it because I feel like the events itself should be centralized like it would be kind of weird if like a sub component of the client was listening to the event, but I don't know. I'm just saying this because I want to get everything in my head out of my mind to just clear any thoughts that might Lynge and get in the way of my sleep
+
+2024/12/31 (next day)
+
+Wow... that is a lot of yap that I am not going to read.
+
+I think I remember most of it so its fine.
+Just make a universal client/server socket wrapper handler (name in progress) macro.
+I am thinking something like:
+
+```rust
+use singularity_standard::{KeyboardEvent, MouseEvent, WindowRequest}; // this could be merged as StandardEvent, but I don't actually know if that is better
+use drag_crate::DragEvent;
+use interapp_communication::IACRequest;
+
+generate_universal_client_socket!{
+    events: [KeyboardEvent, MouseEvent, DragEvent],
+    requests: [WindowRequest, IACRequest],
+    // this would somehow have information on the corresponding responses for each branch
+    queries: [StandardQuery],
+    // default would be Universal
+    name_prefix: MyCool,
+};
+```
+
+which would generate `MyCoolEvent`, `MyCoolRequest`, `MyCoolQuery`, `MyCoolResponse`, as well as `MyCoolClientSocket`.
+The first four I just listed would just be enums.
+The ClientSocket would have methods: `read_events`, `request`, and `query`.
+
+I really like the python `*args` syntax, so I want something like:
+
+```rust
+generate_universal_client_socket!{
+    // `*StandardEvent` would expand out to its enum branches, like `KeyboardEvent` and `MouseEvent`
+    events: [*StandardEvent, DragEvent],
+    requests: [WindowRequest, IACRequest],
+    queries: [StandardQuery],
+    name_prefix: MyCool,
+};
+```
+
+I am not convinced that queries and responses are type safe yet.
+Another syntax I was thinking about is:
+
+```rust
+queries: {
+    StandardQuery: StandardResponse,
+}
+```
+
+but that is even worse.
+A relatively jank but safe way would be to just have a new method for each query, like: `query_window_size` and `query_clipboard`.
+To avoid name collisions, I could eventually create a `StdQuerier` and `WhateverCrateNameQuerier` structs,
+which are generated from a reference to the client socket and only have the ability to send queries under that crate.
+So, you could call something like: `client_socket.std_querier().query_window_size()`.
+
+The information for queries, requests, and their relations can be reduced to a set of named mappings from query data to response data.
+Each element in the set can be represented like: Name: InputType -> OutputType.
+
+...
+
+I will now try to implement what I wrote inside of singularity macros.
+By the way, I think I already mentioned this link, but I believe this is the most helpful proc macro resource: https://www.freecodecamp.org/news/procedural-macros-in-rust.
+
+Trying to expand with `RUSTFLAGS='--cfg test' cargo expand --manifest-path singularity_common/Cargo.toml tests::macro_demo`
+has a weird error, and it seems to be caused by the `RUSTFLAGS='--cfg test'` portion.
+
+I got a little confused on the test targets, but it turns out, you are supposed to put the tests OUTSIDE of source, just like examples.
+You should also put benches outside, and I didn't even realize benches were a thing.
+This is the project layout guide: https://doc.rust-lang.org/cargo/guide/project-layout.html
+Very useful, especially since I haven't been adhering to best organizational practices.
+
+I remembered the thiserror crate, which I haven't used yet (I unfortunately don't do proper error handling).
+This is an example from their [crates.io](https://crates.io/crates/thiserror):
+
+```rust
+#[derive(Error, Debug)]
+pub enum MyError {
+    Io(#[from] io::Error),
+    Glob(#[from] globset::Error),
+}
+```
+
+I think I can do something like this for events and requests (query and response are slightly harder).
+I won't need the `#[from]` specification, because I would assume all event cases defined by the macro are already events themselves.
+(if the client or server both made their own custom events, it would get messy even if they agreed)
+
+By the way, if there are nested enums, (like MyEvent has ClipboardEvent has CopyEvent), then there would be multiple ids sent in a packet.
+I could optimize later, maybe by comparing the lists of all supported id types on connection.
+
+I am going to write a declarative macro for event combine, which was done manually in macro_demo's MyEvent.
+I want the macro to look like:
+
+```rust
+combine_events!(MyEvent: [ClipboardEvent, DragEvent]);
+```
+
+...
+
+actually implemented, and it looks like:
+
+```rust
+combine_events!(pub MyEvent => [ClipboardEvent, DragEvent], 9000);
+```
+
+the differences:
+- I can add visibility qualifiers (an actual improvement)
+- `:` to `=>`, just because declarative macros don't support `:`
+- need to specify the event id
+  - should talk about this
+
+So, how should I procedurally assign the IDs?
+The the current state of the macro requires the caller of the macro to generate the id themselves,
+which is the safest way on my end, because if something goes wrong, then it is the user's fault.
+But, I want to eventually automate this as well.
+I will list ideas, and something to consider is how I am going to deal with versions:
+- Just generate a random number non-deterministically
+  - Would change at every compilation, I don't like this
+- Generate a random number based on contents
+  - Actually pretty good
+  - Would change every version but is deterministic
+  - Changing every version will preemptively catch possible inconsistencies, but will be finicky
+- Generate based on the name
+  - Would be same across versions, not sure if that is good
+  - The pro case for this would be when an event adds more subevents
+- Generate based on the name and the id's of the components
+  - It would change id when the contents change, but not if the impls change (I thought this was the best idea, but now that I explained it, I think just the name might be the best)
+
+For all the ideas, I should also include the name of the crate, so multiple crates could have distinct events with same names.
+
+2024/1/1
+
+Okay, I am on a new system with Fedora and Gnome (the one I've been working on and will continue to work mostly on was NixOS with KDE).
+Luckily, getting it to run wasn't too bad, I just had to run `nix --extra-experimental-features nix-command --extra-experimental-features flakes develop`
+because I don't know where my Nix global config file is and I can't permenantly enable nix commands and flakes.
+And when it ran with the dependencies, it ran smoother than what I expected.
+The display and mouse clicks worked, and the mouse clicks affected the display in the expected ways.
+Unfortunately, the keyboard input just had no effect on the app.
+For now, I will ignore this problem (sounds like something I will regret later),
+because I just need to set up the infastructure for IPC, which doesn't need me to run until much later.
+
+Anyways, the previous thing I did was make the `combine_events` macro.
+Next up: combine requests.
+After that, I think I can implement a 
+
+Requests should be so similar to events (I'm pretty much just reimplementing rust enums),
+that I have a very slight urge to create a meta macro that would be like:
+`meta_combine!(Event, Request)` which would define the `Event` and `Request` traits,
+and define the `combine_events` and `combine_requests` macro.
+But, I won't do this.
+Or, I could make everything under just the packet trait (not a bad idea, actually). 
+
+Sidenote: I was trying to think of a better name than `combine`,
+and remembered union types.
+I looked it up, and it turns out rust actually does have a union keyword.
+It seems kinda cringe though, ngl.
+Regardless, I think `event_union` is a better name for the macro than `combine_events`.
+
+...
+
+It turns out I can't develop until I give smithay its dependencies,
+because VSCode rust analyzer breaks right now.
+I can run the dev flake in CLI, but I don't know how to enable it for all of vscode.
+On my nix system, I used the nix env and direnv extensions,
+but I can't enable flakes permenantly, so the automatic nix env breaks.
+I might be able to get it working with [Docker](https://docs.docker.com/engine/install/fedora/).
+VSCode has a [guide](https://code.visualstudio.com/docs/devcontainers/containers) on
+dev containers with Docker.
+
+That seemed like a hassle, so I just ran: `nix-env -iA nixpkgs.fontconfig`.
+
+I actually hate nix now.
+I tried to like it, but reproducible on any system is complete dog cheeks in practice.
+I'm going to try to figure out how to do this without nix at all.
+
+https://packages.fedoraproject.org/pkgs/rust-smithay-client-toolkit/ is a thing.
+Running `sudo dnf install rust-smithay-client-toolkit` says it isn't a package though.
+
+Okay, I just installed a bunch of dnf packages until it worked.
+For future reference, some of them are:
+- fontconfig
+- fontconfig-devel
+- libxkbcommon
+- libxkbcommon-devel
+
+...
+
+I abstracted packets to not care about Event vs Request.
+Queries and Responses might need to be slightly different though.
+
+...
+
+I don't think I need to use macros for universal client and server.
+
+2025/1/2
+
+At least for just events and requests, I can just do `UniversalClientSocket<Event, Request>` and same with server.
+
+...
+
+I think a derive macro would actually be better for making things into packets.
+It is more flexible and would allow for other derives as well.
+
+2025/1/3
+
+I got communication between server and client on the same thread.
+Next up (in no particular order):
+- Set up testing for multiple processes
+  - Proper testing? Yuck! I'm not going to do that until I absolutely need to
+- Do Query and Response
+  - Need a macro
+- Set up the unix socket stuff inside of singularity_common
+- Improve the current derive `PacketUnion` macro
+- Implement into singularity
+- Organize properly
+
+I'm going to try setting up query and response.
+
+I want to add modularity, so that its not all just flat query and response pairs.
+I will try to come up with a basic example of usage (ignore implementation, because implementation is trivial with respect to usage):
+
+
+```rust
+let my_query_bundle: MyQueryBundle = todo!();
+let addition_response: AdditionQuery::ResponseType = my_query_bundle.get_math_query_bundle().query_addition(socket, AdditionQuery(1, 2));
+```
+
+so from the object `my_query_bundle`, we would get the sub-bundle of type `MathQueryBundle`,
+which would contain the query: `AdditionQuery`.
+
+I think I have an idea from this.
+The most basic type would be a `QueryPair`, which consists of a query type and a pair type.
+Then, there is the `QueryBundle`, which is a collection of sub `QueryBundle`s and `QueryPair`s.
+All `QueryPair`s have a default `QueryBundle` consisting of just that pair.
+
+Something like: `universal_client_socket.query(AdditionQuery(1, 2))`,
+would not reaveal the type of the response...
+Actually, it could.
+
+Holy guacamolie, I think I just talked myself into a brain blast!
+
+```rust
+pub trait UniversalQuerier {
+    fn query<Q: UniversalQuery>(query: Q) -> Q::ResponseType;
+}
+impl UniversalQuerier for UniversalClientSocket {
+    todo!()
+}
+
+// UniversalPacket is the one with the do and from data
+// as well as the packet id
+// It is currently called `PacketTrait`
+
+pub trait UniversalQuery: UniversalPacket {
+    type ResponseType: UniversalPacket;
+}
+```
+
+I think I was previously overcomplicating this whole thing.
+With this way, query and response should actually be easier than event and request.
+
+On the server-side, I was thinking of handling responses in the same way
+as I have done with the mpsc channels:
+`client_handler.respond(move |query| { ... })`.
+
+This approach is acceptable, but I think I need to just assume
+that the server will not return the wrong query type.
+
+With that, I will assume that the only packets are:
+queries from client to server and responses from server to client.
+
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a query and not a request
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+It might make more hierarchical sense to put the query type id
+before the instance id, but I think practically it makes more
+sense to do instance id first, because instance id should be read
+even if the query type id is unknown.
+(it really doesn't matter, even though my reasoning is kind of bad)
+Oh, another reason is that if I did have query bundles,
+and stored query type hierarchically in the raw data,
+then it would be better to have the instance id first
+(even though storing hierarchy would be inefficient).
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Response inner data (Optional)
+  - This would be defined by the response type
+
+For unknown queries, the server should just give a response with
+a special `Null` response type id (probably like 0).
+I considered having a `NullResponse` packet type, a `Null` response type id,
+no response type id and inner data on the null response,
+or just having an additional boolean represent
+whether the response is null or not.
+
+I like this system (of flat pairs instead of tree organization) a lot,
+that I might actually change the events and requests to this way.
+I don't like it for the fact that it is structured in a flat way,
+but it does seem to be the simplest implementation.
+Actually, I don't like it that much (I am an indecisive person).
+I think that sending should allow for flat sending to avoid boilerplate,
+but recieving should allow for a hierarchical structure.
+Maybe I am in denial because I can't figure out a way to get hierarchy
+for queries.
+
+In the end, I should stop caring the specific implementation.
+I just want to make reasonable progress in a reasonable time.
+
+Okay, I am going to start.
+
+...
+
+2025/1/10
+
+I realize that the standard is actually little endian, not big endian.
+I will change that later for everything.
+
+I think I should also write a new manifesto for singularity,
+since a lot of things have changed.
+The summary will be that I am trying to abstract things like UI so that
+everything can be organized by a central organizer and apps can work nicely
+with each other.
+Right now, there are different OS's which run apps and those apps have their
+own ways of organizing their UI components.
+With a browser, it is clearest to see how many layers of different protocols
+there are.
+This limits customizability on the user side
+(eg: no standard way to set color pallete,
+the closest thing to this is dark vs light which is just 2 options
+and apps need to go out of their way to support it;
+eg2: standard setting and shortcut management)
+and prevents compatibility between apps.
+HTML kind of does this, but it is bad.
+
+...
+
+There is something called `TypeId` in `std::any`,
+which might allow me to do the id stuff by default.
+
+...
+
+Adding onto the philosophy, I want to be able to remove the sidebar and line counter from my text editor
+very quickly, like doing inspect element and then save those settings into a view template.
+
+2025/01/15
+
+I have been working on other stuff, but today I worked on tests for the query response sandbox.
+I should have committed before, most of the changes in this commit will be from a few days ago.
+I have often worked on a pretty big change, almost gotten it finished, and then worked on other things for a few days before putting the finishing touch and committing later.
+Ideally, I would be using github issues more often, but it seems unnecessary right now.
+I will change my policy to just commit broken code at the end of the day if I know I will be working on other stuff for a few days.
+
+Also, I looked into Unix Domain Sockets and TCP sockets, and in TCP, it seems like they know what response corresponds
+to what request, because responses are ordered the same ways as requests.
+I think I like the Uuid way more, even though it has slightly more overhead.
+
+Erhm, I made thread_test to generate the minimal reproducible example, but it worked and then the simplified version of the original code started working too.
+I will commit the two minimized versions before it doesn't work again.
+
+...
+
+NOOO, I committed, and ran without chaning ANYTHING.
+It didn't work.
+After further teseting, it seems to be non-deterministic because threads.
+
+Okay, I fixed it (well, I ran it ten times in a row and it worked) and now I know why.
+I had to do the listener creation before starting both threads, to ensure that the client wouldn't ask to connect on a socket before it even was created.
+The fact that the error was non-deterministic actually led me to try this fix.
+
+...
+
+By the way, adding the `--show-output` flag to `cargo test` does show output, but only after the test ends.
+I had to add `--nocapture` to debug why it doesn't even end.
+
+...
+
+I got the sandbox to work, so here are next steps:
+
+- [x] Move unix domain socket helpers to `singularity_common`
+- [x] Abstraction for bytes unwrapping/splitting
+- [x] Make a new all packets sandbox, to merge the query response sandbox and the event and request code from sap
+  - Probably should split the roles by packet type (eg, the clientside sap interface should have two different types of things for sending queries vs requests and two more different modules for parsing events vs responses). I guess this is pretty obvious actually.
+- [x] Move the stuff in query response sandbox into sap
+- [ ] Change all big endian to little endian
+
+2025/01/16
+
+It turns out query_response_sandbox sometimes non-deterministically fails,
+but I feel like it will be fine.
+
+2025/01/17
+
+I have an abstraction idea that might be really bad,
+so I won't implement it, but I wanted to write it down
+for the sake of ...whatever.
+
+I think I can further abstract event and response by just having
+a general packet thing.
+
+I think I am going slightly mad right now.
+The difference is between defining a basic structure for packets and
+providing the actual parsing, versus just letting them define the parsing stuff themselves.
+
+...
+
+I just realized that the server side connection doesn't even need a queue,
+because I only needed queue because client might ask for a specific request.
+I will fix this after committing though.
+
+I think I figured out a way to jank the type system.
+First, use the `type Query` instead of `<Query>`.
+Then, I think I can make helper methods inside of the query responder,
+which I believe will let me avoid problems with unknown size errors I would
+have gotten if I put the helper functions there.
+Additionally, I can make an InnerQueryRespond to prevent the helper functions
+from being overridden and to prevent them from clogging the user's list of usable methods.
+
+The actual calculations that need to be done when sending back a query response, given that we know it is a query:
+
+1. Split `packet data` -> (`query instance id`, `query type id`, `query inner data`)
+2. Try to match `query type id` to an actual `query type`
+   1. In our case, we need to find the `query responder` with this `query type`
+3. Generate `query object` of the correct `query type` from the `query inner data`
+4. Generate the `response object` by asking the correct `query responder`
+5. Generate `response inner data` from `response object`
+6. Generate `response data` by combing `query instance id`, `response type id`, and `response inner data`
+
+I think steps 2-5 should be in the trait helper functions,
+because they require information about the type that I am not sure how to get from `&mut dyn QueryResponder<Query = dyn Any>`.
+
+Uhh, the trait stuff is stricter than I thought.
+You know what, that actually sounds like a problem for future me.
+
+---
+
+2025/01/18
+
+Gosh, I wish I could take credit for this, but I asked chat gpt to help me debug or brainstorm a new way,
+and it actually thought of a good solution.
+It is like learning that CRANE (technically SALET, whatever) is the best worlde starter;
+you don't want to use it because it is not your solution, but you kind of have to because it is the best.
+The important section is this:
+
+```rust
+pub trait TypeErasedResponder {
+    fn respond_erased(&mut self, query_data: &[u8], query_instance_id: QueryInstanceId) -> Option<Vec<u8>>;
+    fn get_query_type_id(&self) -> IdType;
+}
+
+impl<Q, R, T> TypeErasedResponder for T
+where
+    T: QueryResponder<Query = Q>,
+    Q: UniversalQuery<ResponseType = R> + TryFromData + 'static,
+    R: PacketTrait + 'static,
+{
+    ...
+}
+```
+
+and I swear I only looked at the type hinting part of its code, because I don't want to just use generative AI
+for singularity.
+I just used it to get an idea and I will write the code myself.
+
+But dang, I really don't know how to feel about all this AI stuff.
+Like, I saw a video about a writer who was replaced by AI, and now I am just wondering if that is going to happen to me.
+That, in addition to the oversaturation of CS people in general is quite frightening.
+
+At least I can look at the current state of Devin and know that AI won't outperform humans yet,
+but it will only grow smarter.
+
+I'm not sure how the ethics of all this works either, because I suspect that Chat GPT was trained on lots of data
+without permission, and I kind of feel like I am stealing from those people, but my current position on the matter
+is that consulting Chat GPT is somewhere between a rubber duck on steroids and just looking at someone else's code.
+I believe that pretending like generated code is someone else's code is a pretty safe view (less likely to be
+intellectual theft), so I will just ask it for ideas and help debugging.
+
+To my credit, I was already trying to do something similar to this in the `InnerQueryResponder`.
+The big difference is that I just had to take in the argument of type `Vec<&mut dyn InnerQueryResponder>` to begin with.
+I actually feel like I could have thought of this if I gave myself a few more days,
+but I didn't and I was able to save those hours so I can make more progress, so I can't complain.
+
+...
+
+I will actually implement the rest of the logic for `handle_incoming` now.
+
+TODO:
+I am getting an annoying clippy warning about `InnerQueryResponder` being more private
+than the `handle_incoming` function,
+and I still want to keep it private to prevent tampering,
+but I will consider fixing it by having yet another trait, if that is possible.
+
+...
+
+I couldn't do that easily, so I just made it public with a sign that asked the user not to override it.
+
+---
+
+2025/01/19
+
+Holy guacamole, I might be the GOAT of all time of all time.
+
+First time running, and no errors!
+
+Put in that meme of kronk going "Yeah, its all coming together"
+because it all really did just come together.
+
+...
+
+Okay, so despite that MASSIVE W, I still need to add more testing,
+which I didn't do because I was scared it wouldn't work.
+
+I think the single process tests work, I will commit this then test on different processes,
+then put the `all_packets_sandbox` into `singularity_common`.
+
+...
+
+Today might be my day, multi process worked smoothly as well.
+I will commit then move it to the actual libraries.
+
+...
+
+The little warnings were driving me crazy, so I got rid of them.
+
+---
+
+2025/01/19
+
+There are still things to improve with `sap`, but I think I can start incorporating it
+into singularity now.
+
+I think I should give a high level overview of the sub-projects for singularity:
+
+- Singularity Application Protocol (SAP)
+  - It describes a way to send extensible packets between any sap supporting server and a sap supporting client
+  - Sap is like the wayland protocol, the sap server would be your desktop environment, and the client would be any wayland app
+  - For now, each SAP connection corresponds to exactly one window
+- Singularity Project Manager
+  - A way of organizing projects so that projects can talk to each other
+  - This will be used by the singularity tab manager
+  - Primary purpose is to neatly organize how persistent data related to singularity is stored
+- Singularity Tab Manager
+  - Possible name: Stabor (singularity tab organizer)
+  - This is the official SAP server, the only one that I will be working on (probably)
+  - Its job is to manage and provide tools for sap clients (tabs)
+    - Handle compositing and UI
+    - Relay communication between tabs
+    - Organize tabs
+- Tabs
+  - Each tab is a SAP client
+  - Example Tabs:
+    - Chro
+      - The time manager
+      - I might make this a seperate thing, and have it support terminal or SAP Gui
+    - Terminal (Sterm ?)
+      - (realistically, once I have terminal, I unlock most apps I need)
+
+I will start deprecating the old methods of communication and integrating sap into the singularity tab manager now.
+
+As expected, there is a lot of things I need to rethink.
+
+2025/01/23
+
+Okay, I didn't commit like I planned, and you can tell from the log dates that its been a few days.
+
+Well, I guess I will think of everything before committing since I am late anyways.
+
+I will split all my modules into these crates:
+
+- Singularity Common/Utils
+  - Datastructures and stuff that are used by many things
+- Singularity Macros
+  - Should be in `singularity_common`; this would ideally just be a module in common but proc macros currently need their own crates
+- Singularity UI
+  - Abstracts all the Backend specific stuff to provide the bare minimum UI support
+  - Currently just supports wayland
+  - No change needed
+- Singularity Project Organizer
+  - (SPORG?)
+  - Not sure about this name
+  - Used to be in `singularity_common`
+- Singularity SAP
+  - Yes, the name is redundant, whatever
+  - Used to be in `singularity_common`
+- Singularity STABOR/SDE
+  - Alternative name: Singularity Desktop Environment
+  - This is the canonical implementation of the SAP server to handle tabs
+  - This used to be just `singularity_manager`
+- All the tabs can be in their own crates or something
+
+Something I want is extensible UI widgets with shared libraries,
+and this idea can be extended to things outside of UI.
+There are UI primitives. For the sake of example,
+lets just say that the only UI primitive is the pixel grid.
+The set of all primitives is already agreed upon,
+and must be standardized.
+But, suppose an app wanted to display text.
+Without widgets, the app would have to draw the text
+itself onto a pixel grid.
+This is bad for a few reasons.
+First, this lacks standardization.
+If there were multiple apps, that had to do it themselves,
+then all of them would have different fonts and it would be ugly.
+Secondly, due to the lack of standardization,
+user side customization would be difficult.
+Also, this could add performance overhead.
+
+The solution would be to have shared widgets.
+Each tab can return some composite of widget and primitives.
+If some widget protocol is manually implemented by the user's
+display environment, then that implementation is used.
+But, when a tab uses a widget protocol, it must also define
+some shared library type thing that would handle the default
+case.
+
+...
+
+I think I might just rewrite most of sporg and the tabs.
+
+2025/01/30 12:52AM
+
+(I am writing this entry to talk about talking to someone about singularity.
+The other changes are things I've been working on and is unrelated to this.
+Ik, I said I will commit more but too late.)
+
+I talked to someone who has a lot of experience.
+Other than the one friend I talk to (@glolichen), this person is
+kind of the first person I've talked to about singularity in a pretty deep level.
+They didn't care about the actual code, but they asked a lot about the idea itself.
+We talked over email for a few days, and today (technically 2025/01/29 7-8PM),
+we talked over phone.
+
+I really have to sleep so I'll keep this short.
+If it really matters, I will put in the email logs later, so I will just summarize the call.
+
+The main question/advice was to just make an actual window manager.
+The pros are performance, simplicity, and the fact that I can simply use any app that already exists for wayland (or x11 if I make a x11 wm).
+But, the inter-app stuff wouldn't be a part of the wm.
+They mentioned `ocl` for the office suite.
+They also said that Xserver was a program on its own, and I should experiment by running bare xserver from terminal then running apps manually from the cli as well,
+like xclock.
+
+I suggested, for the inter app stuff, if I were to make a window manager, I could have a special app to handle all
+the inter app stuff.
+But, I didn't really explain my use-case fully.
+
+I am not completely sold on the idea of making a window manager yet, for a few reasons.
+The first is the inter-app stuf.
+Secondly, they said making a text editor and terminal from scratch is impossible for just one person.
+But, I think I can embed some other open source terminal for singularity at the worse case and run vim on it
+(but at that point, I could have just made a terminal session manager).
+I will do research on that though:
+[this reddit thread](https://www.reddit.com/r/rust/comments/1d47bl1/suggestions_on_a_gui_framework_for_embedding_a/)
+says I can embed alacritty.
+It suggests using [alacritty embeds](https://docs.rs/alacritty_terminal/latest/alacritty_terminal/#reexports).
+It gives [this example](https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/src/ui/bin/terminal/).
+
+I will have to think about this for a while.
+
+2025/01/30 1:35AM
+
+Roadmap to recovering from restructuring:
+- [x] Implement the TODO's in singularity macros
+  - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
+- [x] Add basic `standard_packets`
+  - [x] TODO: bare minimimum packets for standard packets
+- [ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)
+- [ ] Start the actual sde, that just displays the UI, no organization
+- [ ] Implement some basic thing in std tabs, like the worst cookie clicker ever
+- [ ] Add organization code back into it
+- Figure out the rest (eg: adding sporg into it)
+
+2025/01/30 7:34 PM
+
+I posted a [question on macro expansion](https://users.rust-lang.org/t/expanding-inner-macros/124887) to the rust lang forum
+because I realized I needed to learn to ask for help.
+There is a chance that no one answers, but that is fine.
+I had to create a simpler version of my question, but if that simpler version is answered,
+I should be able to jjust apply that solution to my actual macros.
+I will just commit now to log this.
+
+2025/02/01
+
+I got two responses so far.
+Feels unusual that Steffahn replied, because I've seen their replies on a lot of
+the rust threads in the past, and I kind of assumed they were a celebrity or
+something.
+But it does make sense that the people who comment the most would be the ones to
+comment on mine.
+
+The responses said that it isn't really possible.
+But, there is a [nightly feature](https://users.rust-lang.org/t/expanding-inner-macros/124887/5)
+which should hopefully make it possible eventually.
+
+---
+
+I am adding the basic `standard_packets`, and I am not sure how to do `SpawnChildTab` because
+I have to represent the idea of a generic tab.
+This is definitely an important feature, but I don't think it should be a standard feature,
+so I will just have it not be one.
+A related feature would be `SpawnDefaultEditor`, `SpawnDefaultBrowser`, and etc
+(or I could have `DefaultEditorQuery`, and etc).
+Well, now that tabs are processes, I could represent a generic tab with the path to run the process
+along with the arguments, much like `Command`.
+
+Also, I think the display should be done with shared memory but the problem is that I don't know how to do that in rust.
+
+2025-02-11
+
+I felt pretty stuck (both in this project and in life, ha ha ha ha...),
+but I am working on changing how the derive macros work.
+There are now 3 different derive macros:
+- `Packet`
+  - Impl's `PacketTrait`, but assumes `Datable` is implemented elsewhere
+  - Mainly just generates the `PACKET_TYPE_ID`
+- `PacketUnion`
+  - To be used on an enum where each variant corresponds to a unique `PacketTrait`
+  - Impl's `Datable` (`ToData` and `TryFromData`)
+- `Datable`
+  - Impl's `Datable` for an enum or a struct composed of `Datable`'s
+
+The change that isn't obvious but should be mentioned is Datable impl for enums.
+The previous impl is now packet union, and used the packet type id to differentiate
+between variants.
+The new impl for this is to define the numbers corresponding to variants in the macro.
+
+---
+
+I implemented Datable for a bunch of classic types, and also added proper unit tests
+for them.
+
+I am also implementing Datable for `singularity_ui` elements,
+and I've just been copy and pasting the types into another file that can access the Datable macro
+and singularity_sap, then using the derive, then expanding,
+copying the expanded output, and pasting it into byte_stream.
+I am doing all this because rust doesn't allow circular imports easily,
+and I also can only use derive macros at teh struct/enum definition.
+Maybe there is a way to automate this in `build.rs`,
+but for this scale, that would be more work.
+
+---
+
+I implemented this way recursively, until `UIElement`.
+I don't have the UI Events yet, but I can now get started with some very basic communication.
+
+I was going to make a boring tab called `UIElementDemo`,
+but life is too short to do boring stuff.
+I am going to make a fortune teller tab,
+which is functionally just a wallpaper, but I want it to be something fun.
+It is going to be like one of those quirky `.bashrc` settings.
+My friend pipes fortune into cowsay, and I think that is cool.
+
+I'll just have the fortune teller display the time and a fortune.
+
+...
+
+I have to think about how to represent tabs in singularity.
+
+2025/02/15
+
+I tried to get either nvim or emacs working,
+and I really want to get into emacs,
+but it has hour-long videos of just the basic config,
+and when I combine that with the fact that I use NixOS,
+I think I have a better chance of just finishing singularity
+than setting up Emacs.
+People joke about not being able to exit vim,
+but I can't even set up Emacs.
+(I know Doom emacs and spacemacs is a thing,
+but they work even less with NixOS.)
+
+Anyways, let me get back to singularity.
+The problem from before was to do with representing tabs.
+
+I will outsource the hard part of this decision to my future self,
+and for now, for the most basic purposes, I just need it to be
+a connection to the client.
+I will put this inside `singularity_sde`,
+even though this should belong in a singularity server toolkit.
+
+I think I can just reuse what I deleted in the restructuring,
+and the most up-to-date stuff for that is in:
+https://github.com/mathkimchi/singularity/tree/8e8e02348cb41f0d077783aaa2ca7d3d69288d22/singularity_common/src/tab.
+
+The hard part will be to somehow allow representing this in data
+for the following features:
+
+- Preserving tabs in between sessions
+- Spawning Children Tabs
+
+Now, the obvious way would be to store the commands that
+spawn the processes that spawn these.
+But, this idea on its own doesn't address the problem of
+matching tabs to actual processes.
+
+An example scenario of this would be:
+When the SDE spawns a process and expects the process
+to request a tab and the SDE wants to put that tab
+somewhere in the hierarchy.
+This is the case for both restoring the tabs from a past session
+(want to put each tab in the past session's hierarchy),
+and for spawning a child tab
+(want to put the child tab as a hierarchical child of parent).
+
+Also, it would be difficult to even get this for new tabs,
+so it is hard to even start.
+
+I can think of more than one way of resolving this:
+Firstly, just have the tabs give this information
+to the SDE.
+This could be like a normal request, or as a special request
+that is sent on connection start.
+Now I will explain the radical solution:
+Alternatively, rest the "burden of initiative"
+on the server.
+
+I explained it in the car with a voice recording,
+and I am too lazy to transcribe it all.
+I won't clutter the repo with the sound files,
+but on my phone, it is saved as:
+`Hobey Backer Memorial Ice Rink`,
+`Princeton University 63`,
+and `Princeton University 81`.
+(I am not sure why it skipped from 63 to 81.
+The phone was weird and kept stopping,
+maybe because the audio was connected to the car.)
+
+But, I am not sure about this idea.
+If there was a "singularity way" of doing things,
+then I think this idea would be 100% the singularity way.
+I can't explain why, but just this non-conforming,
+complicated, unnecessary challange of standard practice is precisely
+the type of thing an idiot like me would enjoy.
+Plus, "burden of initiative" is a cool term,
+so I guess I just forced myself into doing this.
+
+In all seriousness, I think a change of this magnitude,
+at this stage (when changes and commits are already slow),
+requires careful consideration.
+
+I am reminded of local web services like openwebui.
+But, to my knowledge, services mean that they run in the background,
+and I don't want to do that.
+
+I think I could have something similar that caters better to my wants
+with shared libraries.
+
+2025-02-17
+
+I don't think I will be doing the webpage-like way.
+but I still want to support many of the features like
+the redirect pages system.
+but I think the local storage should suffice for reopening tabs.
+
+I think piping stdio could actually be a not bad solution,
+and looking back at a [comparison of ipc methods](https://3tilley.github.io/posts/simple-ipc-ping-pong/#approach-1-pipes),
+I realized piping is actually faster than TCP/UDP sockets,
+and [a similar article](https://www.baeldung.com/linux/ipc-performance-comparison)
+shows compares pipes with Unix socket specifically, and says it is 30% faster
+(this much of a difference doesn't really matter, but knowing that a new approach
+is a speed upgrade makes me feel good about implementing it).
+Also, I think the piping is similar enough to unix sockets such that it wouldn't
+be difficult to support both.
+Piping will allow for SDE side initialization, but not the more webpagey features
+like redirecting.
+
+2025/02/18
+
+Okay, so, I decided I will implement just Unix Sockets for now,
+but in serialization, represent tabs as commands.
+
+...
+
+Actually, I am trying to fix the code I previously wrote,
+and a lot of the past code expects the tab to be initialized by the sde.
+
+2025/02/19
+
+Stdin doesn't have a vanilla way of polling,
+so I made a wrapper for `Read` using mpsc.
+
+The downside of the piping is that my main tool for debugging just disappeared.
+Ways to debug would be to create a request, or to write to files.
+
+I am going to change the old idea of `tab_type` to `tab_command`.
+
+2025/02/21
+
+I implemented datable for the UI Event stuff,
+so now I think I am almost done with migrating to multiprocess.
+
+As a reference, this is from 2025/01/30 (has been updated as I went)
+Roadmap to recovering from restructuring:
+- [x] Implement the TODO's in singularity macros
+  - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
+- [x] Add basic `standard_packets`
+  - [x] TODO: bare minimimum packets for standard packets
+- ~~[ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)~~
+- [x] Start the actual sde, that just displays the UI, no organization
+- [x] Implement some basic thing in std tabs, like the worst cookie clicker ever
+- ~~[ ] Add organization code back into it~~
+- Figure out the rest (eg: adding sporg into it)
+
+I don't know what I meant by the cfg stuff,
+I assume it is working.
+
+I ended up never having to remove the organization code,
+because I was able to reuse 90% of my old SDE.
+
+I know what I still need to do, but right now, I think
+I will commit this, and merge this branch into dev,
+marking [#3](https://github.com/mathkimchi/singularity/issues/3) as completed!
+(I should have made smaller issues, but whatever)

@@ -1,11 +1,10 @@
-use singularity_common::{
-    project::{project_settings::TabData, Project},
-    tab::{tile::Tiles, TabHandler},
-    utils::{
-        id_map::{Id, IdMap},
-        tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
-    },
+use crate::{packets::SDEEvent, tab::TabHandler};
+use singularity_common::utils::{
+    id_map::{Id, IdMap},
+    tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
 };
+use singularity_sap::standard_packets::display_packets::{FocusedEvent, UnfocusedEvent};
+use singularity_sporg::{project_settings::TabData, tile::Tiles, Project};
 use singularity_ui::display_units::DisplayArea;
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
@@ -20,7 +19,7 @@ use singularity_ui::display_units::DisplayArea;
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    tabs: IdMap<TabHandler>,
+    pub tabs: IdMap<TabHandler>,
 
     /// ORGanizational tree
     org_tree: IdTree<TabHandler>,
@@ -28,7 +27,7 @@ pub struct Tabs {
 
     // /// currently, last in vec is "top" in gui
     // display_order: Vec<Uuid>,
-    display_tiles: Tiles,
+    display_tiles: Tiles<TabHandler>,
 }
 impl Tabs {
     pub fn parse_from_project(project: &Project) -> Self {
@@ -40,49 +39,51 @@ impl Tabs {
                     .map(|(id, open_tab)| {
                         (
                             uuid::Uuid::from(id).into(),
-                            TabHandler::new(
-                                singularity_standard_tabs::get_tab_creator_from_type(
-                                    open_tab.tab_data.tab_type.as_str(),
-                                ),
-                                open_tab.tab_data,
-                                open_tab.tab_area,
-                            ),
+                            TabHandler::new(open_tab.tab_data, open_tab.tab_area),
                         )
                     })
                     .collect(),
-                org_tree: open_tabs.org_tree,
-                focused_tab: open_tabs.focused_tab,
-                display_tiles: open_tabs.display_tiles,
+                org_tree: open_tabs.org_tree.transmute(),
+                focused_tab: open_tabs.focused_tab.transmute(),
+                display_tiles: open_tabs.display_tiles.transmute(),
             }
         } else {
-            // create new project
-            use singularity_common::tab::BasicTab;
-            use singularity_standard_tabs::{
-                file_manager::FileManager, task_organizer::TaskOrganizer,
-            };
+            // create the default new project
 
-            let mut tabs = Tabs::new_from_root(TabHandler::new(
-                FileManager::new_tab_creator(),
+            // let mut tabs = Tabs::new_from_root(TabHandler::new(
+            //     FileManager::new_tab_creator(),
+            //     TabData {
+            //         tab_type: "FILE_MANAGER".to_string(),
+            //         session_data: serde_json::to_value(project.get_project_directory().clone())
+            //             .unwrap(),
+            //     },
+            //     DisplayArea::new((0., 0.), (0.5, 1.)),
+            // ));
+
+            // tabs.add(
+            //     TabHandler::new(
+            //         TaskOrganizer::new_tab_creator(),
+            //         TabData {
+            //             tab_type: "TASK_ORGANIZER".to_string(),
+            //             session_data: serde_json::to_value(project.get_project_directory().clone())
+            //                 .unwrap(),
+            //         },
+            //         DisplayArea::new((0.5, 0.), (1.0, 1.)),
+            //     ),
+            //     &tabs.get_root_id(),
+            // );
+
+            let tabs = Tabs::new_from_root(TabHandler::new(
                 TabData {
-                    tab_type: "FILE_MANAGER".to_string(),
+                    tab_command: (
+                        "./target/release/fortune_teller".into(),
+                        Vec::new(), // Vec::from([""].map(|s| s.into())),
+                    ),
                     session_data: serde_json::to_value(project.get_project_directory().clone())
                         .unwrap(),
                 },
                 DisplayArea::new((0., 0.), (0.5, 1.)),
             ));
-
-            tabs.add(
-                TabHandler::new(
-                    TaskOrganizer::new_tab_creator(),
-                    TabData {
-                        tab_type: "TASK_ORGANIZER".to_string(),
-                        session_data: serde_json::to_value(project.get_project_directory().clone())
-                            .unwrap(),
-                    },
-                    DisplayArea::new((0.5, 0.), (1.0, 1.)),
-                ),
-                &tabs.get_root_id(),
-            );
 
             tabs
         }
@@ -104,26 +105,26 @@ impl Tabs {
         Self::new_from_root_with_id(root_tab, Id::generate())
     }
 
-    pub fn add(
-        &mut self,
-        new_tab: TabHandler,
-        parent_id: &Id<TabHandler>,
-    ) -> Option<Id<TabHandler>> {
-        let uuid = Id::generate();
+    // pub fn add(
+    //     &mut self,
+    //     new_tab: TabHandler,
+    //     parent_id: &Id<TabHandler>,
+    // ) -> Option<Id<TabHandler>> {
+    //     let uuid = Id::generate();
 
-        // add to `org_tree`
-        self.org_tree.add_child(*parent_id, uuid);
-        // add to `tabs`
-        self.tabs.insert(uuid, new_tab);
-        // add to top of display order
-        self.display_tiles.give_sibling(self.focused_tab, uuid);
+    //     // add to `org_tree`
+    //     self.org_tree.add_child(*parent_id, uuid);
+    //     // add to `tabs`
+    //     self.tabs.insert(uuid, new_tab);
+    //     // add to top of display order
+    //     self.display_tiles.give_sibling(self.focused_tab, uuid);
 
-        // set focus to new tabs
-        // REVIEW: is this bad?
-        self.set_focused_tab_id(uuid);
+    //     // set focus to new tabs
+    //     // REVIEW: is this bad?
+    //     self.set_focused_tab_id(uuid);
 
-        Some(uuid)
-    }
+    //     Some(uuid)
+    // }
 
     pub fn get_tab_handler(&self, uuid: Id<TabHandler>) -> Option<&TabHandler> {
         self.tabs.get(&uuid)
@@ -137,7 +138,7 @@ impl Tabs {
         self.get_mut_tab_handler(self.get_focused_tab_id()).unwrap()
     }
 
-    pub fn get_display_tiles(&self) -> &Tiles {
+    pub fn get_display_tiles(&self) -> &Tiles<TabHandler> {
         &self.display_tiles
     }
 
@@ -173,12 +174,15 @@ impl Tabs {
 
     pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
         // notify previously focused tab it is no longer focused
-        if let Some(old_focused_tab) = self.tabs.get(&self.focused_tab) {
-            old_focused_tab.send_event(singularity_common::tab::packets::Event::Unfocused);
+        if let Some(old_focused_tab) = self.tabs.get_mut(&self.focused_tab) {
+            old_focused_tab.send_event(SDEEvent::Unfocused(UnfocusedEvent));
         }
         self.focused_tab = focused_tab_id;
         // notify new focused tab it is now focused
-        self.tabs[&self.focused_tab].send_event(singularity_common::tab::packets::Event::Focused);
+        self.tabs
+            .get_mut(&self.focused_tab)
+            .unwrap()
+            .send_event(SDEEvent::Focused(FocusedEvent));
 
         // move the focused tab to end of display order (putting it on top)
         {
@@ -217,9 +221,9 @@ impl Tabs {
     //     // }
     // }
 
-    pub fn num_tabs(&self) -> usize {
-        self.tabs.len()
-    }
+    // pub fn num_tabs(&self) -> usize {
+    //     self.tabs.len()
+    // }
 
     pub fn collect_tab_ids(&self) -> Vec<Id<TabHandler>> {
         self.tabs.keys().cloned().collect()
@@ -266,8 +270,8 @@ impl Tabs {
 
     /// Save this session
     /// REVIEW: Rename to export?
-    pub fn save_session(&self) -> singularity_common::project::project_settings::OpenTabs {
-        use singularity_common::project::project_settings::{OpenTab, OpenTabs};
+    pub fn save_session(&self) -> singularity_sporg::project_settings::OpenTabs {
+        use singularity_sporg::project_settings::{OpenTab, OpenTabs};
 
         OpenTabs {
             tabs: self
@@ -284,9 +288,9 @@ impl Tabs {
                     )
                 })
                 .collect(),
-            org_tree: self.org_tree.clone(),
-            focused_tab: self.focused_tab,
-            display_tiles: self.display_tiles.clone(),
+            org_tree: self.org_tree.clone().transmute(),
+            focused_tab: self.focused_tab.transmute(),
+            display_tiles: self.display_tiles.clone().transmute(),
         }
     }
 }

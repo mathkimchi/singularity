@@ -1,7 +1,12 @@
-use crate::{tab::tile::Tiles, utils::id_map::IdMap};
 use serde::{Deserialize, Serialize};
+use singularity_common::utils::{
+    id_map::{Id, IdMap},
+    tree::id_tree::IdTree,
+};
 use singularity_ui::display_units::DisplayArea;
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::OsString};
+
+use crate::tile::Tiles;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappFileSystemPermission {
@@ -33,13 +38,14 @@ pub struct SubappSettings {
     subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
 }
 
-/// NOTE: Read devlog ~2024/10/29 for description; this is like SessionStorage for webdev
+/// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
 /// REVIEW: rename?
 /// REVIEW: include Area and UIElement and TabType into this?
 /// This type is kind of a black sheep
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct TabData {
-    pub tab_type: String,
+    /// Like `Command`. (program, args). The command and args to spawn tab.
+    pub tab_command: (OsString, Vec<OsString>),
     pub session_data: serde_json::Value,
 }
 
@@ -57,12 +63,12 @@ pub struct OpenTabs {
     pub tabs: IdMap<OpenTab>,
 
     /// ORGanizational tree
-    pub org_tree: crate::utils::tree::id_tree::IdTree<crate::tab::TabHandler>,
-    pub focused_tab: crate::utils::id_map::Id<crate::tab::TabHandler>,
+    pub org_tree: IdTree<OpenTab>,
+    pub focused_tab: Id<OpenTab>,
 
     // /// currently, last in vec is "top" in gui
     // pub display_order: Vec<Uuid>,
-    pub display_tiles: Tiles,
+    pub display_tiles: Tiles<OpenTab>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

@@ -1,7 +1,7 @@
 // TODO: themes
 
 /// RGBA
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Color(pub [u8; 4]);
 impl Color {
     pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
