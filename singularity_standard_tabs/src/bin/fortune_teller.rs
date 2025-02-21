@@ -1,11 +1,15 @@
+use singularity_macros::{Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, CombinedByteStream},
+    datable::{ToData, TryFromData},
+    packet::{IdType, PacketTrait},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };
 use singularity_ui::{
     color::Color,
     ui_element::{CharGrid, UIElement},
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
 use std::{
     io::Stdout,
@@ -26,21 +30,35 @@ Must pay the price!",
     "When the odds are saying you'll never win, that's when the grin should start!",
 ];
 
+#[derive(PacketUnion, Packet)]
+enum MyEvent {
+    UIEvent(DisplayEvent),
+}
+
 fn main() {
     let mut client_stream: UniversalClientStream<
         CombinedByteStream<ByteReaderWrapper, Stdout>,
-        DisplayEvent,
+        MyEvent,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
     client_stream.send_request(RequestChangeName {
         new_name: "Fortuna".to_string(),
     });
 
+    // ik, semantic types are bad, whatever
+    let mut past_index = usize::MAX;
+
     loop {
         let now = time::SystemTime::now();
         let seed = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
         let pseudo_rand = seed.count_ones() as usize;
-        let fortune_str = FORTUNES[pseudo_rand % (FORTUNES.len())];
+        let mut fortune_index = pseudo_rand % (FORTUNES.len());
+        if fortune_index == past_index {
+            fortune_index += 1;
+            fortune_index %= FORTUNES.len();
+        }
+        past_index = fortune_index;
+        let fortune_str = FORTUNES[fortune_index];
 
         // // Jank way of temporarily debugging
         // eprintln!("Fortune: {fortune_str}");
@@ -54,6 +72,22 @@ fn main() {
         client_stream.send_request(RequestUpdateWindow {
             contents: fortune_ui,
         });
-        sleep(Duration::from_secs(3));
+
+        'recv_loop: loop {
+            let events = client_stream.try_read_events();
+            for event in events {
+                match event {
+                    MyEvent::UIEvent(DisplayEvent::UIEvent(UIEvent::KeyPress(
+                        key,
+                        KeyModifiers::NONE,
+                    ))) if key.to_char() == Some(' ') => {
+                        // generate new fortune
+                        break 'recv_loop;
+                    }
+                    _ => {}
+                }
+            }
+            sleep(Duration::from_millis(1));
+        }
     }
 }

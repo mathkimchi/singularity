@@ -2385,8 +2385,8 @@ I will have to think about this for a while.
 Roadmap to recovering from restructuring:
 - [x] Implement the TODO's in singularity macros
   - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
-- [ ] Add basic `standard_packets`
-  - [ ] TODO: bare minimimum packets for standard packets
+- [x] Add basic `standard_packets`
+  - [x] TODO: bare minimimum packets for standard packets
 - [ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)
 - [ ] Start the actual sde, that just displays the UI, no organization
 - [ ] Implement some basic thing in std tabs, like the worst cookie clicker ever
@@ -2606,3 +2606,31 @@ The downside of the piping is that my main tool for debugging just disappeared.
 Ways to debug would be to create a request, or to write to files.
 
 I am going to change the old idea of `tab_type` to `tab_command`.
+
+2025/02/21
+
+I implemented datable for the UI Event stuff,
+so now I think I am almost done with migrating to multiprocess.
+
+As a reference, this is from 2025/01/30 (has been updated as I went)
+Roadmap to recovering from restructuring:
+- [x] Implement the TODO's in singularity macros
+  - [x] Test by making a print_test_server in sde and print_testor in standard tabs as a bin, where standard packets are sent and printed on both ends
+- [x] Add basic `standard_packets`
+  - [x] TODO: bare minimimum packets for standard packets
+- ~~[ ] Figure out how to do the cfg feature stuff (might already be working, if so, just verify it is working)~~
+- [x] Start the actual sde, that just displays the UI, no organization
+- [x] Implement some basic thing in std tabs, like the worst cookie clicker ever
+- ~~[ ] Add organization code back into it~~
+- Figure out the rest (eg: adding sporg into it)
+
+I don't know what I meant by the cfg stuff,
+I assume it is working.
+
+I ended up never having to remove the organization code,
+because I was able to reuse 90% of my old SDE.
+
+I know what I still need to do, but right now, I think
+I will commit this, and merge this branch into dev,
+marking [#3](https://github.com/mathkimchi/singularity/issues/3) as completed!
+(I should have made smaller issues, but whatever)

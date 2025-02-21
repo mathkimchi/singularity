@@ -30,6 +30,29 @@ mod std_impls {
         }
     }
 
+    impl<T: ToData> ToData for Option<T> {
+        fn to_data(&self) -> Vec<u8> {
+            let (id, inner_data) = match self {
+                // Technically inefficient
+                Self::None => (0usize, Vec::new()),
+                Self::Some(inner_packet) => (1usize, inner_packet.to_data()),
+            };
+            let id_bytes: &[u8] = &id.to_be_bytes();
+            [id_bytes, &inner_data].concat()
+        }
+    }
+    impl<T: TryFromData> TryFromData for Option<T> {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
+            let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
+            match id {
+                0usize => Some(Self::None),
+                1usize => Some(Self::Some(<T as TryFromData>::try_from_data(inner_data)?)),
+                _ => None,
+            }
+        }
+    }
+
     impl<T: ToData> ToData for Vec<T> {
         fn to_data(&self) -> Vec<u8> {
             let mut bytes = Vec::new();
@@ -90,6 +113,24 @@ mod std_impls {
     impl TryFromData for String {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             String::from_utf8(data.to_vec()).ok()
+        }
+    }
+
+    impl ToData for bool {
+        fn to_data(&self) -> Vec<u8> {
+            match self {
+                true => vec![0x01],
+                false => vec![0x00],
+            }
+        }
+    }
+    impl TryFromData for bool {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            match data.iter().as_slice() {
+                [0x01] => Some(true),
+                [0x00] => Some(false),
+                _ => None,
+            }
         }
     }
 
@@ -487,17 +528,192 @@ mod singularity_ui_impls {
         }
     }
 
+    impl ToData for singularity_ui::ui_event::Key {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_time = self.time.to_data();
+            let len_time = bytes_time.len().to_be_bytes();
+            let bytes_raw_code = self.raw_code.to_data();
+            let len_raw_code = bytes_raw_code.len().to_be_bytes();
+            let bytes_keysym = self.keysym.raw().to_data();
+            let len_keysym = bytes_keysym.len().to_be_bytes();
+            let bytes_utf8 = self.utf8.to_data();
+            let len_utf8 = bytes_utf8.len().to_be_bytes();
+            [
+                len_time.as_slice(),
+                bytes_time.as_slice(),
+                len_raw_code.as_slice(),
+                bytes_raw_code.as_slice(),
+                len_keysym.as_slice(),
+                bytes_keysym.as_slice(),
+                len_utf8.as_slice(),
+                bytes_utf8.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_event::Key {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                time: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <u32>::try_from_data(inner_data)?
+                },
+                raw_code: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <u32>::try_from_data(inner_data)?
+                },
+                keysym: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <u32>::try_from_data(inner_data)?.into()
+                },
+                utf8: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <Option<String>>::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
+    impl ToData for singularity_ui::ui_event::KeyModifiers {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_ctrl = self.ctrl.to_data();
+            let len_ctrl = bytes_ctrl.len().to_be_bytes();
+            let bytes_alt = self.alt.to_data();
+            let len_alt = bytes_alt.len().to_be_bytes();
+            let bytes_shift = self.shift.to_data();
+            let len_shift = bytes_shift.len().to_be_bytes();
+            let bytes_caps_lock = self.caps_lock.to_data();
+            let len_caps_lock = bytes_caps_lock.len().to_be_bytes();
+            let bytes_logo = self.logo.to_data();
+            let len_logo = bytes_logo.len().to_be_bytes();
+            let bytes_num_lock = self.num_lock.to_data();
+            let len_num_lock = bytes_num_lock.len().to_be_bytes();
+            [
+                len_ctrl.as_slice(),
+                bytes_ctrl.as_slice(),
+                len_alt.as_slice(),
+                bytes_alt.as_slice(),
+                len_shift.as_slice(),
+                bytes_shift.as_slice(),
+                len_caps_lock.as_slice(),
+                bytes_caps_lock.as_slice(),
+                len_logo.as_slice(),
+                bytes_logo.as_slice(),
+                len_num_lock.as_slice(),
+                bytes_num_lock.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    impl TryFromData for singularity_ui::ui_event::KeyModifiers {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                ctrl: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+                alt: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+                shift: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+                caps_lock: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+                logo: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+                num_lock: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <bool>::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
     impl ToData for singularity_ui::ui_event::UIEvent {
         fn to_data(&self) -> Vec<u8> {
-            vec![]
-            // TODO
-            // todo!()
+            let (id, inner_data) = match self {
+                Self::KeyPress(i0, i1) => (0usize, (i0, i1).to_data()),
+                Self::WindowResized(inner_packet) => (1usize, inner_packet.to_data()),
+                Self::MousePress(i0, i1) => (2usize, (i0, i1).to_data()),
+            };
+            let id_bytes: &[u8] = &id.to_be_bytes();
+            [id_bytes, &inner_data].concat()
         }
     }
     impl TryFromData for singularity_ui::ui_event::UIEvent {
-        fn try_from_data(_data: &[u8]) -> Option<Self> {
-            // todo!()
-            None
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
+            let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
+            match id {
+                0usize => {
+                    // TODO: macro for expanding tuples, python style: `*arg`
+                    let comps = <(
+                        singularity_ui::ui_event::Key,
+                        singularity_ui::ui_event::KeyModifiers,
+                    ) as TryFromData>::try_from_data(inner_data)?;
+                    Some(Self::KeyPress(comps.0, comps.1))
+                }
+                1usize => Some(Self::WindowResized(
+                    <[u32; 2] as TryFromData>::try_from_data(inner_data)?,
+                )),
+                2usize => {
+                    let comps=   <(
+                [[u32; 2]; 2],
+                singularity_ui::display_units::DisplayArea,
+            ) as TryFromData>::try_from_data(
+                inner_data
+            )?;
+                    Some(Self::MousePress(comps.0, comps.1))
+                }
+                _ => None,
+            }
         }
     }
     impl PacketTrait for singularity_ui::ui_event::UIEvent {
