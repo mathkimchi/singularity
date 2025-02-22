@@ -2634,3 +2634,22 @@ I know what I still need to do, but right now, I think
 I will commit this, and merge this branch into dev,
 marking [#3](https://github.com/mathkimchi/singularity/issues/3) as completed!
 (I should have made smaller issues, but whatever)
+
+## [#6](https://github.com/mathkimchi/singularity/issues/6)
+
+I made a new issue (for future reference, clicking the create branch with GitHub desktop is probably better than local).
+You can see it in the second heading title for this section.
+From now on, I think this will be the formatting of my devlogs.
+
+I am going to strive away from the object orientedy way I previously handled this,
+meaning the structs will have data but the bulk of the logic will be outside the struct.
+Actually, I'll put the file manager specific stuff along with the struct (as an impl),
+and have the more tab-related boilerplate stuff (client stream) outside.
+
+This actually requires session data, so I will need to think about that as well.
+I will start off by using a hard coded path.
+
+...
+
+I got displaying to work, but suddenly, none of the keyboard inputs are working,
+even for shortcuts outside the tab like `Ctrl+Q` and tab traversing.

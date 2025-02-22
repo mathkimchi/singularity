@@ -32,7 +32,7 @@ Must pay the price!",
 
 #[derive(PacketUnion, Packet)]
 enum MyEvent {
-    UIEvent(DisplayEvent),
+    DisplayEvent(DisplayEvent),
 }
 
 fn main() {
@@ -41,9 +41,7 @@ fn main() {
         MyEvent,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
-    client_stream.send_request(RequestChangeName {
-        new_name: "Fortuna".to_string(),
-    });
+    client_stream.send_request(RequestChangeName::new(&"Fortuna"));
 
     // ik, semantic types are bad, whatever
     let mut past_index = usize::MAX;
@@ -77,7 +75,7 @@ fn main() {
             let events = client_stream.try_read_events();
             for event in events {
                 match event {
-                    MyEvent::UIEvent(DisplayEvent::UIEvent(UIEvent::KeyPress(
+                    MyEvent::DisplayEvent(DisplayEvent::UIEvent(UIEvent::KeyPress(
                         key,
                         KeyModifiers::NONE,
                     ))) if key.to_char() == Some(' ') => {

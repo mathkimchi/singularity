@@ -37,6 +37,13 @@ pub mod display_packets {
     pub struct RequestChangeName {
         pub new_name: String,
     }
+    impl RequestChangeName {
+        pub fn new<S: ToString>(new_name: &S) -> Self {
+            Self {
+                new_name: new_name.to_string(),
+            }
+        }
+    }
 
     #[derive(Debug, Datable, Packet)]
     pub struct PathQuery;
