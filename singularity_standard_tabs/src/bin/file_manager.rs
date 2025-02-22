@@ -130,46 +130,44 @@ impl FileManager {
     }
 
     // pub fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
-    pub fn handle_tab_event(&mut self, event: Event) {
+    pub fn handle_tab_event(&mut self, event: DisplayEvent) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
-            Event::DisplayEvent(display_event) => match display_event {
-                DisplayEvent::UIEvent(ui_event) => match ui_event {
-                    UIEvent::KeyPress(key, KeyModifiers::NONE)
-                        if key.to_char() == Some('\n')
+            DisplayEvent::UIEvent(ui_event) => match ui_event {
+                UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if key.to_char() == Some('\n')
                     // `' '` is a placeholder for some key that isn't in tree traverse
                     || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
-                    {
-                        self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
-                            &self.directory_tree,
-                            key.to_char().unwrap(),
-                        );
-                    }
-                    // UIEvent::KeyPress(key, KeyModifiers::NONE)
-                    //     if matches!(key.to_char(), Some('f')) =>
-                    // {
-                    //     // `f` stands for open selected *F*ile
+                {
+                    self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
+                        &self.directory_tree,
+                        key.to_char().unwrap(),
+                    );
+                }
+                // UIEvent::KeyPress(key, KeyModifiers::NONE)
+                //     if matches!(key.to_char(), Some('f')) =>
+                // {
+                //     // `f` stands for open selected *F*ile
 
-                    //     let selected_element = &self.directory_tree[&self.selected_path];
-                    //     if selected_element.is_file() {
-                    //         manager_handler.send_request(Request::SpawnChildTab(
-                    //             Box::new(Editor::new_tab_creator()),
-                    //             TabData {
-                    //                 tab_type: "EDITOR".to_string(),
-                    //                 session_data: serde_json::to_value(selected_element.clone())
-                    //                     .unwrap(),
-                    //             },
-                    //         ));
-                    //     }
-                    //     // if selected path isn't a file, then don't do anything
-                    // }
-                    _ => {}
-                },
-                DisplayEvent::Focused(FocusedEvent) => {}
-                DisplayEvent::Unfocused(UnfocusedEvent) => {}
-                DisplayEvent::Resize(_) => {}
-                DisplayEvent::Close(CloseWarningEvent) => {}
+                //     let selected_element = &self.directory_tree[&self.selected_path];
+                //     if selected_element.is_file() {
+                //         manager_handler.send_request(Request::SpawnChildTab(
+                //             Box::new(Editor::new_tab_creator()),
+                //             TabData {
+                //                 tab_type: "EDITOR".to_string(),
+                //                 session_data: serde_json::to_value(selected_element.clone())
+                //                     .unwrap(),
+                //             },
+                //         ));
+                //     }
+                //     // if selected path isn't a file, then don't do anything
+                // }
+                _ => {}
             },
+            DisplayEvent::Focused(FocusedEvent) => {}
+            DisplayEvent::Unfocused(UnfocusedEvent) => {}
+            DisplayEvent::Resize(_) => {}
+            DisplayEvent::Close(CloseWarningEvent) => {}
         }
     }
 }
@@ -191,7 +189,7 @@ pub fn main() {
 
     loop {
         let events = client_stream.wait_read_events();
-        for event in events {
+        for Event::DisplayEvent(event) in events {
             file_manager.handle_tab_event(event);
         }
 

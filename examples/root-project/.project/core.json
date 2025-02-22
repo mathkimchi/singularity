@@ -18,7 +18,7 @@
   },
   "open_tabs": {
     "tabs": {
-      "a8d317ef-2ed8-40b4-8612-0f36b0b1101e": {
+      "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f": {
         "tab_area": [
           {
             "x": {
@@ -58,17 +58,11 @@
                 115,
                 101,
                 47,
-                102,
+                101,
+                100,
                 105,
-                108,
-                101,
-                95,
-                109,
-                97,
-                110,
-                97,
-                103,
-                101,
+                116,
+                111,
                 114
               ]
             },
@@ -79,26 +73,26 @@
       }
     },
     "org_tree": {
-      "root_id": "a8d317ef-2ed8-40b4-8612-0f36b0b1101e",
+      "root_id": "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f",
       "nodes": {
-        "a8d317ef-2ed8-40b4-8612-0f36b0b1101e": {
+        "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f": {
           "children": [],
           "parent": null
         }
       }
     },
-    "focused_tab": "a8d317ef-2ed8-40b4-8612-0f36b0b1101e",
+    "focused_tab": "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f",
     "display_tiles": {
-      "root_id": "40a4d34b-16da-4476-91fd-b8f1b90318e1",
+      "root_id": "ed8ec096-75f8-489d-9fd7-7b9bc4ab1ebf",
       "tiles": {
-        "40a4d34b-16da-4476-91fd-b8f1b90318e1": {
+        "ed8ec096-75f8-489d-9fd7-7b9bc4ab1ebf": {
           "Tab": {
-            "tab_id": "a8d317ef-2ed8-40b4-8612-0f36b0b1101e"
+            "tab_id": "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f"
           }
         }
       },
       "leaf_registry": {
-        "a8d317ef-2ed8-40b4-8612-0f36b0b1101e": "40a4d34b-16da-4476-91fd-b8f1b90318e1"
+        "680b3aa6-0438-4e6d-b6fe-0641b38ccb8f": "ed8ec096-75f8-489d-9fd7-7b9bc4ab1ebf"
       }
     }
   }
