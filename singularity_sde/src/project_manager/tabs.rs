@@ -77,8 +77,7 @@ impl Tabs {
                 TabData {
                     tab_command: (
                         // "./target/release/fortune_teller".into(),
-                        // "./target/release/file_manager".into(),
-                        "./target/release/editor".into(),
+                        "./target/release/file_manager".into(),
                         Vec::new(), // Vec::from([""].map(|s| s.into())),
                     ),
                     session_data: serde_json::to_value(project.get_project_directory().clone())

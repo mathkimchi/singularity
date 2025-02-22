@@ -5,7 +5,7 @@ use singularity_sap::{
     packet::{IdType, PacketTrait},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
-        UnfocusedEvent,
+        SessionDataQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -91,15 +91,15 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 
-    // fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
-    //     Self::new(
-    //         serde_json::from_value::<String>(
-    //             ask_query!(manager_handler.get_query_channels(), TabData).session_data,
-    //         )
-    //         .unwrap(),
-    //         manager_handler,
-    //     )
-    // }
+    pub fn initialize_tab<Stream: ByteStream>(
+        client_stream: &mut UniversalClientStream<Stream, Event>,
+    ) -> Self {
+        Self::new(
+            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+                .unwrap(),
+            client_stream,
+        )
+    }
 
     pub fn render_tab(&mut self) -> UIElement {
         // highlight cursor
@@ -138,14 +138,12 @@ impl Editor {
 }
 
 fn main() {
-    const PATH: &str = "examples/root-project/file_to_edit.txt";
-
     let mut client_stream: UniversalClientStream<
         CombinedByteStream<ByteReaderWrapper, Stdout>,
         Event,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
-    let mut editor = Editor::new(PATH, &mut client_stream);
+    let mut editor = Editor::initialize_tab(&mut client_stream);
 
     // update window on start and when there is an event
     client_stream.send_request(RequestUpdateWindow {

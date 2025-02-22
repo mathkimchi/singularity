@@ -61,11 +61,11 @@ pub mod display_packets {
         type ResponseType = NameResponse;
     }
 
-    // #[derive(Debug, Datable, Packet)]
-    // pub struct TabDataQuery;
-    // #[derive(Debug, Datable, Packet)]
-    // pub struct TabDataResponse(pub TabData);
-    // impl UniversalQuery for TabDataQuery {
-    //     type ResponseType = TabDataResponse;
-    // }
+    #[derive(Debug, Datable, Packet)]
+    pub struct SessionDataQuery;
+    #[derive(Debug, Datable, Packet)]
+    pub struct SessionDataResponse(pub serde_json::Value);
+    impl UniversalQuery for SessionDataQuery {
+        type ResponseType = SessionDataResponse;
+    }
 }

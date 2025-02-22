@@ -46,6 +46,7 @@ pub struct SubappSettings {
 pub struct TabData {
     /// Like `Command`. (program, args). The command and args to spawn tab.
     pub tab_command: (OsString, Vec<OsString>),
+    /// REVIEW: make this another type?
     pub session_data: serde_json::Value,
 }
 

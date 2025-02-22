@@ -9,7 +9,7 @@ use singularity_sap::{
     packet::{IdType, PacketTrait},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
-        UnfocusedEvent,
+        SessionDataQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -81,15 +81,15 @@ impl FileManager {
             .to_string()
     }
 
-    // fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
-    //     Self::new(
-    //         serde_json::from_value::<String>(
-    //             ask_query!(manager_handler.get_query_channels(), TabData).session_data,
-    //         )
-    //         .unwrap(),
-    //         manager_handler,
-    //     )
-    // }
+    pub fn initialize_tab<Stream: ByteStream>(
+        client_stream: &mut UniversalClientStream<Stream, Event>,
+    ) -> Self {
+        Self::new(
+            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+                .unwrap(),
+            client_stream,
+        )
+    }
 
     pub fn render_tab(&self) -> UIElement {
         use singularity_ui::{
@@ -173,14 +173,12 @@ impl FileManager {
 }
 
 pub fn main() {
-    const PATH: &str = "examples/root-project";
-
     let mut client_stream: UniversalClientStream<
         CombinedByteStream<ByteReaderWrapper, Stdout>,
         Event,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
-    let mut file_manager = FileManager::new(PATH, &mut client_stream);
+    let mut file_manager = FileManager::initialize_tab(&mut client_stream);
 
     // update window on start and when there is an event
     client_stream.send_request(RequestUpdateWindow {

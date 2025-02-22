@@ -721,3 +721,19 @@ mod singularity_ui_impls {
         const PACKET_TYPE_ID: crate::packet::IdType = 3159320418745789;
     }
 }
+
+#[cfg(feature = "serde_json")]
+mod serde_json_impls {
+    use super::{ToData, TryFromData};
+
+    impl ToData for serde_json::Value {
+        fn to_data(&self) -> Vec<u8> {
+            self.to_string().to_data()
+        }
+    }
+    impl TryFromData for serde_json::Value {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            serde_json::from_str(&String::try_from_data(data)?).ok()?
+        }
+    }
+}

@@ -2,7 +2,7 @@ use singularity_common::utils::{
     id_map::Id,
     tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
 };
-use singularity_sap::{standard_packets::display_packets::{CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestUpdateWindow}, universal_stream::universal_server_stream::as_query_data_responder};
+use singularity_sap::{standard_packets::display_packets::{CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestUpdateWindow, SessionDataQuery, SessionDataResponse}, universal_stream::universal_server_stream::as_query_data_responder};
 use singularity_sporg::{tile::{Orientation, Tile}, Project};
 use singularity_ui::{
     color::Color,
@@ -554,11 +554,12 @@ impl ProjectManager {
                 .unwrap();
             let requests= {
                 let sender_name = sender.tab_name.clone();
+                let session_data = sender.get_tab_data().session_data.clone();
                 sender.handle_incoming(
                 &mut vec![
                     &mut as_query_data_responder(|PathQuery| Some(PathResponse(tab_path.clone()))),
                     &mut as_query_data_responder(move |NameQuery| Some(NameResponse(sender_name.clone()))),
-                    // &mut as_query_data_responder(|TabDataQuery| Some(TabDataResponse(sender.get_tab_data().clone()))),
+                    &mut as_query_data_responder(move |SessionDataQuery| Some(SessionDataResponse(session_data.clone()))),
                 ]
             )};
 
