@@ -14,7 +14,7 @@ use singularity_sap::{
     universal_stream::universal_client_stream::UniversalClientStream,
 };
 use singularity_ui::ui_element::UIElement;
-use std::{io::Stdout, path::PathBuf, thread, time::Duration};
+use std::{io::Stdout, path::PathBuf};
 
 #[derive(PacketUnion, Packet)]
 pub enum Event {
@@ -137,8 +137,8 @@ impl FileManager {
                 DisplayEvent::UIEvent(ui_event) => match ui_event {
                     UIEvent::KeyPress(key, KeyModifiers::NONE)
                         if key.to_char() == Some('\n')
-                        // `' '` is a placeholder for some key that isn't in tree traverse
-                        || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
                     {
                         self.selected_path = self.selected_path.clamped_traverse_based_on_wasd(
                             &self.directory_tree,
@@ -184,17 +184,20 @@ pub fn main() {
 
     let mut file_manager = FileManager::new(PATH, &mut client_stream);
 
-    // Assumes the directory doesn't change, so we only need to draw once
+    // update window on start and when there is an event
     client_stream.send_request(RequestUpdateWindow {
         contents: file_manager.render_tab(),
     });
 
     loop {
-        let events = client_stream.try_read_events();
+        let events = client_stream.wait_read_events();
         for event in events {
             file_manager.handle_tab_event(event);
         }
 
-        thread::sleep(Duration::from_millis(1));
+        // update window on start and when there is an event
+        client_stream.send_request(RequestUpdateWindow {
+            contents: file_manager.render_tab(),
+        });
     }
 }

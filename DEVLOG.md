@@ -2653,3 +2653,8 @@ I will start off by using a hard coded path.
 
 I got displaying to work, but suddenly, none of the keyboard inputs are working,
 even for shortcuts outside the tab like `Ctrl+Q` and tab traversing.
+The old commit isn't working either.
+
+Okay, it was because NUMLOCK was interfering with the shortcuts.
+I really gotta do something about shortcuts.
+You know what, I am going to make that a new issue.
