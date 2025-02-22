@@ -2658,3 +2658,12 @@ The old commit isn't working either.
 Okay, it was because NUMLOCK was interfering with the shortcuts.
 I really gotta do something about shortcuts.
 You know what, I am going to make that a new issue.
+
+...
+
+2025/02/22
+
+I am implementing Editor, which previously used the components.
+I will add just the textbox component, but I am getting import conflicts by having it in singularity common,
+so I will move this into a new rust package: `singularity_sttk` (singularity singularity tab toolkit)
+which should be like the Smithay client toolkit.

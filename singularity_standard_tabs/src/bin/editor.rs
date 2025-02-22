@@ -1,13 +1,25 @@
-// use singularity_common::{
-//     ask_query,
-//     components::{text_box::TextBox, Component},
-//     tab::{
-//         packets::{Event, Request},
-//         BasicTab, ManagerHandler,
-//     },
+// use singularity_common::utils::tree::{
+//     rooted_tree::RootedTree,
+//     tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
 // };
-// use singularity_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
-// use std::path::PathBuf;
+// use singularity_macros::{Packet, PacketUnion};
+// use singularity_sap::{
+//     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
+//     datable::{ToData, TryFromData},
+//     packet::{IdType, PacketTrait},
+//     standard_packets::display_packets::{
+//         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
+//         UnfocusedEvent,
+//     },
+//     universal_stream::universal_client_stream::UniversalClientStream,
+// };
+// use singularity_ui::ui_element::UIElement;
+// use std::{io::Stdout, path::PathBuf};
+
+// #[derive(PacketUnion, Packet)]
+// pub enum Event {
+//     DisplayEvent(DisplayEvent),
+// }
 
 // /// Currently Just treats everything like plaintext.
 // /// This is just the textbox but with a wrapper to work with files.

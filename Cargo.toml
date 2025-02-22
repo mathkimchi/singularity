@@ -8,6 +8,7 @@ members = [
 
     "singularity_sporg",
     "singularity_sde",
+    "singularity_sttk",
     "singularity_standard_tabs",
 ]
 resolver = "2"
