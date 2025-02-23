@@ -7,7 +7,9 @@ pub mod display_packets {
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;
     use singularity_macros::{Datable, Packet, PacketUnion};
+    use singularity_sporg::project_settings::TabData;
     use singularity_ui::{display_units::DisplayArea, ui_element::UIElement, ui_event::UIEvent};
+    use std::ffi::OsString;
 
     #[derive(Debug, Datable, Packet)]
     pub struct ResizeEvent(pub DisplayArea);
@@ -42,6 +44,18 @@ pub mod display_packets {
             Self {
                 new_name: new_name.to_string(),
             }
+        }
+    }
+
+    #[derive(Debug, Datable, Packet)]
+    pub struct RequestSpawnChildTab(pub TabData);
+    impl RequestSpawnChildTab {
+        pub fn new(
+            tab_command_program: impl Into<OsString>,
+            args: impl Iterator<Item = impl Into<OsString>>,
+            session_data: serde_json::Value,
+        ) -> Self {
+            Self(TabData::new(tab_command_program, args, session_data))
         }
     }
 

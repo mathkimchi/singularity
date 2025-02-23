@@ -4,7 +4,9 @@ use singularity_macros::{Packet, PacketUnion};
 use singularity_sap::{
     datable::{ToData, TryFromData},
     packet::{IdType, PacketTrait},
-    standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
+    standard_packets::display_packets::{
+        DisplayEvent, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow,
+    },
 };
 
 pub type SDEEvent = DisplayEvent;
@@ -13,4 +15,5 @@ pub type SDEEvent = DisplayEvent;
 pub enum SDERequest {
     RequestChangeName(RequestChangeName),
     RequestUpdateWindow(RequestUpdateWindow),
+    RequestSpawnChildTab(RequestSpawnChildTab),
 }

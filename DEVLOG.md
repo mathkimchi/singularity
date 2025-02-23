@@ -2667,3 +2667,8 @@ I am implementing Editor, which previously used the components.
 I will add just the textbox component, but I am getting import conflicts by having it in singularity common,
 so I will move this into a new rust package: `singularity_sttk` (singularity singularity tab toolkit)
 which should be like the Smithay client toolkit.
+
+...
+
+Allowing file manager to spawn editor went pretty smoothly.
+I think I can commit and PR this.

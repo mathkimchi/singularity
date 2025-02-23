@@ -7,6 +7,7 @@ edition = "2021"
 singularity_common = { path = "../singularity_common", optional = true }
 singularity_macros = { path = "../singularity_common/singularity_macros" }
 singularity_ui = { path = "../singularity_ui", optional = true }
+singularity_sporg = { path = "../singularity_sporg", optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
@@ -19,6 +20,7 @@ default = ["standard_packets"]
 standard_packets = [
     "singularity_ui",
     "singularity_common",
+    "singularity_sporg",
     "serde",
     "serde_json",
 ]

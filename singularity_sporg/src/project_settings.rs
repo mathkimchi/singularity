@@ -49,6 +49,31 @@ pub struct TabData {
     /// REVIEW: make this another type?
     pub session_data: serde_json::Value,
 }
+impl TabData {
+    pub fn new(
+        tab_command_program: impl Into<OsString>,
+        args: impl Iterator<Item = impl Into<OsString>>,
+        session_data: serde_json::Value,
+    ) -> Self {
+        Self {
+            tab_command: (
+                tab_command_program.into(),
+                args.map(|arg| arg.into()).collect(),
+            ),
+            session_data,
+        }
+    }
+
+    pub fn new_argless(
+        tab_command_program: impl Into<OsString>,
+        session_data: serde_json::Value,
+    ) -> Self {
+        Self {
+            tab_command: (tab_command_program.into(), Vec::new()),
+            session_data,
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct OpenTab {

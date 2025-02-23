@@ -46,9 +46,9 @@ pub struct Editor {
     save_to_temp: bool,
 }
 impl Editor {
-    pub fn new<P, Stream: ByteStream>(
+    pub fn new<P>(
         file_path: P,
-        client_stream: &mut UniversalClientStream<Stream, Event>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self
     where
         P: AsRef<std::path::Path>,
@@ -68,10 +68,7 @@ impl Editor {
         }
     }
 
-    fn get_content<P>(file_path: P) -> String
-    where
-        P: AsRef<std::path::Path>,
-    {
+    fn get_content(file_path: impl AsRef<std::path::Path>) -> String {
         std::fs::read_to_string(&file_path).unwrap()
     }
 
@@ -91,8 +88,8 @@ impl Editor {
         std::fs::write(new_path, self.text_box.get_text_as_string()).unwrap();
     }
 
-    pub fn initialize_tab<Stream: ByteStream>(
-        client_stream: &mut UniversalClientStream<Stream, Event>,
+    pub fn initialize_tab(
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
             serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)

@@ -10,6 +10,11 @@ pub trait Datable: ToData + TryFromData {}
 impl<D: ToData + TryFromData> Datable for D {}
 
 mod std_impls {
+    use std::{
+        ffi::OsString,
+        os::unix::ffi::{OsStrExt, OsStringExt},
+    };
+
     use super::{ToData, TryFromData};
     use paste::paste;
 
@@ -113,6 +118,17 @@ mod std_impls {
     impl TryFromData for String {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             String::from_utf8(data.to_vec()).ok()
+        }
+    }
+
+    impl ToData for OsString {
+        fn to_data(&self) -> Vec<u8> {
+            self.as_bytes().to_vec()
+        }
+    }
+    impl TryFromData for OsString {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            Some(OsString::from_vec(data.to_vec()))
         }
     }
 
@@ -719,6 +735,53 @@ mod singularity_ui_impls {
     impl PacketTrait for singularity_ui::ui_event::UIEvent {
         /// I just mashed my keyboard
         const PACKET_TYPE_ID: crate::packet::IdType = 3159320418745789;
+    }
+}
+
+#[cfg(feature = "singularity_sporg")]
+mod singularity_sporg_impls {
+    use super::{ToData, TryFromData};
+    use std::ffi::OsString;
+
+    impl ToData for singularity_sporg::project_settings::TabData {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_tab_command = self.tab_command.to_data();
+            let len_tab_command = bytes_tab_command.len().to_be_bytes();
+            let bytes_session_data = self.session_data.to_data();
+            let len_session_data = bytes_session_data.len().to_be_bytes();
+            [
+                len_tab_command.as_slice(),
+                bytes_tab_command.as_slice(),
+                len_session_data.as_slice(),
+                bytes_session_data.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    impl TryFromData for singularity_sporg::project_settings::TabData {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                tab_command: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <(OsString, Vec<OsString>)>::try_from_data(inner_data)?
+                },
+                session_data: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <serde_json::Value>::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
     }
 }
 

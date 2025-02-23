@@ -8,11 +8,12 @@ use singularity_sap::{
     datable::{ToData, TryFromData},
     packet::{IdType, PacketTrait},
     standard_packets::display_packets::{
-        CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
-        SessionDataQuery, UnfocusedEvent,
+        CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
+        RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
+use singularity_sporg::project_settings::TabData;
 use singularity_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 
@@ -26,9 +27,9 @@ pub struct FileManager {
     selected_path: TreeNodePath,
 }
 impl FileManager {
-    pub fn new<P, Stream: ByteStream>(
+    pub fn new<P>(
         root_directory_path: P,
-        client_stream: &mut UniversalClientStream<Stream, Event>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self
     where
         PathBuf: std::convert::From<P>,
@@ -81,8 +82,8 @@ impl FileManager {
             .to_string()
     }
 
-    pub fn initialize_tab<Stream: ByteStream>(
-        client_stream: &mut UniversalClientStream<Stream, Event>,
+    pub fn initialize_tab(
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
             serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
@@ -130,7 +131,11 @@ impl FileManager {
     }
 
     // pub fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
-    pub fn handle_tab_event(&mut self, event: DisplayEvent) {
+    pub fn handle_tab_event(
+        &mut self,
+        event: DisplayEvent,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+    ) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             DisplayEvent::UIEvent(ui_event) => match ui_event {
@@ -144,24 +149,21 @@ impl FileManager {
                         key.to_char().unwrap(),
                     );
                 }
-                // UIEvent::KeyPress(key, KeyModifiers::NONE)
-                //     if matches!(key.to_char(), Some('f')) =>
-                // {
-                //     // `f` stands for open selected *F*ile
+                UIEvent::KeyPress(key, KeyModifiers::NONE)
+                    if matches!(key.to_char(), Some('f')) =>
+                {
+                    // `f` stands for open selected *F*ile
 
-                //     let selected_element = &self.directory_tree[&self.selected_path];
-                //     if selected_element.is_file() {
-                //         manager_handler.send_request(Request::SpawnChildTab(
-                //             Box::new(Editor::new_tab_creator()),
-                //             TabData {
-                //                 tab_type: "EDITOR".to_string(),
-                //                 session_data: serde_json::to_value(selected_element.clone())
-                //                     .unwrap(),
-                //             },
-                //         ));
-                //     }
-                //     // if selected path isn't a file, then don't do anything
-                // }
+                    let selected_element = &self.directory_tree[&self.selected_path];
+                    if selected_element.is_file() {
+                        // TODO: add abstraction for editor, so it is just RequestOpenInEditor instead of calling SDE's specific editor
+                        client_stream.send_request(RequestSpawnChildTab(TabData::new_argless(
+                            "./target/release/editor",
+                            serde_json::to_value(selected_element.clone()).unwrap(),
+                        )));
+                    }
+                    // if selected path isn't a file, then don't do anything
+                }
                 _ => {}
             },
             DisplayEvent::Focused(FocusedEvent) => {}
@@ -188,7 +190,7 @@ pub fn main() {
     loop {
         let events = client_stream.wait_read_events();
         for Event::DisplayEvent(event) in events {
-            file_manager.handle_tab_event(event);
+            file_manager.handle_tab_event(event, &mut client_stream);
         }
 
         // update window on start and when there is an event
