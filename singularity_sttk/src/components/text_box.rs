@@ -1,6 +1,9 @@
+use singularity_sap::standard_packets::display_packets::{
+    CloseWarningEvent, DisplayEvent, FocusedEvent, UnfocusedEvent,
+};
 use singularity_ui::ui_element::CharGrid;
 
-use super::Component;
+// use super::Component;
 
 /// just plaintext
 pub struct TextBox {
@@ -119,27 +122,15 @@ impl TextBox {
 
         text_clone
     }
-}
-impl Default for TextBox {
-    fn default() -> Self {
-        Self::new(String::new())
-    }
-}
-impl From<String> for TextBox {
-    fn from(value: String) -> Self {
-        Self::new(value.lines().map(|s| s.to_string()).collect())
-    }
-}
-impl Component for TextBox {
-    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+
+    pub fn render(&mut self) -> singularity_ui::ui_element::UIElement {
         singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
     }
 
-    fn handle_event(&mut self, event: crate::tab::packets::Event) {
-        use crate::tab::packets::Event;
+    pub fn handle_event(&mut self, event: DisplayEvent) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
-            Event::UIEvent(ui_event) => match ui_event {
+            DisplayEvent::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
                     // arrow down
                     self.cursor_logical_position.1 += 1;
@@ -181,12 +172,22 @@ impl Component for TextBox {
                 }
                 _ => {}
             },
-            Event::Focused => {}
-            Event::Unfocused => {}
-            Event::Resize(_) => {}
-            Event::Close => panic!("Event::Close should not have been forwarded"),
+            DisplayEvent::Focused(FocusedEvent) => {}
+            DisplayEvent::Unfocused(UnfocusedEvent) => {}
+            DisplayEvent::Resize(_) => {}
+            DisplayEvent::Close(CloseWarningEvent) => {}
         }
 
         self.clamp_everything();
+    }
+}
+impl Default for TextBox {
+    fn default() -> Self {
+        Self::new(String::new())
+    }
+}
+impl From<String> for TextBox {
+    fn from(value: String) -> Self {
+        Self::new(value.lines().map(|s| s.to_string()).collect())
     }
 }

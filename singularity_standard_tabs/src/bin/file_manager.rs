@@ -1,23 +1,36 @@
-use singularity_common::{
-    ask_query,
-    project::project_settings::TabData,
-    tab::{
-        packets::{Event, Request},
-        BasicTab, ManagerHandler,
-    },
-    utils::tree::{
-        rooted_tree::RootedTree,
-        tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
-    },
+use singularity_common::utils::tree::{
+    rooted_tree::RootedTree,
+    tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
 };
-use std::path::PathBuf;
+use singularity_macros::{Packet, PacketUnion};
+use singularity_sap::{
+    byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
+    datable::{ToData, TryFromData},
+    packet::{IdType, PacketTrait},
+    standard_packets::display_packets::{
+        CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
+        RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
+    },
+    universal_stream::universal_client_stream::UniversalClientStream,
+};
+use singularity_sporg::project_settings::TabData;
+use singularity_ui::ui_element::UIElement;
+use std::{io::Stdout, path::PathBuf};
+
+#[derive(PacketUnion, Packet)]
+pub enum Event {
+    DisplayEvent(DisplayEvent),
+}
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,
     selected_path: TreeNodePath,
 }
 impl FileManager {
-    pub fn new<P>(root_directory_path: P, manager_handler: &ManagerHandler) -> Self
+    pub fn new<P>(
+        root_directory_path: P,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+    ) -> Self
     where
         PathBuf: std::convert::From<P>,
     {
@@ -26,7 +39,7 @@ impl FileManager {
             selected_path: TreeNodePath::new_root(),
         };
 
-        manager_handler.send_request(Request::ChangeName(file_manager.get_directory_name()));
+        client_stream.send_request(RequestChangeName::new(&file_manager.get_directory_name()));
 
         file_manager
     }
@@ -68,22 +81,18 @@ impl FileManager {
             .unwrap()
             .to_string()
     }
-}
-impl BasicTab for FileManager {
-    fn initialize_tab(manager_handler: &ManagerHandler) -> Self {
+
+    pub fn initialize_tab(
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+    ) -> Self {
         Self::new(
-            serde_json::from_value::<String>(
-                ask_query!(manager_handler.get_query_channels(), TabData).session_data,
-            )
-            .unwrap(),
-            manager_handler,
+            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+                .unwrap(),
+            client_stream,
         )
     }
 
-    fn render_tab(
-        &mut self,
-        _manager_handler: &ManagerHandler,
-    ) -> Option<singularity_ui::ui_element::UIElement> {
+    pub fn render_tab(&self) -> UIElement {
         use singularity_ui::{
             color::Color,
             ui_element::{CharCell, CharGrid, UIElement},
@@ -116,17 +125,20 @@ impl BasicTab for FileManager {
             );
         }
 
-        Some(
-            UIElement::CharGrid(CharGrid { content: lines })
-                .fill_bg(Color::DARK_GRAY)
-                .bordered(Color::LIGHT_GREEN),
-        )
+        UIElement::CharGrid(CharGrid { content: lines })
+            .fill_bg(Color::DARK_GRAY)
+            .bordered(Color::LIGHT_GREEN)
     }
 
-    fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
+    // pub fn handle_tab_event(&mut self, event: Event, manager_handler: &ManagerHandler) {
+    pub fn handle_tab_event(
+        &mut self,
+        event: DisplayEvent,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+    ) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
-            Event::UIEvent(ui_event) => match ui_event {
+            DisplayEvent::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE)
                     if key.to_char() == Some('\n')
                     // `' '` is a placeholder for some key that isn't in tree traverse
@@ -144,25 +156,46 @@ impl BasicTab for FileManager {
 
                     let selected_element = &self.directory_tree[&self.selected_path];
                     if selected_element.is_file() {
-                        use crate::editor::Editor;
-                        manager_handler.send_request(Request::SpawnChildTab(
-                            Box::new(Editor::new_tab_creator()),
-                            TabData {
-                                tab_type: "EDITOR".to_string(),
-                                session_data: serde_json::to_value(selected_element.clone())
-                                    .unwrap(),
-                            },
-                        ));
+                        // TODO: add abstraction for editor, so it is just RequestOpenInEditor instead of calling SDE's specific editor
+                        client_stream.send_request(RequestSpawnChildTab(TabData::new_argless(
+                            "./target/release/editor",
+                            serde_json::to_value(selected_element.clone()).unwrap(),
+                        )));
                     }
                     // if selected path isn't a file, then don't do anything
                 }
-
                 _ => {}
             },
-            Event::Focused => {}
-            Event::Unfocused => {}
-            Event::Resize(_) => {}
-            Event::Close => panic!("Event::Close should not have been forwarded"),
+            DisplayEvent::Focused(FocusedEvent) => {}
+            DisplayEvent::Unfocused(UnfocusedEvent) => {}
+            DisplayEvent::Resize(_) => {}
+            DisplayEvent::Close(CloseWarningEvent) => {}
         }
+    }
+}
+
+pub fn main() {
+    let mut client_stream: UniversalClientStream<
+        CombinedByteStream<ByteReaderWrapper, Stdout>,
+        Event,
+    > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
+
+    let mut file_manager = FileManager::initialize_tab(&mut client_stream);
+
+    // update window on start and when there is an event
+    client_stream.send_request(RequestUpdateWindow {
+        contents: file_manager.render_tab(),
+    });
+
+    loop {
+        let events = client_stream.wait_read_events();
+        for Event::DisplayEvent(event) in events {
+            file_manager.handle_tab_event(event, &mut client_stream);
+        }
+
+        // update window on start and when there is an event
+        client_stream.send_request(RequestUpdateWindow {
+            contents: file_manager.render_tab(),
+        });
     }
 }

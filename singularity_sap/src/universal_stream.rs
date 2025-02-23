@@ -85,6 +85,19 @@ pub mod universal_client_stream {
             );
         }
 
+        /// Blocks until there is an event.
+        /// If there are already events, then returns instantly.
+        /// If there are no events, then waits.
+        pub fn wait_read_events(&mut self) -> Vec<Event> {
+            let events = self.try_read_events();
+            if !events.is_empty() {
+                return events;
+            }
+
+            self.wait_recieve_packet();
+            self.try_read_events()
+        }
+
         /// Non-blocking
         pub fn try_read_events(&mut self) -> Vec<Event> {
             self.try_update_data_queues();

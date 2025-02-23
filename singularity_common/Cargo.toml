@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 singularity_macros = { path = "./singularity_macros" }
+singularity_ui = { path = "../singularity_ui" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

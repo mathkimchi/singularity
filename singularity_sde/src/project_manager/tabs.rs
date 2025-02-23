@@ -74,14 +74,10 @@ impl Tabs {
             // );
 
             let tabs = Tabs::new_from_root(TabHandler::new(
-                TabData {
-                    tab_command: (
-                        "./target/release/fortune_teller".into(),
-                        Vec::new(), // Vec::from([""].map(|s| s.into())),
-                    ),
-                    session_data: serde_json::to_value(project.get_project_directory().clone())
-                        .unwrap(),
-                },
+                TabData::new_argless(
+                    "./target/release/file_manager",
+                    serde_json::to_value(project.get_project_directory().clone()).unwrap(),
+                ),
                 DisplayArea::new((0., 0.), (0.5, 1.)),
             ));
 
@@ -105,26 +101,26 @@ impl Tabs {
         Self::new_from_root_with_id(root_tab, Id::generate())
     }
 
-    // pub fn add(
-    //     &mut self,
-    //     new_tab: TabHandler,
-    //     parent_id: &Id<TabHandler>,
-    // ) -> Option<Id<TabHandler>> {
-    //     let uuid = Id::generate();
+    pub fn add(
+        &mut self,
+        new_tab: TabHandler,
+        parent_id: &Id<TabHandler>,
+    ) -> Option<Id<TabHandler>> {
+        let uuid = Id::generate();
 
-    //     // add to `org_tree`
-    //     self.org_tree.add_child(*parent_id, uuid);
-    //     // add to `tabs`
-    //     self.tabs.insert(uuid, new_tab);
-    //     // add to top of display order
-    //     self.display_tiles.give_sibling(self.focused_tab, uuid);
+        // add to `org_tree`
+        self.org_tree.add_child(*parent_id, uuid);
+        // add to `tabs`
+        self.tabs.insert(uuid, new_tab);
+        // add to top of display order
+        self.display_tiles.give_sibling(self.focused_tab, uuid);
 
-    //     // set focus to new tabs
-    //     // REVIEW: is this bad?
-    //     self.set_focused_tab_id(uuid);
+        // set focus to new tabs
+        // REVIEW: is this bad?
+        self.set_focused_tab_id(uuid);
 
-    //     Some(uuid)
-    // }
+        Some(uuid)
+    }
 
     pub fn get_tab_handler(&self, uuid: Id<TabHandler>) -> Option<&TabHandler> {
         self.tabs.get(&uuid)
@@ -221,9 +217,9 @@ impl Tabs {
     //     // }
     // }
 
-    // pub fn num_tabs(&self) -> usize {
-    //     self.tabs.len()
-    // }
+    pub fn num_tabs(&self) -> usize {
+        self.tabs.len()
+    }
 
     pub fn collect_tab_ids(&self) -> Vec<Id<TabHandler>> {
         self.tabs.keys().cloned().collect()
