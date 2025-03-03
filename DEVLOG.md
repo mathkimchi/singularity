@@ -2672,3 +2672,14 @@ which should be like the Smithay client toolkit.
 
 Allowing file manager to spawn editor went pretty smoothly.
 I think I can commit and PR this.
+
+## [#11](https://github.com/mathkimchi/singularity/issues/11)
+
+2025/03/03 2:30 AM
+
+I am working on the big file for the SDE (the `singularity_sde/src/project_manager/mod.rs`),
+and autoformat simply does not work on this thing.
+I think it is caused by the large size of the file.
+Handle input is the immediate biggest suspect, since it is long and has a lot of nests with all the shortcut cases.
+Like I previously mentioned, I want some standardized method of doing shortcuts.
+After this commit, I will actually start with that.

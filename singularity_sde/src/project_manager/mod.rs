@@ -1,6 +1,6 @@
 use singularity_common::utils::{
     id_map::Id,
-    tree::{id_tree::IdTree, tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS}},
+    tree::tree_node_path::{TraversableTree, TREE_TRAVERSE_KEYS},
 };
 use singularity_sap::{standard_packets::display_packets::{CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow, SessionDataQuery, SessionDataResponse}, universal_stream::universal_server_stream::as_query_data_responder};
 use singularity_sporg::{tile::{Orientation, Tile}, Project};
@@ -20,42 +20,11 @@ use std::{
     thread,
 };
 use tabs::Tabs;
+use mode::Mode;
 use crate::{packets::{SDEEvent, SDERequest}, tab::TabHandler};
 
 mod tabs;
-
-#[derive(Debug, Clone)]
-enum Mode {
-    /// Focused on some app
-    Normal,
-    /// If ChoosingFocus, there should be a special window app focuser
-    ChoosingFocus {
-        focusing_index: TreeNodePath,
-        plucked: Option<IdTree<TabHandler>>,
-    }
-}
-impl Mode {
-    fn try_as_choosing_focus(&self) -> Option<(&TreeNodePath, &Option<IdTree<TabHandler>>)> {
-        match self {
-            Mode::Normal => None,
-            Mode::ChoosingFocus { focusing_index, plucked } => Some((focusing_index, plucked)),
-        }
-    }
-
-    fn try_as_choosing_focus_mut(&mut self) -> Option<(&mut TreeNodePath, &mut Option<IdTree<TabHandler>>)> {
-        match self {
-            Mode::Normal => None,
-            Mode::ChoosingFocus { focusing_index, plucked } => Some((focusing_index, plucked)),
-        }
-    }
-
-    fn try_get_focusing_index(&self) -> Option<&TreeNodePath> {
-        match self {
-            Mode::Normal => None,
-            Mode::ChoosingFocus { focusing_index, plucked: _ } => Some(focusing_index),
-        }
-    }
-}
+mod mode;
 
 pub struct ProjectManager {
     project: Project,
@@ -82,7 +51,7 @@ impl ProjectManager {
         Self {
             project,
             tabs,
-            mode: Mode::Normal,
+            mode: Mode::TabFocus,
             is_running: Arc::new(AtomicBool::new(false)),
             ui_element: Arc::new(Mutex::new(UIElement::Container(Vec::new()))),
             ui_event_queue: Arc::new(Mutex::new(Vec::new())),
@@ -301,10 +270,10 @@ impl ProjectManager {
 
                         self.tabs.set_focused_tab_path(new_focus_index);
 
-                        self.mode = Mode::Normal;
+                        self.mode = Mode::TabFocus;
                     } else {
                         let (new_focus_index, plucked) = match &self.mode {
-                            Mode::Normal => {
+                            Mode::TabFocus | Mode::CommandPalette { .. } => {
                                 (&self.tabs
                                     .get_tab_path(&self.tabs.get_focused_tab_id())
                                     .unwrap(), &None)
@@ -335,7 +304,7 @@ impl ProjectManager {
                         shift: false,
                         caps_lock: false,
                         logo: true,
-                        num_lock: false,
+                        num_lock: _,
                     },
                 ) if // `' '` is a placeholder for some key that isn't in tree traverse
                 TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
@@ -343,7 +312,7 @@ impl ProjectManager {
                     // Alt + Windows + traversal key swaps position of focused and what would be the new focused
                     
                     let (prev_focus_index, plucked) = match &self.mode {
-                        Mode::Normal => (&self.tabs
+                        Mode::TabFocus | Mode::CommandPalette { .. } => (&self.tabs
                             .get_tab_path(&self.tabs.get_focused_tab_id())
                             .unwrap(), &None),
                         Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
@@ -366,7 +335,7 @@ impl ProjectManager {
                         shift: true,
                         caps_lock: false,
                         logo: false,
-                        num_lock: false,
+                        num_lock: _,
                     },
                 ) if // `' '` is a placeholder for some key that isn't in tree traverse
                     key.to_char()==Some('P') =>
@@ -374,7 +343,7 @@ impl ProjectManager {
                     // Alt + Windows + P does pluck/place
 
                     let (focusing_index, plucked) = match self.mode {
-                        Mode::Normal => {
+                        Mode::TabFocus | Mode::CommandPalette { .. } => {
                             (&self.tabs
                                 .get_tab_path(&self.tabs.get_focused_tab_id())
                                 .unwrap(), None)
@@ -403,7 +372,7 @@ impl ProjectManager {
                         shift: true,
                         caps_lock: false,
                         logo: false,
-                        num_lock: false,
+                        num_lock: _,
                     },
                 ) if // `' '` is a placeholder for some key that isn't in tree traverse
                 key.to_char()==Some('S') =>
@@ -418,6 +387,23 @@ impl ProjectManager {
 
                         // self.app_focuser_index = Some(todo!());
                     }
+                }
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: true,
+                        caps_lock: false,
+                        logo: false,
+                        num_lock: _,
+                    },
+                ) if // `' '` is a placeholder for some key that isn't in tree traverse
+                key.to_char()==Some('P') =>
+                {
+                    // Alt + Shift + P opens command pallette (see: https://github.com/mathkimchi/singularity/issues/11)
+                    
+                    self.mode = Mode::CommandPalette { command_buffer: String::new() };
                 }
                 // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
                 //     // Alt+ArrowUp
