@@ -2747,3 +2747,349 @@ Counting the DEVLOG seperately, it is (*was, before this line):
 Progress today has been very fast.
 
 Okay I'm going to sleep now.
+
+---
+
+2025/03/04
+
+I have an idea for making invalid actions (transitions) unrepresentable.
+https://hoverbear.org/blog/rust-state-machine-pattern/
+goes over some methods, but I want to try something slightly different.
+There are some insights from that article that I will attempt in my approach as well:
+
+- Action object consumes state
+- State variants get their own structs
+  - Doesn't impact safety but improves clarity imo
+
+I wanted to do something like:
+
+```rust
+let action = Action::from_ui_event(self.mode, ui_event);
+
+self.mode = Self::next_state(action);
+```
+
+But even if I promise to put the value back, the [borrow checker doesn't let me](https://users.rust-lang.org/t/can-i-move-out-of-a-mutable-reference-as-long-as-i-promise-to-put-some-valid-data-back-in-before-i-use-it-again/108417/3).
+[This crate](https://github.com/alecmocatta/replace_with) seems to take care of that,
+but I don't want to use it.
+
+I really don't like doing this, but I will swap the mode with a default, the `Mode::TabFocus`
+and override it afterwards.
+
+...
+
+hmmm...
+I don't like this at all.
+I did things like:
+
+```rust
+Quit(Mode),
+ChooseFocus(ChoosingFocusMode),
+```
+
+but I don't like how it actually turned out.
+I'm actually just going to copy the current `mode.rs` into here:
+
+```rust
+use crate::tab::TabHandler;
+use singularity_common::utils::tree::{
+    id_tree::IdTree,
+    tree_node_path::{TreeNodePath, TreeTraverseOperation, TREE_TRAVERSE_KEYS},
+};
+use singularity_ui::{
+    display_units::DisplayArea,
+    ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
+};
+
+// #[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone)]
+pub struct TabFocusMode;
+
+/// If ChoosingFocus, there should be a special window app focuser
+#[derive(Debug, Clone)]
+pub struct ChoosingFocusMode {
+    focusing_index: TreeNodePath,
+    plucked: Option<IdTree<TabHandler>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommandPaletteMode {
+    /// The string that the user has typed so far.
+    /// TODO: make this use Textbox component to support cursor and stuff without duplicate code
+    command_buffer: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum Mode {
+    /// Focused on some app
+    TabFocus(TabFocusMode),
+    /// If ChoosingFocus, there should be a special window app focuser
+    ChoosingFocus(ChoosingFocusMode),
+    CommandPalette(CommandPaletteMode),
+}
+impl Mode {
+    // pub fn try_as_choosing_focus(&self) -> Option<(&TreeNodePath, &Option<IdTree<TabHandler>>)> {
+    //     match self {
+    //         Mode::ChoosingFocus {
+    //             focusing_index,
+    //             plucked,
+    //         } => Some((focusing_index, plucked)),
+    //         _ => None,
+    //     }
+    // }
+
+    pub fn try_as_choosing_focus_mut(
+        &mut self,
+    ) -> Option<(&mut TreeNodePath, &mut Option<IdTree<TabHandler>>)> {
+        match self {
+            Mode::ChoosingFocus(ChoosingFocusMode {
+                focusing_index,
+                plucked,
+            }) => Some((focusing_index, plucked)),
+            _ => None,
+        }
+    }
+
+    pub fn try_get_focusing_index(&self) -> Option<&TreeNodePath> {
+        match self {
+            Mode::ChoosingFocus(ChoosingFocusMode {
+                focusing_index,
+                plucked: _,
+            }) => Some(focusing_index),
+            _ => None,
+        }
+    }
+}
+
+/// Look at devlog 2025/03/03
+pub enum UserAction {
+    // SECTION - closing
+
+    //
+    /// Ctrl+q quits
+    Quit(Mode),
+    /// Ctrl+Shift+W recursively closes focused tab and children
+    RecursivelyCloseFocusedTab(Mode),
+
+    // SECTION - tab hierarchy operations
+
+    //
+    /// Alt+Enter from ChoosingFocus mode
+    /// REVIEW: Rename to select?
+    ChooseFocus(ChoosingFocusMode),
+    /// Alt+Enter from NOT ChoosingFocus
+    OpenFocusChooser(Mode),
+    /// Alt+TreeTraverseKey should be like alt tab for Windows and Linux but tree based
+    TraverseTabTree(Mode, TreeTraverseOperation),
+    /// Alt+Windows+TreeTraverseKey swaps position of focused and what would be the new focused
+    TreeSwapTraverse(Mode, TreeTraverseOperation),
+    /// Alt+Windows+P
+    /// I am fine with this technically being two different things to do but one action
+    /// TODO: split this
+    PluckPlace(Mode),
+    /// Alt+Windows+Enter swaps actually focused and focusing
+    TreeSwap(ChoosingFocusMode),
+
+    // SECTION - command palette
+
+    //
+    /// Ctrl+Shift+P opens command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+    OpenCommandPalette(Mode),
+    /// ESC quits command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+    QuitCommandPalette(CommandPaletteMode),
+
+    // SECTION - tiling operations
+
+    //
+    // /// Alt+ArrowUp maximizes focused tab
+    // MaximizeFocused,
+    // /// Alt+ArrowDown minimizes focused tab
+    // MinimizeFocused,
+    // /// Logo+"=" (represents "+") increments title split
+    // IncrementTileSplit,
+    /// Logo+t transposes selected tile's container (hor<=>vertical)
+    TransposeTileParent(TabFocusMode),
+    /// Logo+s swaps selected tile's siblings
+    SwapTileSiblings(TabFocusMode),
+
+    // SECTION - misc
+
+    //
+    /// Key press isn't any of the keyboard actions; forward it to focused
+    ForwardKeyPressTab(TabFocusMode, Key, KeyModifiers),
+    /// Key press isn't any of the keyboard actions; forward it to command palette
+    ForwardKeyPressCommandPalette(CommandPaletteMode, Key, KeyModifiers),
+    /// currently, the only None case is when non-shortcut is performed on tab choosing mode
+    /// REVIEW: is this good? just use option?
+    NoAction(Mode),
+    /// Resized. Currently ignore.
+    WindowResized(Mode),
+    /// Mouse press
+    MousePress(Mode, [[u32; 2]; 2]),
+}
+impl UserAction {
+    /// This is really to get around lack of if let in match
+    ///
+    /// For shortcut-like commands.
+    fn handle_char_key_shortcut_presses(
+        curr_mode: Mode,
+        key_char: char,
+        key_mods: KeyModifiers,
+    ) -> Result<Self, Mode> {
+        Ok(match (curr_mode, key_char, key_mods) {
+            // Ctrl+Q
+            (curr_mode, 'q', KeyModifiers::CTRL) => Self::Quit(curr_mode),
+            (
+                Mode::TabFocus(TabFocusMode) | Mode::ChoosingFocus { .. },
+                'w',
+                KeyModifiers::CTRL,
+            ) => Self::RecursivelyCloseFocusedTab(curr_mode),
+
+            // Alt+Enter from ChoosingFocus mode
+            (Mode::ChoosingFocus(mode), '\n', KeyModifiers::ALT) => Self::ChooseFocus(mode),
+            // Alt+Enter from NOT ChoosingFocus
+            // NOTE: this pattern must be behind choosing focus
+            (_, '\n', KeyModifiers::ALT) => Self::OpenFocusChooser(curr_mode),
+            // Alt+TreeTraverseKey
+            (_, key_char, KeyModifiers::ALT) if TREE_TRAVERSE_KEYS.contains(&key_char) => {
+                // `' '` is a placeholder for some key that isn't in tree traverse
+                // sad that match doesn't support if let syntax
+                Self::TraverseTabTree(
+                    curr_mode,
+                    TreeTraverseOperation::from_char(key_char).unwrap(),
+                )
+            }
+            // Alt+Windows+TreeTraverseKey swaps position of focused and what would be the new focused
+            (
+                Mode::TabFocus(TabFocusMode) | Mode::ChoosingFocus { .. },
+                key_char,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) if TREE_TRAVERSE_KEYS.contains(&key_char) => {
+                // sad that match doesn't support if let syntax
+                Self::TreeSwapTraverse(
+                    curr_mode,
+                    TreeTraverseOperation::from_char(key_char).unwrap(),
+                )
+            }
+            // Alt+Windows+P
+            // I am fine with this technically being two different things to do but one action
+            (
+                Mode::TabFocus(TabFocusMode) | Mode::ChoosingFocus { .. },
+                'p',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::PluckPlace(curr_mode),
+            // Alt+Windows+Enter swaps actually focused and focusing
+            (
+                Mode::ChoosingFocus(choosing_focus_mode),
+                '\n',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::TreeSwap(choosing_focus_mode),
+
+            // Ctrl+Shift+P opens command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+            (
+                Mode::TabFocus(TabFocusMode) | Mode::ChoosingFocus { .. },
+                'P',
+                KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: true,
+                    caps_lock: false,
+                    logo: false,
+                    num_lock: _,
+                },
+            ) => Self::OpenCommandPalette(curr_mode),
+            // ESC quits command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+            // '\u{1b}' seems to be the char for ESCAPE
+            (Mode::CommandPalette(command_palette_mode), '\u{1b}', KeyModifiers::NONE) => {
+                Self::QuitCommandPalette(command_palette_mode)
+            }
+
+            // Logo+t transposes selected tile's container (hor<=>vertical)
+            (
+                Mode::TabFocus(tab_focus_mode),
+                't',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::TransposeTileParent(tab_focus_mode),
+            // Logo+s swaps selected tile's siblings
+            (
+                Mode::TabFocus(tab_focus_mode),
+                's',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::SwapTileSiblings(tab_focus_mode),
+            _ => {
+                return Err(curr_mode);
+            }
+        })
+    }
+
+    pub fn from_ui_event(mut curr_mode: Mode, ui_event: UIEvent) -> Self {
+        if let UIEvent::KeyPress(key_event, key_mods) = &ui_event {
+            if let Some(key_char) = key_event.to_char() {
+                match Self::handle_char_key_shortcut_presses(curr_mode, key_char, *key_mods) {
+                    Ok(shortcut_action) => return shortcut_action,
+                    Err(returned_curr_mode) => {
+                        curr_mode = returned_curr_mode;
+                    }
+                }
+            }
+        }
+
+        match (curr_mode, ui_event) {
+            // Key press isn't any of the keyboard actions; forward it to focused
+            (Mode::TabFocus(tab_focus_mode), UIEvent::KeyPress(key, modifiers)) => {
+                Self::ForwardKeyPressTab(tab_focus_mode, key, modifiers)
+            }
+            // Key press isn't any of the keyboard actions; forward it to command palette
+            (Mode::CommandPalette(command_palette_mode), UIEvent::KeyPress(key, modifiers)) => {
+                Self::ForwardKeyPressCommandPalette(command_palette_mode, key, modifiers)
+            }
+            // currently, the only None case is when non-shortcut is performed on tab choosing mode
+            (Mode::ChoosingFocus { .. }, UIEvent::KeyPress(..)) => Self::NoAction(curr_mode),
+            // Resized. Currently ignore.
+            (_, UIEvent::WindowResized(_)) => Self::WindowResized(curr_mode),
+            // Mouse press
+            (_, UIEvent::MousePress(location, container)) => {
+                assert_eq!(container, DisplayArea::FULL);
+                Self::MousePress(curr_mode, location)
+            }
+        }
+    }
+}
+```
+
+Now I am going to revert the changes and commit just the devlog.
