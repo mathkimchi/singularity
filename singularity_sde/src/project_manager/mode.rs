@@ -143,9 +143,7 @@ impl UserAction {
             // NOTE: this pattern must be behind choosing focus
             (_, '\n', KeyModifiers::ALT) => Self::OpenFocusChooser,
             // Alt+TreeTraverseKey
-            (Mode::TabFocus | Mode::ChoosingFocus { .. }, key_char, KeyModifiers::ALT)
-                if TREE_TRAVERSE_KEYS.contains(&key_char) =>
-            {
+            (_, key_char, KeyModifiers::ALT) if TREE_TRAVERSE_KEYS.contains(&key_char) => {
                 // `' '` is a placeholder for some key that isn't in tree traverse
                 // sad that match doesn't support if let syntax
                 Self::TraverseTabTree(TreeTraverseOperation::from_char(key_char).unwrap())

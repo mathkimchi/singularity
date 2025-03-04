@@ -2722,3 +2722,28 @@ Many improvements to be made for actions:
 
 Okay, I don't want to dwell on actions, but I did make things slightly better by adding a common shortcut style case.
 I didn't vigorously test the new change like I did with the Actions first time, but nothing seems to be broken.
+
+...
+
+2025/03/04 12:56AM
+
+One more change before sleep: add display for command palette.
+
+Oh man, I have a 8AM final tomorrow that I should have studied for...
+
+But for good news, I am almost at the 10k lines of rust anniversary for Singularity!
+(I swear I don't just constantly look at the word count; I do it less than one day per week.)
+
+This is the total rust `wc.sh`:
+- 9114 lines
+- 26513 words
+- 322802 characters
+
+Counting the DEVLOG seperately, it is (*was, before this line):
+- 2740 lines
+- 24155 words
+- 141563 characters
+
+Progress today has been very fast.
+
+Okay I'm going to sleep now.

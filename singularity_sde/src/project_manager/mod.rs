@@ -3,7 +3,13 @@ use crate::{
     tab::TabHandler,
 };
 use mode::{Mode, UserAction};
-use singularity_common::utils::{id_map::Id, tree::tree_node_path::TraversableTree};
+use singularity_common::utils::{
+    id_map::Id,
+    tree::{
+        id_tree::IdTree,
+        tree_node_path::{TraversableTree, TreeNodePath},
+    },
+};
 use singularity_sap::{
     standard_packets::display_packets::{
         CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName,
@@ -78,7 +84,7 @@ impl ProjectManager {
         });
 
         while self.is_running.load(Ordering::Relaxed) {
-            self.draw_app();
+            self.draw_all();
             self.handle_inputs();
             self.handle_incoming();
 
@@ -146,42 +152,64 @@ impl ProjectManager {
         }
     }
 
-    fn draw_app(&mut self) {
-        let mut tab_elements = Vec::new();
+    /// display the tab focuser/selector
+    fn draw_tab_selector(
+        &self,
+        focusing_index: &TreeNodePath,
+        plucked: &Option<IdTree<TabHandler>>,
+        ui_elements: &mut Vec<UIElement>,
+    ) {
+        let mut subapps_focuser_display = CharGrid::default();
 
-        // for tab_id in self.tabs.get_display_order().clone() {
-        //     let tab = &mut self.tabs.get_mut_tab_handler(tab_id).unwrap();
+        for tab_path in self.tabs.iter_paths_dfs() {
+            let tab_id = self.tabs.get_id_by_org_path(&tab_path).unwrap();
+            let tab = self.tabs.get_tab_handler(tab_id).unwrap();
 
-        //     tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
-        // }
-        tab_elements.push(self.render_tile_recursive(
-            self.tabs.get_display_tiles().get_root_tile(),
-            DisplayArea::FULL,
-        ));
+            let fg = if tab_id == self.tabs.get_focused_tab_id() {
+                Color::LIGHT_YELLOW
+            } else {
+                Color::LIGHT_GREEN
+            };
 
-        // display the tab focuser/selector
-        if let Mode::ChoosingFocus {
-            focusing_index,
-            plucked,
-        } = &self.mode
-        {
-            let mut subapps_focuser_display = CharGrid::default();
+            let bg = if tab_path == focusing_index.clone() {
+                Color::CYAN
+            } else {
+                Color::TRANSPARENT
+            };
 
-            for tab_path in self.tabs.iter_paths_dfs() {
-                let tab_id = self.tabs.get_id_by_org_path(&tab_path).unwrap();
+            let mut subapp_title_display = vec![
+                CharCell {
+                    character: ' ',
+                    fg: Color::TRANSPARENT,
+                    bg: Color::TRANSPARENT
+                };
+                2 * tab_path.depth()
+            ];
+
+            for character in tab.tab_name.chars() {
+                subapp_title_display.push(CharCell { character, fg, bg });
+            }
+
+            subapps_focuser_display.content.push(subapp_title_display);
+        }
+
+        ui_elements.push(
+            UIElement::CharGrid(subapps_focuser_display)
+                .fill_bg(Color::DARK_GRAY)
+                .bordered(Color::LIGHT_GREEN)
+                .contain(DisplayArea::new((0.4, 0.4), (0.6, 0.6))),
+        );
+
+        if let Some(plucked) = plucked {
+            let mut plucked_display = CharGrid::default();
+
+            for tab_path in plucked.iter_paths_dfs() {
+                let tab_id = plucked.get_id_from_path(&tab_path).unwrap();
                 let tab = self.tabs.get_tab_handler(tab_id).unwrap();
 
-                let fg = if tab_id == self.tabs.get_focused_tab_id() {
-                    Color::LIGHT_YELLOW
-                } else {
-                    Color::LIGHT_GREEN
-                };
+                let fg = Color::LIGHT_GREEN;
 
-                let bg = if tab_path == focusing_index.clone() {
-                    Color::CYAN
-                } else {
-                    Color::TRANSPARENT
-                };
+                let bg = Color::TRANSPARENT;
 
                 let mut subapp_title_display = vec![
                     CharCell {
@@ -196,54 +224,56 @@ impl ProjectManager {
                     subapp_title_display.push(CharCell { character, fg, bg });
                 }
 
-                subapps_focuser_display.content.push(subapp_title_display);
+                plucked_display.content.push(subapp_title_display);
             }
 
-            tab_elements.push(
-                UIElement::CharGrid(subapps_focuser_display)
+            ui_elements.push(
+                UIElement::CharGrid(plucked_display)
                     .fill_bg(Color::DARK_GRAY)
                     .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea::new((0.4, 0.4), (0.6, 0.6))),
+                    .contain(DisplayArea::new((0.5, 0.4), (0.6, 0.6))),
             );
+        }
+    }
 
-            if let Some(plucked) = plucked {
-                let mut plucked_display = CharGrid::default();
+    fn draw_command_palette(&self, command_buffer: String, ui_elements: &mut Vec<UIElement>) {
+        ui_elements.push(
+            UIElement::CharGrid(CharGrid::from(command_buffer))
+                .fill_bg(Color::DARK_GRAY)
+                .bordered(Color::LIGHT_GREEN)
+                .contain(DisplayArea::new((0.3, 0.1), (0.7, 0.2))),
+        );
+    }
 
-                for tab_path in plucked.iter_paths_dfs() {
-                    let tab_id = plucked.get_id_from_path(&tab_path).unwrap();
-                    let tab = self.tabs.get_tab_handler(tab_id).unwrap();
+    fn draw_all(&mut self) {
+        let mut ui_elements = Vec::new();
 
-                    let fg = Color::LIGHT_GREEN;
+        // for tab_id in self.tabs.get_display_order().clone() {
+        //     let tab = &mut self.tabs.get_mut_tab_handler(tab_id).unwrap();
 
-                    let bg = Color::TRANSPARENT;
+        //     tab_elements.push(tab.get_ui_element().contain(tab.get_area()));
+        // }
+        ui_elements.push(self.render_tile_recursive(
+            self.tabs.get_display_tiles().get_root_tile(),
+            DisplayArea::FULL,
+        ));
 
-                    let mut subapp_title_display = vec![
-                        CharCell {
-                            character: ' ',
-                            fg: Color::TRANSPARENT,
-                            bg: Color::TRANSPARENT
-                        };
-                        2 * tab_path.depth()
-                    ];
-
-                    for character in tab.tab_name.chars() {
-                        subapp_title_display.push(CharCell { character, fg, bg });
-                    }
-
-                    plucked_display.content.push(subapp_title_display);
-                }
-
-                tab_elements.push(
-                    UIElement::CharGrid(plucked_display)
-                        .fill_bg(Color::DARK_GRAY)
-                        .bordered(Color::LIGHT_GREEN)
-                        .contain(DisplayArea::new((0.5, 0.4), (0.6, 0.6))),
-                );
+        // display the tab focuser/selector
+        match &self.mode {
+            Mode::ChoosingFocus {
+                focusing_index,
+                plucked,
+            } => {
+                self.draw_tab_selector(focusing_index, plucked, &mut ui_elements);
             }
+            Mode::CommandPalette { command_buffer } => {
+                self.draw_command_palette(command_buffer.clone(), &mut ui_elements);
+            }
+            _ => {}
         }
 
         *(self.ui_element.lock().unwrap()) =
-            UIElement::Container(tab_elements).fill_bg(Color::BLACK);
+            UIElement::Container(ui_elements).fill_bg(Color::BLACK);
     }
 
     fn save_to_file(&mut self) {
