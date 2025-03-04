@@ -87,6 +87,7 @@ impl TreeTraverseOperation {
             'e' => Some(Self::BfsNext),
 
             '0' => Some(Self::Parent), // same as 'a'
+            // NOTE: the `?` should never happen so technically `panic` would be fine as well, but don't risk it
             '1'..='8' => Some(Self::Child(traverse_key.to_digit(10)? as usize - 1)),
             '9' => Some(Self::LastChild),
 
