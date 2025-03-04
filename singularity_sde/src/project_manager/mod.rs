@@ -20,7 +20,7 @@ use std::{
     thread,
 };
 use tabs::Tabs;
-use mode::Mode;
+use mode::{Mode, UserAction};
 use crate::{packets::{SDEEvent, SDERequest}, tab::TabHandler};
 
 mod tabs;

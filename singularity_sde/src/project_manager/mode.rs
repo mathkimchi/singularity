@@ -1,9 +1,12 @@
 use crate::tab::TabHandler;
 use singularity_common::utils::tree::{
     id_tree::IdTree,
-    tree_node_path::{TreeNodePath, TreeTraverseOperation},
+    tree_node_path::{TreeNodePath, TreeTraverseOperation, TREE_TRAVERSE_KEYS},
 };
-use singularity_ui::ui_event::{Key, KeyModifiers};
+use singularity_ui::{
+    display_units::DisplayArea,
+    ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
+};
 
 #[derive(Debug, Clone)]
 pub enum Mode {
@@ -55,7 +58,7 @@ impl Mode {
 }
 
 /// Look at devlog 2025/03/03
-pub enum Actions {
+pub enum UserAction {
     // SECTION - closing
 
     //
@@ -106,9 +109,168 @@ pub enum Actions {
 
     //
     /// Key press isn't any of the keyboard actions; forward it to focused
-    ForwardKeyPress(Key, KeyModifiers),
+    ForwardKeyPressTab(Key, KeyModifiers),
+    /// Key press isn't any of the keyboard actions; forward it to command palette
+    ForwardKeyPressCommandPalette(Key, KeyModifiers),
+    /// currently, the only None case is when non-shortcut is performed on tab choosing mode
+    /// REVIEW: is this good? just use option?
+    NoAction,
     /// Resized. Currently ignore.
     WindowResized,
     /// Mouse press
     MousePress([[u32; 2]; 2]),
+}
+impl UserAction {
+    pub fn from_ui_event(curr_mode: &Mode, ui_event: UIEvent) -> Self {
+        match (curr_mode, ui_event) {
+            // Ctrl+Q
+            (_, UIEvent::KeyPress(key, KeyModifiers::CTRL)) if key.to_char() == Some('q') => {
+                Self::Quit
+            }
+            (
+                Mode::TabFocus | Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(key, KeyModifiers::CTRL),
+            ) if key.to_char() == Some('w') => Self::RecursivelyCloseFocusedTab,
+
+            // Alt+Enter from ChoosingFocus mode
+            (Mode::ChoosingFocus { .. }, UIEvent::KeyPress(key, KeyModifiers::ALT))
+                if key.to_char() == Some('\n') =>
+            {
+                Self::ChooseFocus
+            }
+            // Alt+Enter from NOT ChoosingFocus
+            // NOTE: this pattern must be behind choosing focus
+            (_, UIEvent::KeyPress(key, KeyModifiers::ALT)) if key.to_char() == Some('\n') => {
+                Self::OpenFocusChooser
+            }
+            // Alt+TreeTraverseKey
+            (
+                Mode::TabFocus | Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(key, KeyModifiers::ALT),
+            ) if TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) => {
+                // `' '` is a placeholder for some key that isn't in tree traverse
+                // sad that match doesn't support if let syntax
+                Self::TraverseTabTree(
+                    TreeTraverseOperation::from_char(key.to_char().unwrap()).unwrap(),
+                )
+            }
+            // Alt+Windows+TreeTraverseKey swaps position of focused and what would be the new focused
+            (
+                Mode::TabFocus | Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: false,
+                        caps_lock: false,
+                        logo: true,
+                        num_lock: _,
+                    },
+                ),
+            ) if TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) => {
+                // `' '` is a placeholder for some key that isn't in tree traverse
+                // sad that match doesn't support if let syntax
+                Self::TreeSwapTraverse(
+                    TreeTraverseOperation::from_char(key.to_char().unwrap()).unwrap(),
+                )
+            }
+            // Alt+Windows+P
+            // I am fine with this technically being two different things to do but one action
+            (
+                Mode::TabFocus | Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: false,
+                        caps_lock: false,
+                        logo: true,
+                        num_lock: _,
+                    },
+                ),
+            ) if key.to_char() == Some('p') => Self::PluckPlace,
+            // Alt+Windows+Enter swaps actually focused and focusing
+            (
+                Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: false,
+                        caps_lock: false,
+                        logo: true,
+                        num_lock: _,
+                    },
+                ),
+            ) if key.to_char() == Some('\n') => Self::TreeSwap,
+
+            // Ctrl+Shift+P opens command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+            (
+                Mode::TabFocus | Mode::ChoosingFocus { .. },
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: true,
+                        caps_lock: false,
+                        logo: false,
+                        num_lock: _,
+                    },
+                ),
+            ) if key.to_char() == Some('P') => Self::OpenCommandPalette,
+
+            // Logo+t transposes selected tile's container (hor<=>vertical)
+            (
+                Mode::TabFocus,
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: false,
+                        shift: false,
+                        caps_lock: false,
+                        logo: true,
+                        num_lock: _,
+                    },
+                ),
+            ) if key.to_char() == Some('t') => Self::TransposeTileParent,
+            // Logo+s swaps selected tile's siblings
+            (
+                Mode::TabFocus,
+                UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: false,
+                        shift: false,
+                        caps_lock: false,
+                        logo: true,
+                        num_lock: _,
+                    },
+                ),
+            ) if key.to_char() == Some('s') => Self::SwapTileSiblings,
+
+            // Key press isn't any of the keyboard actions; forward it to focused
+            (Mode::TabFocus, UIEvent::KeyPress(key, modifiers)) => {
+                Self::ForwardKeyPressTab(key, modifiers)
+            }
+            // Key press isn't any of the keyboard actions; forward it to command palette
+            (Mode::CommandPalette { .. }, UIEvent::KeyPress(key, modifiers)) => {
+                Self::ForwardKeyPressCommandPalette(key, modifiers)
+            }
+            // currently, the only None case is when non-shortcut is performed on tab choosing mode
+            (Mode::ChoosingFocus { .. }, UIEvent::KeyPress(..)) => Self::NoAction,
+            // Resized. Currently ignore.
+            (_, UIEvent::WindowResized(_)) => Self::WindowResized,
+            // Mouse press
+            (_, UIEvent::MousePress(location, container)) => {
+                assert_eq!(container, DisplayArea::FULL);
+                Self::MousePress(location)
+            }
+        }
+    }
 }
