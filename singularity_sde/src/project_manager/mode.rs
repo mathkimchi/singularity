@@ -55,6 +55,13 @@ impl Mode {
             _ => None,
         }
     }
+
+    pub fn try_get_command_palette_buffer_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Mode::CommandPalette { command_buffer } => Some(command_buffer),
+            _ => None,
+        }
+    }
 }
 
 /// Look at devlog 2025/03/03

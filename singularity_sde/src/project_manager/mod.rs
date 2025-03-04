@@ -25,7 +25,7 @@ use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_element::{CharCell, CharGrid, UIElement},
-    ui_event::UIEvent,
+    ui_event::{KeyTrait, UIEvent},
     UIDisplay,
 };
 use std::{
@@ -467,8 +467,17 @@ impl ProjectManager {
                 // rebuild the keypress. redundant but feels safer
                 focused_tab.send_event(SDEEvent::UIEvent(UIEvent::KeyPress(key, key_mod)));
             }
-            UserAction::ForwardKeyPressCommandPalette(_key, _key_mod) => {
-                dbg!("TODO: forward command palette");
+            UserAction::ForwardKeyPressCommandPalette(key, _key_mod) => {
+                if let Some(command_buffer) = self.mode.try_get_command_palette_buffer_mut() {
+                    if let Some(key_char) = key.to_char() {
+                        if key_char.is_ascii_graphic() || key_char == ' ' {
+                            command_buffer.push(key_char);
+                        }
+                        if key_char == '\n' {
+                            dbg!("TODO: forward command palette");
+                        }
+                    }
+                }
             }
             UserAction::NoAction => {}
             UserAction::WindowResized => {
