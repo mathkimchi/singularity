@@ -70,7 +70,7 @@ impl ProjectManager {
 
         while self.is_running.load(Ordering::Relaxed) {
             self.draw_app();
-            self.handle_input();
+            self.handle_inputs();
             self.handle_incoming();
 
             // FIXME: somehow prevent singularity from eating all of my CPU
@@ -241,254 +241,258 @@ impl ProjectManager {
         self.project.save_to_file();
     }
 
-    fn handle_input(&mut self) {
-        for ui_event in std::mem::take(&mut *(self.ui_event_queue.lock().unwrap())) {
-            use singularity_ui::ui_event::UIEvent;
-            match ui_event {
-                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('q') => {
-                    // Ctrl+Q
-                    dbg!("Goodbye!");
-                    self.is_running.store(false, Ordering::Relaxed);
-                    return;
-                }
-                UIEvent::KeyPress(key, KeyModifiers::ALT)
-                    if key.to_char() == Some('\n')
-                        // `' '` is a placeholder for some key that isn't in tree traverse
-                        || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
-                {
-                    // Alt + arrows should be like alt tab for Windows and Linux but tree based
-                    // Alt + Enter either opens the tab chooser or closes it and chooses the tab
+    fn handle_input(&mut self, ui_event: UIEvent) {
+        match ui_event {
+            UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('q') => {
+                // Ctrl+Q
+                dbg!("Goodbye!");
+                self.is_running.store(false, Ordering::Relaxed);
+                return;
+            }
+            UIEvent::KeyPress(key, KeyModifiers::ALT)
+                if key.to_char() == Some('\n')
+                    // `' '` is a placeholder for some key that isn't in tree traverse
+                    || TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
+            {
+                // Alt + arrows should be like alt tab for Windows and Linux but tree based
+                // Alt + Enter either opens the tab chooser or closes it and chooses the tab
 
-                    if key.to_char() == Some('\n') && self.mode.try_as_choosing_focus().is_some() {
-                        // place if needed, save tree index, and close window
+                if key.to_char() == Some('\n') && self.mode.try_as_choosing_focus().is_some() {
+                    // place if needed, save tree index, and close window
 
-                        let (new_focus_index, pluck) = self.mode.try_as_choosing_focus_mut().unwrap();
+                    let (new_focus_index, pluck) = self.mode.try_as_choosing_focus_mut().unwrap();
 
-                        if let Some(pluck) = pluck.take() {
-                            self.tabs.org_place(pluck, self.tabs.get_id_by_org_path(new_focus_index).unwrap());
-                        }
-
-                        self.tabs.set_focused_tab_path(new_focus_index);
-
-                        self.mode = Mode::TabFocus;
-                    } else {
-                        let (new_focus_index, plucked) = match &self.mode {
-                            Mode::TabFocus | Mode::CommandPalette { .. } => {
-                                (&self.tabs
-                                    .get_tab_path(&self.tabs.get_focused_tab_id())
-                                    .unwrap(), &None)
-                            },
-                            Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
-                        };
-
-                        self.mode = Mode::ChoosingFocus { 
-                            focusing_index: match key.to_char() {
-                                Some('\n') => new_focus_index.clone(),
-                                Some(traverse_key) if TREE_TRAVERSE_KEYS.contains(&traverse_key) => {
-                                    new_focus_index
-                                        .clamped_traverse_based_on_wasd(&self.tabs, traverse_key)
-                                }
-                                _ => panic!(),
-                            },
-                            plucked: plucked.clone(),
-                        };
+                    if let Some(pluck) = pluck.take() {
+                        self.tabs.org_place(pluck, self.tabs.get_id_by_org_path(new_focus_index).unwrap());
                     }
-                    dbg!(&self.mode);
-                    // dbg!(&self.focused_tab_path);
-                }
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ) if // `' '` is a placeholder for some key that isn't in tree traverse
-                TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
-                {
-                    // Alt + Windows + traversal key swaps position of focused and what would be the new focused
-                    
-                    let (prev_focus_index, plucked) = match &self.mode {
-                        Mode::TabFocus | Mode::CommandPalette { .. } => (&self.tabs
-                            .get_tab_path(&self.tabs.get_focused_tab_id())
-                            .unwrap(), &None),
-                        Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
-                    };
-                    
-                    let new_focus_index = prev_focus_index.clamped_traverse_based_on_wasd(&self.tabs, key.to_char().unwrap());
-                    
-                    self.tabs.org_swap([self.tabs.get_id_by_org_path(prev_focus_index).unwrap(), self.tabs.get_id_by_org_path(&new_focus_index).unwrap()]);
-                    
-                    // self.tabs.set_focused_tab_path(&new_focus_index);
-                    self.mode = Mode::ChoosingFocus{ focusing_index: new_focus_index, plucked: plucked.clone() };
-                    
-                    dbg!(&self.mode);
-                }
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: true,
-                        caps_lock: false,
-                        logo: false,
-                        num_lock: _,
-                    },
-                ) if // `' '` is a placeholder for some key that isn't in tree traverse
-                    key.to_char()==Some('P') =>
-                {
-                    // Alt + Windows + P does pluck/place
 
-                    let (focusing_index, plucked) = match self.mode {
+                    self.tabs.set_focused_tab_path(new_focus_index);
+
+                    self.mode = Mode::TabFocus;
+                } else {
+                    let (new_focus_index, plucked) = match &self.mode {
                         Mode::TabFocus | Mode::CommandPalette { .. } => {
                             (&self.tabs
                                 .get_tab_path(&self.tabs.get_focused_tab_id())
-                                .unwrap(), None)
+                                .unwrap(), &None)
                         },
-                        Mode::ChoosingFocus { ref focusing_index, ref mut plucked } => (focusing_index, plucked.take()),
+                        Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
                     };
 
-                    if let Some(plucked) = plucked {
-                        // place
-                        self.tabs.org_place(plucked, self.tabs.get_id_by_org_path(focusing_index).unwrap());
-                    } else {
-                        // pluck
-                        if !focusing_index.is_root() {
-                            self.mode = Mode::ChoosingFocus {
-                                focusing_index: focusing_index.traverse_to_parent().unwrap(),
-                                plucked: self.tabs.org_pluck(&self.tabs.get_id_by_org_path(focusing_index).unwrap())
-                            };
-                        }
-                    }
+                    self.mode = Mode::ChoosingFocus { 
+                        focusing_index: match key.to_char() {
+                            Some('\n') => new_focus_index.clone(),
+                            Some(traverse_key) if TREE_TRAVERSE_KEYS.contains(&traverse_key) => {
+                                new_focus_index
+                                    .clamped_traverse_based_on_wasd(&self.tabs, traverse_key)
+                            }
+                            _ => panic!(),
+                        },
+                        plucked: plucked.clone(),
+                    };
                 }
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: true,
-                        caps_lock: false,
-                        logo: false,
-                        num_lock: _,
-                    },
-                ) if // `' '` is a placeholder for some key that isn't in tree traverse
-                key.to_char()==Some('S') =>
-                {
-                    // Alt + Shift + S swaps actually focused and focusing
-                    
-                    if let Some(focuser_path) = self.mode.try_get_focusing_index().cloned() {
-                        let focusing = self.tabs.get_id_by_org_path(&focuser_path).unwrap();
-                        let actually_focused = self.tabs.get_focused_tab_id();
-
-                        self.tabs.org_swap([focusing, actually_focused]);
-
-                        // self.app_focuser_index = Some(todo!());
-                    }
-                }
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: true,
-                        caps_lock: false,
-                        logo: false,
-                        num_lock: _,
-                    },
-                ) if // `' '` is a placeholder for some key that isn't in tree traverse
+                dbg!(&self.mode);
+                // dbg!(&self.focused_tab_path);
+            }
+            UIEvent::KeyPress(
+                key,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) if // `' '` is a placeholder for some key that isn't in tree traverse
+            TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) =>
+            {
+                // Alt + Windows + traversal key swaps position of focused and what would be the new focused
+                
+                let (prev_focus_index, plucked) = match &self.mode {
+                    Mode::TabFocus | Mode::CommandPalette { .. } => (&self.tabs
+                        .get_tab_path(&self.tabs.get_focused_tab_id())
+                        .unwrap(), &None),
+                    Mode::ChoosingFocus { focusing_index, plucked } => (focusing_index, plucked),
+                };
+                
+                let new_focus_index = prev_focus_index.clamped_traverse_based_on_wasd(&self.tabs, key.to_char().unwrap());
+                
+                self.tabs.org_swap([self.tabs.get_id_by_org_path(prev_focus_index).unwrap(), self.tabs.get_id_by_org_path(&new_focus_index).unwrap()]);
+                
+                // self.tabs.set_focused_tab_path(&new_focus_index);
+                self.mode = Mode::ChoosingFocus{ focusing_index: new_focus_index, plucked: plucked.clone() };
+                
+                dbg!(&self.mode);
+            }
+            UIEvent::KeyPress(
+                key,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: true,
+                    caps_lock: false,
+                    logo: false,
+                    num_lock: _,
+                },
+            ) if // `' '` is a placeholder for some key that isn't in tree traverse
                 key.to_char()==Some('P') =>
-                {
-                    // Alt + Shift + P opens command pallette (see: https://github.com/mathkimchi/singularity/issues/11)
-                    
-                    self.mode = Mode::CommandPalette { command_buffer: String::new() };
-                }
-                // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
-                //     // Alt+ArrowUp
-                //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+            {
+                // Alt + Windows + P does pluck/place
 
-                //     // maximize focused tab
-                //     let focused_tab = self.tabs.get_focused_tab_mut();
+                let (focusing_index, plucked) = match self.mode {
+                    Mode::TabFocus | Mode::CommandPalette { .. } => {
+                        (&self.tabs
+                            .get_tab_path(&self.tabs.get_focused_tab_id())
+                            .unwrap(), None)
+                    },
+                    Mode::ChoosingFocus { ref focusing_index, ref mut plucked } => (focusing_index, plucked.take()),
+                };
 
-                //     focused_tab.set_area(DisplayArea::from_corner_size(
-                //         DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
-                //         DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
-                //     ));
-                // }
-                // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
-                //     // Alt+ArrowDown
-                //     self.tabs.minimize_focused_tab();
-                // }
-                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.raw_code == 103 => {
-                    // LOGO+ArrowUp
-                }
-                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('=') => {
-                    // LOGO+"=" (but it represents "+")
-                    // TODO: increment tile split
-                }
-                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('t') => {
-                    // "T"ranspose selected tile's container (change horizontal vs vertical)
-                    self.tabs.transpose_focused_tile_parent();
-                }
-                UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('s') => {
-                    // "S"wap selected tile's siblings
-                    self.tabs.swap_focused_tile_siblings();
-                }
-                UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
-                    println!("Deletin");
-                    self.tabs.close_focused_tab_recursively();
-                }
-                UIEvent::KeyPress(_, _) => {
-                    // forward the event to focused tab
-                    let focused_tab = self.tabs.get_focused_tab_mut();
-
-                    focused_tab
-                        .send_event(SDEEvent::UIEvent(ui_event));
-                }
-                UIEvent::WindowResized(_ui_window_px) => {
-                    // self.ui_window_px = ui_window_px;
-                }
-                UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
-                    assert_eq!(container, DisplayArea::FULL);
-
-                    // if pressed on focused tab, then forward the click
-                    {
-                        let focused_tab = self
-                            .tabs
-                            .get_mut_tab_handler(self.tabs.get_focused_tab_id())
-                            .unwrap();
-                        if focused_tab.get_area().map_onto(container).contains(
-                            DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
-                            [tot_width as i32, tot_height as i32],
-                        ) {
-                            focused_tab.send_event(
-                                SDEEvent::UIEvent(
-                                    singularity_ui::ui_event::UIEvent::MousePress(
-                                        [[click_x, click_y], [tot_width, tot_height]],
-                                        focused_tab.get_area().map_onto(container),
-                                    ),
-                                ),
-                            );
-                        }
-                    }
-
-                    // if pressed on unfocused tab, make that focused
-                    for tab_id in self.tabs.collect_tab_ids().iter().rev() {
-                        let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
-                        let tab_area = tab.get_area();
-
-                        if tab_area.map_onto(container).contains(
-                            DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
-                            [tot_width as i32, tot_height as i32],
-                        ) {
-                            self.tabs.set_focused_tab_id(*tab_id);
-                            break;
-                        }
+                if let Some(plucked) = plucked {
+                    // place
+                    self.tabs.org_place(plucked, self.tabs.get_id_by_org_path(focusing_index).unwrap());
+                } else {
+                    // pluck
+                    if !focusing_index.is_root() {
+                        self.mode = Mode::ChoosingFocus {
+                            focusing_index: focusing_index.traverse_to_parent().unwrap(),
+                            plucked: self.tabs.org_pluck(&self.tabs.get_id_by_org_path(focusing_index).unwrap())
+                        };
                     }
                 }
             }
+            UIEvent::KeyPress(
+                key,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: true,
+                    caps_lock: false,
+                    logo: false,
+                    num_lock: _,
+                },
+            ) if // `' '` is a placeholder for some key that isn't in tree traverse
+            key.to_char()==Some('S') =>
+            {
+                // Alt + Shift + S swaps actually focused and focusing
+                
+                if let Some(focuser_path) = self.mode.try_get_focusing_index().cloned() {
+                    let focusing = self.tabs.get_id_by_org_path(&focuser_path).unwrap();
+                    let actually_focused = self.tabs.get_focused_tab_id();
+
+                    self.tabs.org_swap([focusing, actually_focused]);
+
+                    // self.app_focuser_index = Some(todo!());
+                }
+            }
+            UIEvent::KeyPress(
+                key,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: true,
+                    caps_lock: false,
+                    logo: false,
+                    num_lock: _,
+                },
+            ) if // `' '` is a placeholder for some key that isn't in tree traverse
+            key.to_char()==Some('P') =>
+            {
+                // Alt + Shift + P opens command pallette (see: https://github.com/mathkimchi/singularity/issues/11)
+                
+                self.mode = Mode::CommandPalette { command_buffer: String::new() };
+            }
+            // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 103 => {
+            //     // Alt+ArrowUp
+            //     // TODO: figure out why Ctrl+Shift+ArrowUp specifically doesn't work...
+
+            //     // maximize focused tab
+            //     let focused_tab = self.tabs.get_focused_tab_mut();
+
+            //     focused_tab.set_area(DisplayArea::from_corner_size(
+            //         DisplayCoord::new(DisplayUnits::ZERO, DisplayUnits::ZERO),
+            //         DisplaySize::new(DisplayUnits::FULL, DisplayUnits::FULL),
+            //     ));
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::ALT) if key.raw_code == 108 => {
+            //     // Alt+ArrowDown
+            //     self.tabs.minimize_focused_tab();
+            // }
+            UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.raw_code == 103 => {
+                // LOGO+ArrowUp
+            }
+            UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('=') => {
+                // LOGO+"=" (but it represents "+")
+                // TODO: increment tile split
+            }
+            UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('t') => {
+                // "T"ranspose selected tile's container (change horizontal vs vertical)
+                self.tabs.transpose_focused_tile_parent();
+            }
+            UIEvent::KeyPress(key, KeyModifiers::LOGO) if key.to_char() == Some('s') => {
+                // "S"wap selected tile's siblings
+                self.tabs.swap_focused_tile_siblings();
+            }
+            UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.to_char() == Some('w') => {
+                println!("Deletin");
+                self.tabs.close_focused_tab_recursively();
+            }
+            UIEvent::KeyPress(_, _) => {
+                // forward the event to focused tab
+                let focused_tab = self.tabs.get_focused_tab_mut();
+
+                focused_tab
+                    .send_event(SDEEvent::UIEvent(ui_event));
+            }
+            UIEvent::WindowResized(_ui_window_px) => {
+                // self.ui_window_px = ui_window_px;
+            }
+            UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
+                assert_eq!(container, DisplayArea::FULL);
+
+                // if pressed on focused tab, then forward the click
+                {
+                    let focused_tab = self
+                        .tabs
+                        .get_mut_tab_handler(self.tabs.get_focused_tab_id())
+                        .unwrap();
+                    if focused_tab.get_area().map_onto(container).contains(
+                        DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+                        [tot_width as i32, tot_height as i32],
+                    ) {
+                        focused_tab.send_event(
+                            SDEEvent::UIEvent(
+                                singularity_ui::ui_event::UIEvent::MousePress(
+                                    [[click_x, click_y], [tot_width, tot_height]],
+                                    focused_tab.get_area().map_onto(container),
+                                ),
+                            ),
+                        );
+                    }
+                }
+
+                // if pressed on unfocused tab, make that focused
+                for tab_id in self.tabs.collect_tab_ids().iter().rev() {
+                    let tab = self.tabs.get_tab_handler(*tab_id).unwrap();
+                    let tab_area = tab.get_area();
+
+                    if tab_area.map_onto(container).contains(
+                        DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
+                        [tot_width as i32, tot_height as i32],
+                    ) {
+                        self.tabs.set_focused_tab_id(*tab_id);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_inputs(&mut self) {
+        let ui_events = std::mem::take(&mut *(self.ui_event_queue.lock().unwrap()));
+        for ui_event in ui_events {
+            self.handle_input(ui_event);
         }
     }
 

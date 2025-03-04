@@ -2683,3 +2683,21 @@ I think it is caused by the large size of the file.
 Handle input is the immediate biggest suspect, since it is long and has a lot of nests with all the shortcut cases.
 Like I previously mentioned, I want some standardized method of doing shortcuts.
 After this commit, I will actually start with that.
+
+2025/03/03
+
+I will make UI actions (more or less shortcuts).
+I initially wanted to somehow make some UI actions impossible to represent from some modes,
+but I think it is fine to have that.
+
+Mode is just FSM, and UI actions are like events/events.
+A [stack overflow post](https://stackoverflow.com/questions/35439546/a-pattern-for-finite-game-state-machine-in-rust-with-changing-behavior)
+has a pretty good example, and it allows for incompatable events to be represented, which I guess
+
+This [video](https://www.youtube.com/watch?v=KdLTqyblbo4) seems to use a similar example,
+so I guess the pushing machine is a famous example or something.
+
+In this example, I would want it so that the user wasn't even allowed to push on lock and coin on unlock
+but it seems that they make it possible and just ignore.
+
+I feel like I should make this a new github issue, but whatever.

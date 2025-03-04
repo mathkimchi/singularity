@@ -44,9 +44,19 @@ pub trait TraversableTree {
         self.iter_paths_dfs().collect()
     }
 }
+
 pub const TREE_TRAVERSE_KEYS: [char; 16] = [
     'w', 'a', 's', 'd', 'q', 'e', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 ];
+
+// pub enum TreeTraverseOperation {
+//     Parent,
+//     Child(usize),
+//     PrevSibling,
+//     NextSibling,
+
+// }
+
 /// For the traverse functions, some require the original tree to be safe
 mod tree_node_path_traversal_impls {
     use super::{TraversableTree, TreeNodePath};

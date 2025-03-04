@@ -49,3 +49,9 @@ impl Mode {
         }
     }
 }
+
+// /// Look at devlog 2025/03/03
+// pub enum Actions {
+//     Quit,
+//     TreeTraverse(),
+// }
