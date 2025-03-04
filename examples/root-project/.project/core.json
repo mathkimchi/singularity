@@ -18,14 +18,14 @@
   },
   "open_tabs": {
     "tabs": {
-      "97199004-0028-4fe7-9d7d-74b072f8e16e": {
+      "3846fc2c-c09e-4e64-97cd-60654c3d9daa": {
         "tab_area": [
           {
             "x": {
-              "Proportional": 0.5
+              "Proportional": 0.0
             },
             "y": {
-              "Proportional": 0.0
+              "Proportional": 0.5
             }
           },
           {
@@ -71,22 +71,22 @@
           "session_data": "examples/root-project/file_to_edit.txt"
         }
       },
-      "9f89cb29-fed6-450b-a8d0-2abcd8894c58": {
+      "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41": {
         "tab_area": [
           {
             "x": {
               "Proportional": 0.0
             },
             "y": {
-              "Proportional": 0.5
+              "Proportional": 0.25
             }
           },
           {
             "x": {
-              "Proportional": 0.5
+              "Proportional": 1.0
             },
             "y": {
-              "Proportional": 1.0
+              "Proportional": 0.5
             }
           }
         ],
@@ -136,10 +136,10 @@
           },
           {
             "x": {
-              "Proportional": 0.5
+              "Proportional": 1.0
             },
             "y": {
-              "Proportional": 0.5
+              "Proportional": 0.25
             }
           }
         ],
@@ -187,67 +187,67 @@
     "org_tree": {
       "root_id": "c8332452-2243-4501-81ee-bd9ba26eeb0d",
       "nodes": {
-        "97199004-0028-4fe7-9d7d-74b072f8e16e": {
+        "3846fc2c-c09e-4e64-97cd-60654c3d9daa": {
           "children": [],
           "parent": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
         },
-        "9f89cb29-fed6-450b-a8d0-2abcd8894c58": {
+        "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41": {
           "children": [],
           "parent": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
         },
         "c8332452-2243-4501-81ee-bd9ba26eeb0d": {
           "children": [
-            "9f89cb29-fed6-450b-a8d0-2abcd8894c58",
-            "97199004-0028-4fe7-9d7d-74b072f8e16e"
+            "3846fc2c-c09e-4e64-97cd-60654c3d9daa",
+            "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41"
           ],
           "parent": null
         }
       }
     },
-    "focused_tab": "97199004-0028-4fe7-9d7d-74b072f8e16e",
+    "focused_tab": "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41",
     "display_tiles": {
       "root_id": "301f6773-bcb8-437a-a8a8-b2b3d5de4513",
       "tiles": {
+        "140f1e9b-239f-46c0-be5b-ad1122defec4": {
+          "Tab": {
+            "tab_id": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
+          }
+        },
+        "2e0a170c-0df7-4ad4-9407-eee1d5417ea7": {
+          "Tab": {
+            "tab_id": "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41"
+          }
+        },
         "301f6773-bcb8-437a-a8a8-b2b3d5de4513": {
           "Container": {
             "children": [
-              "a2f858cf-32e8-4fbc-b8a3-d04dc2903d2b",
-              "734a3477-c895-4347-ae1c-c278c20bd7b3"
-            ],
-            "orientation": "Vertical",
-            "split": 0.5
-          }
-        },
-        "734a3477-c895-4347-ae1c-c278c20bd7b3": {
-          "Tab": {
-            "tab_id": "97199004-0028-4fe7-9d7d-74b072f8e16e"
-          }
-        },
-        "a1b8adcc-09f4-4493-aa60-2559aa7edb23": {
-          "Tab": {
-            "tab_id": "9f89cb29-fed6-450b-a8d0-2abcd8894c58"
-          }
-        },
-        "a2f858cf-32e8-4fbc-b8a3-d04dc2903d2b": {
-          "Container": {
-            "children": [
-              "b42f276e-ca8b-441b-b5ca-ff9907796859",
-              "a1b8adcc-09f4-4493-aa60-2559aa7edb23"
+              "840bb2d4-0e9e-4500-ad81-f7542f850c9b",
+              "60bb3d16-dc2f-44e1-81dc-41e0146d8a97"
             ],
             "orientation": "Horizontal",
             "split": 0.5
           }
         },
-        "b42f276e-ca8b-441b-b5ca-ff9907796859": {
+        "60bb3d16-dc2f-44e1-81dc-41e0146d8a97": {
           "Tab": {
-            "tab_id": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
+            "tab_id": "3846fc2c-c09e-4e64-97cd-60654c3d9daa"
+          }
+        },
+        "840bb2d4-0e9e-4500-ad81-f7542f850c9b": {
+          "Container": {
+            "children": [
+              "140f1e9b-239f-46c0-be5b-ad1122defec4",
+              "2e0a170c-0df7-4ad4-9407-eee1d5417ea7"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
           }
         }
       },
       "leaf_registry": {
-        "97199004-0028-4fe7-9d7d-74b072f8e16e": "734a3477-c895-4347-ae1c-c278c20bd7b3",
-        "9f89cb29-fed6-450b-a8d0-2abcd8894c58": "a1b8adcc-09f4-4493-aa60-2559aa7edb23",
-        "c8332452-2243-4501-81ee-bd9ba26eeb0d": "b42f276e-ca8b-441b-b5ca-ff9907796859"
+        "3846fc2c-c09e-4e64-97cd-60654c3d9daa": "60bb3d16-dc2f-44e1-81dc-41e0146d8a97",
+        "69d8fde5-3da6-4bd6-9e42-9d6033cb0a41": "2e0a170c-0df7-4ad4-9407-eee1d5417ea7",
+        "c8332452-2243-4501-81ee-bd9ba26eeb0d": "140f1e9b-239f-46c0-be5b-ad1122defec4"
       }
     }
   }

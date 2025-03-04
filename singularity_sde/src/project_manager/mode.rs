@@ -75,12 +75,13 @@ pub enum UserAction {
     ChooseFocus,
     /// Alt+Enter from NOT ChoosingFocus
     OpenFocusChooser,
-    /// Alt+TreeTraverseKey
+    /// Alt+TreeTraverseKey should be like alt tab for Windows and Linux but tree based
     TraverseTabTree(TreeTraverseOperation),
     /// Alt+Windows+TreeTraverseKey swaps position of focused and what would be the new focused
     TreeSwapTraverse(TreeTraverseOperation),
     /// Alt+Windows+P
     /// I am fine with this technically being two different things to do but one action
+    /// TODO: split this
     PluckPlace,
     /// Alt+Windows+Enter swaps actually focused and focusing
     TreeSwap,
@@ -213,8 +214,8 @@ impl UserAction {
                 UIEvent::KeyPress(
                     key,
                     KeyModifiers {
-                        ctrl: false,
-                        alt: true,
+                        ctrl: true,
+                        alt: false,
                         shift: true,
                         caps_lock: false,
                         logo: false,

@@ -244,9 +244,9 @@ mod tree_node_path_traversal_impls {
         pub fn checked_traverse_on_operation(
             &self,
             tree_to_traverse: &impl TraversableTree,
-            operation: TreeTraverseOperation,
+            traverse_operation: TreeTraverseOperation,
         ) -> Option<Self> {
-            match operation {
+            match traverse_operation {
                 TreeTraverseOperation::Parent => self.traverse_to_parent(),
                 TreeTraverseOperation::FirstChild => self.traverse_to_first_child(tree_to_traverse),
                 TreeTraverseOperation::PrevSibling => self.traverse_to_previous_sibling(),
@@ -266,9 +266,9 @@ mod tree_node_path_traversal_impls {
         pub fn clamped_traverse_on_operation(
             &self,
             tree_to_traverse: &impl TraversableTree,
-            operation: TreeTraverseOperation,
+            traverse_operation: TreeTraverseOperation,
         ) -> Self {
-            self.checked_traverse_on_operation(tree_to_traverse, operation)
+            self.checked_traverse_on_operation(tree_to_traverse, traverse_operation)
                 .unwrap_or_else(|| self.clone())
         }
 
@@ -281,8 +281,8 @@ mod tree_node_path_traversal_impls {
             tree_to_traverse: &impl TraversableTree,
             traverse_key: char,
         ) -> Self {
-            if let Some(operation) = TreeTraverseOperation::from_char(traverse_key) {
-                self.clamped_traverse_on_operation(tree_to_traverse, operation)
+            if let Some(traverse_operation) = TreeTraverseOperation::from_char(traverse_key) {
+                self.clamped_traverse_on_operation(tree_to_traverse, traverse_operation)
             } else {
                 self.clone()
             }

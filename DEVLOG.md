@@ -2701,3 +2701,10 @@ In this example, I would want it so that the user wasn't even allowed to push on
 but it seems that they make it possible and just ignore.
 
 I feel like I should make this a new github issue, but whatever.
+
+...
+
+Implemented the actions, crossing my fingers before running.
+
+Oh yeah, it almost all worked first try.
+I just had to change command palette from alt+shift+P to ctrl+shift+P.
