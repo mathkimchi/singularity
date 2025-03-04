@@ -2708,3 +2708,17 @@ Implemented the actions, crossing my fingers before running.
 
 Oh yeah, it almost all worked first try.
 I just had to change command palette from alt+shift+P to ctrl+shift+P.
+
+...
+
+Many improvements to be made for actions:
+- Define actions in a seperate file to be read at runtime
+  - Special syntax for shortcuts during specific mode, for shortcuts regardless of mode, special group of keys for tree traversal operations, etc, kind of like regex
+- Somehow make UI actions more safe
+  - Ex: If a ui action only happens in Mode::ChoosingFocus, then the UI Action can actually contain the choosing focus' data
+- Have extensions define their own actions too
+
+...
+
+Okay, I don't want to dwell on actions, but I did make things slightly better by adding a common shortcut style case.
+I didn't vigorously test the new change like I did with the Actions first time, but nothing seems to be broken.

@@ -122,139 +122,136 @@ pub enum UserAction {
     MousePress([[u32; 2]; 2]),
 }
 impl UserAction {
-    pub fn from_ui_event(curr_mode: &Mode, ui_event: UIEvent) -> Self {
-        match (curr_mode, ui_event) {
+    /// This is really to get around lack of if let in match
+    ///
+    /// For shortcut-like commands.
+    fn handle_char_key_shortcut_presses(
+        curr_mode: &Mode,
+        key_char: char,
+        key_mods: KeyModifiers,
+    ) -> Option<Self> {
+        Some(match (curr_mode, key_char, key_mods) {
             // Ctrl+Q
-            (_, UIEvent::KeyPress(key, KeyModifiers::CTRL)) if key.to_char() == Some('q') => {
-                Self::Quit
+            (_, 'q', KeyModifiers::CTRL) => Self::Quit,
+            (Mode::TabFocus | Mode::ChoosingFocus { .. }, 'w', KeyModifiers::CTRL) => {
+                Self::RecursivelyCloseFocusedTab
             }
-            (
-                Mode::TabFocus | Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(key, KeyModifiers::CTRL),
-            ) if key.to_char() == Some('w') => Self::RecursivelyCloseFocusedTab,
 
             // Alt+Enter from ChoosingFocus mode
-            (Mode::ChoosingFocus { .. }, UIEvent::KeyPress(key, KeyModifiers::ALT))
-                if key.to_char() == Some('\n') =>
-            {
-                Self::ChooseFocus
-            }
+            (Mode::ChoosingFocus { .. }, '\n', KeyModifiers::ALT) => Self::ChooseFocus,
             // Alt+Enter from NOT ChoosingFocus
             // NOTE: this pattern must be behind choosing focus
-            (_, UIEvent::KeyPress(key, KeyModifiers::ALT)) if key.to_char() == Some('\n') => {
-                Self::OpenFocusChooser
-            }
+            (_, '\n', KeyModifiers::ALT) => Self::OpenFocusChooser,
             // Alt+TreeTraverseKey
-            (
-                Mode::TabFocus | Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(key, KeyModifiers::ALT),
-            ) if TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) => {
+            (Mode::TabFocus | Mode::ChoosingFocus { .. }, key_char, KeyModifiers::ALT)
+                if TREE_TRAVERSE_KEYS.contains(&key_char) =>
+            {
                 // `' '` is a placeholder for some key that isn't in tree traverse
                 // sad that match doesn't support if let syntax
-                Self::TraverseTabTree(
-                    TreeTraverseOperation::from_char(key.to_char().unwrap()).unwrap(),
-                )
+                Self::TraverseTabTree(TreeTraverseOperation::from_char(key_char).unwrap())
             }
             // Alt+Windows+TreeTraverseKey swaps position of focused and what would be the new focused
             (
                 Mode::TabFocus | Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ),
-            ) if TREE_TRAVERSE_KEYS.contains(&key.to_char().unwrap_or(' ')) => {
-                // `' '` is a placeholder for some key that isn't in tree traverse
+                key_char,
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) if TREE_TRAVERSE_KEYS.contains(&key_char) => {
                 // sad that match doesn't support if let syntax
-                Self::TreeSwapTraverse(
-                    TreeTraverseOperation::from_char(key.to_char().unwrap()).unwrap(),
-                )
+                Self::TreeSwapTraverse(TreeTraverseOperation::from_char(key_char).unwrap())
             }
             // Alt+Windows+P
             // I am fine with this technically being two different things to do but one action
             (
                 Mode::TabFocus | Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ),
-            ) if key.to_char() == Some('p') => Self::PluckPlace,
+                'p',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::PluckPlace,
             // Alt+Windows+Enter swaps actually focused and focusing
             (
                 Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ),
-            ) if key.to_char() == Some('\n') => Self::TreeSwap,
+                '\n',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::TreeSwap,
 
             // Ctrl+Shift+P opens command palette (see: https://github.com/mathkimchi/singularity/issues/11)
             (
                 Mode::TabFocus | Mode::ChoosingFocus { .. },
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: true,
-                        alt: false,
-                        shift: true,
-                        caps_lock: false,
-                        logo: false,
-                        num_lock: _,
-                    },
-                ),
-            ) if key.to_char() == Some('P') => Self::OpenCommandPalette,
+                'P',
+                KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: true,
+                    caps_lock: false,
+                    logo: false,
+                    num_lock: _,
+                },
+            ) => Self::OpenCommandPalette,
 
             // Logo+t transposes selected tile's container (hor<=>vertical)
             (
                 Mode::TabFocus,
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: false,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ),
-            ) if key.to_char() == Some('t') => Self::TransposeTileParent,
+                't',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::TransposeTileParent,
             // Logo+s swaps selected tile's siblings
             (
                 Mode::TabFocus,
-                UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: false,
-                        shift: false,
-                        caps_lock: false,
-                        logo: true,
-                        num_lock: _,
-                    },
-                ),
-            ) if key.to_char() == Some('s') => Self::SwapTileSiblings,
+                's',
+                KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    caps_lock: false,
+                    logo: true,
+                    num_lock: _,
+                },
+            ) => Self::SwapTileSiblings,
+            _ => {
+                return None;
+            }
+        })
+    }
 
+    pub fn from_ui_event(curr_mode: &Mode, ui_event: UIEvent) -> Self {
+        if let UIEvent::KeyPress(key_event, key_mods) = &ui_event {
+            if let Some(key_char) = key_event.to_char() {
+                if let Some(shortcut_action) =
+                    Self::handle_char_key_shortcut_presses(curr_mode, key_char, *key_mods)
+                {
+                    return shortcut_action;
+                }
+            }
+        }
+
+        match (curr_mode, ui_event) {
             // Key press isn't any of the keyboard actions; forward it to focused
             (Mode::TabFocus, UIEvent::KeyPress(key, modifiers)) => {
                 Self::ForwardKeyPressTab(key, modifiers)
