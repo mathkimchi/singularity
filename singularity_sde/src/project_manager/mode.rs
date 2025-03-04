@@ -24,15 +24,15 @@ pub enum Mode {
     },
 }
 impl Mode {
-    pub fn try_as_choosing_focus(&self) -> Option<(&TreeNodePath, &Option<IdTree<TabHandler>>)> {
-        match self {
-            Mode::ChoosingFocus {
-                focusing_index,
-                plucked,
-            } => Some((focusing_index, plucked)),
-            _ => None,
-        }
-    }
+    // pub fn try_as_choosing_focus(&self) -> Option<(&TreeNodePath, &Option<IdTree<TabHandler>>)> {
+    //     match self {
+    //         Mode::ChoosingFocus {
+    //             focusing_index,
+    //             plucked,
+    //         } => Some((focusing_index, plucked)),
+    //         _ => None,
+    //     }
+    // }
 
     pub fn try_as_choosing_focus_mut(
         &mut self,
@@ -91,6 +91,8 @@ pub enum UserAction {
     //
     /// Ctrl+Shift+P opens command palette (see: https://github.com/mathkimchi/singularity/issues/11)
     OpenCommandPalette,
+    /// ESC quits command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+    QuitCommandPalette,
 
     // SECTION - tiling operations
 
@@ -205,6 +207,9 @@ impl UserAction {
                     num_lock: _,
                 },
             ) => Self::OpenCommandPalette,
+            // ESC quits command palette (see: https://github.com/mathkimchi/singularity/issues/11)
+            // '\u{1b}' seems to be the char for ESCAPE
+            (Mode::CommandPalette { .. }, '\u{1b}', KeyModifiers::NONE) => Self::QuitCommandPalette,
 
             // Logo+t transposes selected tile's container (hor<=>vertical)
             (

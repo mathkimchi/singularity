@@ -442,6 +442,11 @@ impl ProjectManager {
                     command_buffer: String::new(),
                 };
             }
+            UserAction::QuitCommandPalette => {
+                // ESC quits command pallette (see: https://github.com/mathkimchi/singularity/issues/11)
+
+                self.mode = Mode::TabFocus;
+            }
             UserAction::TransposeTileParent => {
                 // "T"ranspose selected tile's container (change horizontal vs vertical)
                 self.tabs.transpose_focused_tile_parent();

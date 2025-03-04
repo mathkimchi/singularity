@@ -846,6 +846,7 @@ pub mod ui_event {
 
         fn to_char(&self) -> Option<char> {
             if self.raw_code == 28 {
+                // FIXME: I added this bc I thought ENTER had no char, but it is actually `\r` already.
                 return Some('\n');
             }
             self.keysym.key_char()
