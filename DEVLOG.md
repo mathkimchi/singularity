@@ -3093,3 +3093,9 @@ impl UserAction {
 ```
 
 Now I am going to revert the changes and commit just the devlog.
+
+I got a very basic spawner in command palette to work, but I am not particularly proud of my implementation.
+I will mark [#11](https://github.com/mathkimchi/singularity/issues/11) as closed for now,
+but there are things in the github discussion that I want to revisit later.
+
+Also, I am probably going to take a few breaks because I have to study for physics and do academic coding projects.
