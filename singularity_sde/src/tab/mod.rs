@@ -20,8 +20,8 @@ pub struct TabHandler {
 impl TabHandler {
     /// TODO: allow setting focus
     pub fn new(initial_tab_data: TabData, tab_area: DisplayArea) -> Self {
-        let mut tab_spawn_command = Command::new(&initial_tab_data.tab_command.0)
-            .args(&initial_tab_data.tab_command.1)
+        let mut tab_spawn_command = Command::new(&initial_tab_data.tab_command.program)
+            .args(&initial_tab_data.tab_command.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

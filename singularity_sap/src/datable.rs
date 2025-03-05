@@ -743,6 +743,48 @@ mod singularity_sporg_impls {
     use super::{ToData, TryFromData};
     use std::ffi::OsString;
 
+    impl ToData for singularity_sporg::project_settings::TabSpawnCommand {
+        fn to_data(&self) -> Vec<u8> {
+            let bytes_program = self.program.to_data();
+            let len_program = bytes_program.len().to_be_bytes();
+            let bytes_args = self.args.to_data();
+            let len_args = bytes_args.len().to_be_bytes();
+            [
+                len_program.as_slice(),
+                bytes_program.as_slice(),
+                len_args.as_slice(),
+                bytes_args.as_slice(),
+            ]
+            .concat()
+        }
+    }
+    #[automatically_derived]
+    impl TryFromData for singularity_sporg::project_settings::TabSpawnCommand {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            let mut index = 0;
+            let constructed_self = Self {
+                program: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <OsString>::try_from_data(inner_data)?
+                },
+                args: {
+                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                    index += 8;
+                    let inner_data = &data[index..(index + len)];
+                    index += len;
+                    <Vec<OsString>>::try_from_data(inner_data)?
+                },
+            };
+            if index != data.len() {
+                return None;
+            }
+            Some(constructed_self)
+        }
+    }
+
     impl ToData for singularity_sporg::project_settings::TabData {
         fn to_data(&self) -> Vec<u8> {
             let bytes_tab_command = self.tab_command.to_data();
@@ -767,7 +809,9 @@ mod singularity_sporg_impls {
                     index += 8;
                     let inner_data = &data[index..(index + len)];
                     index += len;
-                    <(OsString, Vec<OsString>)>::try_from_data(inner_data)?
+                    <singularity_sporg::project_settings::TabSpawnCommand>::try_from_data(
+                        inner_data,
+                    )?
                 },
                 session_data: {
                     let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);

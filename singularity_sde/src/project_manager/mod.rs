@@ -18,6 +18,7 @@ use singularity_sap::{
     universal_stream::universal_server_stream::as_query_data_responder,
 };
 use singularity_sporg::{
+    project_settings::{SubappSettings, SubappStandardSettings},
     tile::{Orientation, Tile},
     Project,
 };
@@ -241,7 +242,7 @@ impl ProjectManager {
             UIElement::CharGrid(CharGrid::from(command_buffer))
                 .fill_bg(Color::DARK_GRAY)
                 .bordered(Color::LIGHT_GREEN)
-                .contain(DisplayArea::new((0.3, 0.1), (0.7, 0.2))),
+                .contain(DisplayArea::new((0.3, 0.0), (0.7, 0.02))),
         );
     }
 
@@ -472,9 +473,49 @@ impl ProjectManager {
                     if let Some(key_char) = key.to_char() {
                         if key_char.is_ascii_graphic() || key_char == ' ' {
                             command_buffer.push(key_char);
-                        }
-                        if key_char == '\n' {
-                            dbg!("TODO: forward command palette");
+                        } else if key_char == '\u{8}' {
+                            // this is DELETE
+                            command_buffer.pop();
+                        } else if key_char == '\n' {
+                            // FIXME: hideous nesting
+                            let command = command_buffer.trim();
+                            let command = command.split_once(' ');
+                            if let Some((prefix, command)) = command {
+                                match prefix {
+                                    "spawn" => {
+                                        dbg!("Attempting to spawn:", command);
+                                        if let Some(SubappSettings {
+                                            subapp_standard_settings:
+                                                Some(SubappStandardSettings {
+                                                    spawnable_default: Some(default_tab_data),
+                                                }),
+                                            ..
+                                        }) = self.project.project_settings.subapps.get(command)
+                                        {
+                                            dbg!("Spawning:", command);
+                                            self.tabs.add(
+                                                TabHandler::new(
+                                                    default_tab_data.clone(),
+                                                    Self::generate_tab_area(
+                                                        self.tabs.num_tabs(),
+                                                        1,
+                                                    ),
+                                                ),
+                                                &self.tabs.get_root_id(),
+                                            );
+                                        }
+                                    }
+                                    "dbg_print" => {
+                                        dbg!("Debug print command ran!", command);
+                                    }
+                                    _ => {
+                                        dbg!("Couldn't parse command", command);
+                                    }
+                                }
+                            }
+
+                            // regardless of if the command was succesful or not, just return
+                            self.mode = Mode::TabFocus;
                         }
                     }
                 }
