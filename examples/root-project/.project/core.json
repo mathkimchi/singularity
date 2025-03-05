@@ -1,151 +1,10 @@
 {
   "subapps": {
-    "task_organizer": {
+    "file_manager": {
       "subapp_standard_settings": {
-        "subapp_file_system_permissions": {
-          "property": {
-            "location": "[$project_directory]/.project/tasks.json",
-            "read": true,
-            "write": true,
-            "execute": false
-          }
-        }
-      },
-      "subapp_specific_settings": {
-        "debug_border": false
-      }
-    }
-  },
-  "open_tabs": {
-    "tabs": {
-      "97199004-0028-4fe7-9d7d-74b072f8e16e": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 1.0
-            },
-            "y": {
-              "Proportional": 1.0
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_command": [
-            {
-              "Unix": [
-                46,
-                47,
-                116,
-                97,
-                114,
-                103,
-                101,
-                116,
-                47,
-                114,
-                101,
-                108,
-                101,
-                97,
-                115,
-                101,
-                47,
-                101,
-                100,
-                105,
-                116,
-                111,
-                114
-              ]
-            },
-            []
-          ],
-          "session_data": "examples/root-project/file_to_edit.txt"
-        }
-      },
-      "9f89cb29-fed6-450b-a8d0-2abcd8894c58": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.0
-            },
-            "y": {
-              "Proportional": 0.5
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 1.0
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_command": [
-            {
-              "Unix": [
-                46,
-                47,
-                116,
-                97,
-                114,
-                103,
-                101,
-                116,
-                47,
-                114,
-                101,
-                108,
-                101,
-                97,
-                115,
-                101,
-                47,
-                101,
-                100,
-                105,
-                116,
-                111,
-                114
-              ]
-            },
-            []
-          ],
-          "session_data": "examples/root-project/subdir/subfile.txt"
-        }
-      },
-      "c8332452-2243-4501-81ee-bd9ba26eeb0d": {
-        "tab_area": [
-          {
-            "x": {
-              "Proportional": 0.0
-            },
-            "y": {
-              "Proportional": 0.0
-            }
-          },
-          {
-            "x": {
-              "Proportional": 0.5
-            },
-            "y": {
-              "Proportional": 0.5
-            }
-          }
-        ],
-        "tab_data": {
-          "tab_command": [
-            {
+        "spawnable_default": {
+          "tab_command": {
+            "program": {
               "Unix": [
                 46,
                 47,
@@ -178,76 +37,178 @@
                 114
               ]
             },
-            []
-          ],
+            "args": []
+          },
+          "session_data": "examples/root-project"
+        }
+      },
+      "subapp_specific_settings": null
+    }
+  },
+  "open_tabs": {
+    "tabs": {
+      "4cc07b28-2c15-4086-9710-7dcd7f841eab": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.0
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_command": {
+            "program": {
+              "Unix": [
+                46,
+                47,
+                116,
+                97,
+                114,
+                103,
+                101,
+                116,
+                47,
+                114,
+                101,
+                108,
+                101,
+                97,
+                115,
+                101,
+                47,
+                102,
+                105,
+                108,
+                101,
+                95,
+                109,
+                97,
+                110,
+                97,
+                103,
+                101,
+                114
+              ]
+            },
+            "args": []
+          },
+          "session_data": "examples/root-project"
+        }
+      },
+      "cf04484f-90c7-49ec-a35c-4400015f8528": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.5
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_command": {
+            "program": {
+              "Unix": [
+                46,
+                47,
+                116,
+                97,
+                114,
+                103,
+                101,
+                116,
+                47,
+                114,
+                101,
+                108,
+                101,
+                97,
+                115,
+                101,
+                47,
+                102,
+                105,
+                108,
+                101,
+                95,
+                109,
+                97,
+                110,
+                97,
+                103,
+                101,
+                114
+              ]
+            },
+            "args": []
+          },
           "session_data": "examples/root-project"
         }
       }
     },
     "org_tree": {
-      "root_id": "c8332452-2243-4501-81ee-bd9ba26eeb0d",
+      "root_id": "4cc07b28-2c15-4086-9710-7dcd7f841eab",
       "nodes": {
-        "97199004-0028-4fe7-9d7d-74b072f8e16e": {
-          "children": [],
-          "parent": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
-        },
-        "9f89cb29-fed6-450b-a8d0-2abcd8894c58": {
-          "children": [],
-          "parent": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
-        },
-        "c8332452-2243-4501-81ee-bd9ba26eeb0d": {
+        "4cc07b28-2c15-4086-9710-7dcd7f841eab": {
           "children": [
-            "9f89cb29-fed6-450b-a8d0-2abcd8894c58",
-            "97199004-0028-4fe7-9d7d-74b072f8e16e"
+            "cf04484f-90c7-49ec-a35c-4400015f8528"
           ],
           "parent": null
+        },
+        "cf04484f-90c7-49ec-a35c-4400015f8528": {
+          "children": [],
+          "parent": "4cc07b28-2c15-4086-9710-7dcd7f841eab"
         }
       }
     },
-    "focused_tab": "97199004-0028-4fe7-9d7d-74b072f8e16e",
+    "focused_tab": "cf04484f-90c7-49ec-a35c-4400015f8528",
     "display_tiles": {
-      "root_id": "301f6773-bcb8-437a-a8a8-b2b3d5de4513",
+      "root_id": "414c60df-9783-46ee-b9af-3146cc569009",
       "tiles": {
-        "301f6773-bcb8-437a-a8a8-b2b3d5de4513": {
+        "414c60df-9783-46ee-b9af-3146cc569009": {
           "Container": {
             "children": [
-              "a2f858cf-32e8-4fbc-b8a3-d04dc2903d2b",
-              "734a3477-c895-4347-ae1c-c278c20bd7b3"
-            ],
-            "orientation": "Vertical",
-            "split": 0.5
-          }
-        },
-        "734a3477-c895-4347-ae1c-c278c20bd7b3": {
-          "Tab": {
-            "tab_id": "97199004-0028-4fe7-9d7d-74b072f8e16e"
-          }
-        },
-        "a1b8adcc-09f4-4493-aa60-2559aa7edb23": {
-          "Tab": {
-            "tab_id": "9f89cb29-fed6-450b-a8d0-2abcd8894c58"
-          }
-        },
-        "a2f858cf-32e8-4fbc-b8a3-d04dc2903d2b": {
-          "Container": {
-            "children": [
-              "b42f276e-ca8b-441b-b5ca-ff9907796859",
-              "a1b8adcc-09f4-4493-aa60-2559aa7edb23"
+              "793f7369-8b6c-4825-bc8d-e51584873b67",
+              "a7901579-e0f0-458a-b4cf-68eeae8a1742"
             ],
             "orientation": "Horizontal",
             "split": 0.5
           }
         },
-        "b42f276e-ca8b-441b-b5ca-ff9907796859": {
+        "793f7369-8b6c-4825-bc8d-e51584873b67": {
           "Tab": {
-            "tab_id": "c8332452-2243-4501-81ee-bd9ba26eeb0d"
+            "tab_id": "4cc07b28-2c15-4086-9710-7dcd7f841eab"
+          }
+        },
+        "a7901579-e0f0-458a-b4cf-68eeae8a1742": {
+          "Tab": {
+            "tab_id": "cf04484f-90c7-49ec-a35c-4400015f8528"
           }
         }
       },
       "leaf_registry": {
-        "97199004-0028-4fe7-9d7d-74b072f8e16e": "734a3477-c895-4347-ae1c-c278c20bd7b3",
-        "9f89cb29-fed6-450b-a8d0-2abcd8894c58": "a1b8adcc-09f4-4493-aa60-2559aa7edb23",
-        "c8332452-2243-4501-81ee-bd9ba26eeb0d": "b42f276e-ca8b-441b-b5ca-ff9907796859"
+        "4cc07b28-2c15-4086-9710-7dcd7f841eab": "793f7369-8b6c-4825-bc8d-e51584873b67",
+        "cf04484f-90c7-49ec-a35c-4400015f8528": "a7901579-e0f0-458a-b4cf-68eeae8a1742"
       }
     }
   }

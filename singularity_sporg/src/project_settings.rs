@@ -8,34 +8,44 @@ use std::{collections::HashMap, ffi::OsString};
 
 use crate::tile::Tiles;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappFileSystemPermission {
-    location: String,
-    /// default to false
-    #[serde(default)]
-    read: bool,
-    /// default to false
-    #[serde(default)]
-    write: bool,
-    /// default to false
-    #[serde(default)]
-    execute: bool,
-}
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappFileSystemPermission {
+//     location: String,
+//     /// default to false
+//     #[serde(default)]
+//     read: bool,
+//     /// default to false
+//     #[serde(default)]
+//     write: bool,
+//     /// default to false
+//     #[serde(default)]
+//     execute: bool,
+// }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappFileSystemPermissions {
-    property: Option<SubappFileSystemPermission>,
-}
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappFileSystemPermissions {
+//     property: Option<SubappFileSystemPermission>,
+// }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappStandardSettings {
-    subapp_file_system_permissions: Option<SubappFileSystemPermissions>,
+    pub spawnable_default: Option<TabData>,
 }
 
+/// This is for a tab type as opposed to a specific instance of a tab
+/// TODO: rename
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SubappSettings {
-    subapp_standard_settings: Option<SubappStandardSettings>,
-    subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
+    pub subapp_standard_settings: Option<SubappStandardSettings>,
+    pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
+}
+
+/// Like `Command`. (program, args). The command and args to spawn tab.
+/// TODO: can make this an Enum later when tabs can have different ways of being created.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct TabSpawnCommand {
+    pub program: OsString,
+    pub args: Vec<OsString>,
 }
 
 /// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
@@ -44,8 +54,7 @@ pub struct SubappSettings {
 /// This type is kind of a black sheep
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct TabData {
-    /// Like `Command`. (program, args). The command and args to spawn tab.
-    pub tab_command: (OsString, Vec<OsString>),
+    pub tab_command: TabSpawnCommand,
     /// REVIEW: make this another type?
     pub session_data: serde_json::Value,
 }
@@ -56,10 +65,10 @@ impl TabData {
         session_data: serde_json::Value,
     ) -> Self {
         Self {
-            tab_command: (
-                tab_command_program.into(),
-                args.map(|arg| arg.into()).collect(),
-            ),
+            tab_command: TabSpawnCommand {
+                program: tab_command_program.into(),
+                args: args.map(|arg| arg.into()).collect(),
+            },
             session_data,
         }
     }
@@ -69,7 +78,10 @@ impl TabData {
         session_data: serde_json::Value,
     ) -> Self {
         Self {
-            tab_command: (tab_command_program.into(), Vec::new()),
+            tab_command: TabSpawnCommand {
+                program: tab_command_program.into(),
+                args: Vec::new(),
+            },
             session_data,
         }
     }
@@ -77,9 +89,7 @@ impl TabData {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct OpenTab {
-    // /// FIXME, right now, this works with finite tabs, is a glorified enum
-    // pub tab_type: String,
-    /// is kind of dangerous let user change the id of a tab, but if they screw this up, it is their fault
+    /// is kind of dangerous to let user change the id of a tab, but if they screw this up, it is their fault
     pub tab_area: DisplayArea,
     pub tab_data: TabData,
 }
@@ -99,6 +109,8 @@ pub struct OpenTabs {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSettings {
+    /// this is the list of tab types
+    /// REVIEW: rename
     pub subapps: HashMap<String, SubappSettings>,
     /// TODO: move this out of settings
     pub open_tabs: Option<OpenTabs>,

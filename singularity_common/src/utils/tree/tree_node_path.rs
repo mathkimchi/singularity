@@ -44,12 +44,61 @@ pub trait TraversableTree {
         self.iter_paths_dfs().collect()
     }
 }
+
 pub const TREE_TRAVERSE_KEYS: [char; 16] = [
     'w', 'a', 's', 'd', 'q', 'e', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 ];
+
+/// - "wasd" should vaguely correspond to how it looks when the tree is vertically displayed
+/// - "qe" is bfs prev and next (chosen for their proximity to "wasd" in qwerty layout)
+/// - "0" goes to parent (same as "a")
+/// - 1-8 goes to n-th child, but is 1-indexed (eldest child is 1)
+/// - "9" goes to last child
+pub enum TreeTraverseOperation {
+    /// `a` and `0`
+    Parent,
+    /// `d`
+    FirstChild,
+    /// `w`
+    PrevSibling,
+    /// `s`
+    NextSibling,
+
+    /// `q`
+    BfsPrev,
+    /// `w`
+    BfsNext,
+
+    /// 1-8
+    /// This is 0-indexed
+    Child(usize),
+    /// `9`
+    LastChild,
+}
+impl TreeTraverseOperation {
+    pub fn from_char(traverse_key: char) -> Option<Self> {
+        match traverse_key {
+            'a' => Some(Self::Parent),
+            'd' => Some(Self::FirstChild),
+            'w' => Some(Self::PrevSibling),
+            's' => Some(Self::NextSibling),
+
+            'q' => Some(Self::BfsPrev),
+            'e' => Some(Self::BfsNext),
+
+            '0' => Some(Self::Parent), // same as 'a'
+            // NOTE: the `?` should never happen so technically `panic` would be fine as well, but don't risk it
+            '1'..='8' => Some(Self::Child(traverse_key.to_digit(10)? as usize - 1)),
+            '9' => Some(Self::LastChild),
+
+            _ => None,
+        }
+    }
+}
+
 /// For the traverse functions, some require the original tree to be safe
 mod tree_node_path_traversal_impls {
-    use super::{TraversableTree, TreeNodePath};
+    use super::{TraversableTree, TreeNodePath, TreeTraverseOperation};
     impl TreeNodePath {
         pub fn traverse_to_parent(&self) -> Option<Self> {
             if self.0.is_empty() {
@@ -70,7 +119,7 @@ mod tree_node_path_traversal_impls {
             Self(child_path_vec)
         }
 
-        pub fn children_paths<T: TraversableTree>(&self, tree_to_traverse: &T) -> Vec<Self> {
+        pub fn children_paths(&self, tree_to_traverse: &impl TraversableTree) -> Vec<Self> {
             let mut children_paths = Vec::new();
             for child_index in 0.. {
                 if let Some(child_path) = self.traverse_to_child(tree_to_traverse, child_index) {
@@ -83,9 +132,9 @@ mod tree_node_path_traversal_impls {
         }
 
         /// Needs the tree to make sure that the child exists
-        pub fn traverse_to_child<T: TraversableTree>(
+        pub fn traverse_to_child(
             &self,
-            tree_to_traverse: &T,
+            tree_to_traverse: &impl TraversableTree,
             child_index: usize,
         ) -> Option<Self> {
             let child_path = {
@@ -105,17 +154,17 @@ mod tree_node_path_traversal_impls {
         }
 
         /// Needs the tree to make sure that the child exists
-        pub fn traverse_to_first_child<T: TraversableTree>(
+        pub fn traverse_to_first_child(
             &self,
-            tree_to_traverse: &T,
+            tree_to_traverse: &impl TraversableTree,
         ) -> Option<Self> {
             self.traverse_to_child(tree_to_traverse, 0)
         }
 
         /// Needs the tree to make sure that the child exists
-        pub fn traverse_to_last_child<T: TraversableTree>(
+        pub fn traverse_to_last_child(
             &self,
-            tree_to_traverse: &T,
+            tree_to_traverse: &impl TraversableTree,
         ) -> Option<Self> {
             self.traverse_to_child(
                 tree_to_traverse,
@@ -132,9 +181,9 @@ mod tree_node_path_traversal_impls {
         }
 
         /// No wrapping
-        pub fn traverse_to_next_sibling<T: TraversableTree>(
+        pub fn traverse_to_next_sibling(
             &self,
-            tree_to_traverse: &T,
+            tree_to_traverse: &impl TraversableTree,
         ) -> Option<Self> {
             let sibling_path = {
                 let mut sibling_path_vec = self.0.clone();
@@ -151,7 +200,7 @@ mod tree_node_path_traversal_impls {
             }
         }
 
-        pub fn traverse_dfs_next<T: TraversableTree>(&self, tree_to_traverse: &T) -> Option<Self> {
+        pub fn traverse_dfs_next(&self, tree_to_traverse: &impl TraversableTree) -> Option<Self> {
             if let Some(first_child_path) = self.traverse_to_first_child(tree_to_traverse) {
                 // has child
                 Some(first_child_path)
@@ -177,7 +226,7 @@ mod tree_node_path_traversal_impls {
             }
         }
 
-        pub fn traverse_dfs_prev<T: TraversableTree>(&self, tree_to_traverse: &T) -> Option<Self> {
+        pub fn traverse_dfs_prev(&self, tree_to_traverse: &impl TraversableTree) -> Option<Self> {
             if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
                 // traverse to previous sibling's last child's last child...
                 let mut path = previous_sibling;
@@ -191,47 +240,52 @@ mod tree_node_path_traversal_impls {
             }
         }
 
-        /// This is a helper function, traversing trees based on char input.
-        ///
-        /// - "wasd" should vaguely correspond to how it looks when the tree is vertically displayed
-        /// - "qe" is bfs prev and next (chosen for their proximity to "wasd" in qwerty layout)
-        /// - "0" goes to parent (same as "a")
-        /// - 1-8 goes to n-th child, but is 1-indexed (eldest child is 1)
-        /// - "9" goes to last child
-        ///
-        /// returns None if keycode isn't recognized or if the traversal is invalid
-        ///
-        /// REVIEW: not sure if this belongs here, as it should be pure logic but this is more input handling
-        ///
-        /// TODO: seperate functions for wrapped traversal
-        pub fn checked_traverse_based_on_wasd<T: TraversableTree>(
+        /// returns [`None`] if the traversal can not be done
+        pub fn checked_traverse_on_operation(
             &self,
-            tree_to_traverse: &T,
-            traverse_key: char,
+            tree_to_traverse: &impl TraversableTree,
+            traverse_operation: TreeTraverseOperation,
         ) -> Option<Self> {
-            match traverse_key {
-                'a' => self.traverse_to_parent(),
-                'd' => self.traverse_to_first_child(tree_to_traverse),
-                'w' => self.traverse_to_previous_sibling(),
-                's' => self.traverse_to_next_sibling(tree_to_traverse),
-                'q' => self.traverse_dfs_prev(tree_to_traverse),
-                'e' => self.traverse_dfs_next(tree_to_traverse),
-                '0' => self.traverse_to_parent(), // same as 'a'
-                '1'..='8' => self
-                    .traverse_to_child(tree_to_traverse, traverse_key.to_digit(10)? as usize - 1),
-                '9' => self.traverse_to_last_child(tree_to_traverse),
-                _ => None,
+            match traverse_operation {
+                TreeTraverseOperation::Parent => self.traverse_to_parent(),
+                TreeTraverseOperation::FirstChild => self.traverse_to_first_child(tree_to_traverse),
+                TreeTraverseOperation::PrevSibling => self.traverse_to_previous_sibling(),
+                TreeTraverseOperation::NextSibling => {
+                    self.traverse_to_next_sibling(tree_to_traverse)
+                }
+                TreeTraverseOperation::BfsPrev => self.traverse_dfs_prev(tree_to_traverse),
+                TreeTraverseOperation::BfsNext => self.traverse_dfs_next(tree_to_traverse),
+                TreeTraverseOperation::Child(child_index) => {
+                    self.traverse_to_child(tree_to_traverse, child_index)
+                }
+                TreeTraverseOperation::LastChild => self.traverse_to_last_child(tree_to_traverse),
             }
         }
 
-        /// `checked_traverse_based_on_wasd` but if something goes wrong, return self
-        pub fn clamped_traverse_based_on_wasd<T: TraversableTree>(
+        /// `checked_traverse_on_operation` but if something goes wrong, return self
+        pub fn clamped_traverse_on_operation(
             &self,
-            tree_to_traverse: &T,
+            tree_to_traverse: &impl TraversableTree,
+            traverse_operation: TreeTraverseOperation,
+        ) -> Self {
+            self.checked_traverse_on_operation(tree_to_traverse, traverse_operation)
+                .unwrap_or_else(|| self.clone())
+        }
+
+        /// REVIEW: not sure if this belongs here, as it should be pure logic but this is more input handling
+        ///
+        /// TODO: seperate functions for wrapped traversal
+        #[deprecated]
+        pub fn clamped_traverse_based_on_wasd(
+            &self,
+            tree_to_traverse: &impl TraversableTree,
             traverse_key: char,
         ) -> Self {
-            self.checked_traverse_based_on_wasd(tree_to_traverse, traverse_key)
-                .unwrap_or(self.clone())
+            if let Some(traverse_operation) = TreeTraverseOperation::from_char(traverse_key) {
+                self.clamped_traverse_on_operation(tree_to_traverse, traverse_operation)
+            } else {
+                self.clone()
+            }
         }
     }
 }
