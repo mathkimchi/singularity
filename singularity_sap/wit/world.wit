@@ -1,7 +1,0 @@
-package singularity:plugin;
-
-world plugin {
-  export greeting: func(name: string) -> string;
-
-  import 
-}

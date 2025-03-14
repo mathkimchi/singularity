@@ -1,7 +1,6 @@
 pub mod byte_stream;
 pub mod datable;
 pub mod packet;
-pub mod plugin_api;
 pub mod universal_stream;
 
 #[cfg(feature = "standard_packets")]
