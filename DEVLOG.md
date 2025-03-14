@@ -3099,3 +3099,25 @@ I will mark [#11](https://github.com/mathkimchi/singularity/issues/11) as closed
 but there are things in the github discussion that I want to revisit later.
 
 Also, I am probably going to take a few breaks because I have to study for physics and do academic coding projects.
+
+## [#16](https://github.com/mathkimchi/singularity/issues/16)
+
+Did a bit of brainstorming in the issues.
+
+2025/03/13
+
+I will put the plugin api inside `singularity_sap`,
+since this is similar.
+I am looking at Zellij's [`ZellijPlugin` trait](https://docs.rs/zellij-tile/latest/zellij_tile/trait.ZellijPlugin.html) and Zed's [`extension_api`](https://github.com/zed-industries/zed/tree/main/crates/extension_api) for inspiration.
+
+This is actually kind of similar to my [old implementation of tabs](https://github.com/mathkimchi/singularity/blob/19d6deb7ee7612ab096ded41a324e4e41da6e508/singularity_common/src/tab/mod.rs).
+
+For the wasm in rust itself, these are resources:
+- https://benw.is/posts/plugins-with-rust-and-wasi
+- https://blog.wasmer.io/executing-webassembly-in-your-rust-application-d5cd32e8ce46
+
+2025/03/14
+
+Okay, the [new thread entry](https://github.com/mathkimchi/singularity/issues/16#issuecomment-2725875195) says all that needs to be said.
+
+I will commit the WASM attempt now and revert everything except for this devlog.

@@ -15,6 +15,9 @@ paste = { workspace = true }
 
 uuid = { workspace = true }
 
+# for plugins
+wit-bindgen = "^0.41"
+
 [features]
 default = ["standard_packets"]
 standard_packets = [
