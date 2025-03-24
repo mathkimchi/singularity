@@ -526,7 +526,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             // extern crate singularity_sap as __singularity_sap;
             // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
             // FIXME: the imports
-
+            
             #[automatically_derived]
             impl ToData for #identitifier {
                 fn to_data(&self) -> Vec<u8> {
@@ -539,6 +539,48 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
                     #try_from_data_impl
                 }
             }
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(Event)]
+pub fn event_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+    
+    let identitifier = ast.ident;
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+
+            #[automatically_derived]
+            impl EventPacketTrait for #identitifier {}
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(Request)]
+pub fn request_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+    
+    let identitifier = ast.ident;
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+
+            #[automatically_derived]
+            impl RequestPacketTrait for #identitifier {}
         };
     }
     .into()

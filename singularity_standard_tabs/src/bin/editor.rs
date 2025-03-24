@@ -1,8 +1,8 @@
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::{Event, Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
     datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketTrait, IdType, PacketTrait},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
         SessionDataQuery, UnfocusedEvent,
@@ -13,7 +13,7 @@ use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
 use std::{io::Stdout, path::PathBuf};
 
-#[derive(PacketUnion, Packet)]
+#[derive(PacketUnion, Packet, Event)]
 pub enum Event {
     DisplayEvent(DisplayEvent),
 }

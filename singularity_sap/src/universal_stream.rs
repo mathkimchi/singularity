@@ -4,8 +4,9 @@ pub mod universal_client_stream {
         byte_stream::ByteStream,
         datable::TryFromData,
         packet::{
-            IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
-            QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
+            EventPacketTrait, IdType, PacketTrait, PacketType, QueryInstanceId, RequestPacketTrait,
+            UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE,
+            RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
         },
     };
     use uuid::Uuid;
@@ -18,13 +19,13 @@ pub mod universal_client_stream {
     /// TODO: I am using `try` and `wait` prefix to specify nonblocking vs blocking,
     /// which is based off the [`std::sync::mpsc`], but it is kind of confusing because
     /// try is more commonly used as the prefix when the output is [`Option`]/[`Result`]
-    pub struct UniversalClientStream<Stream: ByteStream, Event: PacketTrait> {
+    pub struct UniversalClientStream<Stream: ByteStream, Event: EventPacketTrait> {
         stream: Stream,
 
         event_queue: Vec<Event>,
         response_data_queue: Vec<Vec<u8>>,
     }
-    impl<Stream: ByteStream, Event: PacketTrait> UniversalClientStream<Stream, Event> {
+    impl<Stream: ByteStream, Event: EventPacketTrait> UniversalClientStream<Stream, Event> {
         pub fn new(stream: Stream) -> Self {
             Self {
                 stream,
@@ -119,7 +120,7 @@ pub mod universal_client_stream {
             (query_instance_id, response_type_id, inner_data)
         }
 
-        pub fn send_request<R: PacketTrait>(&mut self, request: R) {
+        pub fn send_request<R: RequestPacketTrait>(&mut self, request: R) {
             let request_bytes = {
                 const REQUEST_PACKET_TYPE_DATA: [u8; 1] = REQUEST_PACKET_TYPE.to_be_bytes();
                 let request_data = &request.to_data();
@@ -135,7 +136,7 @@ pub mod universal_client_stream {
             self.stream.write_bytes(&request_bytes);
         }
 
-        pub fn query<Q: UniversalQuery>(&mut self, query: Q) -> Option<Q::ResponseType> {
+        pub fn query<Q: UniversalQueryTrait>(&mut self, query: Q) -> Option<Q::ResponseType> {
             let query_instance_id = Uuid::new_v4();
 
             // send query
@@ -202,9 +203,9 @@ pub mod universal_server_stream {
         byte_stream::ByteStream,
         datable::{ToData, TryFromData},
         packet::{
-            IdType, PacketTrait, PacketType, QueryInstanceId, UniversalQuery, EVENT_PACKET_TYPE,
-            QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE,
-            UNKNOWN_RESPONSE_TYPE_ID_BYTES,
+            EventPacketTrait, IdType, PacketTrait, PacketType, QueryInstanceId, RequestPacketTrait,
+            UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE,
+            RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID_BYTES,
         },
     };
     use std::marker::PhantomData;
@@ -256,7 +257,7 @@ pub mod universal_server_stream {
         }
 
         /// responds to all incoming queries and returns a vec of all incoming requests
-        pub fn handle_incoming<Request: PacketTrait>(
+        pub fn handle_incoming<Request: RequestPacketTrait>(
             &mut self,
             query_responders: &mut Vec<&mut dyn QueryDataResponder>,
         ) -> Vec<Request> {
@@ -311,7 +312,7 @@ pub mod universal_server_stream {
             requests
         }
 
-        pub fn send_event<Event: PacketTrait>(&mut self, event: Event) {
+        pub fn send_event<Event: EventPacketTrait>(&mut self, event: Event) {
             const EVENT_PACKET_TYPE_BYTES: [u8; 1] = EVENT_PACKET_TYPE.to_be_bytes();
 
             self.stream.write_bytes(
@@ -326,13 +327,13 @@ pub mod universal_server_stream {
     }
 
     pub trait QueryResponder {
-        type Query: UniversalQuery;
+        type Query: UniversalQueryTrait;
 
         fn respond(
             &mut self,
             query: Self::Query,
             query_instance_id: QueryInstanceId,
-        ) -> Option<<Self::Query as UniversalQuery>::ResponseType>;
+        ) -> Option<<Self::Query as UniversalQueryTrait>::ResponseType>;
     }
     /// NOTE: don't override this
     /// TODO: make this somehow public but not overridable
@@ -354,7 +355,7 @@ pub mod universal_server_stream {
             query_data: &[u8],
             query_instance_id: QueryInstanceId,
         ) -> Option<Vec<u8>> {
-            let response_object: <R::Query as UniversalQuery>::ResponseType =
+            let response_object: <R::Query as UniversalQueryTrait>::ResponseType =
                 self.respond(R::Query::try_from_data(query_data)?, query_instance_id)?;
 
             const RESPONSE_PACKET_TYPE_BYTES: [u8; 1] = RESPONSE_PACKET_TYPE.to_be_bytes();
@@ -363,7 +364,7 @@ pub mod universal_server_stream {
                 [
                     RESPONSE_PACKET_TYPE_BYTES.as_slice(),
                     query_instance_id.to_bytes_le().as_slice(),
-                    <R::Query as UniversalQuery>::ResponseType::PACKET_TYPE_ID
+                    <R::Query as UniversalQueryTrait>::ResponseType::PACKET_TYPE_ID
                         .to_be_bytes()
                         .as_slice(),
                     response_object.to_data().as_slice(),
@@ -373,22 +374,27 @@ pub mod universal_server_stream {
         }
     }
 
-    pub fn as_query_data_responder<Q: UniversalQuery, F: FnMut(Q) -> Option<Q::ResponseType>>(
+    pub fn as_query_data_responder<
+        Q: UniversalQueryTrait,
+        F: FnMut(Q) -> Option<Q::ResponseType>,
+    >(
         f: F,
     ) -> impl QueryDataResponder {
-        struct FnWrapper<Q: UniversalQuery, F: FnMut(Q) -> Option<Q::ResponseType>>(
+        struct FnWrapper<Q: UniversalQueryTrait, F: FnMut(Q) -> Option<Q::ResponseType>>(
             F,
             PhantomData<Q>,
         );
 
-        impl<Q: UniversalQuery, F: FnMut(Q) -> Option<Q::ResponseType>> QueryResponder for FnWrapper<Q, F> {
+        impl<Q: UniversalQueryTrait, F: FnMut(Q) -> Option<Q::ResponseType>> QueryResponder
+            for FnWrapper<Q, F>
+        {
             type Query = Q;
 
             fn respond(
                 &mut self,
                 query: Self::Query,
                 _query_instance_id: QueryInstanceId,
-            ) -> Option<<Self::Query as UniversalQuery>::ResponseType> {
+            ) -> Option<<Self::Query as UniversalQueryTrait>::ResponseType> {
                 self.0(query)
             }
         }

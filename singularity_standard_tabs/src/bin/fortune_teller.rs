@@ -1,8 +1,8 @@
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::{Event, Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, CombinedByteStream},
     datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketTrait, IdType, PacketTrait},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -30,7 +30,7 @@ Must pay the price!",
     "When the odds are saying you'll never win, that's when the grin should start!",
 ];
 
-#[derive(PacketUnion, Packet)]
+#[derive(PacketUnion, Packet, Event)]
 enum MyEvent {
     DisplayEvent(DisplayEvent),
 }

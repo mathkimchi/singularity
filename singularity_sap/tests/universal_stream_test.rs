@@ -1,8 +1,8 @@
 use singularity_common::utils::usock_tools::{client_connect_from_env, UnixServerHost};
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::{Packet, PacketUnion, Request};
 use singularity_sap::{
     datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{IdType, PacketTrait, RequestPacketTrait},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName},
     universal_stream::{
         universal_client_stream::UniversalClientStream,
@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-#[derive(PacketUnion, Packet)]
+#[derive(PacketUnion, Packet, Request)]
 enum MyRequest {
     RequestChangeName(RequestChangeName),
 }

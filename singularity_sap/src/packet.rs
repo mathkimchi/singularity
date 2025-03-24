@@ -19,6 +19,12 @@ pub trait PacketTrait: Datable {
     const PACKET_TYPE_ID: IdType;
 }
 
-pub trait UniversalQuery: PacketTrait {
+pub trait UniversalQueryTrait: PacketTrait {
     type ResponseType: PacketTrait;
 }
+
+/// Just for safety
+pub trait EventPacketTrait: PacketTrait {}
+
+/// Just for safety
+pub trait RequestPacketTrait: PacketTrait {}

@@ -2,11 +2,11 @@ use singularity_common::utils::tree::{
     rooted_tree::RootedTree,
     tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
 };
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::{Event, Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
     datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketTrait, IdType, PacketTrait},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
         RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
@@ -17,7 +17,7 @@ use singularity_sporg::project_settings::TabData;
 use singularity_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 
-#[derive(PacketUnion, Packet)]
+#[derive(PacketUnion, Packet, Event)]
 pub enum Event {
     DisplayEvent(DisplayEvent),
 }
