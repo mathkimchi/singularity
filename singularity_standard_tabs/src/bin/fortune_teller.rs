@@ -2,7 +2,7 @@ use singularity_macros::{Event, Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, CombinedByteStream},
     datable::{ToData, TryFromData},
-    packet::{EventPacketTrait, IdType, PacketTrait},
+    packet::{EventPacketTrait, PacketId, PacketTrait},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };

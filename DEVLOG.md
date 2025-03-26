@@ -3121,3 +3121,39 @@ For the wasm in rust itself, these are resources:
 Okay, the [new thread entry](https://github.com/mathkimchi/singularity/issues/16#issuecomment-2725875195) says all that needs to be said.
 
 I will commit the WASM attempt now and revert everything except for this devlog.
+
+2025/03/24
+
+I have been kind of burnt out, but I want to work on improving the type system for the packets, being the events, requests, queries, and responses.
+Since I will add query-response for between plugins, I might add a timeout duration for query.
+
+Brainstorm usage:
+
+```rust
+pub struct ShortcutEvent {
+    key_char: char,
+    command_key: bool,
+}
+
+packet_union! {
+    name: MyEventUnion,
+    // packet: Event,
+    packets: [
+        ShortcutEvent,
+        // python kwargs syntax
+        **StandardEventUnion,
+        **OtherEventUnion,
+    ],
+}
+```
+
+For additional safety, I might also want to additionally be able to specify: `MyEventUnion: PacketUnion<EventPacketType>`.
+
+2025/03/26
+
+The first thing I want to do is to differentiate the PacketUnion as its own trait.
+Previously, I was using the Datable's to_data and try_from_data to convert between packet union object (eg `MyEvents`) and data,
+but I will give packet union trait seperate functions to avoid confusion.
+Additionally, if possible, I will start by only changing events, and leaving requests alone (query and response were always a bit different).
+
+I'm not sure if I want to make a derive proc macro (current before changes) or declarative macro (tried a long time ago, but didn't like that I could use further macros).

@@ -4,9 +4,9 @@ pub mod universal_client_stream {
         byte_stream::ByteStream,
         datable::TryFromData,
         packet::{
-            EventPacketTrait, IdType, PacketTrait, PacketType, QueryInstanceId, RequestPacketTrait,
-            UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE,
-            RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
+            EventPacketTrait, PacketId, PacketTrait, PacketType, QueryInstanceId,
+            RequestPacketTrait, UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE,
+            REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID,
         },
     };
     use uuid::Uuid;
@@ -108,14 +108,14 @@ pub mod universal_client_stream {
 
         /// NOTE: assumes that we already checked the head and know it is a response packet, and sliced off that information
         /// TODO: should be a way to make the indexing more easily maintainable
-        fn split_response_bytes(response_bytes: &[u8]) -> (QueryInstanceId, IdType, &[u8]) {
+        fn split_response_bytes(response_bytes: &[u8]) -> (QueryInstanceId, PacketId, &[u8]) {
             let query_instance_id = Uuid::from_bytes_le(response_bytes[0..16].try_into().unwrap());
-            let response_type_id = IdType::from_be_bytes(
-                response_bytes[16..(16 + (IdType::BITS as usize) / 8)]
+            let response_type_id = PacketId::from_be_bytes(
+                response_bytes[16..(16 + (PacketId::BITS as usize) / 8)]
                     .try_into()
                     .unwrap(),
             );
-            let inner_data = &response_bytes[(16 + (IdType::BITS as usize) / 8)..];
+            let inner_data = &response_bytes[(16 + (PacketId::BITS as usize) / 8)..];
 
             (query_instance_id, response_type_id, inner_data)
         }
@@ -203,9 +203,9 @@ pub mod universal_server_stream {
         byte_stream::ByteStream,
         datable::{ToData, TryFromData},
         packet::{
-            EventPacketTrait, IdType, PacketTrait, PacketType, QueryInstanceId, RequestPacketTrait,
-            UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE, REQUEST_PACKET_TYPE,
-            RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID_BYTES,
+            EventPacketTrait, PacketId, PacketTrait, PacketType, QueryInstanceId,
+            RequestPacketTrait, UniversalQueryTrait, EVENT_PACKET_TYPE, QUERY_PACKET_TYPE,
+            REQUEST_PACKET_TYPE, RESPONSE_PACKET_TYPE, UNKNOWN_RESPONSE_TYPE_ID_BYTES,
         },
     };
     use std::marker::PhantomData;
@@ -241,17 +241,17 @@ pub mod universal_server_stream {
         }
 
         /// Returns (query instance id, query id type, query inner data)
-        fn split_query_data(query_packet_data: &[u8]) -> (QueryInstanceId, IdType, &[u8]) {
+        fn split_query_data(query_packet_data: &[u8]) -> (QueryInstanceId, PacketId, &[u8]) {
             let query_instance_id =
                 QueryInstanceId::from_bytes_le(query_packet_data[0..16].try_into().unwrap());
 
-            let query_type_id = IdType::from_be_bytes(
-                query_packet_data[16..(16 + (IdType::BITS as usize) / 8)]
+            let query_type_id = PacketId::from_be_bytes(
+                query_packet_data[16..(16 + (PacketId::BITS as usize) / 8)]
                     .try_into()
                     .unwrap(),
             );
 
-            let query_inner_data = &query_packet_data[(16 + (IdType::BITS as usize) / 8)..];
+            let query_inner_data = &query_packet_data[(16 + (PacketId::BITS as usize) / 8)..];
 
             (query_instance_id, query_type_id, query_inner_data)
         }
@@ -338,7 +338,7 @@ pub mod universal_server_stream {
     /// NOTE: don't override this
     /// TODO: make this somehow public but not overridable
     pub trait QueryDataResponder {
-        fn __get_query_type_id(&self) -> IdType;
+        fn __get_query_type_id(&self) -> PacketId;
         fn __generate_response_packet_data(
             &mut self,
             query_data: &[u8],
@@ -346,7 +346,7 @@ pub mod universal_server_stream {
         ) -> Option<Vec<u8>>;
     }
     impl<R: QueryResponder> QueryDataResponder for R {
-        fn __get_query_type_id(&self) -> IdType {
+        fn __get_query_type_id(&self) -> PacketId {
             R::Query::PACKET_TYPE_ID
         }
 

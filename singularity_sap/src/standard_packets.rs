@@ -3,7 +3,9 @@
 pub mod display_packets {
     use crate::{
         datable::{ToData, TryFromData},
-        packet::{EventPacketTrait, IdType, PacketTrait, RequestPacketTrait, UniversalQueryTrait},
+        packet::{
+            EventPacketTrait, PacketId, PacketTrait, RequestPacketTrait, UniversalQueryTrait,
+        },
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;
     use singularity_macros::{Datable, Event, Packet, PacketUnion, Request};
