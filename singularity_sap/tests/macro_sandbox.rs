@@ -1,7 +1,7 @@
 use singularity_macros::{Datable, Packet, PacketUnion};
 use singularity_sap::{
     datable::{ToData, TryFromData},
-    packet::{PacketTypeId, PacketTrait},
+    packet::{PacketTrait, PacketTypeId, PacketUnion},
 };
 use singularity_ui::{
     color::Color,
@@ -36,7 +36,7 @@ enum Enum {
     Recursive(Box<Enum>),
 }
 
-#[derive(PacketUnion, Packet, PartialEq, Debug)]
+#[derive(PacketUnion, PartialEq, Debug)]
 enum MyPacket {
     P(PastePacket),
     A(A),
@@ -104,19 +104,28 @@ fn test_data_conversion() {
     assert_eq!(A::try_from_data(&a.to_data()), Some(a));
 
     let p = MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.))));
-    assert_eq!(MyPacket::try_from_data(&p.to_data()), Some(p));
+    let p_data = p.packet_to_data();
+    assert_eq!(MyPacket::packet_try_from_data(p_data.0, &p_data.1), Some(p));
 
     let v = vec![
-        MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.)))),
-        MyPacket::F(FocusedEvent),
+        Enum::Recursive(Box::new(Enum::F(3.))),
+        Enum::P(PastePacket {
+            clean_content: "\nu29-a".to_string(),
+            f: f64::NEG_INFINITY,
+            raw_content: "".to_string(),
+        }),
     ];
-    assert_eq!(<Vec<MyPacket>>::try_from_data(&v.to_data()), Some(v));
+    assert_eq!(<Vec<Enum>>::try_from_data(&v.to_data()), Some(v));
 
     let a = [
-        MyPacket::E(Enum::Recursive(Box::new(Enum::F(3.)))),
-        MyPacket::F(FocusedEvent),
+        Enum::Recursive(Box::new(Enum::F(3.))),
+        Enum::P(PastePacket {
+            clean_content: "\nu29-a".to_string(),
+            f: f64::NEG_INFINITY,
+            raw_content: "".to_string(),
+        }),
     ];
-    assert_eq!(<[MyPacket; 2]>::try_from_data(&a.to_data()), Some(a));
+    assert_eq!(<[Enum; 2]>::try_from_data(&a.to_data()), Some(a));
 
     let ui_element = UIElement::Backgrounded(
         Box::new(UIElement::Text("Sup?".to_string())),

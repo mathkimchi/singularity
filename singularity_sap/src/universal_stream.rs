@@ -218,8 +218,8 @@ pub mod universal_server_stream {
         byte_stream::ByteStream,
         datable::{ToData, TryFromData},
         packet::{
-            EventPacketTrait, PacketTrait as _, PacketTypeId, QueryInstanceId, RequestPacketUnion,
-            UniversalQueryTrait, EVENT_PACKET_CATEGORY, QUERY_PACKET_CATEGORY,
+            EventPacketTrait, EventPacketUnion, PacketTrait as _, PacketTypeId, QueryInstanceId,
+            RequestPacketUnion, UniversalQueryTrait, EVENT_PACKET_CATEGORY, QUERY_PACKET_CATEGORY,
             REQUEST_PACKET_CATEGORY, RESPONSE_PACKET_CATEGORY, UNKNOWN_RESPONSE_TYPE_ID_BYTES,
         },
     };
@@ -324,6 +324,21 @@ pub mod universal_server_stream {
                     EVENT_PACKET_CATEGORY_BYTES.as_slice(),
                     Event::PACKET_TYPE_ID.to_be_bytes().as_slice(),
                     &event.to_data(),
+                ]
+                .concat(),
+            );
+        }
+
+        pub fn send_event_union(&mut self, event: impl EventPacketUnion) {
+            const EVENT_PACKET_CATEGORY_BYTES: [u8; 1] = EVENT_PACKET_CATEGORY.to_be_bytes();
+
+            let (packet_type_id, packet_inner_data) = event.packet_to_data();
+
+            self.stream.write_bytes(
+                &[
+                    EVENT_PACKET_CATEGORY_BYTES.as_slice(),
+                    packet_type_id.to_be_bytes().as_slice(),
+                    &packet_inner_data,
                 ]
                 .concat(),
             );

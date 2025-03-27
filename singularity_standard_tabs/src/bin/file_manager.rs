@@ -2,11 +2,8 @@ use singularity_common::utils::tree::{
     rooted_tree::RootedTree,
     tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
 };
-use singularity_macros::{Event, Packet, PacketUnion};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
-    datable::{ToData, TryFromData},
-    packet::{EventPacketTrait, PacketTypeId, PacketTrait},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
         RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
@@ -17,10 +14,10 @@ use singularity_sporg::project_settings::TabData;
 use singularity_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 
-#[derive(PacketUnion, Packet, Event)]
-pub enum Event {
-    DisplayEvent(DisplayEvent),
-}
+// #[derive(PacketUnion, Packet, Event)]
+// pub enum Event {
+//     DisplayEvent(DisplayEvent),
+// }
 
 pub struct FileManager {
     directory_tree: RootedTree<PathBuf>,
@@ -29,7 +26,7 @@ pub struct FileManager {
 impl FileManager {
     pub fn new<P>(
         root_directory_path: P,
-        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, DisplayEvent>,
     ) -> Self
     where
         PathBuf: std::convert::From<P>,
@@ -83,7 +80,7 @@ impl FileManager {
     }
 
     pub fn initialize_tab(
-        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, DisplayEvent>,
     ) -> Self {
         Self::new(
             serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
@@ -134,7 +131,7 @@ impl FileManager {
     pub fn handle_tab_event(
         &mut self,
         event: DisplayEvent,
-        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, DisplayEvent>,
     ) {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
@@ -177,7 +174,7 @@ impl FileManager {
 pub fn main() {
     let mut client_stream: UniversalClientStream<
         CombinedByteStream<ByteReaderWrapper, Stdout>,
-        Event,
+        DisplayEvent,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
     let mut file_manager = FileManager::initialize_tab(&mut client_stream);
@@ -189,7 +186,7 @@ pub fn main() {
 
     loop {
         let events = client_stream.wait_read_events();
-        for Event::DisplayEvent(event) in events {
+        for event in events {
             file_manager.handle_tab_event(event, &mut client_stream);
         }
 

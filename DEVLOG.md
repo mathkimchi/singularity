@@ -3395,3 +3395,12 @@ impl PacketUnion for DisplayEvent {
 ```
 
 Yooo, I finished in 20 mins, not bad.
+
+...
+
+I'll work on resolving the remaining compile-time errors.
+
+I'll make `EventPacketUnion` and `RequestPacketUnion` macros that also automatically call the `PacketUnion` macro.
+
+YOOO, passed all tests first try.
+(That might just mean my tests aren't thorough though)

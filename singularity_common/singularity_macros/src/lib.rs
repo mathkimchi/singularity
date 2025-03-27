@@ -502,40 +502,6 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(PacketUnion)]
-pub fn packet_union_derive(input: TokenStream) -> TokenStream {
-    let tokens = input.clone();
-    let ast = syn::parse_macro_input!(tokens as DeriveInput);
-
-    let identitifier = ast.ident;
-    let (to_data_impl, try_from_data_impl) = match ast.data {
-        syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
-        syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
-        syn::Data::Union(_data_union) => todo!() // TODO: I actually do want to see how Union type works
-    };
-
-    quote! {
-        const _: () = {
-            // extern crate singularity_common as __singularity_common;
-            // extern crate singularity_sap as __singularity_sap;
-            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
-            // FIXME: the imports
-            
-            #[automatically_derived]
-            impl PacketUnion for #identitifier {
-                fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
-                    #to_data_impl
-                }
-
-                fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
-                    #try_from_data_impl
-                }
-            }
-        };
-    }
-    .into()
-}
-
 #[proc_macro_derive(Event)]
 pub fn event_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
@@ -573,6 +539,93 @@ pub fn request_derive(input: TokenStream) -> TokenStream {
 
             #[automatically_derived]
             impl RequestPacketTrait for #identitifier {}
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(PacketUnion)]
+pub fn packet_union_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+
+    let identitifier = ast.ident;
+    let (to_data_impl, try_from_data_impl) = match ast.data {
+        syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
+        syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
+        syn::Data::Union(_data_union) => todo!() // TODO: I actually do want to see how Union type works
+    };
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+            
+            #[automatically_derived]
+            impl PacketUnion for #identitifier {
+                fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+                    #to_data_impl
+                }
+
+                fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+                    #try_from_data_impl
+                }
+            }
+        };
+    }
+    .into()
+}
+
+
+/// TODO: test for `EventPacketTrait`. Could have the packet union impls take in a packet prefix, so it would use cast the variants into `EventPacketTrait` instead of `PacketTrait`
+#[proc_macro_derive(EventPacketUnion)]
+pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+    
+    let identitifier = ast.ident;
+
+    let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+            
+            #packet_union_derive
+
+            #[automatically_derived]
+            impl EventPacketUnion for #identitifier {}
+        };
+    }
+    .into()
+}
+
+/// TODO: test for `RequestPacketUnion`
+#[proc_macro_derive(RequestPacketUnion)]
+pub fn request_packet_union_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+    
+    let identitifier = ast.ident;
+
+    let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+
+            #packet_union_derive
+
+            #[automatically_derived]
+            impl RequestPacketUnion for #identitifier {}
         };
     }
     .into()

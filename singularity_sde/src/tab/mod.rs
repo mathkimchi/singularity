@@ -39,7 +39,7 @@ impl TabHandler {
     }
 
     pub fn send_event(&mut self, event: SDEEvent) {
-        self.communication.send_event(event);
+        self.communication.send_event_union(event);
     }
 
     #[must_use]

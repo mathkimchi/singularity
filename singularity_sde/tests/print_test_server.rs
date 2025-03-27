@@ -29,7 +29,7 @@ fn run() {
     let mut server_stream = UniversalServerStream::new(server_host.listener.accept().unwrap().0);
     println!("Server side: accepted client conn");
 
-    server_stream.send_event(DisplayEvent::Focused(FocusedEvent)); // should not be parsed
+    server_stream.send_event_union(DisplayEvent::Focused(FocusedEvent)); // should not be parsed
     server_stream.send_event(FocusedEvent);
     println!("Server side: sent events");
 

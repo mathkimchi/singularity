@@ -4,12 +4,12 @@ pub mod display_packets {
     use crate::{
         datable::{ToData, TryFromData},
         packet::{
-            EventPacketTrait, PacketTrait, PacketTypeId, PacketUnion, RequestPacketTrait,
-            UniversalQueryTrait,
+            EventPacketTrait, EventPacketUnion, PacketTrait, PacketTypeId, PacketUnion,
+            RequestPacketTrait, UniversalQueryTrait,
         },
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;
-    use singularity_macros::{Datable, Event, Packet, PacketUnion, Request};
+    use singularity_macros::{Datable, Event, EventPacketUnion, Packet, Request};
     use singularity_sporg::project_settings::TabData;
     use singularity_ui::{display_units::DisplayArea, ui_element::UIElement, ui_event::UIEvent};
     use std::ffi::OsString;
@@ -23,7 +23,7 @@ pub mod display_packets {
     #[derive(Debug, Datable, Packet, Event)]
     pub struct CloseWarningEvent;
 
-    #[derive(Debug, PacketUnion)]
+    #[derive(Debug, EventPacketUnion)]
     pub enum DisplayEvent {
         UIEvent(UIEvent),
         Resize(ResizeEvent),
