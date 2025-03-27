@@ -106,6 +106,59 @@
           "session_data": "examples/root-project"
         }
       },
+      "84a85a14-deae-4f1b-9233-b2b6cf2adfe3": {
+        "tab_area": [
+          {
+            "x": {
+              "Proportional": 0.0
+            },
+            "y": {
+              "Proportional": 0.75
+            }
+          },
+          {
+            "x": {
+              "Proportional": 1.0
+            },
+            "y": {
+              "Proportional": 1.0
+            }
+          }
+        ],
+        "tab_data": {
+          "tab_command": {
+            "program": {
+              "Unix": [
+                46,
+                47,
+                116,
+                97,
+                114,
+                103,
+                101,
+                116,
+                47,
+                114,
+                101,
+                108,
+                101,
+                97,
+                115,
+                101,
+                47,
+                101,
+                100,
+                105,
+                116,
+                111,
+                114
+              ]
+            },
+            "args": []
+          },
+          "session_data": "examples/root-project/lorem_ipsum.txt"
+        }
+      },
       "cf04484f-90c7-49ec-a35c-4400015f8528": {
         "tab_area": [
           {
@@ -121,7 +174,7 @@
               "Proportional": 1.0
             },
             "y": {
-              "Proportional": 1.0
+              "Proportional": 0.75
             }
           }
         ],
@@ -175,13 +228,19 @@
           ],
           "parent": null
         },
-        "cf04484f-90c7-49ec-a35c-4400015f8528": {
+        "84a85a14-deae-4f1b-9233-b2b6cf2adfe3": {
           "children": [],
+          "parent": "cf04484f-90c7-49ec-a35c-4400015f8528"
+        },
+        "cf04484f-90c7-49ec-a35c-4400015f8528": {
+          "children": [
+            "84a85a14-deae-4f1b-9233-b2b6cf2adfe3"
+          ],
           "parent": "4cc07b28-2c15-4086-9710-7dcd7f841eab"
         }
       }
     },
-    "focused_tab": "cf04484f-90c7-49ec-a35c-4400015f8528",
+    "focused_tab": "84a85a14-deae-4f1b-9233-b2b6cf2adfe3",
     "display_tiles": {
       "root_id": "414c60df-9783-46ee-b9af-3146cc569009",
       "tiles": {
@@ -201,6 +260,21 @@
           }
         },
         "a7901579-e0f0-458a-b4cf-68eeae8a1742": {
+          "Container": {
+            "children": [
+              "e0580213-ed22-4871-ae3a-b791aa18cda7",
+              "c60b78c2-1570-4e36-a573-cb8742bedffa"
+            ],
+            "orientation": "Horizontal",
+            "split": 0.5
+          }
+        },
+        "c60b78c2-1570-4e36-a573-cb8742bedffa": {
+          "Tab": {
+            "tab_id": "84a85a14-deae-4f1b-9233-b2b6cf2adfe3"
+          }
+        },
+        "e0580213-ed22-4871-ae3a-b791aa18cda7": {
           "Tab": {
             "tab_id": "cf04484f-90c7-49ec-a35c-4400015f8528"
           }
@@ -208,7 +282,8 @@
       },
       "leaf_registry": {
         "4cc07b28-2c15-4086-9710-7dcd7f841eab": "793f7369-8b6c-4825-bc8d-e51584873b67",
-        "cf04484f-90c7-49ec-a35c-4400015f8528": "a7901579-e0f0-458a-b4cf-68eeae8a1742"
+        "84a85a14-deae-4f1b-9233-b2b6cf2adfe3": "c60b78c2-1570-4e36-a573-cb8742bedffa",
+        "cf04484f-90c7-49ec-a35c-4400015f8528": "e0580213-ed22-4871-ae3a-b791aa18cda7"
       }
     }
   }

@@ -3404,3 +3404,68 @@ I'll make `EventPacketUnion` and `RequestPacketUnion` macros that also automatic
 
 YOOO, passed all tests first try.
 (That might just mean my tests aren't thorough though)
+
+...
+
+The running also ran normally first try.
+I'll make the packet union macro support inner packet unions.
+I'll do this by making the user specify the attribute.
+In the case the id doesn't match any of the outermost packets,
+just see if any of the sub unions return a some.
+I wish there was a more compile time-ish way to do this,
+where the packet union leaves a special meta thing, but whatever.
+
+Manual implementation:
+
+```rust
+// #[derive(EventPacketUnion)]
+pub enum Event {
+    // #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
+impl PacketUnion for Event {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::DisplayEvent(inner_packet_union) => inner_packet_union.packet_to_data(),
+        }
+    }
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            _ => {
+                DisplayEvent::packet_try_from_data(packet_id, packet_inner_data)?;
+                None
+            }
+        }
+    }
+}
+```
+
+...
+
+I just realized, the try operator doesn't work like that.
+It almost works the exact opposite of what I want it to do.
+
+```rust
+// #[derive(EventPacketUnion)]
+pub enum Event {
+    // #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
+impl PacketUnion for Event {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::DisplayEvent(inner_packet_union) => inner_packet_union.packet_to_data(),
+        }
+    }
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            _ => {
+                if let Some(inner_packet_union) = DisplayEvent::packet_try_from_data(packet_id, packet_inner_data) {
+                    return Some(Self::DisplayEvent(inner_packet_union));
+                }
+                None
+            }
+        }
+    }
+}
+```

@@ -1,5 +1,7 @@
+use singularity_macros::EventPacketUnion;
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
+    packet::{EventPacketUnion, PacketTypeId, PacketUnion},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
         SessionDataQuery, UnfocusedEvent,
@@ -10,11 +12,11 @@ use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
 use std::{io::Stdout, path::PathBuf};
 
-// TODO: packet union of packet union
-// #[derive(EventPacketUnion)]
-// pub enum Event {
-//     DisplayEvent(DisplayEvent),
-// }
+#[derive(EventPacketUnion)]
+pub enum Event {
+    #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
 
 /// Currently Just treats everything like plaintext.
 /// This is just the textbox but with a wrapper to work with files.
@@ -46,7 +48,7 @@ pub struct Editor {
 impl Editor {
     pub fn new<P>(
         file_path: P,
-        client_stream: &mut UniversalClientStream<impl ByteStream, DisplayEvent>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self
     where
         P: AsRef<std::path::Path>,
@@ -87,7 +89,7 @@ impl Editor {
     }
 
     pub fn initialize_tab(
-        client_stream: &mut UniversalClientStream<impl ByteStream, DisplayEvent>,
+        client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
             serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
@@ -135,7 +137,7 @@ impl Editor {
 fn main() {
     let mut client_stream: UniversalClientStream<
         CombinedByteStream<ByteReaderWrapper, Stdout>,
-        DisplayEvent,
+        Event,
     > = UniversalClientStream::new(CombinedByteStream::take_from_stdio());
 
     let mut editor = Editor::initialize_tab(&mut client_stream);
@@ -147,7 +149,7 @@ fn main() {
 
     loop {
         let events = client_stream.wait_read_events();
-        for event in events {
+        for Event::DisplayEvent(event) in events {
             editor.handle_tab_event(event);
         }
 

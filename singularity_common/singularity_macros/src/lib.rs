@@ -213,43 +213,75 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
 
 /// (to_data_impl, try_from_data_impl)
 fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
-    // [(name, type), ...]
-    let variants = data_enum.variants.iter().map(|variant| {
-        let inner_packet_type = match &variant.fields {
-            Fields::Unnamed(fields_unnamed) => {
-                assert_eq!(fields_unnamed.unnamed.len(), 1, "variants should have exactly 1 unnamed field");
-                fields_unnamed.unnamed.first().unwrap().clone()
-            },
-            _=> panic!("Expected unnamed fields for all variants")
-        };
+    // [(variant name, type), ...]
+    let (packets, packet_unions) = {
+        let mut packets = Vec::new();
+        let mut packet_unions = Vec::new();
         
-        (variant.ident.clone(), inner_packet_type)
-    });
-
-    let try_from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
-        quote! {
-            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(packet_inner_data)?)),
+        for variant in &data_enum.variants {
+            let inner_packet_type = match &variant.fields {
+                Fields::Unnamed(fields_unnamed) => {
+                    assert_eq!(fields_unnamed.unnamed.len(), 1, "variants should have exactly 1 unnamed field");
+                    fields_unnamed.unnamed.first().unwrap().clone()
+                },
+                _=> panic!("Expected unnamed fields for all variants")
+            };
+            
+            if variant.attrs.iter().any(|attr| attr.path.is_ident("sub_union")) {
+                packet_unions.push((variant.ident.clone(), inner_packet_type));
+            } else {
+                packets.push((variant.ident.clone(), inner_packet_type));
+            }
         }
-    ).collect();
+    
+        (packets, packet_unions)
+    };
 
-    let to_data_match_cases: proc_macro2::TokenStream = variants.map(|(ident, inner_type)|
+    let to_data_impl = {
+        let to_data_match_packets_cases: proc_macro2::TokenStream = packets.iter().map(|(ident, inner_type)|
+            quote! {
+                Self::#ident(inner_packet) => (<#inner_type as PacketTrait>::PACKET_TYPE_ID, inner_packet.to_data()),
+            }
+        ).collect();
+        let to_data_match_packet_unions_cases: proc_macro2::TokenStream = packet_unions.iter().map(|(ident, _)|
+            quote! {
+                Self::#ident(inner_packet_union) => inner_packet_union.packet_to_data(),
+            }
+        ).collect();
+
         quote! {
-            Self::#ident(inner_packet) => (<#inner_type as PacketTrait>::PACKET_TYPE_ID, inner_packet.to_data()),
-        }
-    ).collect();
-
-    let to_data_impl = quote! {
-        match self {
-            // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
-            #to_data_match_cases
+            match self {
+                // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
+                #to_data_match_packets_cases
+                #to_data_match_packet_unions_cases
+            }
         }
     };
 
-    let try_from_data_impl = quote!{
-        match packet_id {
-            // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
-            #try_from_data_match_cases
-            _ => None,
+    let try_from_data_impl = {
+        let try_from_data_match_packets_cases: proc_macro2::TokenStream = packets.iter().map(|(ident, inner_type)|
+            quote! {
+                <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(packet_inner_data)?)),
+            }    
+        ).collect();
+        let try_from_data_try_packet_unions: proc_macro2::TokenStream = packet_unions.iter().map(|(variant_ident, inner_packet_union_type)|
+            // REVIEW: look for ways to metacommunicate between `PacketUnion` derives
+            quote! {
+                if let Some(inner_packet_union) = #inner_packet_union_type::packet_try_from_data(packet_id, packet_inner_data) {
+                    return Some(Self::#variant_ident(inner_packet_union));
+                }
+            }
+        ).collect();
+
+        quote!{
+            match packet_id {
+                // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
+                #try_from_data_match_packets_cases
+                _ => {
+                    #try_from_data_try_packet_unions
+                    None
+                }
+            }
         }
     };
 
@@ -544,7 +576,7 @@ pub fn request_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(PacketUnion)]
+#[proc_macro_derive(PacketUnion, attributes(sub_union))]
 pub fn packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
@@ -580,7 +612,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
 
 
 /// TODO: test for `EventPacketTrait`. Could have the packet union impls take in a packet prefix, so it would use cast the variants into `EventPacketTrait` instead of `PacketTrait`
-#[proc_macro_derive(EventPacketUnion)]
+#[proc_macro_derive(EventPacketUnion, attributes(sub_union))]
 pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
