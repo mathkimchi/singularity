@@ -735,7 +735,7 @@ mod singularity_ui_impls {
     }
     impl PacketTrait for singularity_ui::ui_event::UIEvent {
         /// I just mashed my keyboard
-        const PACKET_TYPE_ID: crate::packet::PacketId = 3159320418745789;
+        const PACKET_TYPE_ID: crate::packet::PacketTypeId = 3159320418745789;
     }
 }
 

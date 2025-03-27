@@ -1,7 +1,7 @@
 use singularity_macros::{Datable, Packet, PacketUnion};
 use singularity_sap::{
     datable::{ToData, TryFromData},
-    packet::{PacketId, PacketTrait},
+    packet::{PacketTypeId, PacketTrait},
 };
 use singularity_ui::{
     color::Color,

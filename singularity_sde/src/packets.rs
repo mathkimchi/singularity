@@ -3,7 +3,7 @@
 use singularity_macros::{Packet, PacketUnion, Request};
 use singularity_sap::{
     datable::{ToData, TryFromData},
-    packet::{PacketId, PacketTrait, RequestPacketTrait},
+    packet::{PacketTypeId, PacketTrait, RequestPacketTrait},
     standard_packets::display_packets::{
         DisplayEvent, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow,
     },

@@ -3157,3 +3157,103 @@ but I will give packet union trait seperate functions to avoid confusion.
 Additionally, if possible, I will start by only changing events, and leaving requests alone (query and response were always a bit different).
 
 I'm not sure if I want to make a derive proc macro (current before changes) or declarative macro (tried a long time ago, but didn't like that I could use further macros).
+
+The problem with blind recursive where packetunions themselves just act like packets with their own packet ids is that
+because we don't know the depth and what is a fundamental packet vs packet union,
+if there is a packet union with a packet union inside of it, then we will match the packet type id to the packet union instead of each of the packets within the inner packet union.
+My brain is kinda fried today, does that make sense?
+
+When recieving a packet, use the generic of packet union, when sending a packet, use the packet type.
+
+Lines 1968-2011 of the DEVLOG define the old structure of query and response packets in data form:
+
+```markdown
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a query and not a request
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+It might make more hierarchical sense to put the query type id
+before the instance id, but I think practically it makes more
+sense to do instance id first, because instance id should be read
+even if the query type id is unknown.
+(it really doesn't matter, even though my reasoning is kind of bad)
+Oh, another reason is that if I did have query bundles,
+and stored query type hierarchically in the raw data,
+then it would be better to have the instance id first
+(even though storing hierarchy would be inefficient).
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Response inner data (Optional)
+  - This would be defined by the response type
+
+For unknown queries, the server should just give a response with
+a special `Null` response type id (probably like 0).
+I considered having a `NullResponse` packet type, a `Null` response type id,
+no response type id and inner data on the null response,
+or just having an additional boolean represent
+whether the response is null or not.
+```
+
+With the new terminology (packet type -> packet category, query/response type id -> packet type id) and new ordering (put query/response type id above prompt query instance id, to standardize this between the different categories), the new description should be:
+
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet category
+  - To say that it is a query and not a request (other options, that don't make sense are event and response)
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet category
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response inner data (Optional)
+  - This would be defined by the response type
