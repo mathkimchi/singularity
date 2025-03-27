@@ -3274,3 +3274,124 @@ Well I could commit right now, but I'm not, so take that, glolichen.)
 Actually, I will commit right now.
 Not for git statistics (maybe just a bit because number go up, monke brain go "ooh ooh aah aah"),
 but primarily for organization and incremental progress.
+
+2025/03/27
+
+Chorus got let out early (8:30), so I am going to try to squeeze in a commit.
+
+The PacketUnion is actually much simpler than the datable counterpart,
+it is just match statements now.
+
+Old expansion (ignore the `const _` boilerplate):
+
+```rs
+#[automatically_derived]
+impl ToData for DisplayEvent {
+    fn to_data(&self) -> Vec<u8> {
+        let (id, inner_data) = match self {
+            Self::UIEvent(inner_packet) => (
+                <UIEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Resize(inner_packet) => (
+                <ResizeEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Focused(inner_packet) => (
+                <FocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Unfocused(inner_packet) => (
+                <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Close(inner_packet) => (
+                <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+        };
+        let id_bytes: &[u8] = &id.to_be_bytes();
+        [id_bytes, &inner_data].concat()
+    }
+}
+#[automatically_derived]
+impl TryFromData for DisplayEvent {
+    fn try_from_data(data: &[u8]) -> Option<Self> {
+        let (id_bytes, inner_data) = data.split_at((PacketId::BITS / 8) as usize);
+        let id = PacketId::from_be_bytes(id_bytes.try_into().unwrap());
+        match id {
+            <UIEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::UIEvent(UIEvent::try_from_data(inner_data)?))
+            }
+            <ResizeEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Resize(ResizeEvent::try_from_data(inner_data)?))
+            }
+            <FocusedEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Focused(FocusedEvent::try_from_data(inner_data)?))
+            }
+            <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Unfocused(UnfocusedEvent::try_from_data(inner_data)?))
+            }
+            <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Close(CloseWarningEvent::try_from_data(inner_data)?))
+            }
+            _ => None,
+        }
+    }
+}
+```
+
+Manual fixed implementation:
+
+```rs
+#[automatically_derived]
+impl PacketUnion for DisplayEvent {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::UIEvent(inner_packet) => (
+                <UIEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Resize(inner_packet) => (
+                <ResizeEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Focused(inner_packet) => (
+                <FocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Unfocused(inner_packet) => (
+                <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Close(inner_packet) => (
+                <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+        }
+    }
+
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            <UIEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::UIEvent(UIEvent::try_from_data(packet_inner_data)?))
+            }
+            <ResizeEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Resize(ResizeEvent::try_from_data(packet_inner_data)?))
+            }
+            <FocusedEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Focused(
+                FocusedEvent::try_from_data(packet_inner_data)?,
+            )),
+            <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Unfocused(
+                UnfocusedEvent::try_from_data(packet_inner_data)?,
+            )),
+            <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Close(
+                CloseWarningEvent::try_from_data(packet_inner_data)?,
+            )),
+            _ => None,
+        }
+    }
+}
+```
+
+Yooo, I finished in 20 mins, not bad.

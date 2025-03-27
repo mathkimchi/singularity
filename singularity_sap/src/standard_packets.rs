@@ -4,7 +4,8 @@ pub mod display_packets {
     use crate::{
         datable::{ToData, TryFromData},
         packet::{
-            EventPacketTrait, PacketTrait, PacketTypeId, RequestPacketTrait, UniversalQueryTrait,
+            EventPacketTrait, PacketTrait, PacketTypeId, PacketUnion, RequestPacketTrait,
+            UniversalQueryTrait,
         },
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;
@@ -22,7 +23,7 @@ pub mod display_packets {
     #[derive(Debug, Datable, Packet, Event)]
     pub struct CloseWarningEvent;
 
-    #[derive(Debug, PacketUnion, Event)]
+    #[derive(Debug, PacketUnion)]
     pub enum DisplayEvent {
         UIEvent(UIEvent),
         Resize(ResizeEvent),

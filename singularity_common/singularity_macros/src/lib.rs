@@ -228,7 +228,7 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 
     let try_from_data_match_cases: proc_macro2::TokenStream = variants.clone().map(|(ident, inner_type)|
         quote! {
-            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(inner_data)?)),
+            <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(packet_inner_data)?)),
         }
     ).collect();
 
@@ -239,20 +239,14 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
     ).collect();
 
     let to_data_impl = quote! {
-        let (id, inner_data) = match self {
+        match self {
             // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
             #to_data_match_cases
-        };
-        
-        let id_bytes: &[u8] = &id.to_be_bytes();
-        [id_bytes, &inner_data].concat()
+        }
     };
 
     let try_from_data_impl = quote!{
-        let (id_bytes, inner_data) = data.split_at((PacketTypeId::BITS / 8) as usize);
-        let id = PacketTypeId::from_be_bytes(id_bytes.try_into().unwrap());
-
-        match id {
+        match packet_id {
             // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
             #try_from_data_match_cases
             _ => None,
@@ -517,7 +511,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
     let (to_data_impl, try_from_data_impl) = match ast.data {
         syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
         syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
-        syn::Data::Union(_data_union) => unimplemented!()
+        syn::Data::Union(_data_union) => todo!() // TODO: I actually do want to see how Union type works
     };
 
     quote! {
@@ -528,14 +522,12 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
             
             #[automatically_derived]
-            impl ToData for #identitifier {
-                fn to_data(&self) -> Vec<u8> {
+            impl PacketUnion for #identitifier {
+                fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
                     #to_data_impl
                 }
-            }
-            #[automatically_derived]
-            impl TryFromData for #identitifier {
-                fn try_from_data(data: &[u8]) -> Option<Self> {
+
+                fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
                     #try_from_data_impl
                 }
             }
