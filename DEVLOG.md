@@ -3257,3 +3257,20 @@ Response raw data will contain:
   - Would be the same as the query instance id that prompted this response
 - Response inner data (Optional)
   - This would be defined by the response type
+
+...
+
+I will get started on implementing the `PacketUnion` macro tomorrow.
+I think the course of action will be to:
+1. expand the `PacketUnion` derive macro in `standard_packets`'s `DisplayEvent` (currently implements `Datable`),
+2. manually modify it to let `DisplayEvent` implement `PacketUnion` instead,
+3. then use that as a reference to update the general `PacketUnion` macro.
+
+That takes care of packet unions of packets, but not packet unions of other packet unions.
+
+(Some of my friends think I commit too much just to boost my git statistics.
+Well I could commit right now, but I'm not, so take that, glolichen.)
+
+Actually, I will commit right now.
+Not for git statistics (maybe just a bit because number go up, monke brain go "ooh ooh aah aah"),
+but primarily for organization and incremental progress.

@@ -249,8 +249,8 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
     };
 
     let try_from_data_impl = quote!{
-        let (id_bytes, inner_data) = data.split_at((PacketId::BITS / 8) as usize);
-        let id = PacketId::from_be_bytes(id_bytes.try_into().unwrap());
+        let (id_bytes, inner_data) = data.split_at((PacketTypeId::BITS / 8) as usize);
+        let id = PacketTypeId::from_be_bytes(id_bytes.try_into().unwrap());
 
         match id {
             // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
@@ -487,7 +487,7 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
         identitifier.hash(&mut hasher);
         input.to_string().hash(&mut hasher);
         // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
-        // to do something like: `hash as singularity_common::sap::packet::PacketId`.
+        // to do something like: `hash as singularity_common::sap::packet::PacketTypeId`.
         // right now, they are luckily the same
         hasher.finish()
     };
@@ -501,7 +501,7 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
 
             #[automatically_derived]
             impl PacketTrait for #identitifier {
-                const PACKET_TYPE_ID: PacketId = #packet_type_id;
+                const PACKET_TYPE_ID: PacketTypeId = #packet_type_id;
             }
         };
     }

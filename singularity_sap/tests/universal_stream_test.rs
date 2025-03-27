@@ -2,7 +2,7 @@ use singularity_common::utils::usock_tools::{client_connect_from_env, UnixServer
 use singularity_macros::{Packet, PacketUnion, Request};
 use singularity_sap::{
     datable::{ToData, TryFromData},
-    packet::{PacketTypeId, PacketTrait, RequestPacketTrait},
+    packet::{PacketTrait, PacketTypeId, RequestPacketTrait},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName},
     universal_stream::{
         universal_client_stream::UniversalClientStream,
