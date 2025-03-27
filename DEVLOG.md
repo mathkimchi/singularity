@@ -3469,3 +3469,34 @@ impl PacketUnion for Event {
     }
 }
 ```
+
+Sweet, worked first try.
+
+...
+
+I guess I got a bit sidetracked with all the packet union macro stuff,
+since [#16](https://github.com/mathkimchi/singularity/issues/16) is about plugins.
+I should've made a new issue, but I felt kind of guilty about continuously switching between
+singularity issues without saving progress recently.
+
+But this kind of was needed, because I want to define a `StandardEvent` in singularity sap's
+standard packets while dividing it up into the different event types.
+
+REVIEW: (I was thinking about it, and since I made a new set of functions for PacketUnions,
+I might've just made seperate things for packets and unions where the packet itself checks
+if the packet id matches. That reduces code repetition, which is good, but it also increases
+flexibility which is usually good, but in this case I worry that increased flexibility
+will make it easier to make errors.)
+
+I am adding one more macro, the `Query` macro, which is very basic.
+While writing it, I realized I misspelled identifier 20 times in just the macro lib.rs file.
+I might try running a spellchecker on the whole codebase.
+I'm not sure if there will be more typos in my entire source code, or in this md file.
+
+I tried to look for the documentation on matching token streams and how to use attributes,
+and sadly, the proc macro world of rust is very sparcely documented.
+Making a MathKimchi video on how to do proc macros might not be the worst idea.
+I could show off my workflow and tips that I used in singularity.
+
+Okay, I've been working straight from 2:40 to now (4:00) as well as earlier today,
+so I'll commit now and not touch singularity until I finish all my homework.

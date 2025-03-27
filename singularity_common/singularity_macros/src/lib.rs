@@ -14,7 +14,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-    let struct_identitifier = ast.ident;
+    let struct_identifier = ast.ident;
     let struct_: syn::DataStruct = match ast.data {
         syn::Data::Struct(data) => data,
         _ => panic!(),
@@ -190,7 +190,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         const _: () = {
             extern crate singularity_common as __singularity_common;
             #[automatically_derived]
-            impl #struct_identitifier {
+            impl #struct_identifier {
                 pub fn render_components(&mut self) -> singularity_ui::ui_element::UIElement {
                     singularity_ui::ui_element::UIElement::Container(vec![
                         #render_components
@@ -470,7 +470,7 @@ pub fn datable_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
     let (to_data_impl, try_from_data_impl) = match ast.data {
         syn::Data::Enum(data_enum) => enum_datable_derive(data_enum),
         syn::Data::Struct(data_struct) => struct_datable_derive(data_struct),
@@ -485,13 +485,13 @@ pub fn datable_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
 
             #[automatically_derived]
-            impl ToData for #identitifier {
+            impl ToData for #identifier {
                 fn to_data(&self) -> Vec<u8> {
                     #to_data_impl
                 }
             }
             #[automatically_derived]
-            impl TryFromData for #identitifier {
+            impl TryFromData for #identifier {
                 fn try_from_data(data: &[u8]) -> Option<Self> {
                     #try_from_data_impl
                 }
@@ -506,11 +506,11 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
     let packet_type_id = {
         let mut hasher = std::hash::DefaultHasher::new();
         // TODO: hash `module_path!()`
-        identitifier.hash(&mut hasher);
+        identifier.hash(&mut hasher);
         input.to_string().hash(&mut hasher);
         // TODO: figure out circular imports or wait till rust allows proc macros in normal crates,
         // to do something like: `hash as singularity_common::sap::packet::PacketTypeId`.
@@ -526,7 +526,7 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
 
             #[automatically_derived]
-            impl PacketTrait for #identitifier {
+            impl PacketTrait for #identifier {
                 const PACKET_TYPE_ID: PacketTypeId = #packet_type_id;
             }
         };
@@ -539,7 +539,7 @@ pub fn event_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
     
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
 
     quote! {
         const _: () = {
@@ -549,7 +549,7 @@ pub fn event_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
 
             #[automatically_derived]
-            impl EventPacketTrait for #identitifier {}
+            impl EventPacketTrait for #identifier {}
         };
     }
     .into()
@@ -560,7 +560,7 @@ pub fn request_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
     
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
 
     quote! {
         const _: () = {
@@ -570,7 +570,47 @@ pub fn request_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
 
             #[automatically_derived]
-            impl RequestPacketTrait for #identitifier {}
+            impl RequestPacketTrait for #identifier {}
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(Query, attributes(ResponseType))]
+pub fn query_derive(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+    let ast = syn::parse_macro_input!(tokens as DeriveInput);
+    
+    let identifier = ast.ident;
+    let response_type = ast.attrs.iter().find_map(|attr| {
+        if attr.path.is_ident("ResponseType") {
+            // dbg!(&attr.tokens);
+            // dbg!(&attr.tokens.clone().into_iter().next().unwrap());
+            match attr.tokens.clone().into_iter().next().unwrap() {
+                proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
+                    &[proc_macro2::TokenTree::Ident(response_type_ident)] => {
+                        Some(response_type_ident.clone())
+                    },
+                    e => panic!("tree_component attributes could not be parsed (hint: group: `{}` and e.len(): `{}`)", group, e.len()),
+                }
+                _ => panic!("expected group as attribute for ResponseType attribute"),
+            }
+        } else {
+            None
+        }
+    }).expect("`Query` macro should have one `ResponseType` attribute.");
+
+    quote! {
+        const _: () = {
+            // extern crate singularity_common as __singularity_common;
+            // extern crate singularity_sap as __singularity_sap;
+            // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
+            // FIXME: the imports
+
+            #[automatically_derived]
+            impl UniversalQueryTrait for #identifier {
+                type ResponseType = #response_type;
+            }
         };
     }
     .into()
@@ -581,7 +621,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
 
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
     let (to_data_impl, try_from_data_impl) = match ast.data {
         syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
         syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
@@ -596,7 +636,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             // FIXME: the imports
             
             #[automatically_derived]
-            impl PacketUnion for #identitifier {
+            impl PacketUnion for #identifier {
                 fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
                     #to_data_impl
                 }
@@ -617,7 +657,7 @@ pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
     
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
 
     let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
 
@@ -631,7 +671,7 @@ pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
             #packet_union_derive
 
             #[automatically_derived]
-            impl EventPacketUnion for #identitifier {}
+            impl EventPacketUnion for #identifier {}
         };
     }
     .into()
@@ -643,7 +683,7 @@ pub fn request_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
     
-    let identitifier = ast.ident;
+    let identifier = ast.ident;
 
     let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
 
@@ -657,7 +697,7 @@ pub fn request_packet_union_derive(input: TokenStream) -> TokenStream {
             #packet_union_derive
 
             #[automatically_derived]
-            impl RequestPacketUnion for #identitifier {}
+            impl RequestPacketUnion for #identifier {}
         };
     }
     .into()

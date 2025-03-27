@@ -87,21 +87,19 @@ pub mod display_packets {
     }
 }
 
-// pub mod file_packets {
-//     use crate::{
-//         datable::{ToData, TryFromData},
-//         packet::{IdType, PacketTrait, UniversalQuery},
-//     };
-//     use singularity_macros::{Datable, Packet};
+pub mod file_packets {
+    use crate::{
+        datable::{ToData, TryFromData},
+        packet::{PacketTrait, PacketTypeId, UniversalQueryTrait},
+    };
+    use singularity_macros::{Datable, Packet, Query};
 
-//     #[derive(Debug, Datable, Packet)]
-//     pub struct ReadFileRequest;
-//     #[derive(Debug, Datable, Packet)]
-//     pub struct ReadFileResponse(pub serde_json::Value);
-//     impl UniversalQuery for ReadFileRequest {
-//         type ResponseType = ReadFileResponse;
-//     }
-// }
+    #[derive(Debug, Datable, Packet, Query)]
+    #[ResponseType(ReadFileResponse)]
+    pub struct ReadFileQuery;
+    #[derive(Debug, Datable, Packet)]
+    pub struct ReadFileResponse(pub serde_json::Value);
+}
 
 // pub mod broadcast {
 //     //! Broadcast messages are themselves packets.
