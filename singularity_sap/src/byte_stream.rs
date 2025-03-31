@@ -121,6 +121,14 @@ impl ByteReaderWrapper {
 
             let raw_message_length = {
                 let mut raw_message_length_buffer = [0; (MessageLength::BITS / 8) as usize];
+                // TODO: fix the ctrl+W thing later
+                // match read.read_exact(&mut raw_message_length_buffer) {
+                //     Ok(()) => {}
+                //     Err(e) => {
+                //         dbg!(e);
+                //         break;
+                //     }
+                // }
                 read.read_exact(&mut raw_message_length_buffer).unwrap();
                 MessageLength::from_be_bytes(raw_message_length_buffer) as usize
             };

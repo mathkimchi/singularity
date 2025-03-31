@@ -3500,3 +3500,42 @@ I could show off my workflow and tips that I used in singularity.
 
 Okay, I've been working straight from 2:40 to now (4:00) as well as earlier today,
 so I'll commit now and not touch singularity until I finish all my homework.
+
+2025/03/30
+
+I want to support communication between singularity applets now (I like this new term `applet` because it encompasses tab, plugin, and subapplication in my mind).
+IAC (inter applet communication, like IPC) should come in two types:
+- Broadcasts
+  - Reciever chooses the sender (or the category of broadcasts to listen to that can be sent by anyone (make sure to ignore broadcasts send by self))
+  - Multiple recievers allowed
+  - Logical flow: reciever sends a subscribe request, for each broadcast message the sender sends a broadcast request and every reciever gets a broadcast event
+  - Sender sends something analogous to the server's `event`
+- Direct Communication:
+  - Sender chooses reciever (sender can send `query` or `request`)
+  - Logical flow:
+    - Sender sends `IACQuery` or `IACRequest` to server
+    - Server sends `QueryRecievedEvent` or `RequestRecievedEvent` to reciever
+    - If a query was sent, then the reciever either sends back a `IACResponse` to the server, which is actually a request. (Technically, it could just not respond and screw everyone over. A cooperative reciever would at least reply with a `QueryUnknownResponse`. I'm actually going to ignore `IAC` queries for now)
+
+In either type, when one applet chooses the other applet, they use the other applet's `Id`.
+In practice, the server would offer queries and stuff to help find other applets.
+TODO: store applet types as well? (some would have to be anonymous though by nature)
+
+I wish I was careless about resources.
+I mean, in contrast to other processes, the overhead of having a bunch of connections
+(less than 100 for normal usecases) should be insignificant.
+But, for some reason, a primitive instinct is prohibitting me from implementing the "elegant solution".
+Let me describe things I would want if resources were not a problem:
+
+- For each query from applet to server, instantly give back a seperate one-time channel for the response so they can choose to wait and listen now or just check back later. Then, disregard like a burner phone.
+- A broad listener applet would be like mpsc for each type of thing to listen to
+- For each direct communication, start a new channel
+- Each applet instance has an applet channel (like now), but for each display it creates, a new display chat is created for all communication regarding that display (eg: DrawRequest, KeyPressEvent, and SizeQuery would be sent via display chat).
+
+The hope would be that those ways are safer and make more logical sense as opposed to using id's to try to pack everything into one stream.
+
+I looked at [this reddit post](https://www.reddit.com/r/rust/comments/7i4ljy/question_mpsc_over_mapped_memory/)
+and [ipc-channel](https://github.com/servo/ipc-channel) by servo looks literally perfect for my usecase.
+It is literally begging me to use it.
+An active repo (last commit just 27 days ago), used by an established organization, almost 1000 stars,
+seems perfect for my usecase, but idk.
