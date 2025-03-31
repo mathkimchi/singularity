@@ -1,15 +1,25 @@
 //! REVIEW: Move
 
+use crate::{
+    datable::{ToData, TryFromData},
+    packet::{EventPacketUnion, PacketTrait, PacketTypeId, PacketUnion, RequestPacketUnion},
+};
+use display_packets::{DisplayEvent, DisplayRequest};
+use file_packets::WriteFileRequest;
+use singularity_macros::{EventPacketUnion, RequestPacketUnion};
+
 pub mod display_packets {
     use crate::{
         datable::{ToData, TryFromData},
         packet::{
             EventPacketTrait, EventPacketUnion, PacketTrait, PacketTypeId, PacketUnion,
-            RequestPacketTrait, UniversalQueryTrait,
+            RequestPacketTrait, RequestPacketUnion, UniversalQueryTrait,
         },
     };
     use singularity_common::utils::tree::tree_node_path::TreeNodePath;
-    use singularity_macros::{Datable, Event, EventPacketUnion, Packet, Request};
+    use singularity_macros::{
+        Datable, Event, EventPacketUnion, Packet, Query, Request, RequestPacketUnion,
+    };
     use singularity_sporg::project_settings::TabData;
     use singularity_ui::{display_units::DisplayArea, ui_element::UIElement, ui_event::UIEvent};
     use std::ffi::OsString;
@@ -62,43 +72,54 @@ pub mod display_packets {
         }
     }
 
-    #[derive(Debug, Datable, Packet)]
+    #[derive(Debug, RequestPacketUnion)]
+    pub enum DisplayRequest {
+        RequestChangeName(RequestChangeName),
+        RequestUpdateWindow(RequestUpdateWindow),
+        RequestSpawnChildTab(RequestSpawnChildTab),
+    }
+
+    #[derive(Debug, Datable, Packet, Query)]
+    #[ResponseType(PathResponse)]
     pub struct PathQuery;
     #[derive(Debug, Datable, Packet)]
     pub struct PathResponse(pub TreeNodePath);
-    impl UniversalQueryTrait for PathQuery {
-        type ResponseType = PathResponse;
-    }
 
-    #[derive(Debug, Datable, Packet)]
+    #[derive(Debug, Datable, Packet, Query)]
+    #[ResponseType(NameResponse)]
     pub struct NameQuery;
     #[derive(Debug, Datable, Packet)]
     pub struct NameResponse(pub String);
-    impl UniversalQueryTrait for NameQuery {
-        type ResponseType = NameResponse;
-    }
 
-    #[derive(Debug, Datable, Packet)]
+    #[derive(Debug, Datable, Packet, Query)]
+    #[ResponseType(SessionDataResponse)]
     pub struct SessionDataQuery;
     #[derive(Debug, Datable, Packet)]
     pub struct SessionDataResponse(pub serde_json::Value);
-    impl UniversalQueryTrait for SessionDataQuery {
-        type ResponseType = SessionDataResponse;
-    }
 }
 
 pub mod file_packets {
     use crate::{
         datable::{ToData, TryFromData},
-        packet::{PacketTrait, PacketTypeId, UniversalQueryTrait},
+        packet::{PacketTrait, PacketTypeId, RequestPacketTrait, UniversalQueryTrait},
     };
-    use singularity_macros::{Datable, Packet, Query};
+    use singularity_macros::{Datable, Packet, Query, Request};
+    use std::path::PathBuf;
 
     #[derive(Debug, Datable, Packet, Query)]
     #[ResponseType(ReadFileResponse)]
-    pub struct ReadFileQuery;
+    pub struct ReadFileQuery(pub PathBuf);
     #[derive(Debug, Datable, Packet)]
-    pub struct ReadFileResponse(pub serde_json::Value);
+    pub struct ReadFileResponse(pub Vec<u8>);
+
+    #[derive(Debug, Datable, Packet, Request)]
+
+    pub struct WriteFileRequest(pub PathBuf, pub Vec<u8>);
+    impl WriteFileRequest {
+        pub fn new(p: &impl AsRef<PathBuf>, s: &impl ToString) -> Self {
+            Self(p.as_ref().clone(), s.to_string().bytes().collect())
+        }
+    }
 }
 
 // pub mod broadcast {
@@ -119,3 +140,15 @@ pub mod file_packets {
 
 //     pub struct BroadcastEvent {}
 // }
+
+#[derive(Debug, EventPacketUnion)]
+pub enum StandardEvent {
+    #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
+#[derive(Debug, RequestPacketUnion)]
+pub enum StandardRequest {
+    #[sub_union]
+    DisplayRequest(DisplayRequest),
+    WriteFileRequest(WriteFileRequest),
+}

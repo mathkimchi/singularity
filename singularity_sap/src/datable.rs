@@ -13,6 +13,7 @@ mod std_impls {
     use std::{
         ffi::OsString,
         os::unix::ffi::{OsStrExt, OsStringExt},
+        path::PathBuf,
     };
 
     use super::{ToData, TryFromData};
@@ -129,6 +130,17 @@ mod std_impls {
     impl TryFromData for OsString {
         fn try_from_data(data: &[u8]) -> Option<Self> {
             Some(OsString::from_vec(data.to_vec()))
+        }
+    }
+
+    impl ToData for PathBuf {
+        fn to_data(&self) -> Vec<u8> {
+            self.as_os_str().to_os_string().to_data()
+        }
+    }
+    impl TryFromData for PathBuf {
+        fn try_from_data(data: &[u8]) -> Option<Self> {
+            Some(PathBuf::from(OsString::try_from_data(data)?))
         }
     }
 

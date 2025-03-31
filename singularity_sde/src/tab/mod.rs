@@ -1,7 +1,7 @@
 use crate::packets::{SDEEvent, SDERequest};
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, CombinedByteStream},
-    standard_packets::display_packets::ResizeEvent,
+    standard_packets::display_packets::{DisplayEvent, ResizeEvent},
     universal_stream::universal_server_stream::{QueryDataResponder, UniversalServerStream},
 };
 use singularity_sporg::project_settings::TabData;
@@ -72,7 +72,9 @@ impl TabHandler {
 
         self.tab_area = new_area;
 
-        self.send_event(SDEEvent::Resize(ResizeEvent(new_area)));
+        self.send_event(SDEEvent::DisplayEvent(DisplayEvent::Resize(ResizeEvent(
+            new_area,
+        ))));
     }
 
     pub fn get_tab_data(&self) -> &TabData {

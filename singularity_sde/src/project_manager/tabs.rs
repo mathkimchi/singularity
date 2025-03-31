@@ -3,7 +3,9 @@ use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
 };
-use singularity_sap::standard_packets::display_packets::{FocusedEvent, UnfocusedEvent};
+use singularity_sap::standard_packets::display_packets::{
+    DisplayEvent, FocusedEvent, UnfocusedEvent,
+};
 use singularity_sporg::{project_settings::TabData, tile::Tiles, Project};
 use singularity_ui::display_units::DisplayArea;
 
@@ -171,14 +173,16 @@ impl Tabs {
     pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
         // notify previously focused tab it is no longer focused
         if let Some(old_focused_tab) = self.tabs.get_mut(&self.focused_tab) {
-            old_focused_tab.send_event(SDEEvent::Unfocused(UnfocusedEvent));
+            old_focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::Unfocused(
+                UnfocusedEvent,
+            )));
         }
         self.focused_tab = focused_tab_id;
         // notify new focused tab it is now focused
         self.tabs
             .get_mut(&self.focused_tab)
             .unwrap()
-            .send_event(SDEEvent::Focused(FocusedEvent));
+            .send_event(SDEEvent::DisplayEvent(DisplayEvent::Focused(FocusedEvent)));
 
         // move the focused tab to end of display order (putting it on top)
         {

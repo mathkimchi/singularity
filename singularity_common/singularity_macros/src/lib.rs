@@ -678,7 +678,7 @@ pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
 }
 
 /// TODO: test for `RequestPacketUnion`
-#[proc_macro_derive(RequestPacketUnion)]
+#[proc_macro_derive(RequestPacketUnion, attributes(sub_union))]
 pub fn request_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);

@@ -11,9 +11,13 @@ use singularity_common::utils::{
     },
 };
 use singularity_sap::{
-    standard_packets::display_packets::{
-        CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName,
-        RequestSpawnChildTab, RequestUpdateWindow, SessionDataQuery, SessionDataResponse,
+    standard_packets::{
+        display_packets::{
+            CloseWarningEvent, DisplayEvent, DisplayRequest, NameQuery, NameResponse, PathQuery,
+            PathResponse, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow,
+            SessionDataQuery, SessionDataResponse,
+        },
+        file_packets::{ReadFileQuery, ReadFileResponse, WriteFileRequest},
     },
     universal_stream::universal_server_stream::as_query_data_responder,
 };
@@ -30,7 +34,8 @@ use singularity_ui::{
     UIDisplay,
 };
 use std::{
-    io::{self},
+    fs::File,
+    io::{self, Read, Write},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -100,7 +105,9 @@ impl ProjectManager {
 
         // close tab processes
         for mut tab in self.tabs.tabs.into_values() {
-            tab.send_event(SDEEvent::Close(CloseWarningEvent));
+            tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::Close(
+                CloseWarningEvent,
+            )));
             tab.kill();
         }
 
@@ -466,7 +473,9 @@ impl ProjectManager {
                 let focused_tab = self.tabs.get_focused_tab_mut();
 
                 // rebuild the keypress. redundant but feels safer
-                focused_tab.send_event(SDEEvent::UIEvent(UIEvent::KeyPress(key, key_mod)));
+                focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::UIEvent(
+                    UIEvent::KeyPress(key, key_mod),
+                )));
             }
             UserAction::ForwardKeyPressCommandPalette(key, _key_mod) => {
                 if let Some(command_buffer) = self.mode.try_get_command_palette_buffer_mut() {
@@ -538,12 +547,12 @@ impl ProjectManager {
                         DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                         [tot_width as i32, tot_height as i32],
                     ) {
-                        focused_tab.send_event(SDEEvent::UIEvent(
+                        focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::UIEvent(
                             singularity_ui::ui_event::UIEvent::MousePress(
                                 [[click_x, click_y], [tot_width, tot_height]],
                                 focused_tab.get_area().map_onto(container),
                             ),
-                        ));
+                        )));
                     }
                 }
 
@@ -593,24 +602,36 @@ impl ProjectManager {
                     &mut as_query_data_responder(move |SessionDataQuery| {
                         Some(SessionDataResponse(session_data.clone()))
                     }),
+                    &mut as_query_data_responder(move |ReadFileQuery(path)| {
+                        let mut file = File::open(path).ok()?;
+                        let mut buf = Vec::new();
+                        file.read_to_end(&mut buf).ok()?;
+                        Some(ReadFileResponse(buf))
+                    }),
                 ])
             };
 
             for request in requests {
                 match request {
-                    SDERequest::RequestChangeName(RequestChangeName { new_name }) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestChangeName(
+                        RequestChangeName { new_name },
+                    )) => {
                         self.tabs
                             .get_mut_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
                             .unwrap()
                             .tab_name = new_name;
                     }
-                    SDERequest::RequestUpdateWindow(RequestUpdateWindow { contents: new_ui }) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestUpdateWindow(
+                        RequestUpdateWindow { contents: new_ui },
+                    )) => {
                         self.tabs
                             .get_mut_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
                             .unwrap()
                             .tab_display = new_ui;
                     }
-                    SDERequest::RequestSpawnChildTab(RequestSpawnChildTab(tab_data)) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestSpawnChildTab(
+                        RequestSpawnChildTab(tab_data),
+                    )) => {
                         self.tabs.add(
                             TabHandler::new(
                                 tab_data,
@@ -621,6 +642,11 @@ impl ProjectManager {
                             ),
                             &self.tabs.get_id_by_org_path(&tab_path).unwrap(),
                         );
+                    }
+                    SDERequest::WriteFileRequest(WriteFileRequest(dest, conent_bytes)) => {
+                        if let Ok(mut dest_file) = File::open(dest) {
+                            dest_file.write_all(&conent_bytes).unwrap();
+                        }
                     }
                 }
             }
