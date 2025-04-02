@@ -6,8 +6,10 @@ use singularity_common::utils::{
 use singularity_sap::standard_packets::display_packets::{
     DisplayEvent, FocusedEvent, UnfocusedEvent,
 };
-use singularity_sporg::{project_settings::TabData, tile::Tiles, Project};
-use singularity_ui::display_units::DisplayArea;
+use singularity_sporg::{
+    session::{OpenTab, Session, SessionData},
+    tile::Tiles,
+};
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
 /// REVIEW: currently, must have at least one tab. change?
@@ -32,76 +34,40 @@ pub struct Tabs {
     display_tiles: Tiles<TabHandler>,
 }
 impl Tabs {
-    pub fn parse_from_project(project: &Project) -> Self {
-        if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
-            Self {
-                tabs: open_tabs
-                    .tabs
-                    .into_iter()
-                    .map(|(id, open_tab)| {
-                        (
-                            uuid::Uuid::from(id).into(),
-                            TabHandler::new(open_tab.tab_data, open_tab.tab_area),
-                        )
-                    })
-                    .collect(),
-                org_tree: open_tabs.org_tree.transmute(),
-                focused_tab: open_tabs.focused_tab.transmute(),
-                display_tiles: open_tabs.display_tiles.transmute(),
-            }
-        } else {
-            // create the default new project
-
-            // let mut tabs = Tabs::new_from_root(TabHandler::new(
-            //     FileManager::new_tab_creator(),
-            //     TabData {
-            //         tab_type: "FILE_MANAGER".to_string(),
-            //         session_data: serde_json::to_value(project.get_project_directory().clone())
-            //             .unwrap(),
-            //     },
-            //     DisplayArea::new((0., 0.), (0.5, 1.)),
-            // ));
-
-            // tabs.add(
-            //     TabHandler::new(
-            //         TaskOrganizer::new_tab_creator(),
-            //         TabData {
-            //             tab_type: "TASK_ORGANIZER".to_string(),
-            //             session_data: serde_json::to_value(project.get_project_directory().clone())
-            //                 .unwrap(),
-            //         },
-            //         DisplayArea::new((0.5, 0.), (1.0, 1.)),
-            //     ),
-            //     &tabs.get_root_id(),
-            // );
-
-            let tabs = Tabs::new_from_root(TabHandler::new(
-                TabData::new_argless(
-                    "./target/release/file_manager",
-                    serde_json::to_value(project.get_project_directory().clone()).unwrap(),
-                ),
-                DisplayArea::new((0., 0.), (0.5, 1.)),
-            ));
-
-            tabs
-        }
-    }
-
-    fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
-        let mut tabs = IdMap::new();
-        tabs.insert(root_id, root_tab);
-
+    pub fn parse_from_session(session: &Session) -> Self {
         Self {
-            tabs,
-            org_tree: IdTree::new(root_id),
-            focused_tab: root_id,
-            display_tiles: Tiles::new_from_root(root_id),
+            tabs: session
+                .session_data
+                .tabs
+                .iter()
+                .map(|(id, open_tab)| {
+                    (
+                        uuid::Uuid::from(*id).into(),
+                        TabHandler::spawn(open_tab.tab_data.clone(), open_tab.tab_area),
+                    )
+                })
+                .collect(),
+            org_tree: session.session_data.org_tree.clone().transmute(),
+            focused_tab: session.session_data.focused_tab.transmute(),
+            display_tiles: session.session_data.display_tiles.clone().transmute(),
         }
     }
 
-    pub fn new_from_root(root_tab: TabHandler) -> Self {
-        Self::new_from_root_with_id(root_tab, Id::generate())
-    }
+    // fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
+    //     let mut tabs = IdMap::new();
+    //     tabs.insert(root_id, root_tab);
+
+    //     Self {
+    //         tabs,
+    //         org_tree: IdTree::new(root_id),
+    //         focused_tab: root_id,
+    //         display_tiles: Tiles::new_from_root(root_id),
+    //     }
+    // }
+
+    // pub fn new_from_root(root_tab: TabHandler) -> Self {
+    //     Self::new_from_root_with_id(root_tab, Id::generate())
+    // }
 
     pub fn add(
         &mut self,
@@ -270,10 +236,8 @@ impl Tabs {
 
     /// Save this session
     /// REVIEW: Rename to export?
-    pub fn save_session(&self) -> singularity_sporg::project_settings::OpenTabs {
-        use singularity_sporg::project_settings::{OpenTab, OpenTabs};
-
-        OpenTabs {
+    pub fn save_session(&self) -> singularity_sporg::session::SessionData {
+        SessionData {
             tabs: self
                 .tabs
                 .iter()

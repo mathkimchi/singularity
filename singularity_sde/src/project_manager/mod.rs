@@ -23,8 +23,8 @@ use singularity_sap::{
 };
 use singularity_sporg::{
     project_settings::{SubappSettings, SubappStandardSettings},
+    session::Session,
     tile::{Orientation, Tile},
-    Project,
 };
 use singularity_ui::{
     color::Color,
@@ -48,7 +48,7 @@ mod mode;
 mod tabs;
 
 pub struct ProjectManager {
-    project: Project,
+    session: Session,
 
     tabs: Tabs,
 
@@ -66,11 +66,11 @@ impl ProjectManager {
         P: 'static + AsRef<std::path::Path> + Clone + Send,
         std::path::PathBuf: From<P>,
     {
-        let project = Project::new(project_directory.clone());
-        let tabs = Tabs::parse_from_project(&project);
+        let session = Session::get_or_make_session(project_directory.clone());
+        let tabs = Tabs::parse_from_session(&session);
 
         Self {
-            project,
+            session,
             tabs,
             mode: Mode::TabFocus,
             is_running: Arc::new(AtomicBool::new(false)),
@@ -287,8 +287,8 @@ impl ProjectManager {
     fn save_to_file(&mut self) {
         // save the tabs session
         let open_tabs = self.tabs.save_session();
-        self.project.project_settings.open_tabs = Some(open_tabs);
-        self.project.save_to_file();
+        self.session.session_data = open_tabs;
+        self.session.save_to_file();
     }
 
     /// Returns if it was a quit. Just for that specific case.
@@ -499,11 +499,16 @@ impl ProjectManager {
                                                     spawnable_default: Some(default_tab_data),
                                                 }),
                                             ..
-                                        }) = self.project.project_settings.subapps.get(command)
+                                        }) = self
+                                            .session
+                                            .project
+                                            .project_settings
+                                            .subapps
+                                            .get(command)
                                         {
                                             dbg!("Spawning:", command);
                                             self.tabs.add(
-                                                TabHandler::new(
+                                                TabHandler::spawn(
                                                     default_tab_data.clone(),
                                                     Self::generate_tab_area(
                                                         self.tabs.num_tabs(),
@@ -633,7 +638,7 @@ impl ProjectManager {
                         RequestSpawnChildTab(tab_data),
                     )) => {
                         self.tabs.add(
-                            TabHandler::new(
+                            TabHandler::spawn(
                                 tab_data,
                                 // NOTE: the argument child index is technically incorrect,
                                 // but the purpose of the generator is to generally prevent all

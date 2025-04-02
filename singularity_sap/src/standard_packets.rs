@@ -20,7 +20,7 @@ pub mod display_packets {
     use singularity_macros::{
         Datable, Event, EventPacketUnion, Packet, Query, Request, RequestPacketUnion,
     };
-    use singularity_sporg::project_settings::TabData;
+    use singularity_sporg::session::TabData;
     use singularity_ui::{display_units::DisplayArea, ui_element::UIElement, ui_event::UIEvent};
     use std::ffi::OsString;
 

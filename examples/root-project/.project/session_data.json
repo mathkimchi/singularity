@@ -1,0 +1,161 @@
+{
+  "tabs": {
+    "a8f2b6af-5245-4132-b3ca-ea29641f696e": {
+      "tab_area": [
+        {
+          "x": {
+            "Proportional": 0.0
+          },
+          "y": {
+            "Proportional": 0.5
+          }
+        },
+        {
+          "x": {
+            "Proportional": 1.0
+          },
+          "y": {
+            "Proportional": 1.0
+          }
+        }
+      ],
+      "tab_data": {
+        "tab_command": {
+          "program": {
+            "Unix": [
+              46,
+              47,
+              116,
+              97,
+              114,
+              103,
+              101,
+              116,
+              47,
+              114,
+              101,
+              108,
+              101,
+              97,
+              115,
+              101,
+              47,
+              101,
+              100,
+              105,
+              116,
+              111,
+              114
+            ]
+          },
+          "args": []
+        },
+        "session_data": "examples/root-project/lorem_ipsum.txt"
+      }
+    },
+    "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8": {
+      "tab_area": [
+        {
+          "x": {
+            "Proportional": 0.0
+          },
+          "y": {
+            "Proportional": 0.0
+          }
+        },
+        {
+          "x": {
+            "Proportional": 1.0
+          },
+          "y": {
+            "Proportional": 0.5
+          }
+        }
+      ],
+      "tab_data": {
+        "tab_command": {
+          "program": {
+            "Unix": [
+              46,
+              47,
+              116,
+              97,
+              114,
+              103,
+              101,
+              116,
+              47,
+              114,
+              101,
+              108,
+              101,
+              97,
+              115,
+              101,
+              47,
+              102,
+              105,
+              108,
+              101,
+              95,
+              109,
+              97,
+              110,
+              97,
+              103,
+              101,
+              114
+            ]
+          },
+          "args": []
+        },
+        "session_data": "examples/root-project"
+      }
+    }
+  },
+  "org_tree": {
+    "root_id": "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8",
+    "nodes": {
+      "a8f2b6af-5245-4132-b3ca-ea29641f696e": {
+        "children": [],
+        "parent": "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8"
+      },
+      "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8": {
+        "children": [
+          "a8f2b6af-5245-4132-b3ca-ea29641f696e"
+        ],
+        "parent": null
+      }
+    }
+  },
+  "focused_tab": "a8f2b6af-5245-4132-b3ca-ea29641f696e",
+  "display_tiles": {
+    "root_id": "be5368a7-f9c7-4b2f-9ce0-34e88b3dc70c",
+    "tiles": {
+      "3a72b313-9eed-4f0c-9e8f-56ed8a31d0ba": {
+        "Tab": {
+          "tab_id": "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8"
+        }
+      },
+      "4513ed75-1b63-4fe7-a0a0-8edf34df3587": {
+        "Tab": {
+          "tab_id": "a8f2b6af-5245-4132-b3ca-ea29641f696e"
+        }
+      },
+      "be5368a7-f9c7-4b2f-9ce0-34e88b3dc70c": {
+        "Container": {
+          "children": [
+            "3a72b313-9eed-4f0c-9e8f-56ed8a31d0ba",
+            "4513ed75-1b63-4fe7-a0a0-8edf34df3587"
+          ],
+          "orientation": "Horizontal",
+          "split": 0.5
+        }
+      }
+    },
+    "leaf_registry": {
+      "a8f2b6af-5245-4132-b3ca-ea29641f696e": "4513ed75-1b63-4fe7-a0a0-8edf34df3587",
+      "c2ca6fc4-d604-4a3b-9c98-fe28b031e8f8": "3a72b313-9eed-4f0c-9e8f-56ed8a31d0ba"
+    }
+  }
+}

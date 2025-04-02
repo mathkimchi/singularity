@@ -1,0 +1,147 @@
+use crate::{project_settings::Project, tile::Tiles};
+use serde::{Deserialize, Serialize};
+use singularity_common::utils::{
+    id_map::{Id, IdMap},
+    tree::id_tree::IdTree,
+};
+use singularity_ui::display_units::DisplayArea;
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
+
+/// Like `Command`. (program, args). The command and args to spawn tab.
+/// TODO: can make this an Enum later when tabs can have different ways of being created.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct TabSpawnCommand {
+    pub program: OsString,
+    pub args: Vec<OsString>,
+}
+
+/// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
+/// REVIEW: rename?
+/// REVIEW: include Area and UIElement and TabType into this?
+/// This type is kind of a black sheep
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct TabData {
+    pub tab_command: Option<TabSpawnCommand>,
+    /// REVIEW: make this another type?
+    pub session_data: serde_json::Value,
+}
+impl TabData {
+    pub fn new(
+        tab_command_program: impl Into<OsString>,
+        args: impl Iterator<Item = impl Into<OsString>>,
+        session_data: serde_json::Value,
+    ) -> Self {
+        Self {
+            tab_command: Some(TabSpawnCommand {
+                program: tab_command_program.into(),
+                args: args.map(|arg| arg.into()).collect(),
+            }),
+            session_data,
+        }
+    }
+
+    pub fn new_argless(
+        tab_command_program: impl Into<OsString>,
+        session_data: serde_json::Value,
+    ) -> Self {
+        Self {
+            tab_command: Some(TabSpawnCommand {
+                program: tab_command_program.into(),
+                args: Vec::new(),
+            }),
+            session_data,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct OpenTab {
+    /// is kind of dangerous to let user change the id of a tab, but if they screw this up, it is their fault
+    pub tab_area: DisplayArea,
+    pub tab_data: TabData,
+}
+
+/// Data for the whole session, things like opened tabs and their sessions as well as focused tab.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SessionData {
+    pub tabs: IdMap<OpenTab>,
+
+    /// ORGanizational tree
+    pub org_tree: IdTree<OpenTab>,
+    pub focused_tab: Id<OpenTab>,
+
+    // /// currently, last in vec is "top" in gui
+    // pub display_order: Vec<Uuid>,
+    pub display_tiles: Tiles<OpenTab>,
+}
+impl SessionData {
+    pub fn try_parse_from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
+        Ok(serde_json::from_str(&std::fs::read_to_string(path)?)
+            .expect("session data should be formatted correctly"))
+    }
+
+    // NOTE: this type currently isn't suited for manual modification. It's really for the SDE to serialize to and from
+    pub fn new(project: &Project) -> Self {
+        let id = Id::generate();
+
+        let root_tab = OpenTab {
+            tab_area: DisplayArea::new((0., 0.), (0.5, 1.)),
+            tab_data: TabData::new_argless(
+                "./target/release/file_manager",
+                serde_json::to_value(project.get_project_directory().clone()).unwrap(),
+            ),
+        };
+
+        let org_tree = IdTree::new(id);
+        let mut tabs = IdMap::new();
+        tabs.insert(id, root_tab);
+        let display_tiles = Tiles::new_from_root(id);
+
+        Self {
+            tabs,
+            org_tree,
+            focused_tab: id,
+            display_tiles,
+        }
+    }
+}
+
+pub struct Session {
+    pub project: Project,
+    pub session_data: SessionData,
+}
+impl Session {
+    /// Given the project directory, gets the previously closed session (and project settings) if they exist, otherwise starts a new session.
+    pub fn get_or_make_session<P>(project_directory: P) -> Self
+    where
+        P: AsRef<std::path::Path> + Clone,
+        PathBuf: std::convert::From<P>,
+    {
+        let project = Project::open_or_make(project_directory.clone());
+        let session_data = SessionData::try_parse_from_file(
+            PathBuf::from(project_directory).join(".project/session_data.json"),
+        )
+        .ok()
+        .unwrap_or_else(|| SessionData::new(&project));
+
+        Self {
+            project,
+            session_data,
+        }
+    }
+
+    pub fn save_to_file(&self) {
+        self.project.save_to_file();
+
+        let core_project_settings_path = self
+            .project
+            .get_project_directory()
+            .join(".project/session_data.json");
+        let serialized_project = serde_json::to_string_pretty(&self.session_data).unwrap();
+        std::fs::write(core_project_settings_path, serialized_project)
+            .expect("failed to write serialized project to `.project/session_data.json`");
+    }
+}

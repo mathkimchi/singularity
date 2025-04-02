@@ -12,7 +12,7 @@ use singularity_sap::{
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
-use singularity_sporg::project_settings::TabData;
+use singularity_sporg::session::TabData;
 use singularity_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 

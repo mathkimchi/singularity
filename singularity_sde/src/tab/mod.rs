@@ -4,7 +4,7 @@ use singularity_sap::{
     standard_packets::display_packets::{DisplayEvent, ResizeEvent},
     universal_stream::universal_server_stream::{QueryDataResponder, UniversalServerStream},
 };
-use singularity_sporg::project_settings::TabData;
+use singularity_sporg::session::TabData;
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 use std::process::{Child, ChildStdin, Command, Stdio};
 
@@ -19,22 +19,26 @@ pub struct TabHandler {
 }
 impl TabHandler {
     /// TODO: allow setting focus
-    pub fn new(initial_tab_data: TabData, tab_area: DisplayArea) -> Self {
-        let mut tab_spawn_command = Command::new(&initial_tab_data.tab_command.program)
-            .args(&initial_tab_data.tab_command.args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let byte_stream = CombinedByteStream::take_from_child(&mut tab_spawn_command).unwrap();
+    pub fn spawn(initial_tab_data: TabData, tab_area: DisplayArea) -> Self {
+        if let Some(tab_command) = &initial_tab_data.tab_command {
+            let mut tab_spawn_command = Command::new(&tab_command.program)
+                .args(&tab_command.args)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let byte_stream = CombinedByteStream::take_from_child(&mut tab_spawn_command).unwrap();
 
-        Self {
-            communication: UniversalServerStream::new(byte_stream),
-            tab_name: String::new(),
-            tab_area,
-            tab_display: UIElement::Nothing,
-            tab_data: initial_tab_data,
-            tab_process: tab_spawn_command,
+            Self {
+                communication: UniversalServerStream::new(byte_stream),
+                tab_name: String::new(),
+                tab_area,
+                tab_display: UIElement::Nothing,
+                tab_data: initial_tab_data,
+                tab_process: tab_spawn_command,
+            }
+        } else {
+            todo!()
         }
     }
 

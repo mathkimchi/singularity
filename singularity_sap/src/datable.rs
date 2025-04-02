@@ -751,95 +751,127 @@ mod singularity_ui_impls {
     }
 }
 
-#[cfg(feature = "singularity_sporg")]
+#[cfg(all(
+    feature = "singularity_sporg",
+    feature = "serde",
+    feature = "serde_json"
+))]
 mod singularity_sporg_impls {
+    // use super::{ToData, TryFromData};
+    // use std::ffi::OsString;
+
+    // impl ToData for singularity_sporg::project_settings::TabSpawnCommand {
+    //     fn to_data(&self) -> Vec<u8> {
+    //         let bytes_program = self.program.to_data();
+    //         let len_program = bytes_program.len().to_be_bytes();
+    //         let bytes_args = self.args.to_data();
+    //         let len_args = bytes_args.len().to_be_bytes();
+    //         [
+    //             len_program.as_slice(),
+    //             bytes_program.as_slice(),
+    //             len_args.as_slice(),
+    //             bytes_args.as_slice(),
+    //         ]
+    //         .concat()
+    //     }
+    // }
+    // #[automatically_derived]
+    // impl TryFromData for singularity_sporg::project_settings::TabSpawnCommand {
+    //     fn try_from_data(data: &[u8]) -> Option<Self> {
+    //         let mut index = 0;
+    //         let constructed_self = Self {
+    //             program: {
+    //                 let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+    //                 index += 8;
+    //                 let inner_data = &data[index..(index + len)];
+    //                 index += len;
+    //                 <OsString>::try_from_data(inner_data)?
+    //             },
+    //             args: {
+    //                 let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+    //                 index += 8;
+    //                 let inner_data = &data[index..(index + len)];
+    //                 index += len;
+    //                 <Vec<OsString>>::try_from_data(inner_data)?
+    //             },
+    //         };
+    //         if index != data.len() {
+    //             return None;
+    //         }
+    //         Some(constructed_self)
+    //     }
+    // }
+
+    // impl ToData for singularity_sporg::project_settings::TabData {
+    //     fn to_data(&self) -> Vec<u8> {
+    //         let bytes_tab_command = self.tab_command.to_data();
+    //         let len_tab_command = bytes_tab_command.len().to_be_bytes();
+    //         let bytes_session_data = self.session_data.to_data();
+    //         let len_session_data = bytes_session_data.len().to_be_bytes();
+    //         [
+    //             len_tab_command.as_slice(),
+    //             bytes_tab_command.as_slice(),
+    //             len_session_data.as_slice(),
+    //             bytes_session_data.as_slice(),
+    //         ]
+    //         .concat()
+    //     }
+    // }
+    // impl TryFromData for singularity_sporg::project_settings::TabData {
+    //     fn try_from_data(data: &[u8]) -> Option<Self> {
+    //         let mut index = 0;
+    //         let constructed_self = Self {
+    //             tab_command: {
+    //                 let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+    //                 index += 8;
+    //                 let inner_data = &data[index..(index + len)];
+    //                 index += len;
+    //                 <singularity_sporg::project_settings::TabSpawnCommand>::try_from_data(
+    //                     inner_data,
+    //                 )?
+    //             },
+    //             session_data: {
+    //                 let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+    //                 index += 8;
+    //                 let inner_data = &data[index..(index + len)];
+    //                 index += len;
+    //                 <serde_json::Value>::try_from_data(inner_data)?
+    //             },
+    //         };
+    //         if index != data.len() {
+    //             return None;
+    //         }
+    //         Some(constructed_self)
+    //     }
+    // }
+
     use super::{ToData, TryFromData};
-    use std::ffi::OsString;
 
-    impl ToData for singularity_sporg::project_settings::TabSpawnCommand {
-        fn to_data(&self) -> Vec<u8> {
-            let bytes_program = self.program.to_data();
-            let len_program = bytes_program.len().to_be_bytes();
-            let bytes_args = self.args.to_data();
-            let len_args = bytes_args.len().to_be_bytes();
-            [
-                len_program.as_slice(),
-                bytes_program.as_slice(),
-                len_args.as_slice(),
-                bytes_args.as_slice(),
-            ]
-            .concat()
-        }
-    }
-    #[automatically_derived]
-    impl TryFromData for singularity_sporg::project_settings::TabSpawnCommand {
-        fn try_from_data(data: &[u8]) -> Option<Self> {
-            let mut index = 0;
-            let constructed_self = Self {
-                program: {
-                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                    index += 8;
-                    let inner_data = &data[index..(index + len)];
-                    index += len;
-                    <OsString>::try_from_data(inner_data)?
-                },
-                args: {
-                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                    index += 8;
-                    let inner_data = &data[index..(index + len)];
-                    index += len;
-                    <Vec<OsString>>::try_from_data(inner_data)?
-                },
-            };
-            if index != data.len() {
-                return None;
+    // NOTE: below is just a temporary measure to expedite progress.
+    // TODO: implement the above thing and dont require serde in here
+    macro_rules! auto_impl_via_serde {
+        ($T:ty) => {
+            impl ToData for $T {
+                fn to_data(&self) -> Vec<u8> {
+                    serde_json::to_value(self).unwrap().to_data()
+                }
             }
-            Some(constructed_self)
-        }
+            impl TryFromData for $T {
+                fn try_from_data(data: &[u8]) -> Option<Self> {
+                    serde_json::from_str(&String::try_from_data(data)?).ok()
+                }
+            }
+        };
     }
 
-    impl ToData for singularity_sporg::project_settings::TabData {
-        fn to_data(&self) -> Vec<u8> {
-            let bytes_tab_command = self.tab_command.to_data();
-            let len_tab_command = bytes_tab_command.len().to_be_bytes();
-            let bytes_session_data = self.session_data.to_data();
-            let len_session_data = bytes_session_data.len().to_be_bytes();
-            [
-                len_tab_command.as_slice(),
-                bytes_tab_command.as_slice(),
-                len_session_data.as_slice(),
-                bytes_session_data.as_slice(),
-            ]
-            .concat()
-        }
-    }
-    impl TryFromData for singularity_sporg::project_settings::TabData {
-        fn try_from_data(data: &[u8]) -> Option<Self> {
-            let mut index = 0;
-            let constructed_self = Self {
-                tab_command: {
-                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                    index += 8;
-                    let inner_data = &data[index..(index + len)];
-                    index += len;
-                    <singularity_sporg::project_settings::TabSpawnCommand>::try_from_data(
-                        inner_data,
-                    )?
-                },
-                session_data: {
-                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                    index += 8;
-                    let inner_data = &data[index..(index + len)];
-                    index += len;
-                    <serde_json::Value>::try_from_data(inner_data)?
-                },
-            };
-            if index != data.len() {
-                return None;
-            }
-            Some(constructed_self)
-        }
-    }
+    auto_impl_via_serde!(singularity_sporg::project_settings::ProjectSettings);
+    auto_impl_via_serde!(singularity_sporg::project_settings::SubappSettings);
+    auto_impl_via_serde!(singularity_sporg::project_settings::SubappStandardSettings);
+    auto_impl_via_serde!(singularity_sporg::tile::Orientation);
+    auto_impl_via_serde!(singularity_sporg::session::OpenTab);
+    auto_impl_via_serde!(singularity_sporg::session::TabData);
+    auto_impl_via_serde!(singularity_sporg::session::SessionData);
+    auto_impl_via_serde!(singularity_sporg::session::TabSpawnCommand);
 }
 
 #[cfg(feature = "serde_json")]
@@ -853,7 +885,7 @@ mod serde_json_impls {
     }
     impl TryFromData for serde_json::Value {
         fn try_from_data(data: &[u8]) -> Option<Self> {
-            serde_json::from_str(&String::try_from_data(data)?).ok()?
+            serde_json::from_str(&String::try_from_data(data)?).ok()
         }
     }
 }

@@ -3539,3 +3539,9 @@ and [ipc-channel](https://github.com/servo/ipc-channel) by servo looks literally
 It is literally begging me to use it.
 An active repo (last commit just 27 days ago), used by an established organization, almost 1000 stars,
 seems perfect for my usecase, but idk.
+
+2025/04/01
+
+Happy April Fools!
+
+I am going to split the project files into `ProjectConfigs` and `Session`.
