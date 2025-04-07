@@ -1,67 +1,22 @@
-use crate::{project_settings::Project, tile::Tiles};
+use crate::{applet_data::AppletTypeId, project_settings::Project, tile::Tiles};
 use serde::{Deserialize, Serialize};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::id_tree::IdTree,
 };
 use singularity_ui::display_units::DisplayArea;
-use std::{
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
-
-/// Like `Command`. (program, args). The command and args to spawn tab.
-/// TODO: can make this an Enum later when tabs can have different ways of being created.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct TabSpawnCommand {
-    pub program: OsString,
-    pub args: Vec<OsString>,
-}
-
-/// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
-/// REVIEW: rename?
-/// REVIEW: include Area and UIElement and TabType into this?
-/// This type is kind of a black sheep
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct TabData {
-    pub tab_command: Option<TabSpawnCommand>,
-    /// REVIEW: make this another type?
-    pub session_data: serde_json::Value,
-}
-impl TabData {
-    pub fn new(
-        tab_command_program: impl Into<OsString>,
-        args: impl Iterator<Item = impl Into<OsString>>,
-        session_data: serde_json::Value,
-    ) -> Self {
-        Self {
-            tab_command: Some(TabSpawnCommand {
-                program: tab_command_program.into(),
-                args: args.map(|arg| arg.into()).collect(),
-            }),
-            session_data,
-        }
-    }
-
-    pub fn new_argless(
-        tab_command_program: impl Into<OsString>,
-        session_data: serde_json::Value,
-    ) -> Self {
-        Self {
-            tab_command: Some(TabSpawnCommand {
-                program: tab_command_program.into(),
-                args: Vec::new(),
-            }),
-            session_data,
-        }
-    }
-}
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct OpenTab {
     /// is kind of dangerous to let user change the id of a tab, but if they screw this up, it is their fault
     pub tab_area: DisplayArea,
-    pub tab_data: TabData,
+    pub applet_type_id: AppletTypeId,
+    /// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
+    /// REVIEW: rename?
+    /// REVIEW: include Area and UIElement and TabType into this?
+    /// This type is kind of a black sheep
+    pub applet_session_storage: serde_json::Value,
 }
 
 /// Data for the whole session, things like opened tabs and their sessions as well as focused tab.
@@ -88,11 +43,10 @@ impl SessionData {
         let id = Id::generate();
 
         let root_tab = OpenTab {
+            applet_type_id: AppletTypeId::new("file_manager"),
             tab_area: DisplayArea::new((0., 0.), (0.5, 1.)),
-            tab_data: TabData::new_argless(
-                "./target/release/file_manager",
-                serde_json::to_value(project.get_project_directory().clone()).unwrap(),
-            ),
+            applet_session_storage: serde_json::to_value(project.get_project_directory().clone())
+                .unwrap(),
         };
 
         let org_tree = IdTree::new(id);

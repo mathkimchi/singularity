@@ -865,13 +865,13 @@ mod singularity_sporg_impls {
     }
 
     auto_impl_via_serde!(singularity_sporg::project_settings::ProjectSettings);
-    auto_impl_via_serde!(singularity_sporg::project_settings::SubappSettings);
-    auto_impl_via_serde!(singularity_sporg::project_settings::SubappStandardSettings);
     auto_impl_via_serde!(singularity_sporg::tile::Orientation);
     auto_impl_via_serde!(singularity_sporg::session::OpenTab);
-    auto_impl_via_serde!(singularity_sporg::session::TabData);
     auto_impl_via_serde!(singularity_sporg::session::SessionData);
-    auto_impl_via_serde!(singularity_sporg::session::TabSpawnCommand);
+    auto_impl_via_serde!(singularity_sporg::applet_data::AppletSpawnData);
+    auto_impl_via_serde!(singularity_sporg::applet_data::AppletSpawnMethod);
+    auto_impl_via_serde!(singularity_sporg::applet_data::AppletType);
+    auto_impl_via_serde!(singularity_sporg::applet_data::AppletTypeId);
 }
 
 #[cfg(feature = "serde_json")]

@@ -20,7 +20,7 @@ pub mod display_packets {
     use singularity_macros::{
         Datable, Event, EventPacketUnion, Packet, Query, Request, RequestPacketUnion,
     };
-    use singularity_sporg::session::TabData;
+    use singularity_sporg::applet_data::{AppletSpawnData, AppletTypeId};
     use singularity_ui::{display_units::DisplayArea, ui_element::UIElement, ui_event::UIEvent};
     use std::ffi::OsString;
 
@@ -61,22 +61,33 @@ pub mod display_packets {
     }
 
     #[derive(Debug, Datable, Packet, Request)]
-    pub struct RequestSpawnChildTab(pub TabData);
+    pub struct RequestSpawnChildTab(pub AppletSpawnData);
     impl RequestSpawnChildTab {
         pub fn new(
-            tab_command_program: impl Into<OsString>,
+            applet_type_id: AppletTypeId,
+            applet_spawn_command: impl Into<OsString>,
             args: impl Iterator<Item = impl Into<OsString>>,
-            session_data: serde_json::Value,
+            initial_session_data: serde_json::Value,
         ) -> Self {
-            Self(TabData::new(tab_command_program, args, session_data))
+            Self(AppletSpawnData::new(
+                applet_type_id,
+                applet_spawn_command,
+                args,
+                initial_session_data,
+            ))
         }
     }
+
+    /// If the specified applet type has a default instance to spawn, then spawn it. Otherwise, just ignored (TODO: I should really do some err handling)
+    #[derive(Debug, Datable, Packet, Request)]
+    pub struct RequestSpawnDefaultChildApplet(pub AppletTypeId);
 
     #[derive(Debug, RequestPacketUnion)]
     pub enum DisplayRequest {
         RequestChangeName(RequestChangeName),
         RequestUpdateWindow(RequestUpdateWindow),
         RequestSpawnChildTab(RequestSpawnChildTab),
+        RequestSpawnDefaultChildApplet(RequestSpawnDefaultChildApplet),
     }
 
     #[derive(Debug, Datable, Packet, Query)]

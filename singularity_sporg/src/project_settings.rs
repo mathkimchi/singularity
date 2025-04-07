@@ -1,6 +1,6 @@
-use crate::session::TabData;
+use crate::applet_data::{AppletSpawnData, AppletType, AppletTypeId};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashSet, path::PathBuf};
 
 // #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 // pub struct SubappFileSystemPermission {
@@ -21,24 +21,24 @@ use std::{collections::HashMap, path::PathBuf};
 //     property: Option<SubappFileSystemPermission>,
 // }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappStandardSettings {
-    pub spawnable_default: Option<TabData>,
-}
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappStandardSettings {
+//     pub spawnable_default: Option<AppletSpawnData>,
+// }
 
-/// This is for a tab type as opposed to a specific instance of a tab
-/// TODO: rename
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappSettings {
-    pub subapp_standard_settings: Option<SubappStandardSettings>,
-    pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
-}
+// /// This is for a tab type as opposed to a specific instance of a tab
+// /// TODO: rename
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappSettings {
+//     pub subapp_standard_settings: Option<SubappStandardSettings>,
+//     pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
+// }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSettings {
     /// this is the list of tab types
     /// REVIEW: rename
-    pub subapps: HashMap<String, SubappSettings>,
+    pub applet_types: HashSet<AppletType>,
 }
 
 pub struct Project {
@@ -54,21 +54,14 @@ impl Project {
     {
         Self::try_from_project_directory(project_directory.clone()).unwrap_or_else(|| Self {
             project_settings: ProjectSettings {
-                subapps: HashMap::from_iter(vec![(
-                    "file_manager".to_string(),
-                    SubappSettings {
-                        subapp_standard_settings: Some(SubappStandardSettings {
-                            spawnable_default: Some(TabData::new_argless(
-                                "./target/release/file_manager",
-                                serde_json::to_value(
-                                    project_directory.as_ref().to_str().unwrap().to_string(),
-                                )
-                                .unwrap(),
-                            )),
-                        }),
-                        subapp_specific_settings: None,
-                    },
-                )]),
+                applet_types: HashSet::from_iter(vec![AppletType {
+                    type_id: AppletTypeId::new("file_manager"),
+                    default_spawn: Some(AppletSpawnData::new_argless(
+                        AppletTypeId::new("file_manager"),
+                        "./target/release/file_manager",
+                        serde_json::to_value(PathBuf::from(project_directory.clone())).unwrap(),
+                    )),
+                }]),
             },
             project_directory: PathBuf::from(project_directory),
         })

@@ -503,7 +503,7 @@ impl ProjectManager {
                                             .session
                                             .project
                                             .project_settings
-                                            .subapps
+                                            .applet_types
                                             .get(command)
                                         {
                                             dbg!("Spawning:", command);

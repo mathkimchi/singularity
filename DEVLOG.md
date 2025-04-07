@@ -3545,3 +3545,34 @@ seems perfect for my usecase, but idk.
 Happy April Fools!
 
 I am going to split the project files into `ProjectConfigs` and `Session`.
+
+2025/04/02
+
+I am going to further refactor the project files,
+to give uuid's for each known applet type.
+...
+Actually, it might be better to identify applet types by more consistent/deterministic method,
+because there is a level of continuity between the `file_manager` applet in one project and in another.
+Currently, I am just using a string like `"file_manager"`.
+I could also use a more complicated datatype, (eg: struct to also store version)
+(eg2: enum to differentiate different types like UnixSocket connection, piped stdio, etc but this is
+actually unnecessary since this should be stored in the applet list,
+not as the identifier).
+Or, I could use the Id map (which is not consistent) to map applet id to applet data,
+but also have a seperate hashmap to map applet name to applet id
+(if speed is negligable, more elegant imo to just store name in the applet data and iter to search by name).
+
+Okay, I am actually trying stuff, and I have a few possibilities in mind:
+- Generate "id" by hashing string names
+  - Just assume collisions won't happen
+- Generate "id" as a constant in crates, the same way I did PACKET_TYPE_ID
+- Don't use "id" just use names
+- Store a mapping of names to ids, and generate id non-deterministically
+
+2025/04/03
+
+I think the optimal way to go is do everything based off the name, so if I do use id's,
+I would make it solely generated from the string.
+I decided this because I was thinking about url's and git branches.
+
+I'm probably going to use just strings to identify applet, but I might add a wrapper for type-safety.
