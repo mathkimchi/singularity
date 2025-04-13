@@ -1,4 +1,8 @@
-use crate::{applet_data::AppletTypeId, project_settings::Project, tile::Tiles};
+use crate::{
+    applet_data::{AppletSpawnMethod, AppletTypeId},
+    project_settings::Project,
+    tile::Tiles,
+};
 use serde::{Deserialize, Serialize};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
@@ -9,14 +13,18 @@ use std::path::{Path, PathBuf};
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct OpenTab {
+    pub applet_type_id: Option<AppletTypeId>,
+
     /// is kind of dangerous to let user change the id of a tab, but if they screw this up, it is their fault
     pub tab_area: DisplayArea,
-    pub applet_type_id: AppletTypeId,
     /// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
     /// REVIEW: rename?
     /// REVIEW: include Area and UIElement and TabType into this?
     /// This type is kind of a black sheep
     pub applet_session_storage: serde_json::Value,
+    /// If this is None, then checks the applet type's default spawn data.
+    /// In other words, if this applet was spawned from default spawn, then just leave this none.
+    pub spawn_method: Option<AppletSpawnMethod>,
 }
 
 /// Data for the whole session, things like opened tabs and their sessions as well as focused tab.
@@ -43,10 +51,11 @@ impl SessionData {
         let id = Id::generate();
 
         let root_tab = OpenTab {
-            applet_type_id: AppletTypeId::new("file_manager"),
+            applet_type_id: Some(AppletTypeId::new("file_manager")),
             tab_area: DisplayArea::new((0., 0.), (0.5, 1.)),
             applet_session_storage: serde_json::to_value(project.get_project_directory().clone())
                 .unwrap(),
+            spawn_method: None,
         };
 
         let org_tree = IdTree::new(id);

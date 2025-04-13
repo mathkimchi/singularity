@@ -4,41 +4,50 @@ use singularity_sap::{
     standard_packets::display_packets::{DisplayEvent, ResizeEvent},
     universal_stream::universal_server_stream::{QueryDataResponder, UniversalServerStream},
 };
-use singularity_sporg::session::TabData;
+use singularity_sporg::applet_data::{AppletSpawnData, AppletSpawnMethod, AppletTypeId};
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
 use std::process::{Child, ChildStdin, Command, Stdio};
 
+/// TODO: rename to AppletHandler
 pub struct TabHandler {
-    communication: UniversalServerStream<CombinedByteStream<ByteReaderWrapper, ChildStdin>>,
+    pub applet_type_id: Option<AppletTypeId>,
 
     pub tab_name: String,
     pub tab_area: DisplayArea,
     pub tab_display: UIElement,
-    pub tab_data: TabData,
+    pub applet_session_storage: serde_json::Value,
+    pub applet_spawn_method: Option<AppletSpawnMethod>,
+
     tab_process: Child,
+
+    communication: UniversalServerStream<CombinedByteStream<ByteReaderWrapper, ChildStdin>>,
 }
 impl TabHandler {
     /// TODO: allow setting focus
-    pub fn spawn(initial_tab_data: TabData, tab_area: DisplayArea) -> Self {
-        if let Some(tab_command) = &initial_tab_data.tab_command {
-            let mut tab_spawn_command = Command::new(&tab_command.program)
-                .args(&tab_command.args)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .spawn()
-                .unwrap();
-            let byte_stream = CombinedByteStream::take_from_child(&mut tab_spawn_command).unwrap();
+    /// TODO: make this take ownership of spawn_data
+    pub fn spawn(spawn_data: &AppletSpawnData, tab_area: DisplayArea) -> Self {
+        match &spawn_data.method {
+            AppletSpawnMethod::PipeChildProcess { program, args } => {
+                let mut tab_spawn_command = Command::new(&program)
+                    .args(args)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .unwrap();
+                let byte_stream =
+                    CombinedByteStream::take_from_child(&mut tab_spawn_command).unwrap();
 
-            Self {
-                communication: UniversalServerStream::new(byte_stream),
-                tab_name: String::new(),
-                tab_area,
-                tab_display: UIElement::Nothing,
-                tab_data: initial_tab_data,
-                tab_process: tab_spawn_command,
+                Self {
+                    applet_type_id: spawn_data.applet_type_id.clone(),
+                    communication: UniversalServerStream::new(byte_stream),
+                    tab_name: String::new(),
+                    tab_area,
+                    tab_display: UIElement::Nothing,
+                    applet_session_storage: spawn_data.initial_session_storage.clone(),
+                    applet_spawn_method: Some(spawn_data.method.clone()),
+                    tab_process: tab_spawn_command,
+                }
             }
-        } else {
-            todo!()
         }
     }
 
@@ -81,9 +90,9 @@ impl TabHandler {
         ))));
     }
 
-    pub fn get_tab_data(&self) -> &TabData {
-        &self.tab_data
-    }
+    // pub fn get_tab_data(&self) -> &TabData {
+    //     &self.tab_data
+    // }
 
     pub fn kill(mut self) {
         self.tab_process.kill().unwrap();

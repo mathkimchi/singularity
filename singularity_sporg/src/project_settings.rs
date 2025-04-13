@@ -40,6 +40,9 @@ pub struct ProjectSettings {
     /// REVIEW: rename
     pub applet_types: HashSet<AppletType>,
 }
+impl ProjectSettings {
+    // pub fn get_applet(&self, applet: AppletTypeId) -> A {}
+}
 
 pub struct Project {
     project_directory: PathBuf,
@@ -57,7 +60,7 @@ impl Project {
                 applet_types: HashSet::from_iter(vec![AppletType {
                     type_id: AppletTypeId::new("file_manager"),
                     default_spawn: Some(AppletSpawnData::new_argless(
-                        AppletTypeId::new("file_manager"),
+                        Some(AppletTypeId::new("file_manager")),
                         "./target/release/file_manager",
                         serde_json::to_value(PathBuf::from(project_directory.clone())).unwrap(),
                     )),

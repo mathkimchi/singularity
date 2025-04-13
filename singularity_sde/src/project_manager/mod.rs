@@ -14,15 +14,15 @@ use singularity_sap::{
     standard_packets::{
         display_packets::{
             CloseWarningEvent, DisplayEvent, DisplayRequest, NameQuery, NameResponse, PathQuery,
-            PathResponse, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow,
-            SessionDataQuery, SessionDataResponse,
+            PathResponse, RequestChangeName, RequestSpawnChildTab, RequestSpawnDefaultChildApplet,
+            RequestUpdateWindow, SessionStorageQuery, SessionStorageResponse,
         },
         file_packets::{ReadFileQuery, ReadFileResponse, WriteFileRequest},
     },
     universal_stream::universal_server_stream::as_query_data_responder,
 };
 use singularity_sporg::{
-    project_settings::{SubappSettings, SubappStandardSettings},
+    applet_data::{AppletType, AppletTypeId},
     session::Session,
     tile::{Orientation, Tile},
 };
@@ -489,27 +489,25 @@ impl ProjectManager {
                             // FIXME: hideous nesting
                             let command = command_buffer.trim();
                             let command = command.split_once(' ');
-                            if let Some((prefix, command)) = command {
+                            if let Some((prefix, args)) = command {
                                 match prefix {
                                     "spawn" => {
-                                        dbg!("Attempting to spawn:", command);
-                                        if let Some(SubappSettings {
-                                            subapp_standard_settings:
-                                                Some(SubappStandardSettings {
-                                                    spawnable_default: Some(default_tab_data),
-                                                }),
+                                        let applet = AppletTypeId::new(args);
+                                        dbg!("Attempting to spawn:", &applet);
+                                        if let Some(AppletType {
+                                            default_spawn: Some(applet_spawn_data),
                                             ..
                                         }) = self
                                             .session
                                             .project
                                             .project_settings
                                             .applet_types
-                                            .get(command)
+                                            .get(&applet)
                                         {
                                             dbg!("Spawning:", command);
                                             self.tabs.add(
                                                 TabHandler::spawn(
-                                                    default_tab_data.clone(),
+                                                    applet_spawn_data,
                                                     Self::generate_tab_area(
                                                         self.tabs.num_tabs(),
                                                         1,
@@ -598,14 +596,14 @@ impl ProjectManager {
                 .unwrap();
             let requests = {
                 let sender_name = sender.tab_name.clone();
-                let session_data = sender.get_tab_data().session_data.clone();
+                let session_storage = sender.applet_session_storage.clone();
                 sender.handle_incoming(&mut vec![
                     &mut as_query_data_responder(|PathQuery| Some(PathResponse(tab_path.clone()))),
                     &mut as_query_data_responder(move |NameQuery| {
                         Some(NameResponse(sender_name.clone()))
                     }),
-                    &mut as_query_data_responder(move |SessionDataQuery| {
-                        Some(SessionDataResponse(session_data.clone()))
+                    &mut as_query_data_responder(move |SessionStorageQuery| {
+                        Some(SessionStorageResponse(session_storage.clone()))
                     }),
                     &mut as_query_data_responder(move |ReadFileQuery(path)| {
                         let mut file = File::open(path).ok()?;
@@ -639,7 +637,7 @@ impl ProjectManager {
                     )) => {
                         self.tabs.add(
                             TabHandler::spawn(
-                                tab_data,
+                                &tab_data,
                                 // NOTE: the argument child index is technically incorrect,
                                 // but the purpose of the generator is to generally prevent all
                                 // tabs from being spawned all in one place.
@@ -647,6 +645,33 @@ impl ProjectManager {
                             ),
                             &self.tabs.get_id_by_org_path(&tab_path).unwrap(),
                         );
+                    }
+                    SDERequest::DisplayRequest(DisplayRequest::RequestSpawnDefaultChildApplet(
+                        RequestSpawnDefaultChildApplet(applet_type_id),
+                    )) => {
+                        if let Some(applet) = self
+                            .session
+                            .project
+                            .project_settings
+                            .applet_types
+                            .get(&applet_type_id)
+                        {
+                            if let Some(default_spawn) = &applet.default_spawn {
+                                self.tabs.add(
+                                    TabHandler::spawn(
+                                        default_spawn,
+                                        // NOTE: the argument child index is technically incorrect,
+                                        // but the purpose of the generator is to generally prevent all
+                                        // tabs from being spawned all in one place.
+                                        Self::generate_tab_area(
+                                            self.tabs.num_tabs(),
+                                            tab_path.depth() + 1,
+                                        ),
+                                    ),
+                                    &self.tabs.get_id_by_org_path(&tab_path).unwrap(),
+                                );
+                            }
+                        }
                     }
                     SDERequest::WriteFileRequest(WriteFileRequest(dest, conent_bytes)) => {
                         if let Ok(mut dest_file) = File::open(dest) {

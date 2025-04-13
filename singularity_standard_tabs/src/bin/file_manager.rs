@@ -8,7 +8,7 @@ use singularity_sap::{
     packet::{EventPacketUnion, PacketTypeId, PacketUnion},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
-        RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
+        RequestUpdateWindow, SessionStorageQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -86,7 +86,7 @@ impl FileManager {
         client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
-            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+            serde_json::from_value::<String>(client_stream.query(SessionStorageQuery).unwrap().0)
                 .unwrap(),
             client_stream,
         )
@@ -159,7 +159,8 @@ impl FileManager {
                         // TODO: add abstraction for editor, so it is just RequestOpenInEditor instead of calling SDE's specific editor
                         client_stream.send_request(RequestSpawnChildTab(
                             AppletSpawnData::new_argless(
-                                AppletTypeId::new("./target/release/editor"),
+                                Some(AppletTypeId::new("editor")),
+                                "./target/release/editor",
                                 serde_json::to_value(selected_element.clone()).unwrap(),
                             ),
                         ));

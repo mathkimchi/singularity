@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{ffi::OsString, hash::Hash};
+use std::{borrow::Borrow, ffi::OsString, hash::Hash};
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum AppletSpawnMethod {
@@ -13,7 +13,7 @@ pub enum AppletSpawnMethod {
 /// All the data required for the SDE to spawn a new applet.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AppletSpawnData {
-    pub applet_type_id: AppletTypeId,
+    pub applet_type_id: Option<AppletTypeId>,
 
     pub method: AppletSpawnMethod,
 
@@ -21,14 +21,14 @@ pub struct AppletSpawnData {
     /// REVIEW: rename?
     /// REVIEW: include Area and UIElement and TabType into this?
     /// This type is kind of a black sheep
-    pub initial_session_data: serde_json::Value,
+    pub initial_session_storage: serde_json::Value,
 }
 impl AppletSpawnData {
     pub fn new(
-        applet_type_id: AppletTypeId,
+        applet_type_id: Option<AppletTypeId>,
         applet_spawn_command: impl Into<OsString>,
         args: impl Iterator<Item = impl Into<OsString>>,
-        initial_session_data: serde_json::Value,
+        initial_session_storage: serde_json::Value,
     ) -> Self {
         Self {
             applet_type_id,
@@ -36,14 +36,14 @@ impl AppletSpawnData {
                 program: applet_spawn_command.into(),
                 args: args.map(|arg| arg.into()).collect(),
             },
-            initial_session_data,
+            initial_session_storage,
         }
     }
 
     pub fn new_argless(
-        applet_type_id: AppletTypeId,
+        applet_type_id: Option<AppletTypeId>,
         applet_spawn_command: impl Into<OsString>,
-        initial_session_data: serde_json::Value,
+        initial_session_storage: serde_json::Value,
     ) -> Self {
         Self {
             applet_type_id,
@@ -51,7 +51,7 @@ impl AppletSpawnData {
                 program: applet_spawn_command.into(),
                 args: Vec::new(),
             },
-            initial_session_data,
+            initial_session_storage,
         }
     }
 }
@@ -68,8 +68,15 @@ impl Hash for AppletType {
     }
 }
 impl Eq for AppletType {}
+impl Borrow<AppletTypeId> for AppletType {
+    /// https://stackoverflow.com/questions/45384928/is-there-any-way-to-look-up-in-hashset-by-only-the-value-the-type-is-hashed-on
+    fn borrow(&self) -> &AppletTypeId {
+        &self.type_id
+    }
+}
 
 /// Standard naming scheme is snake case: `file_manager`
+/// REVIEW: make this a hash of the string instead of the string?
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AppletTypeId(pub String);
 impl AppletTypeId {

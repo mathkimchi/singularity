@@ -7,6 +7,7 @@ use singularity_sap::standard_packets::display_packets::{
     DisplayEvent, FocusedEvent, UnfocusedEvent,
 };
 use singularity_sporg::{
+    applet_data::{AppletSpawnData, AppletType},
     session::{OpenTab, Session, SessionData},
     tile::Tiles,
 };
@@ -41,10 +42,45 @@ impl Tabs {
                 .tabs
                 .iter()
                 .map(|(id, open_tab)| {
-                    (
-                        uuid::Uuid::from(*id).into(),
-                        TabHandler::spawn(open_tab.tab_data.clone(), open_tab.tab_area),
-                    )
+                    (uuid::Uuid::from(*id).into(), {
+                        if let Some(spawn_method) = open_tab.spawn_method.clone() {
+                            TabHandler::spawn(
+                                &AppletSpawnData {
+                                    applet_type_id: open_tab.applet_type_id.clone(),
+                                    method: spawn_method,
+                                    initial_session_storage: open_tab
+                                        .applet_session_storage
+                                        .clone(),
+                                },
+                                open_tab.tab_area,
+                            )
+                        } else if let Some(applet_id) = open_tab.applet_type_id.clone() {
+                            if let Some(AppletType {
+                                default_spawn: Some(AppletSpawnData { method, .. }),
+                                ..
+                            }) = session
+                                .project
+                                .project_settings
+                                .applet_types
+                                .get(&applet_id)
+                            {
+                                TabHandler::spawn(
+                                    &AppletSpawnData {
+                                        applet_type_id: open_tab.applet_type_id.clone(),
+                                        method: method.clone(),
+                                        initial_session_storage: open_tab
+                                            .applet_session_storage
+                                            .clone(),
+                                    },
+                                    open_tab.tab_area,
+                                )
+                            } else {
+                                panic!()
+                            }
+                        } else {
+                            panic!()
+                        }
+                    })
                 })
                 .collect(),
             org_tree: session.session_data.org_tree.clone().transmute(),
@@ -247,7 +283,9 @@ impl Tabs {
                         OpenTab {
                             // TODO
                             tab_area: handler.get_area(),
-                            tab_data: handler.get_tab_data().clone(),
+                            applet_type_id: handler.applet_type_id.clone(),
+                            applet_session_storage: handler.applet_session_storage.clone(),
+                            spawn_method: handler.applet_spawn_method.clone(),
                         },
                     )
                 })

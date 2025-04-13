@@ -3576,3 +3576,7 @@ I would make it solely generated from the string.
 I decided this because I was thinking about url's and git branches.
 
 I'm probably going to use just strings to identify applet, but I might add a wrapper for type-safety.
+
+2025/04/13
+
+After working on this for a few days, I resolved all the compile time errors but it still doesn't work.

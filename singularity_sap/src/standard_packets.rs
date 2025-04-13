@@ -64,16 +64,16 @@ pub mod display_packets {
     pub struct RequestSpawnChildTab(pub AppletSpawnData);
     impl RequestSpawnChildTab {
         pub fn new(
-            applet_type_id: AppletTypeId,
+            applet_type_id: Option<AppletTypeId>,
             applet_spawn_command: impl Into<OsString>,
             args: impl Iterator<Item = impl Into<OsString>>,
-            initial_session_data: serde_json::Value,
+            initial_session_storage: serde_json::Value,
         ) -> Self {
             Self(AppletSpawnData::new(
                 applet_type_id,
                 applet_spawn_command,
                 args,
-                initial_session_data,
+                initial_session_storage,
             ))
         }
     }
@@ -103,10 +103,10 @@ pub mod display_packets {
     pub struct NameResponse(pub String);
 
     #[derive(Debug, Datable, Packet, Query)]
-    #[ResponseType(SessionDataResponse)]
-    pub struct SessionDataQuery;
+    #[ResponseType(SessionStorageResponse)]
+    pub struct SessionStorageQuery;
     #[derive(Debug, Datable, Packet)]
-    pub struct SessionDataResponse(pub serde_json::Value);
+    pub struct SessionStorageResponse(pub serde_json::Value);
 }
 
 pub mod file_packets {
