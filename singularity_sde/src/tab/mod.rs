@@ -28,7 +28,7 @@ impl TabHandler {
     pub fn spawn(spawn_data: &AppletSpawnData, tab_area: DisplayArea) -> Self {
         match &spawn_data.method {
             AppletSpawnMethod::PipeChildProcess { program, args } => {
-                let mut tab_spawn_command = Command::new(&program)
+                let mut tab_spawn_command = Command::new(program)
                     .args(args)
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())

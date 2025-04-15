@@ -54,6 +54,7 @@ pub const TREE_TRAVERSE_KEYS: [char; 16] = [
 /// - "0" goes to parent (same as "a")
 /// - 1-8 goes to n-th child, but is 1-indexed (eldest child is 1)
 /// - "9" goes to last child
+#[derive(Debug)]
 pub enum TreeTraverseOperation {
     /// `a` and `0`
     Parent,

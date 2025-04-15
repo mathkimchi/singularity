@@ -3580,3 +3580,9 @@ I'm probably going to use just strings to identify applet, but I might add a wra
 2025/04/13
 
 After working on this for a few days, I resolved all the compile time errors but it still doesn't work.
+
+2025/04/15
+
+Oh no, I think the actions aren't showing because of numlock, which I turned on with my external keyboard,
+but right now my laptop keyboard doesn't have that toggle.
+For now, I just erased NumLock from my code, since it is kind of useless anyways.

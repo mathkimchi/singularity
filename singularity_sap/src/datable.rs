@@ -632,8 +632,8 @@ mod singularity_ui_impls {
             let len_caps_lock = bytes_caps_lock.len().to_be_bytes();
             let bytes_logo = self.logo.to_data();
             let len_logo = bytes_logo.len().to_be_bytes();
-            let bytes_num_lock = self.num_lock.to_data();
-            let len_num_lock = bytes_num_lock.len().to_be_bytes();
+            // let bytes_num_lock = self.num_lock.to_data();
+            // let len_num_lock = bytes_num_lock.len().to_be_bytes();
             [
                 len_ctrl.as_slice(),
                 bytes_ctrl.as_slice(),
@@ -645,8 +645,8 @@ mod singularity_ui_impls {
                 bytes_caps_lock.as_slice(),
                 len_logo.as_slice(),
                 bytes_logo.as_slice(),
-                len_num_lock.as_slice(),
-                bytes_num_lock.as_slice(),
+                // len_num_lock.as_slice(),
+                // bytes_num_lock.as_slice(),
             ]
             .concat()
         }
@@ -690,13 +690,13 @@ mod singularity_ui_impls {
                     index += len;
                     <bool>::try_from_data(inner_data)?
                 },
-                num_lock: {
-                    let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
-                    index += 8;
-                    let inner_data = &data[index..(index + len)];
-                    index += len;
-                    <bool>::try_from_data(inner_data)?
-                },
+                // num_lock: {
+                //     let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
+                //     index += 8;
+                //     let inner_data = &data[index..(index + len)];
+                //     index += len;
+                //     <bool>::try_from_data(inner_data)?
+                // },
             };
             if index != data.len() {
                 return None;
