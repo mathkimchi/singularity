@@ -1,0 +1,12 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# currently a temp measure for testing
+dynamic-plugin = { version = "0.6.0", features = ["client"] }
+# server = { path = "../server" }

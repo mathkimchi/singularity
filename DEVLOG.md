@@ -3586,3 +3586,46 @@ After working on this for a few days, I resolved all the compile time errors but
 Oh no, I think the actions aren't showing because of numlock, which I turned on with my external keyboard,
 but right now my laptop keyboard doesn't have that toggle.
 For now, I just erased NumLock from my code, since it is kind of useless anyways.
+
+2025/05/19
+
+I haven't worked on this for a while.
+I wrote down [some ideas in the thread](https://github.com/mathkimchi/singularity/issues/16#issuecomment-2888798002).
+
+I think wasm or dynamic libraries's are worth looking into for reactive plugins.
+
+...
+
+Okay, I was looking through my code, and I remember what I was doing now:
+I was working on IAC.
+I was implementing the `Basic Features`.
+
+2026/05/20
+
+I gave an LLM the last github issue I wrote, and it suggested using dynamic libraries.
+
+I looked up `rust plugins with dynamic libraries` on google,
+and accidentally discovered a crate called
+[`dynamic_plugin`](https://docs.rs/dynamic-plugin/latest/dynamic_plugin/),
+and it seems like what I want to do but it only has 4000 users so I won't use it.
+Bevy also has a [dynamic plugin crate](https://crates.io/crates/bevy_dynamic_plugin).
+(I think this is different from that other Bevy thing I was looking at; maybe not)
+I will dig through both crates' source code to see what they are doing.
+
+dynamic_plugin is actually pretty cool.
+The main library only uses a few crates: `libloading`, `thiserror`, `libc`, and `sa` (static assertions).
+Actually, the main library is nothing and the actual value seems to come from the macros.
+The macros are too big brained for me.
+TBH, there is a very good case for just using this crate right now.
+Okay, I am going to use `dynamic_plugin` and then `cargo expand` it.
+
+2025/05/29
+
+I pretty much copied the [example host and plugin](https://github.com/lilopkins/dynamic-plugins-rs/blob/main/example-plugin/src/lib.rs) into [dynamic_plugin_sandbox](./dynamic_plugin_sandbox/)
+and then expanded the macros, then made it more understandable.
+
+I'll commit what I learned, and the next step would be to set this up for sap.
+The template interface would go in sap,
+ideally the plugin runner would be in a crate only sde used but in practice I'll probably put it in sap,
+and the plugin making macro would ideally be in sde but it might be easier to have it in sap.
+Maybe I could add cargo features for sap to have client and server specific code without needing a new crate.
