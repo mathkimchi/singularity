@@ -9,7 +9,10 @@ members = [
     "singularity_sporg",
     "singularity_sde",
     "singularity_sttk",
-    "singularity_standard_tabs", "dynamic_plugin_sandbox/server", "dynamic_plugin_sandbox/client",
+    "singularity_standard_tabs",
+
+    "dynamic_plugin_sandbox/server",
+    "dynamic_plugin_sandbox/client",
 ]
 resolver = "2"
 
@@ -18,6 +21,8 @@ serde = { version = "^1.0", features = ["derive"] }
 serde_json = "^1.0"
 uuid = { version = "^1.10.0", features = ["v4", "serde"] }
 paste = { version = "1" }
+libloading = { version = "^0.8" }
+libc = { version = "^0.2" }
 
 
 # [[members]]

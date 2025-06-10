@@ -3629,3 +3629,162 @@ The template interface would go in sap,
 ideally the plugin runner would be in a crate only sde used but in practice I'll probably put it in sap,
 and the plugin making macro would ideally be in sde but it might be easier to have it in sap.
 Maybe I could add cargo features for sap to have client and server specific code without needing a new crate.
+
+2025/05/30
+
+I will actually more or less deprecate the unix socket and pipes for now
+while I work on dynamic library.
+Also, I will ignore the waiting stuff for now.
+
+2025/06/03
+
+I have a problem that I can't use closures as extern "C" functions,
+which makes sense because the extern "C" function expects a pointer to a function or something;
+I can't rigorously explain it but it just makes sense to me.
+
+Let me explain my usecase with an example
+(I haven't tested if anything works other than checking for compiler errors, so...).
+Suppose I had an app, as well as a library for printing things pretty.
+Lets start with something like:
+
+```rust
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics() {
+    println!("The gravitational constant on Earth is 9.81m/s^2!")
+}
+
+// main.rs
+pub fn main() {
+    let print_statistics: extern "C" fn() = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics();
+}
+```
+
+but now, what if we wanted the pretty print library to be able to print changing values
+like a version number?
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(app_state: &AppState) {
+    println!(
+        "The version number is {}! The next version will be {}!",
+        app_state.version_number,
+        app_state.version_number + 1,
+    );
+}
+
+// main.rs
+pub fn main() {
+    let app_state = AppState { version_number: 10 };
+
+    let print_statistics: extern "C" fn(&AppState) = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(&app_state);
+}
+```
+
+Now, what if `print_statistics` needed to print things dependent on a function provided by the app?
+IE, what if the dynamic library needs to call a function provided by the caller?
+
+This is still quite simple:
+
+```rust
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(f: extern "C" fn(u8) -> u8) {
+    println!("The y-intercept of f is f(0)={}", f(0));
+}
+
+// main.rs
+extern "C" fn f(x: u8) -> u8 {
+    x + 2
+}
+pub fn main() {
+    let print_statistics: extern "C" fn(extern "C" fn(u8) -> u8) = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(f);
+}
+```
+
+but now, what if the function `f` was a closure (it captures variables from its surrounding scope)?
+For example, say f returned the app's version 
+With Rust, we could do something like:
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+fn print_statistics(get_next_version: impl Fn() -> u8) {
+    println!("The next version will be {}", get_next_version());
+}
+
+// main.rs
+pub fn main() {
+    let app_state = AppState { version_number: 5 };
+    let get_next_version = move || app_state.version_number + 1;
+
+    let print_statistics = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(get_next_version);
+}
+```
+
+The closure `get_next_version` accesses `app_state`.
+But we can't do this for dylibs,
+because closures in general aren't supported,
+and a pointer to such a closure would somehow need to also capture the app state it refers to.
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(
+    app_state: *const AppState,
+    get_next_version: extern "C" fn(*const AppState) -> u8,
+) {
+    println!("The next version will be {}", get_next_version(app_state));
+}
+
+// main.rs
+extern "C" fn get_next_version(app_state: *const AppState) -> u8 {
+    unsafe { (*app_state).version_number }
+}
+
+pub fn main() {
+    let app_state = AppState { version_number: 10 };
+
+    let print_statistics: extern "C" fn(*const AppState, extern "C" fn(*const AppState) -> u8) =
+        print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(&app_state, get_next_version);
+}
+```
+
+In other words, we just make the captured state (aka context)
+an argument to a static function.
+
+Note the use of raw pointers (`*const AppState`) instead of references (`&AppState`),
+even though both technically compile.
+This stack overflow [post](https://stackoverflow.com/questions/71749287/why-do-most-ffi-functions-use-raw-pointers-instead-of-references)
+explains better than me.
+(In other words, I don't understand why. I just do it bc it is standard.)
+
+2025-06-09
+
+I finished the above blog-ish blob.
+I should commit, but I began writing code even before writing the blog thing,
+and sunk cost fallacy dictates
+that I should finish writing that code before finishing.

@@ -15,8 +15,11 @@ paste = { workspace = true }
 
 uuid = { workspace = true }
 
+libloading = { workspace = true }
+libc = { workspace = true }
+
 [features]
-default = ["standard_packets"]
+default = ["standard_packets", "server", "client"]
 standard_packets = [
     "singularity_ui",
     "singularity_common",
@@ -24,3 +27,5 @@ standard_packets = [
     "serde",
     "serde_json",
 ]
+server = []
+client = []
