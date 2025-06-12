@@ -3788,3 +3788,135 @@ I finished the above blog-ish blob.
 I should commit, but I began writing code even before writing the blog thing,
 and sunk cost fallacy dictates
 that I should finish writing that code before finishing.
+
+2025-06-11
+
+The issue I'd like to address now is letting query return a vec of bytes,
+which is harder than it seems.
+Passing immutable bytes as an argument is easy:
+we can just send a pointer to the start of the slice as well as the length,
+and we don't worry about memory safety because
+the caller is still in charge of freeing the slice.
+But for returning bytes,
+there isn't such a simple way.
+[This thread](https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136)
+mentions some ways.
+
+The big problem is freeing memory.
+Rust has actually sheltered me pretty well from directly
+thinking/worrying about memory safety,
+but I will try to explain memory to the best of my abilities.
+When we call an external function,
+we expect everything that function is given ownership of and creates
+to be freed when that function returns (except for things it returns).
+I was going to list more rules, but actually, that is kind of it.
+Just the basics of ownership.
+(I don't really know where I was going with that.
+I was kind of hoping I'd list down the premise then think of a clever solution.)
+
+The safest (imo) is by using an output buffer.
+The external function doesn't actually return anything,
+it modifies an output buffer that was given to it by the caller as an argument.
+But as it stands, the output buffer limits how large the output can be.
+So, we could set up an elaborate system with more functions
+where the external library somehow tells the caller how long the output is going to be,
+then the caller allocates an output buffer of that length,
+then the external library writes to the output buffer.
+Look at `uncompress` in the
+[Rustonomicon FFI page](https://doc.rust-lang.org/nomicon/ffi.html).
+I don't like this though.
+Maybe I could do a higher layer abstraction where this is done in the background,
+but it feels like I am sacrificing performance for no good reason.
+
+The aforementioned rust-lang thread offers the solution that I want to implement.
+The external function returns a raw pointer to the bytes and the length.
+It is scary though, since it plays with `std::mem::forget`
+and creating and dropping it from the raw pointer
+(even scarier is that [`forget` is safe because Rust doesn't gurantee no memory leaks](https://stackoverflow.com/questions/74824779/why-is-it-considered-safe-to-memforget-boxes)).
+The external code should provide the freeing apparatus.
+
+Another safe way I just thought of is using files like in IPC.
+This is overkill though.
+
+...
+
+This is implementation 1:
+
+```rust
+/// Whoever owns this object is in charge of freeing the slice this points to.
+/// Don't modify this though; I don't know what would happen if you modify this.
+///
+/// From: https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/4.
+#[repr(C)]
+pub struct OwnedCBytes {
+    bytes_ptr: *mut u8,
+    len: usize,
+    /// REVIEW: check if this is actually needed; the rustlang thread doesn't use it.
+    capacity: usize,
+    free: extern "C" fn(&mut Self),
+}
+impl From<Vec<u8>> for OwnedCBytes {
+    fn from(mut value: Vec<u8>) -> Self {
+        let bytes_ptr = value.as_mut_ptr();
+        let len = value.len();
+        let capacity = value.capacity();
+
+        // https://stackoverflow.com/questions/74824779/why-is-it-considered-safe-to-memforget-boxes
+        // this memory is leaked here but will be freed in the `free_vec` function, which is called exactly once in `drop`
+        std::mem::forget(value);
+
+        /// https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/13?u=mathkimchi
+        extern "C" fn free_vec(bytes: &mut OwnedCBytes) {
+            let vec = unsafe { Vec::from_raw_parts(bytes.bytes_ptr, bytes.len, bytes.capacity) };
+            // no need to manually call drop, but I just wanted to highlight it
+            drop(vec);
+        }
+
+        Self {
+            bytes_ptr,
+            len,
+            capacity,
+            free: free_vec,
+        }
+    }
+}
+impl Drop for OwnedCBytes {
+    fn drop(&mut self) {
+        // free the forgotten vec
+        (self.free)(self);
+        // the rest will be freed normally
+    }
+}
+```
+
+I liked it as an improvement of the rust thread solution,
+because it was super abstract and stuff,
+but it gives me the icks just a little.
+I'll commit this current implementation though.
+
+The capacity is really annoying with this.
+It just feels so arbitrary.
+I could further abstract into:
+
+```rust
+// worst OOP ever, lol
+#[repr(C)]
+pub struct OwnedCBytes {
+    ptr: *mut c_void,
+    get_len: extern "C" fn(*const c_void) -> usize,
+    /// fills the buffer, which is expected to be length of `get_len`
+    get_bytes: extern "C" fn(*const c_void, *mut u8),
+    free: extern "C" fn(*mut c_void),
+}
+```
+
+(`c_void` represents an opaque type)
+but I don't want to do this.
+This is just OOP but horrible.
+(Actually, this might be useful later.)
+
+Instead, I am going to do the opposite approach and specify for rust Vecs.
+I suppose I am just going all-in on the assumption that both sides are written in rust
+and will use the shared libraries provided by me.
+(Given that I am likely the only person who will use and even-more-so develop for singularity,
+I'd say that is a fair assumption.)
