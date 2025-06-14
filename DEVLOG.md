@@ -3920,3 +3920,57 @@ I suppose I am just going all-in on the assumption that both sides are written i
 and will use the shared libraries provided by me.
 (Given that I am likely the only person who will use and even-more-so develop for singularity,
 I'd say that is a fair assumption.)
+
+---
+
+SIDE NOTE: I noticed I could do `ManuallyDrop::new(value).capacity`
+but manual drop is defined as:
+
+```rust
+pub struct ManuallyDrop<T: ?Sized> {
+    value: T,
+}
+```
+
+so you'd assume the proper syntax is `ManuallyDrop::new(value).value.capacity`.
+Apparently it is from the `Deref` trait.
+TODO: harness this for `(pub` matches or grep for certain structs.
+
+---
+
+I asked ChatGPT about the memory safety of:
+
+```rust
+impl Drop for CVec {
+    fn drop(&mut self) {
+        // REVIEW: is this going to double free?
+        let vec: Vec<u8> = unsafe { Vec::from_raw_parts(self.bytes_ptr, self.len, self.capacity) };
+        // unnecessary but highlights that the vec is dropped
+        std::mem::drop(vec);
+    }
+}
+impl From<CVec> for Vec<u8> {
+    fn from(value: CVec) -> Self {
+        let vec = unsafe { Vec::from_raw_parts(value.bytes_ptr, value.len, value.capacity) };
+
+        // prevent double freeing the vec in CVec's drop
+        std::mem::forget(value);
+
+        vec
+    }
+}
+```
+
+and now I realize I don't understand how memory works in rust.
+I am going to watch a video on it.
+
+---
+
+I watched [Visualizing memory layout of Rust's data types](https://www.youtube.com/watch?v=7_o-YRxf_cc)
+and it is pretty informative.
+It doesn't go over what happens with Forget and Drop,
+but whatever.
+
+After the research,
+I still am not sure if the code is safe,
+I guess I will find out if it bites me in the behind.

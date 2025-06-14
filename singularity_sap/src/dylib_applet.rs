@@ -24,47 +24,50 @@ impl From<&[u8]> for CBytes {
     }
 }
 /// Whoever owns this object is in charge of freeing the slice this points to.
-/// Don't modify this though; I don't know what would happen if you modify this.
+///
+/// Assumes both sides of FFI are written in rust and are using this library.
 ///
 /// From: https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/4.
 #[repr(C)]
-pub struct OwnedCBytes {
+pub struct CVec {
     bytes_ptr: *mut u8,
     len: usize,
     /// REVIEW: check if this is actually needed; the rustlang thread doesn't use it.
     capacity: usize,
-    free: extern "C" fn(&mut Self),
 }
-impl From<Vec<u8>> for OwnedCBytes {
+impl From<Vec<u8>> for CVec {
     fn from(mut value: Vec<u8>) -> Self {
         let bytes_ptr = value.as_mut_ptr();
         let len = value.len();
         let capacity = value.capacity();
 
         // https://stackoverflow.com/questions/74824779/why-is-it-considered-safe-to-memforget-boxes
-        // this memory is leaked here but will be freed in the `free_vec` function, which is called exactly once in `drop`
+        // this memory is leaked here but will be freed in `drop` or when converted to vec.
         std::mem::forget(value);
-
-        /// https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/13?u=mathkimchi
-        extern "C" fn free_vec(bytes: &mut OwnedCBytes) {
-            let vec = unsafe { Vec::from_raw_parts(bytes.bytes_ptr, bytes.len, bytes.capacity) };
-            // no need to manually call drop, but I just wanted to highlight it
-            drop(vec);
-        }
 
         Self {
             bytes_ptr,
             len,
             capacity,
-            free: free_vec,
         }
     }
 }
-impl Drop for OwnedCBytes {
+impl Drop for CVec {
     fn drop(&mut self) {
-        // free the forgotten vec
-        (self.free)(self);
-        // the rest will be freed normally
+        // REVIEW: is this going to double free?
+        let vec: Vec<u8> = unsafe { Vec::from_raw_parts(self.bytes_ptr, self.len, self.capacity) };
+        // unnecessary but highlights that the vec is dropped
+        std::mem::drop(vec);
+    }
+}
+impl From<CVec> for Vec<u8> {
+    fn from(value: CVec) -> Self {
+        let vec = unsafe { Vec::from_raw_parts(value.bytes_ptr, value.len, value.capacity) };
+
+        // prevent double freeing the vec in CVec's drop
+        std::mem::forget(value);
+
+        vec
     }
 }
 
@@ -76,7 +79,7 @@ pub struct GlobalAppletContext {
     ctxt: *const c_void,
     request: extern "C" fn(CBytes, *const c_void),
     /// The `CMutBytes` is the output buffer.
-    query: extern "C" fn(CBytes, *const c_void) -> OwnedCBytes,
+    query: extern "C" fn(CBytes, *const c_void) -> CVec,
 }
 #[cfg(feature = "client")] // These impls shoud be used by the client
 impl GlobalAppletContext {
@@ -86,10 +89,8 @@ impl GlobalAppletContext {
     }
     /// Given the bytes for a query, returns response as bytes.
     pub fn query_bytes(&self, query_bytes: &[u8]) -> Vec<u8> {
-        let mut response_buffer = Vec::new();
-        // TODO: yeah idk how to do this rn
-        (self.query)(CBytes::from(query_bytes), self.ctxt);
-        response_buffer
+        // REVIEW
+        (self.query)(CBytes::from(query_bytes), self.ctxt).into()
     }
 }
 
