@@ -4022,3 +4022,12 @@ In both methods, they send categorized packet traits to each other.
 
 I am compelled to also provide specific methods to dylib applet,
 for reasons like performance.
+
+...
+
+Dylib Applet feels so out of place in `singularity_sap`,
+I felt like I should put it in its own crate.
+But, I realized that rust modules exist for a reason;
+I should stop making new crates and just make modules with cargo cfg features.
+
+Side note: Wowie, 10k lines of singularity? Noice!

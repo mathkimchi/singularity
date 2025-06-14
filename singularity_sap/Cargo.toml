@@ -19,7 +19,7 @@ libloading = { workspace = true }
 libc = { workspace = true }
 
 [features]
-default = ["standard_packets", "server", "client"]
+default = ["standard_packets", "dylib_applet", "server", "client"]
 standard_packets = [
     "singularity_ui",
     "singularity_common",
@@ -27,5 +27,6 @@ standard_packets = [
     "serde",
     "serde_json",
 ]
+dylib_applet = []
 server = []
 client = []

@@ -1,1 +1,1 @@
-find . -name "*.rs" -type f -not -path "./target/*" | xargs wc | sort -n
+find . -name "*.rs" -type f -not -path "./target/*" | xargs wc | sort -n -r
