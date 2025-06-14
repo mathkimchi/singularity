@@ -3974,3 +3974,51 @@ but whatever.
 After the research,
 I still am not sure if the code is safe,
 I guess I will find out if it bites me in the behind.
+
+2025-06-14
+
+I am now implementing the applet context,
+which is like the new ServerHandler.
+In doing this, I realized that I should actually deviate from the `UniversalStream`
+implementations.
+
+So, I want to explain the protocols/implementations that exist for singularity:
+- Datable Trait
+  - `Datable`, `ToData`, `TryFromData`
+  - Just a rust trait for converting an object to bytes and vice versa, where the object's type is known.
+  - This allows for sending objects with pre-known types through FFI and sockets and saving objects to files.
+- Packet Trait System
+  - `PacketTrait` is a `Datable` with a type id.
+  - An implementor type of `PacketUnion` represents a bundle of different types that implement `PacketTrait`.
+  - An object instance `PacketUnion` represents a specific `PacketTrait` object.
+  - Given a `PacketTrait`'s byte representation + the `TypeId` of the `PacketTrait` the bytes came from, if that `PacketTrait` is in a `PacketUnion` type's bundle, the `PacketUnion` type will create an object instance of itself.
+  - Allows for sending and storing objects with multiple possible types (the multiple possible `PacketTrait` types are bundled into `PacketUnion`).
+- Categorized Packet Traits
+  - Just `PacketTrait`'s and `PacketUnion`'s with category (Event, Request, Query, Response) specified for additional safety.
+  - `UniversalQueryTrait`, `EventPacketTrait`, `RequestPacketTrait`, `EventPacketUnion`, `RequestPacketUnion`
+- Byte Stream Trait
+  - `ByteStream`, `ByteReader`, `ByteWriter`
+  - Deals in chunks of bytes, where the length matters and isn't constant. ('Hi' is different from 'H' then 'i')
+  - Flexible reading:
+    - Poll (gives all byte chunks currently readable)
+    - Waits (waits until a byte chunk is readable and then returns it)
+  - Writing:
+    - Send a byte chunk
+  - Implementation Note: many implementations send the length first and then sends the actual byte chunk
+- Universal Stream Structs
+  - `UniversalClientStream`, `UniversalServerStream`
+  - Given a byte stream object and with recieving bundle types (eg: a `EventPacketUnion` type for the client's universal stream), the universal stream is able to send `PacketTrait` or `PacketUnion` objects and recieve `PacketUnion` objects
+  - Is implemented (everything above is a protocol with open implementation).
+  - The byte-level structure of the packets that I described earlier (like in 2025/03/26) are pretty much just for the Universal Stream implementation
+- Dylib Applet
+  - I am working on this right now. The scope of it is currently unknown.
+
+With active applets, the SDE and applet talk to each other via universal stream,
+where they use matching byte stream methods.
+With reactive applets (`dylib_applet`),
+I am planning on making the `dylib_applet` protocols.
+
+In both methods, they send categorized packet traits to each other.
+
+I am compelled to also provide specific methods to dylib applet,
+for reasons like performance.

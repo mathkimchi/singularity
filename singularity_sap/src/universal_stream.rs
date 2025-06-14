@@ -24,7 +24,7 @@ pub mod universal_client_stream {
         byte_stream::ByteStream,
         datable::TryFromData,
         packet::{
-            PacketTrait as _, PacketTypeId, PacketUnion, QueryInstanceId, RequestPacketTrait,
+            EventPacketUnion, PacketTrait as _, PacketTypeId, QueryInstanceId, RequestPacketTrait,
             UniversalQueryTrait, EVENT_PACKET_CATEGORY, QUERY_PACKET_CATEGORY,
             REQUEST_PACKET_CATEGORY, RESPONSE_PACKET_CATEGORY, UNKNOWN_RESPONSE_TYPE_ID,
         },
@@ -41,14 +41,14 @@ pub mod universal_client_stream {
     /// TODO: I am using `try` and `wait` prefix to specify nonblocking vs blocking,
     /// which is based off the [`std::sync::mpsc`], but it is kind of confusing because
     /// try is more commonly used as the prefix when the output is [`Option`]/[`Result`]
-    pub struct UniversalClientStream<Stream: ByteStream, Event: PacketUnion> {
+    pub struct UniversalClientStream<Stream: ByteStream, Event: EventPacketUnion> {
         stream: Stream,
 
         /// REVIEW: slightly less performant, but philosophically better way might be to store `Vec<(PacketType, Vec<u8>)>` bc then, UClientStream wouldn't need Event generic.
         event_queue: Vec<Event>,
         response_data_queue: Vec<(PacketTypeId, Vec<u8>)>,
     }
-    impl<Stream: ByteStream, Event: PacketUnion> UniversalClientStream<Stream, Event> {
+    impl<Stream: ByteStream, Event: EventPacketUnion> UniversalClientStream<Stream, Event> {
         pub fn new(stream: Stream) -> Self {
             Self {
                 stream,

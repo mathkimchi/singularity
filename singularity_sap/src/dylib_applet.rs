@@ -1,6 +1,9 @@
 use libc::c_void;
 use std::{ffi::OsStr, path::Path};
 
+use crate::packet::{EventPacketTrait, EventPacketUnion};
+
+/// "Generated" by mashing keyboard.
 pub const DYLIB_APPLET_SIGNATURE: u64 = 784532439874536;
 
 /// Just a way of representing a byte slice like `&[u8]` for FFI's.
@@ -71,30 +74,73 @@ impl From<CVec> for Vec<u8> {
     }
 }
 
-/// When we call a global function of a dylib applet,
-/// we give it the `GlobalAppletContext` so it can call things like `request`.
+/// When we call a function of a dylib applet,
+/// we give it the `AppletContext` so it can call things like `request`.
+///
+/// This is pretty much just the server handler on the client side.
+///
+/// This is passed on both global and tab function calls,
+/// though the implementation provided by the SDE might be different for the two.
+///
+/// REVIEW: rename to `ServerHandler`?
 #[repr(C)]
-pub struct GlobalAppletContext {
+pub struct AppletContext {
     /// Should contain all the information needed for request and query.
     ctxt: *const c_void,
-    request: extern "C" fn(CBytes, *const c_void),
+    request_bytes_fn: extern "C" fn(CBytes, *const c_void),
     /// The `CMutBytes` is the output buffer.
-    query: extern "C" fn(CBytes, *const c_void) -> CVec,
+    query_bytes_fn: extern "C" fn(CBytes, *const c_void) -> CVec,
 }
 #[cfg(feature = "client")] // These impls shoud be used by the client
-impl GlobalAppletContext {
-    /// Passes on the bytes for a request.
-    pub fn request_bytes(&self, request_bytes: &[u8]) {
-        (self.request)(CBytes::from(request_bytes), self.ctxt);
-    }
-    /// Given the bytes for a query, returns response as bytes.
-    pub fn query_bytes(&self, query_bytes: &[u8]) -> Vec<u8> {
-        // REVIEW
-        (self.query)(CBytes::from(query_bytes), self.ctxt).into()
+mod global_applet_context_client_impls {
+    use crate::{
+        datable::TryFromData,
+        dylib_applet::{AppletContext, CBytes},
+        packet::{RequestPacketTrait, UniversalQueryTrait},
+    };
+
+    impl AppletContext {
+        /// Passes on the bytes for a request.
+        fn request_bytes(&self, request_bytes: &[u8]) {
+            (self.request_bytes_fn)(CBytes::from(request_bytes), self.ctxt);
+        }
+        pub fn send_request<R: RequestPacketTrait>(&self, request: R) {
+            // NOTE: as stated in the 2025-06-14 devlog, the byte structure for reactive applets are different than for active applets' universal stream
+            let request_bytes = {
+                let request_data = &request.to_data();
+
+                [R::PACKET_TYPE_ID.to_be_bytes().as_slice(), request_data].concat()
+            };
+
+            self.request_bytes(&request_bytes);
+        }
+
+        /// Given the bytes for a query, returns response as bytes.
+        fn query_bytes(&self, query_bytes: &[u8]) -> Vec<u8> {
+            // REVIEW
+            (self.query_bytes_fn)(CBytes::from(query_bytes), self.ctxt).into()
+        }
+        pub fn query<Q: UniversalQueryTrait>(&mut self, query: Q) -> Option<Q::ResponseType> {
+            // send query
+
+            // NOTE: as stated in the 2025-06-14 devlog, the byte structure for reactive applets are different than for active applets' universal stream
+            let query_bytes = {
+                let query_type_id = Q::PACKET_TYPE_ID.to_be_bytes();
+                let query_inner_data = query.to_data();
+
+                [query_type_id.as_slice(), &query_inner_data].concat()
+            };
+
+            let response_bytes = self.query_bytes(&query_bytes);
+
+            // recieve response
+            Q::ResponseType::try_from_data(&response_bytes)
+        }
     }
 }
 
-/// Represents client on the server side.
+/// Represents dylib applet client on the server side.
+/// Like `ClientHandler` or `UniversalServerSide`
 #[cfg(feature = "server")]
 pub struct DylibClient {
     library: libloading::Library,
@@ -131,6 +177,36 @@ impl DylibClient {
 
             Some(Self { library })
         }
+    }
+
+    fn event_bytes(&self, event_bytes: &[u8], applet_context: &AppletContext) {
+        unsafe {
+            let func: libloading::Symbol<unsafe extern "C" fn(CBytes, &AppletContext)> =
+                self.library.get(b"_event_bytes").unwrap();
+            func(CBytes::from(event_bytes), applet_context);
+        }
+    }
+    pub fn send_event<Event: EventPacketTrait>(
+        &self,
+        event: Event,
+        applet_context: &AppletContext,
+    ) {
+        self.event_bytes(
+            &[
+                Event::PACKET_TYPE_ID.to_be_bytes().as_slice(),
+                &event.to_data(),
+            ]
+            .concat(),
+            applet_context,
+        );
+    }
+    pub fn send_event_union(&self, event: impl EventPacketUnion, applet_context: &AppletContext) {
+        let (packet_type_id, packet_inner_data) = event.packet_to_data();
+
+        self.event_bytes(
+            &[packet_type_id.to_be_bytes().as_slice(), &packet_inner_data].concat(),
+            applet_context,
+        );
     }
 
     // pub fn do_a_thing(&self) -> Option<()> {
