@@ -4031,3 +4031,62 @@ But, I realized that rust modules exist for a reason;
 I should stop making new crates and just make modules with cargo cfg features.
 
 Side note: Wowie, 10k lines of singularity? Noice!
+
+...
+
+I will add a `ratk`,
+which will be the `reactive applet toolkit`
+
+2025-06-16 1:17AM
+
+I finished writing the `register_applet` macro.
+I haven't tested it yet (that is the next step, to make a dylib client).
+The macro itself is very simple, and the bulk of the time I spent on
+developing today was avoiding code repetition by implementing packet to and fro `typed_data`,
+as well as figuring out lifetimes for `CBytes`.
+I also tried to clean up some code.
+
+I don't know why I am trying to write down excuses for why I worked unreasonably
+long on this commit.
+If I had to guess, it is probably because I am trying to cope with the fact
+that I tried to multitask watching Last Week Tonight while working on singularity
+for an hour or two (or three possibly, sue me) and realized that
+I should only code until I finish this commit,
+and then I can focus entirely on whatever else I want.
+Welp, now it is 1:25AM, and I am starting a lab tommorow
+(technically today, 2025-06-16).
+I want to wake up at 7AM, eat breakfast, and get to the lab early, like 8:30AM,
+even though for the last 3 weeks of summer, I've been sleeping after 2AM and waking up at 12-3PM.
+
+I wanted to finish a course of 16, 1 hour lectures before starting the lab,
+but I think I watched the important parts, so that won't worry me to the point of not sleeping
+(instead, that will simply be my inconsistent sleeping habit).
+Anyways, I guess am kind of stalling now because I need to shower,
+and I kind of don't want to, even though once I start showering I enjoy the warmness of it.
+
+It is weird that I hijacked this devlog entry with personal info.
+I already write relatively a lot about my personal life in my devlogs,
+but this is more than usual.
+I am not sorry for adding this entry to the singularity devlog,
+but I am feeling dejected
+(it's the feeling of to sighing and saying whatever then reluctantly following along with what is happening,
+but it's weird since I am the one who is making it happen),
+because I have a seperate journal specifically for personal thoughts,
+as well as a seperate diary for events in my personal life,
+and I am currently messing up the organization of those journals.
+
+But, once I get the documentation/devlog/journal/diary writing applet working,
+these organizational problems will be of the past.
+(HA, NOICE!
+I was able to make this entry somewhat relevant to singularity,
+thereby justifying its location!
+Truly, a genius maneuver.)
+
+... well, now this entry does belong here,
+so me talking about how it ruins my organization should be removed,
+but if that is removed, then the entry wouldn't be relevant to singularity,
+so I could add back the ramblings,
+which would make this entry relevant again.
+But then, I'd need to...
+
+Whatever, I'm "going to sleep" now.

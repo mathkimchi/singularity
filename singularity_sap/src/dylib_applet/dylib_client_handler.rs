@@ -1,3 +1,5 @@
+#![cfg(feature = "server")]
+
 use crate::{
     dylib_applet::{applet_context::AppletContext, ffi_bytes::CBytes, DYLIB_APPLET_SIGNATURE},
     packet::{EventPacketTrait, EventPacketUnion},
@@ -6,7 +8,6 @@ use std::{ffi::OsStr, path::Path};
 
 /// Represents dylib applet client on the server side.
 /// Like `ClientHandler` or `UniversalServerSide`
-#[cfg(feature = "server")]
 pub struct DylibClientHandler {
     library: libloading::Library,
 }
@@ -32,6 +33,7 @@ impl DylibClientHandler {
     {
         unsafe {
             let library = libloading::Library::new(path).ok()?;
+            // REVIEW: check if the unsafe is necessary for the symbol
             let dylib_applet_signature: libloading::Symbol<unsafe extern "C" fn() -> u64> =
                 library.get(b"_get_applet_signature").ok()?;
 
@@ -46,8 +48,9 @@ impl DylibClientHandler {
 
     fn event_bytes(&self, event_bytes: &[u8], applet_context: &AppletContext) {
         unsafe {
+            // REVIEW: check if the unsafe is necessary for the symbol
             let func: libloading::Symbol<unsafe extern "C" fn(CBytes, &AppletContext)> =
-                self.library.get(b"_event_bytes").unwrap();
+                self.library.get(b"_recieve_event_bytes").unwrap();
             func(CBytes::from(event_bytes), applet_context);
         }
     }
@@ -56,21 +59,9 @@ impl DylibClientHandler {
         event: Event,
         applet_context: &AppletContext,
     ) {
-        self.event_bytes(
-            &[
-                Event::PACKET_TYPE_ID.to_be_bytes().as_slice(),
-                &event.to_data(),
-            ]
-            .concat(),
-            applet_context,
-        );
+        self.event_bytes(&event.packet_to_typed_data(), applet_context);
     }
     pub fn send_event_union(&self, event: impl EventPacketUnion, applet_context: &AppletContext) {
-        let (packet_type_id, packet_inner_data) = event.packet_to_data();
-
-        self.event_bytes(
-            &[packet_type_id.to_be_bytes().as_slice(), &packet_inner_data].concat(),
-            applet_context,
-        );
+        self.event_bytes(&event.packet_to_typed_data(), applet_context);
     }
 }

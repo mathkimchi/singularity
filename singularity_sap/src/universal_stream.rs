@@ -6,6 +6,7 @@ use crate::packet::{PacketCategory, PacketTypeId};
 /// For server recieving, packet type ids should be request and query
 ///
 /// REVIEW: make packet type an enum?
+#[deprecated(note = "use packet_to_typed_data and packet_try_from_bytes")]
 fn split_packet_category(data: &[u8]) -> (PacketCategory, PacketTypeId, &[u8]) {
     (
         data[0], // like data[0..1]

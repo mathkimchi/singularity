@@ -3,6 +3,7 @@ pub trait ToData {
     fn to_data(&self) -> Vec<u8>;
 }
 pub trait TryFromData: Sized {
+    /// TODO: output [`Result`] instead of [`Option`]
     fn try_from_data(data: &[u8]) -> Option<Self>;
 }
 /// Word I made up

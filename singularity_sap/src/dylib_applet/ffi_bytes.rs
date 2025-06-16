@@ -2,6 +2,8 @@
 //! but I actually assume both sides of FFI are going to be in Rust and this exact crate.
 //! TODO: rename to FFIBytes
 
+// TODO: add `unsafe` to like, all the functions?
+
 /// Just a way of representing a byte slice like `&[u8]` for FFI's.
 /// From [here](https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/4)
 /// and the [rustonomicon](https://doc.rust-lang.org/nomicon/ffi.html).
@@ -9,19 +11,31 @@
 ///
 /// The `Range<*const T>` returned by [`slice::as_ptr_range`] would be good,
 /// but it isn't marked `#[repr(C)]` so I guess it doesn't work.
+///
+/// REVIEW: check if the `<'a>` fixes anything.
 #[repr(C)]
-pub struct CBytes {
+pub struct CBytes<'a> {
     bytes: *const u8,
     len: usize,
+
+    /// Like PhantomData, but for lifetimes.
+    _phantom: &'a (),
 }
-impl From<&[u8]> for CBytes {
+impl<'a> From<&'a [u8]> for CBytes<'a> {
     fn from(value: &[u8]) -> Self {
         Self {
             bytes: value.as_ptr(),
             len: value.len(),
+            _phantom: &(),
         }
     }
 }
+impl<'a> AsRef<[u8]> for CBytes<'a> {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.bytes, self.len) }
+    }
+}
+
 /// Whoever owns this object is in charge of freeing the slice this points to.
 ///
 /// Assumes both sides of FFI are written in rust and are using this library.
