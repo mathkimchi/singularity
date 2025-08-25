@@ -1,4 +1,4 @@
-use crate::{packets::SDEEvent, tab::TabHandler};
+use crate::{packets::SDEEvent, tab::AppletHandler};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
@@ -24,15 +24,15 @@ use singularity_sporg::{
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    pub tabs: IdMap<TabHandler>,
+    pub tabs: IdMap<AppletHandler>,
 
     /// ORGanizational tree
-    org_tree: IdTree<TabHandler>,
-    focused_tab: Id<TabHandler>,
+    org_tree: IdTree<AppletHandler>,
+    focused_tab: Id<AppletHandler>,
 
     // /// currently, last in vec is "top" in gui
     // display_order: Vec<Uuid>,
-    display_tiles: Tiles<TabHandler>,
+    display_tiles: Tiles<AppletHandler>,
 }
 impl Tabs {
     pub fn parse_from_session(session: &Session) -> Self {

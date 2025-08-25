@@ -10,6 +10,8 @@ members = [
     "singularity_sde",
     "singularity_sttk",
     "singularity_standard_tabs",
+    # "singularity_standard_tabs/*", # TODO: make the asterisk work
+    "singularity_standard_tabs/dylib_math_game",
 
     "dynamic_plugin_sandbox/server",
     "dynamic_plugin_sandbox/client",

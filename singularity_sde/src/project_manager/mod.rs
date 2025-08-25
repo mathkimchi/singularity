@@ -27,18 +27,18 @@ use singularity_sporg::{
     tile::{Orientation, Tile},
 };
 use singularity_ui::{
+    UIDisplay,
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyTrait, UIEvent},
-    UIDisplay,
 };
 use std::{
     fs::File,
     io::{self, Read, Write},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     thread,
 };

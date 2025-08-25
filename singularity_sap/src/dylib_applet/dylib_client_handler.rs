@@ -1,17 +1,20 @@
 #![cfg(feature = "server")]
 
 use crate::{
-    dylib_applet::{applet_context::AppletContext, ffi_bytes::CBytes, DYLIB_APPLET_SIGNATURE},
+    dylib_applet::{DYLIB_APPLET_SIGNATURE, applet_context::AppletContext, ffi_bytes::CBytes},
     packet::{EventPacketTrait, EventPacketUnion},
 };
 use std::{ffi::OsStr, path::Path};
 
 /// Represents dylib applet client on the server side.
 /// Like `ClientHandler` or `UniversalServerSide`
-pub struct DylibClientHandler {
+// pub struct DylibClientHandler {
+pub struct DylibAppletLibrary {
     library: libloading::Library,
+    // handle_event_bytes_fn: libloading::Symbol<unsafe extern "C" fn(CBytes, &AppletContext)>,
 }
-impl DylibClientHandler {
+impl DylibAppletLibrary {
+    /// Credit: [`dynamic-plugin`](https://github.com/lilopkins/dynamic-plugins-rs)
     pub fn find_plugins<P>(path: P) -> Vec<Self>
     where
         P: AsRef<Path>,
@@ -26,6 +29,7 @@ impl DylibClientHandler {
         }
         plugins
     }
+    /// Credit: [`dynamic-plugin`](https://github.com/lilopkins/dynamic-plugins-rs)
     // TODO: use result instead of option ; this kind of goes for the entire codebase. Ctrl+F `ok()?`
     pub fn load_plugin<P>(path: P) -> Option<Self>
     where
@@ -46,22 +50,55 @@ impl DylibClientHandler {
         }
     }
 
-    fn event_bytes(&self, event_bytes: &[u8], applet_context: &AppletContext) {
+    fn send_event_bytes(
+        &self,
+        applet_instance_bytes: *mut std::ffi::c_void,
+        event_bytes: &[u8],
+        applet_context: &AppletContext,
+    ) {
         unsafe {
             // REVIEW: check if the unsafe is necessary for the symbol
-            let func: libloading::Symbol<unsafe extern "C" fn(CBytes, &AppletContext)> =
-                self.library.get(b"_recieve_event_bytes").unwrap();
-            func(CBytes::from(event_bytes), applet_context);
+            let func: libloading::Symbol<
+                unsafe extern "C" fn(*mut std::ffi::c_void, CBytes, &AppletContext),
+            > = self.library.get(b"_handle_event_bytes").unwrap();
+            func(
+                applet_instance_bytes,
+                CBytes::from(event_bytes),
+                applet_context,
+            );
         }
     }
     pub fn send_event<Event: EventPacketTrait>(
         &self,
+        applet_instance_bytes: *mut std::ffi::c_void,
         event: Event,
         applet_context: &AppletContext,
     ) {
-        self.event_bytes(&event.packet_to_typed_data(), applet_context);
+        self.send_event_bytes(
+            applet_instance_bytes,
+            &event.packet_to_typed_data(),
+            applet_context,
+        );
     }
-    pub fn send_event_union(&self, event: impl EventPacketUnion, applet_context: &AppletContext) {
-        self.event_bytes(&event.packet_to_typed_data(), applet_context);
+    pub fn send_event_union(
+        &self,
+        applet_instance_bytes: *mut std::ffi::c_void,
+        event: impl EventPacketUnion,
+        applet_context: &AppletContext,
+    ) {
+        self.send_event_bytes(
+            applet_instance_bytes,
+            &event.packet_to_typed_data(),
+            applet_context,
+        );
+    }
+
+    pub fn drop_applet_context(&self, applet_instance_bytes: *mut std::ffi::c_void) {
+        unsafe {
+            // REVIEW: check if the unsafe is necessary for the symbol
+            let func: libloading::Symbol<unsafe extern "C" fn(*mut std::ffi::c_void)> =
+                self.library.get(b"_handle_event_bytes").unwrap();
+            func(applet_instance_bytes);
+        }
     }
 }

@@ -4090,3 +4090,76 @@ which would make this entry relevant again.
 But then, I'd need to...
 
 Whatever, I'm "going to sleep" now.
+
+2025-06-16
+
+To test dylib applet, I will make a math game.
+
+I wanted to do a sudoku or maze game,
+but the logic for both of those is unnecessarily complicated
+for a simple demo.
+
+Also, I noticed that all my crates are still 2021,
+so I will update them to 2024, which came out a few months ago.
+
+2025-06-19
+
+I am going to write two sets of functions in the `ReactiveApplet` trait
+for global events vs instance events.
+I also might want a seperate function for creating an applet.
+I also might want two seperate events for global vs instance.
+
+2025-08-09 10:16PM
+
+WOW, it has been a while.
+Over summer, I have been working on an internship, college apps,
+and for my personal project I've been working on celldom.
+
+I have been thinking about singularity, but evidently, I haven't been coding for it much.
+
+I remember I was doing something with dylibs, but I don't know what this commit was.
+
+I don't want to use VSCode, but neovim and emacs are annoying to configure with Nix,
+but this is good because it will incentivize me to work on singularity even faster.
+
+I guess I should start by looking at what I've modified and maybe some TODO, REVIEW, and FIXMEs.
+Maybe I should actually start by looking at the logs.
+
+Okay, so it seems like my previous commit was me writing a play.
+Then, on 2062-06-16, I said I would make a math game to *test* the dylib in this commit,
+so it seems I already wrote code for the dylib infastructure.
+Then, I updated my crates to rust 2024.
+On 2025-06-19, it seems I was going to make two different function typesfor global vs instance events,
+and I am not sure if that is still a TODO.
+Knowing me, it is probably still a TODO.
+On 2025-08-09 10:16PM, it seems like I started logging the time of day in the devlog so I could brag about having no life.
+I commented on how I haven't been working on singularity and gave some half-baked excuses.
+Then, I babbled a bit about random stuff, and then I started to look at the logs and summarizing them.
+Then, I finished singularity, did a backflip, and made it in time for my daughter's ballet recital.
+Oh wait, the previous sentence is all halucinated, the most recent thing I did is look at the logs and summarized them, before I took (or, am taking) this chance to become meta.
+
+2025-08-16 8:16PM
+
+Uh, after writing my last entry, I didn't actually do anything.
+
+First, I have to deal with deallocating an Applet instance from memory.
+I am just going to add a function called `close_applet` that takes ownership of the Applet object
+and therefore is responsible with deallocating it.
+
+2025-08-24 6:03PM
+
+I have to write code to have the sde actually use dylib now.
+
+...
+
+Maybe its because I just lost PeddieHacks or because I am coming back to singularity after so long
+or maybe I am just seeing this from the correct perspective for the first time,
+but my code is too messy.
+I might do a soft restart/refactor by first figuring out what modules are solid,
+where the solid modules belong,
+and then rethinking the architecture of everything that remains.
+I should be able to explain what every single thing's purpose is
+by only looking at the name and what module its in,
+without needing to read documentation or code.
+
+Either way, I am just going to commit this current mess right now.

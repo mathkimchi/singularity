@@ -11,6 +11,8 @@ use crate::dylib_applet::ffi_bytes::{CBytes, CVec};
 /// though the implementation provided by the SDE might be different for the two.
 ///
 /// REVIEW: rename to `ServerHandler`?
+///
+/// WARNING: must drop this manually
 #[repr(C)]
 pub struct AppletContext {
     /// Should contain all the information needed for request and query.

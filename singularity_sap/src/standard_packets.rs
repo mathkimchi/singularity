@@ -69,7 +69,7 @@ pub mod display_packets {
             args: impl Iterator<Item = impl Into<OsString>>,
             initial_session_storage: serde_json::Value,
         ) -> Self {
-            Self(AppletSpawnData::new(
+            Self(AppletSpawnData::new_pipe_child_process(
                 applet_type_id,
                 applet_spawn_command,
                 args,

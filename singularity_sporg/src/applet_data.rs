@@ -8,6 +8,9 @@ pub enum AppletSpawnMethod {
         program: OsString,
         args: Vec<OsString>,
     },
+    Dylib {
+        path: OsString,
+    },
 }
 
 /// All the data required for the SDE to spawn a new applet.
@@ -24,7 +27,7 @@ pub struct AppletSpawnData {
     pub initial_session_storage: serde_json::Value,
 }
 impl AppletSpawnData {
-    pub fn new(
+    pub fn new_pipe_child_process(
         applet_type_id: Option<AppletTypeId>,
         applet_spawn_command: impl Into<OsString>,
         args: impl Iterator<Item = impl Into<OsString>>,
@@ -40,7 +43,7 @@ impl AppletSpawnData {
         }
     }
 
-    pub fn new_argless(
+    pub fn new_argless_pipe_child_process(
         applet_type_id: Option<AppletTypeId>,
         applet_spawn_command: impl Into<OsString>,
         initial_session_storage: serde_json::Value,
@@ -77,6 +80,7 @@ impl Borrow<AppletTypeId> for AppletType {
 
 /// Standard naming scheme is snake case: `file_manager`
 /// REVIEW: make this a hash of the string instead of the string?
+/// REVIEW: call this `AppletTypeIdName`?
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AppletTypeId(pub String);
 impl AppletTypeId {
