@@ -4163,3 +4163,36 @@ by only looking at the name and what module its in,
 without needing to read documentation or code.
 
 Either way, I am just going to commit this current mess right now.
+
+...
+
+First, I think that the "util"s are most solid and clearly defined.
+Most of `singularity_sap`, `singularity_common` (which only consists of utils rn),
+and `singularity_ui` (there is a lot of improvements to be done, but at least it is pretty clear what it is supposed to be) are fine for now.
+
+I want to redo the rest and `singularity_sap::dylib_applet`.
+
+2025-09-20 12:02AM
+
+I have been doing a lot of thinking, and I wrote some stuff down on my paper journal
+as well as brainstorming UI on an iPad.
+
+To summarize the big points:
+- My progress on singularity has been abysmal because I keep adding "widening" it without following through on a single Minimal Usable Product (I prefer this to MVP because my current sights are set foremostly on getting a usable product ASAP). I have been wandering aimlessly in my codebase adding things that are easy to implement (or at least seem easy to implement).
+- I have begun to "manifest" singularity, where I try to imagine using singularity as intensely and vividly as possible. With this, I aim to get the "what" of sinularity solidified such that my worries on the "how" can be directed towards forwards progress. This contrasts to the past where my lack of vision or the "what" has made me implement the "how" in useless directions.
+- Steps I will take now:
+  - I will commit this and close this branch and issue.
+  - Plan new crate structure
+  - Purge all subpar code
+    - (Even the good ones that I don't absolutely need right now can be purged now and added back later)
+  - Most basic applet
+    - Only predetermined events
+    - Plugins are static-time Rust plugins
+
+I do already have many ideas from my manifestation sessions, but in lieu of my limited time,
+I will leave those on my iPad until I begin coding them.
+
+I wanted to call this new Singularity the Nova Singularity,
+but I realized that there isn't really an old Singularity to compare it to,
+since I am still working on the first MVP.
+I guess I can call this the reignition stage of the development era.
