@@ -1,12 +1,6 @@
+use crate::applet_data::{AppletSpawnData, AppletType, AppletTypeId};
 use serde::{Deserialize, Serialize};
-use singularity_common::utils::{
-    id_map::{Id, IdMap},
-    tree::id_tree::IdTree,
-};
-use singularity_ui::display_units::DisplayArea;
-use std::{collections::HashMap, ffi::OsString};
-
-use crate::tile::Tiles;
+use std::{collections::HashSet, path::PathBuf};
 
 // #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 // pub struct SubappFileSystemPermission {
@@ -27,91 +21,92 @@ use crate::tile::Tiles;
 //     property: Option<SubappFileSystemPermission>,
 // }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappStandardSettings {
-    pub spawnable_default: Option<TabData>,
-}
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappStandardSettings {
+//     pub spawnable_default: Option<AppletSpawnData>,
+// }
 
-/// This is for a tab type as opposed to a specific instance of a tab
-/// TODO: rename
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct SubappSettings {
-    pub subapp_standard_settings: Option<SubappStandardSettings>,
-    pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
-}
-
-/// Like `Command`. (program, args). The command and args to spawn tab.
-/// TODO: can make this an Enum later when tabs can have different ways of being created.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct TabSpawnCommand {
-    pub program: OsString,
-    pub args: Vec<OsString>,
-}
-
-/// NOTE: Read devlog ~2024/10/29 and 2025/02/19 for description; this is like SessionStorage for webdev
-/// REVIEW: rename?
-/// REVIEW: include Area and UIElement and TabType into this?
-/// This type is kind of a black sheep
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct TabData {
-    pub tab_command: TabSpawnCommand,
-    /// REVIEW: make this another type?
-    pub session_data: serde_json::Value,
-}
-impl TabData {
-    pub fn new(
-        tab_command_program: impl Into<OsString>,
-        args: impl Iterator<Item = impl Into<OsString>>,
-        session_data: serde_json::Value,
-    ) -> Self {
-        Self {
-            tab_command: TabSpawnCommand {
-                program: tab_command_program.into(),
-                args: args.map(|arg| arg.into()).collect(),
-            },
-            session_data,
-        }
-    }
-
-    pub fn new_argless(
-        tab_command_program: impl Into<OsString>,
-        session_data: serde_json::Value,
-    ) -> Self {
-        Self {
-            tab_command: TabSpawnCommand {
-                program: tab_command_program.into(),
-                args: Vec::new(),
-            },
-            session_data,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct OpenTab {
-    /// is kind of dangerous to let user change the id of a tab, but if they screw this up, it is their fault
-    pub tab_area: DisplayArea,
-    pub tab_data: TabData,
-}
-/// REVIEW: alternative name for open tab: tab session
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct OpenTabs {
-    pub tabs: IdMap<OpenTab>,
-
-    /// ORGanizational tree
-    pub org_tree: IdTree<OpenTab>,
-    pub focused_tab: Id<OpenTab>,
-
-    // /// currently, last in vec is "top" in gui
-    // pub display_order: Vec<Uuid>,
-    pub display_tiles: Tiles<OpenTab>,
-}
+// /// This is for a tab type as opposed to a specific instance of a tab
+// /// TODO: rename
+// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+// pub struct SubappSettings {
+//     pub subapp_standard_settings: Option<SubappStandardSettings>,
+//     pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
+// }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSettings {
     /// this is the list of tab types
     /// REVIEW: rename
-    pub subapps: HashMap<String, SubappSettings>,
-    /// TODO: move this out of settings
-    pub open_tabs: Option<OpenTabs>,
+    pub applet_types: HashSet<AppletType>,
+}
+impl ProjectSettings {
+    // pub fn get_applet(&self, applet: AppletTypeId) -> A {}
+}
+
+pub struct Project {
+    project_directory: PathBuf,
+    /// REVIEW: dangerous to expose this?
+    pub project_settings: ProjectSettings,
+}
+impl Project {
+    pub fn open_or_make<P>(project_directory: P) -> Self
+    where
+        P: AsRef<std::path::Path> + Clone,
+        PathBuf: std::convert::From<P>,
+    {
+        Self::try_from_project_directory(project_directory.clone()).unwrap_or_else(|| Self {
+            project_settings: ProjectSettings {
+                applet_types: HashSet::from_iter(vec![AppletType {
+                    type_id: AppletTypeId::new("file_manager"),
+                    default_spawn: Some(AppletSpawnData::new_argless_pipe_child_process(
+                        Some(AppletTypeId::new("file_manager")),
+                        "./target/release/file_manager",
+                        serde_json::to_value(PathBuf::from(project_directory.clone())).unwrap(),
+                    )),
+                }]),
+            },
+            project_directory: PathBuf::from(project_directory),
+        })
+    }
+
+    pub fn try_from_project_directory<P>(project_directory: P) -> Option<Self>
+    where
+        P: AsRef<std::path::Path>,
+        PathBuf: std::convert::From<P>,
+    {
+        Some(Self {
+            project_settings: Self::parse_project_settings(&project_directory)?,
+            project_directory: PathBuf::from(project_directory),
+        })
+    }
+
+    fn parse_project_settings(
+        project_directory: impl AsRef<std::path::Path>,
+    ) -> Option<ProjectSettings> {
+        let core_project_settings_path = project_directory
+            .as_ref()
+            .join(".project/project_settings.json");
+        Some(
+            serde_json::from_str(&std::fs::read_to_string(&core_project_settings_path).ok()?)
+                .expect("core project file should be formatted correctly"),
+        )
+    }
+
+    pub fn get_project_directory(&self) -> &PathBuf {
+        &self.project_directory
+    }
+
+    pub fn get_project_settings(&self) -> &ProjectSettings {
+        &self.project_settings
+    }
+
+    pub fn save_to_file(&self) {
+        let core_project_settings_path = self
+            .project_directory
+            .join(".project/project_settings.json");
+        let serialized_project = serde_json::to_string_pretty(&self.project_settings).unwrap();
+        std::fs::write(core_project_settings_path, serialized_project)
+            .expect("failed to write serialized project to `.project/project_settings.json`");
+    }
 }

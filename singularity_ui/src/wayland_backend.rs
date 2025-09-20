@@ -820,7 +820,7 @@ pub mod ui_event {
         pub shift: bool,
         pub caps_lock: bool,
         pub logo: bool,
-        pub num_lock: bool,
+        // pub num_lock: bool,
     }
     pub type Key = keyboard::KeyEvent;
 
@@ -860,7 +860,7 @@ pub mod ui_event {
             shift: false,
             caps_lock: false,
             logo: false,
-            num_lock: false,
+            // num_lock: false,
         };
 
         pub const CTRL: Self = KeyModifiers {
@@ -869,7 +869,7 @@ pub mod ui_event {
             shift: false,
             caps_lock: false,
             logo: false,
-            num_lock: false,
+            // num_lock: false,
         };
 
         pub const ALT: Self = KeyModifiers {
@@ -878,7 +878,7 @@ pub mod ui_event {
             shift: false,
             caps_lock: false,
             logo: false,
-            num_lock: false,
+            // num_lock: false,
         };
 
         pub const SHIFT: Self = KeyModifiers {
@@ -887,7 +887,7 @@ pub mod ui_event {
             shift: true,
             caps_lock: false,
             logo: false,
-            num_lock: false,
+            // num_lock: false,
         };
 
         pub const LOGO: Self = KeyModifiers {
@@ -896,7 +896,7 @@ pub mod ui_event {
             shift: false,
             caps_lock: false,
             logo: true,
-            num_lock: false,
+            // num_lock: false,
         };
     }
     impl From<keyboard::Modifiers> for KeyModifiers {
@@ -907,7 +907,7 @@ pub mod ui_event {
                 shift,
                 caps_lock,
                 logo,
-                num_lock,
+                num_lock: _,
             }: keyboard::Modifiers,
         ) -> Self {
             Self {
@@ -916,7 +916,7 @@ pub mod ui_event {
                 shift,
                 caps_lock,
                 logo,
-                num_lock,
+                // num_lock,
             }
         }
     }
@@ -930,7 +930,7 @@ pub mod ui_event {
                 shift: self.shift | rhs.shift,
                 caps_lock: self.caps_lock | rhs.caps_lock,
                 logo: self.logo | rhs.logo,
-                num_lock: self.num_lock | rhs.num_lock,
+                // num_lock: self.num_lock | rhs.num_lock,
             }
         }
     }
@@ -944,7 +944,7 @@ pub mod ui_event {
                 shift: self.shift & rhs.shift,
                 caps_lock: self.caps_lock & rhs.caps_lock,
                 logo: self.logo & rhs.logo,
-                num_lock: self.num_lock & rhs.num_lock,
+                // num_lock: self.num_lock & rhs.num_lock,
             }
         }
     }

@@ -1,8 +1,7 @@
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::EventPacketUnion;
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, CombinedByteStream},
-    datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketUnion, PacketTypeId, PacketUnion},
     standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -30,8 +29,9 @@ Must pay the price!",
     "When the odds are saying you'll never win, that's when the grin should start!",
 ];
 
-#[derive(PacketUnion, Packet)]
+#[derive(EventPacketUnion)]
 enum MyEvent {
+    #[sub_union]
     DisplayEvent(DisplayEvent),
 }
 
@@ -73,12 +73,11 @@ fn main() {
 
         'recv_loop: loop {
             let events = client_stream.try_read_events();
-            for event in events {
+            for MyEvent::DisplayEvent(event) in events {
                 match event {
-                    MyEvent::DisplayEvent(DisplayEvent::UIEvent(UIEvent::KeyPress(
-                        key,
-                        KeyModifiers::NONE,
-                    ))) if key.to_char() == Some(' ') => {
+                    DisplayEvent::UIEvent(UIEvent::KeyPress(key, KeyModifiers::NONE))
+                        if key.to_char() == Some(' ') =>
+                    {
                         // generate new fortune
                         break 'recv_loop;
                     }

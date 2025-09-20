@@ -1,11 +1,16 @@
-use crate::{packets::SDEEvent, tab::TabHandler};
+use crate::{packets::SDEEvent, tab::AppletHandler};
 use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::{id_tree::IdTree, tree_node_path::TreeNodePath},
 };
-use singularity_sap::standard_packets::display_packets::{FocusedEvent, UnfocusedEvent};
-use singularity_sporg::{project_settings::TabData, tile::Tiles, Project};
-use singularity_ui::display_units::DisplayArea;
+use singularity_sap::standard_packets::display_packets::{
+    DisplayEvent, FocusedEvent, UnfocusedEvent,
+};
+use singularity_sporg::{
+    applet_data::{AppletSpawnData, AppletType},
+    session::{OpenTab, Session, SessionData},
+    tile::Tiles,
+};
 
 /// NOTE: `org` prefix in front of variable stands for `ORGanizational`.
 /// REVIEW: currently, must have at least one tab. change?
@@ -19,87 +24,86 @@ use singularity_ui::display_units::DisplayArea;
 /// can be found from the uuid.
 pub struct Tabs {
     /// NOTE: the BTree for BTreeMap doesn't have anything to do with the org tree
-    pub tabs: IdMap<TabHandler>,
+    pub tabs: IdMap<AppletHandler>,
 
     /// ORGanizational tree
-    org_tree: IdTree<TabHandler>,
-    focused_tab: Id<TabHandler>,
+    org_tree: IdTree<AppletHandler>,
+    focused_tab: Id<AppletHandler>,
 
     // /// currently, last in vec is "top" in gui
     // display_order: Vec<Uuid>,
-    display_tiles: Tiles<TabHandler>,
+    display_tiles: Tiles<AppletHandler>,
 }
 impl Tabs {
-    pub fn parse_from_project(project: &Project) -> Self {
-        if let Some(open_tabs) = project.get_project_settings().open_tabs.clone() {
-            Self {
-                tabs: open_tabs
-                    .tabs
-                    .into_iter()
-                    .map(|(id, open_tab)| {
-                        (
-                            uuid::Uuid::from(id).into(),
-                            TabHandler::new(open_tab.tab_data, open_tab.tab_area),
-                        )
-                    })
-                    .collect(),
-                org_tree: open_tabs.org_tree.transmute(),
-                focused_tab: open_tabs.focused_tab.transmute(),
-                display_tiles: open_tabs.display_tiles.transmute(),
-            }
-        } else {
-            // create the default new project
-
-            // let mut tabs = Tabs::new_from_root(TabHandler::new(
-            //     FileManager::new_tab_creator(),
-            //     TabData {
-            //         tab_type: "FILE_MANAGER".to_string(),
-            //         session_data: serde_json::to_value(project.get_project_directory().clone())
-            //             .unwrap(),
-            //     },
-            //     DisplayArea::new((0., 0.), (0.5, 1.)),
-            // ));
-
-            // tabs.add(
-            //     TabHandler::new(
-            //         TaskOrganizer::new_tab_creator(),
-            //         TabData {
-            //             tab_type: "TASK_ORGANIZER".to_string(),
-            //             session_data: serde_json::to_value(project.get_project_directory().clone())
-            //                 .unwrap(),
-            //         },
-            //         DisplayArea::new((0.5, 0.), (1.0, 1.)),
-            //     ),
-            //     &tabs.get_root_id(),
-            // );
-
-            let tabs = Tabs::new_from_root(TabHandler::new(
-                TabData::new_argless(
-                    "./target/release/file_manager",
-                    serde_json::to_value(project.get_project_directory().clone()).unwrap(),
-                ),
-                DisplayArea::new((0., 0.), (0.5, 1.)),
-            ));
-
-            tabs
-        }
-    }
-
-    fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
-        let mut tabs = IdMap::new();
-        tabs.insert(root_id, root_tab);
-
+    pub fn parse_from_session(session: &Session) -> Self {
         Self {
-            tabs,
-            org_tree: IdTree::new(root_id),
-            focused_tab: root_id,
-            display_tiles: Tiles::new_from_root(root_id),
+            tabs: session
+                .session_data
+                .tabs
+                .iter()
+                .map(|(id, open_tab)| {
+                    (uuid::Uuid::from(*id).into(), {
+                        if let Some(spawn_method) = open_tab.spawn_method.clone() {
+                            TabHandler::spawn(
+                                &AppletSpawnData {
+                                    applet_type_id: open_tab.applet_type_id.clone(),
+                                    method: spawn_method,
+                                    initial_session_storage: open_tab
+                                        .applet_session_storage
+                                        .clone(),
+                                },
+                                open_tab.tab_area,
+                            )
+                        } else if let Some(applet_id) = open_tab.applet_type_id.clone() {
+                            if let Some(AppletType {
+                                default_spawn: Some(AppletSpawnData { method, .. }),
+                                ..
+                            }) = session
+                                .project
+                                .project_settings
+                                .applet_types
+                                .get(&applet_id)
+                            {
+                                TabHandler::spawn(
+                                    &AppletSpawnData {
+                                        applet_type_id: open_tab.applet_type_id.clone(),
+                                        method: method.clone(),
+                                        initial_session_storage: open_tab
+                                            .applet_session_storage
+                                            .clone(),
+                                    },
+                                    open_tab.tab_area,
+                                )
+                            } else {
+                                panic!()
+                            }
+                        } else {
+                            panic!()
+                        }
+                    })
+                })
+                .collect(),
+            org_tree: session.session_data.org_tree.clone().transmute(),
+            focused_tab: session.session_data.focused_tab.transmute(),
+            display_tiles: session.session_data.display_tiles.clone().transmute(),
         }
     }
 
-    pub fn new_from_root(root_tab: TabHandler) -> Self {
-        Self::new_from_root_with_id(root_tab, Id::generate())
-    }
+    // fn new_from_root_with_id(root_tab: TabHandler, root_id: Id<TabHandler>) -> Self {
+    //     let mut tabs = IdMap::new();
+    //     tabs.insert(root_id, root_tab);
+
+    //     Self {
+    //         tabs,
+    //         org_tree: IdTree::new(root_id),
+    //         focused_tab: root_id,
+    //         display_tiles: Tiles::new_from_root(root_id),
+    //     }
+    // }
+
+    // pub fn new_from_root(root_tab: TabHandler) -> Self {
+    //     Self::new_from_root_with_id(root_tab, Id::generate())
+    // }
 
     pub fn add(
         &mut self,
@@ -171,14 +175,16 @@ impl Tabs {
     pub fn set_focused_tab_id(&mut self, focused_tab_id: Id<TabHandler>) {
         // notify previously focused tab it is no longer focused
         if let Some(old_focused_tab) = self.tabs.get_mut(&self.focused_tab) {
-            old_focused_tab.send_event(SDEEvent::Unfocused(UnfocusedEvent));
+            old_focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::Unfocused(
+                UnfocusedEvent,
+            )));
         }
         self.focused_tab = focused_tab_id;
         // notify new focused tab it is now focused
         self.tabs
             .get_mut(&self.focused_tab)
             .unwrap()
-            .send_event(SDEEvent::Focused(FocusedEvent));
+            .send_event(SDEEvent::DisplayEvent(DisplayEvent::Focused(FocusedEvent)));
 
         // move the focused tab to end of display order (putting it on top)
         {
@@ -266,10 +272,8 @@ impl Tabs {
 
     /// Save this session
     /// REVIEW: Rename to export?
-    pub fn save_session(&self) -> singularity_sporg::project_settings::OpenTabs {
-        use singularity_sporg::project_settings::{OpenTab, OpenTabs};
-
-        OpenTabs {
+    pub fn save_session(&self) -> singularity_sporg::session::SessionData {
+        SessionData {
             tabs: self
                 .tabs
                 .iter()
@@ -279,7 +283,9 @@ impl Tabs {
                         OpenTab {
                             // TODO
                             tab_area: handler.get_area(),
-                            tab_data: handler.get_tab_data().clone(),
+                            applet_type_id: handler.applet_type_id.clone(),
+                            applet_session_storage: handler.applet_session_storage.clone(),
+                            spawn_method: handler.applet_spawn_method.clone(),
                         },
                     )
                 })

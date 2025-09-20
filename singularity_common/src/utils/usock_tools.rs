@@ -19,9 +19,10 @@ impl UnixServerHost {
         let path_suffix = "singularity-0";
 
         // FIXME, I think this only applies to children processes
-        std::env::set_var(PATH_SUFFIX_ENV_KEY, path_suffix);
+        // REVIEW: unsafe comes from updating 2021 -> 2024 cargo edition, just view
+        unsafe { std::env::set_var(PATH_SUFFIX_ENV_KEY, path_suffix) };
 
-        let path = format!("{}/{}", path_prefix, path_suffix);
+        let path = format!("{path_prefix}/{path_suffix}");
         let _ = std::fs::remove_file(&path);
         Some(Self {
             listener: UnixListener::bind(&path).ok()?,

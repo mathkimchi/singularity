@@ -1,0 +1,49 @@
+{
+  "applet_types": [
+    {
+      "type_id": "file_manager",
+      "default_spawn": {
+        "applet_type_id": "file_manager",
+        "method": {
+          "PipeChildProcess": {
+            "program": {
+              "Unix": [
+                46,
+                47,
+                116,
+                97,
+                114,
+                103,
+                101,
+                116,
+                47,
+                114,
+                101,
+                108,
+                101,
+                97,
+                115,
+                101,
+                47,
+                102,
+                105,
+                108,
+                101,
+                95,
+                109,
+                97,
+                110,
+                97,
+                103,
+                101,
+                114
+              ]
+            },
+            "args": []
+          }
+        },
+        "initial_session_storage": "examples/root-project"
+      }
+    }
+  ]
+}

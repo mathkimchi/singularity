@@ -1,19 +1,6 @@
 //! Just the packets that this `sde` supports.
 
-use singularity_macros::{Packet, PacketUnion};
-use singularity_sap::{
-    datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
-    standard_packets::display_packets::{
-        DisplayEvent, RequestChangeName, RequestSpawnChildTab, RequestUpdateWindow,
-    },
-};
+use singularity_sap::standard_packets::{StandardEvent, StandardRequest};
 
-pub type SDEEvent = DisplayEvent;
-
-#[derive(Debug, PacketUnion, Packet)]
-pub enum SDERequest {
-    RequestChangeName(RequestChangeName),
-    RequestUpdateWindow(RequestUpdateWindow),
-    RequestSpawnChildTab(RequestSpawnChildTab),
-}
+pub type SDEEvent = StandardEvent;
+pub type SDERequest = StandardRequest;

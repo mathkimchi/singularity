@@ -3099,3 +3099,1100 @@ I will mark [#11](https://github.com/mathkimchi/singularity/issues/11) as closed
 but there are things in the github discussion that I want to revisit later.
 
 Also, I am probably going to take a few breaks because I have to study for physics and do academic coding projects.
+
+## [#16](https://github.com/mathkimchi/singularity/issues/16)
+
+Did a bit of brainstorming in the issues.
+
+2025/03/13
+
+I will put the plugin api inside `singularity_sap`,
+since this is similar.
+I am looking at Zellij's [`ZellijPlugin` trait](https://docs.rs/zellij-tile/latest/zellij_tile/trait.ZellijPlugin.html) and Zed's [`extension_api`](https://github.com/zed-industries/zed/tree/main/crates/extension_api) for inspiration.
+
+This is actually kind of similar to my [old implementation of tabs](https://github.com/mathkimchi/singularity/blob/19d6deb7ee7612ab096ded41a324e4e41da6e508/singularity_common/src/tab/mod.rs).
+
+For the wasm in rust itself, these are resources:
+- https://benw.is/posts/plugins-with-rust-and-wasi
+- https://blog.wasmer.io/executing-webassembly-in-your-rust-application-d5cd32e8ce46
+
+2025/03/14
+
+Okay, the [new thread entry](https://github.com/mathkimchi/singularity/issues/16#issuecomment-2725875195) says all that needs to be said.
+
+I will commit the WASM attempt now and revert everything except for this devlog.
+
+2025/03/24
+
+I have been kind of burnt out, but I want to work on improving the type system for the packets, being the events, requests, queries, and responses.
+Since I will add query-response for between plugins, I might add a timeout duration for query.
+
+Brainstorm usage:
+
+```rust
+pub struct ShortcutEvent {
+    key_char: char,
+    command_key: bool,
+}
+
+packet_union! {
+    name: MyEventUnion,
+    // packet: Event,
+    packets: [
+        ShortcutEvent,
+        // python kwargs syntax
+        **StandardEventUnion,
+        **OtherEventUnion,
+    ],
+}
+```
+
+For additional safety, I might also want to additionally be able to specify: `MyEventUnion: PacketUnion<EventPacketType>`.
+
+2025/03/26
+
+The first thing I want to do is to differentiate the PacketUnion as its own trait.
+Previously, I was using the Datable's to_data and try_from_data to convert between packet union object (eg `MyEvents`) and data,
+but I will give packet union trait seperate functions to avoid confusion.
+Additionally, if possible, I will start by only changing events, and leaving requests alone (query and response were always a bit different).
+
+I'm not sure if I want to make a derive proc macro (current before changes) or declarative macro (tried a long time ago, but didn't like that I could use further macros).
+
+The problem with blind recursive where packetunions themselves just act like packets with their own packet ids is that
+because we don't know the depth and what is a fundamental packet vs packet union,
+if there is a packet union with a packet union inside of it, then we will match the packet type id to the packet union instead of each of the packets within the inner packet union.
+My brain is kinda fried today, does that make sense?
+
+When recieving a packet, use the generic of packet union, when sending a packet, use the packet type.
+
+Lines 1968-2011 of the DEVLOG define the old structure of query and response packets in data form:
+
+```markdown
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a query and not a request
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+It might make more hierarchical sense to put the query type id
+before the instance id, but I think practically it makes more
+sense to do instance id first, because instance id should be read
+even if the query type id is unknown.
+(it really doesn't matter, even though my reasoning is kind of bad)
+Oh, another reason is that if I did have query bundles,
+and stored query type hierarchically in the raw data,
+then it would be better to have the instance id first
+(even though storing hierarchy would be inefficient).
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet type
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Response inner data (Optional)
+  - This would be defined by the response type
+
+For unknown queries, the server should just give a response with
+a special `Null` response type id (probably like 0).
+I considered having a `NullResponse` packet type, a `Null` response type id,
+no response type id and inner data on the null response,
+or just having an additional boolean represent
+whether the response is null or not.
+```
+
+With the new terminology (packet type -> packet category, query/response type id -> packet type id) and new ordering (put query/response type id above prompt query instance id, to standardize this between the different categories), the new description should be:
+
+Query raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet category
+  - To say that it is a query and not a request (other options, that don't make sense are event and response)
+  - (I could eliminate this by just saying everything is a query)
+  - For all queries, this should be a constant value
+- Query type id
+  - This actually says what type of query the query is
+  - This would distinguish between things like: QueryName vs QuerySize
+  - const size like u64
+- Query instance id
+  - Unique to each instance of a query (eg, even if you query size multiple times, each query will have a different instance id)
+  - const size like u64
+- Query inner data (Optional)
+  - This would be defined by the query type
+
+Response raw data will contain:
+- Packet length
+  - already handled by the byte writer and reader
+  - const size
+- Packet category
+  - To say that it is a response
+  - For all requests, this should be a constant value
+- Response type id
+  - This should be easy to tell from the query, so I am considering just not having this
+  - Will have a special id reserved for unknown queries
+  - If the response has a wrong type id that isn't the null id, then panicing will be understandable
+  - const size like u64
+- Prompt Query instance id
+  - Would be the same as the query instance id that prompted this response
+- Response inner data (Optional)
+  - This would be defined by the response type
+
+...
+
+I will get started on implementing the `PacketUnion` macro tomorrow.
+I think the course of action will be to:
+1. expand the `PacketUnion` derive macro in `standard_packets`'s `DisplayEvent` (currently implements `Datable`),
+2. manually modify it to let `DisplayEvent` implement `PacketUnion` instead,
+3. then use that as a reference to update the general `PacketUnion` macro.
+
+That takes care of packet unions of packets, but not packet unions of other packet unions.
+
+(Some of my friends think I commit too much just to boost my git statistics.
+Well I could commit right now, but I'm not, so take that, glolichen.)
+
+Actually, I will commit right now.
+Not for git statistics (maybe just a bit because number go up, monke brain go "ooh ooh aah aah"),
+but primarily for organization and incremental progress.
+
+2025/03/27
+
+Chorus got let out early (8:30), so I am going to try to squeeze in a commit.
+
+The PacketUnion is actually much simpler than the datable counterpart,
+it is just match statements now.
+
+Old expansion (ignore the `const _` boilerplate):
+
+```rs
+#[automatically_derived]
+impl ToData for DisplayEvent {
+    fn to_data(&self) -> Vec<u8> {
+        let (id, inner_data) = match self {
+            Self::UIEvent(inner_packet) => (
+                <UIEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Resize(inner_packet) => (
+                <ResizeEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Focused(inner_packet) => (
+                <FocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Unfocused(inner_packet) => (
+                <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Close(inner_packet) => (
+                <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+        };
+        let id_bytes: &[u8] = &id.to_be_bytes();
+        [id_bytes, &inner_data].concat()
+    }
+}
+#[automatically_derived]
+impl TryFromData for DisplayEvent {
+    fn try_from_data(data: &[u8]) -> Option<Self> {
+        let (id_bytes, inner_data) = data.split_at((PacketId::BITS / 8) as usize);
+        let id = PacketId::from_be_bytes(id_bytes.try_into().unwrap());
+        match id {
+            <UIEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::UIEvent(UIEvent::try_from_data(inner_data)?))
+            }
+            <ResizeEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Resize(ResizeEvent::try_from_data(inner_data)?))
+            }
+            <FocusedEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Focused(FocusedEvent::try_from_data(inner_data)?))
+            }
+            <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Unfocused(UnfocusedEvent::try_from_data(inner_data)?))
+            }
+            <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Close(CloseWarningEvent::try_from_data(inner_data)?))
+            }
+            _ => None,
+        }
+    }
+}
+```
+
+Manual fixed implementation:
+
+```rs
+#[automatically_derived]
+impl PacketUnion for DisplayEvent {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::UIEvent(inner_packet) => (
+                <UIEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Resize(inner_packet) => (
+                <ResizeEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Focused(inner_packet) => (
+                <FocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Unfocused(inner_packet) => (
+                <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+            Self::Close(inner_packet) => (
+                <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID,
+                inner_packet.to_data(),
+            ),
+        }
+    }
+
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            <UIEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::UIEvent(UIEvent::try_from_data(packet_inner_data)?))
+            }
+            <ResizeEvent as PacketTrait>::PACKET_TYPE_ID => {
+                Some(Self::Resize(ResizeEvent::try_from_data(packet_inner_data)?))
+            }
+            <FocusedEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Focused(
+                FocusedEvent::try_from_data(packet_inner_data)?,
+            )),
+            <UnfocusedEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Unfocused(
+                UnfocusedEvent::try_from_data(packet_inner_data)?,
+            )),
+            <CloseWarningEvent as PacketTrait>::PACKET_TYPE_ID => Some(Self::Close(
+                CloseWarningEvent::try_from_data(packet_inner_data)?,
+            )),
+            _ => None,
+        }
+    }
+}
+```
+
+Yooo, I finished in 20 mins, not bad.
+
+...
+
+I'll work on resolving the remaining compile-time errors.
+
+I'll make `EventPacketUnion` and `RequestPacketUnion` macros that also automatically call the `PacketUnion` macro.
+
+YOOO, passed all tests first try.
+(That might just mean my tests aren't thorough though)
+
+...
+
+The running also ran normally first try.
+I'll make the packet union macro support inner packet unions.
+I'll do this by making the user specify the attribute.
+In the case the id doesn't match any of the outermost packets,
+just see if any of the sub unions return a some.
+I wish there was a more compile time-ish way to do this,
+where the packet union leaves a special meta thing, but whatever.
+
+Manual implementation:
+
+```rust
+// #[derive(EventPacketUnion)]
+pub enum Event {
+    // #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
+impl PacketUnion for Event {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::DisplayEvent(inner_packet_union) => inner_packet_union.packet_to_data(),
+        }
+    }
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            _ => {
+                DisplayEvent::packet_try_from_data(packet_id, packet_inner_data)?;
+                None
+            }
+        }
+    }
+}
+```
+
+...
+
+I just realized, the try operator doesn't work like that.
+It almost works the exact opposite of what I want it to do.
+
+```rust
+// #[derive(EventPacketUnion)]
+pub enum Event {
+    // #[sub_union]
+    DisplayEvent(DisplayEvent),
+}
+impl PacketUnion for Event {
+    fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
+        match self {
+            Self::DisplayEvent(inner_packet_union) => inner_packet_union.packet_to_data(),
+        }
+    }
+    fn packet_try_from_data(packet_id: PacketTypeId, packet_inner_data: &[u8]) -> Option<Self> {
+        match packet_id {
+            _ => {
+                if let Some(inner_packet_union) = DisplayEvent::packet_try_from_data(packet_id, packet_inner_data) {
+                    return Some(Self::DisplayEvent(inner_packet_union));
+                }
+                None
+            }
+        }
+    }
+}
+```
+
+Sweet, worked first try.
+
+...
+
+I guess I got a bit sidetracked with all the packet union macro stuff,
+since [#16](https://github.com/mathkimchi/singularity/issues/16) is about plugins.
+I should've made a new issue, but I felt kind of guilty about continuously switching between
+singularity issues without saving progress recently.
+
+But this kind of was needed, because I want to define a `StandardEvent` in singularity sap's
+standard packets while dividing it up into the different event types.
+
+REVIEW: (I was thinking about it, and since I made a new set of functions for PacketUnions,
+I might've just made seperate things for packets and unions where the packet itself checks
+if the packet id matches. That reduces code repetition, which is good, but it also increases
+flexibility which is usually good, but in this case I worry that increased flexibility
+will make it easier to make errors.)
+
+I am adding one more macro, the `Query` macro, which is very basic.
+While writing it, I realized I misspelled identifier 20 times in just the macro lib.rs file.
+I might try running a spellchecker on the whole codebase.
+I'm not sure if there will be more typos in my entire source code, or in this md file.
+
+I tried to look for the documentation on matching token streams and how to use attributes,
+and sadly, the proc macro world of rust is very sparcely documented.
+Making a MathKimchi video on how to do proc macros might not be the worst idea.
+I could show off my workflow and tips that I used in singularity.
+
+Okay, I've been working straight from 2:40 to now (4:00) as well as earlier today,
+so I'll commit now and not touch singularity until I finish all my homework.
+
+2025/03/30
+
+I want to support communication between singularity applets now (I like this new term `applet` because it encompasses tab, plugin, and subapplication in my mind).
+IAC (inter applet communication, like IPC) should come in two types:
+- Broadcasts
+  - Reciever chooses the sender (or the category of broadcasts to listen to that can be sent by anyone (make sure to ignore broadcasts send by self))
+  - Multiple recievers allowed
+  - Logical flow: reciever sends a subscribe request, for each broadcast message the sender sends a broadcast request and every reciever gets a broadcast event
+  - Sender sends something analogous to the server's `event`
+- Direct Communication:
+  - Sender chooses reciever (sender can send `query` or `request`)
+  - Logical flow:
+    - Sender sends `IACQuery` or `IACRequest` to server
+    - Server sends `QueryRecievedEvent` or `RequestRecievedEvent` to reciever
+    - If a query was sent, then the reciever either sends back a `IACResponse` to the server, which is actually a request. (Technically, it could just not respond and screw everyone over. A cooperative reciever would at least reply with a `QueryUnknownResponse`. I'm actually going to ignore `IAC` queries for now)
+
+In either type, when one applet chooses the other applet, they use the other applet's `Id`.
+In practice, the server would offer queries and stuff to help find other applets.
+TODO: store applet types as well? (some would have to be anonymous though by nature)
+
+I wish I was careless about resources.
+I mean, in contrast to other processes, the overhead of having a bunch of connections
+(less than 100 for normal usecases) should be insignificant.
+But, for some reason, a primitive instinct is prohibitting me from implementing the "elegant solution".
+Let me describe things I would want if resources were not a problem:
+
+- For each query from applet to server, instantly give back a seperate one-time channel for the response so they can choose to wait and listen now or just check back later. Then, disregard like a burner phone.
+- A broad listener applet would be like mpsc for each type of thing to listen to
+- For each direct communication, start a new channel
+- Each applet instance has an applet channel (like now), but for each display it creates, a new display chat is created for all communication regarding that display (eg: DrawRequest, KeyPressEvent, and SizeQuery would be sent via display chat).
+
+The hope would be that those ways are safer and make more logical sense as opposed to using id's to try to pack everything into one stream.
+
+I looked at [this reddit post](https://www.reddit.com/r/rust/comments/7i4ljy/question_mpsc_over_mapped_memory/)
+and [ipc-channel](https://github.com/servo/ipc-channel) by servo looks literally perfect for my usecase.
+It is literally begging me to use it.
+An active repo (last commit just 27 days ago), used by an established organization, almost 1000 stars,
+seems perfect for my usecase, but idk.
+
+2025/04/01
+
+Happy April Fools!
+
+I am going to split the project files into `ProjectConfigs` and `Session`.
+
+2025/04/02
+
+I am going to further refactor the project files,
+to give uuid's for each known applet type.
+...
+Actually, it might be better to identify applet types by more consistent/deterministic method,
+because there is a level of continuity between the `file_manager` applet in one project and in another.
+Currently, I am just using a string like `"file_manager"`.
+I could also use a more complicated datatype, (eg: struct to also store version)
+(eg2: enum to differentiate different types like UnixSocket connection, piped stdio, etc but this is
+actually unnecessary since this should be stored in the applet list,
+not as the identifier).
+Or, I could use the Id map (which is not consistent) to map applet id to applet data,
+but also have a seperate hashmap to map applet name to applet id
+(if speed is negligable, more elegant imo to just store name in the applet data and iter to search by name).
+
+Okay, I am actually trying stuff, and I have a few possibilities in mind:
+- Generate "id" by hashing string names
+  - Just assume collisions won't happen
+- Generate "id" as a constant in crates, the same way I did PACKET_TYPE_ID
+- Don't use "id" just use names
+- Store a mapping of names to ids, and generate id non-deterministically
+
+2025/04/03
+
+I think the optimal way to go is do everything based off the name, so if I do use id's,
+I would make it solely generated from the string.
+I decided this because I was thinking about url's and git branches.
+
+I'm probably going to use just strings to identify applet, but I might add a wrapper for type-safety.
+
+2025/04/13
+
+After working on this for a few days, I resolved all the compile time errors but it still doesn't work.
+
+2025/04/15
+
+Oh no, I think the actions aren't showing because of numlock, which I turned on with my external keyboard,
+but right now my laptop keyboard doesn't have that toggle.
+For now, I just erased NumLock from my code, since it is kind of useless anyways.
+
+2025/05/19
+
+I haven't worked on this for a while.
+I wrote down [some ideas in the thread](https://github.com/mathkimchi/singularity/issues/16#issuecomment-2888798002).
+
+I think wasm or dynamic libraries's are worth looking into for reactive plugins.
+
+...
+
+Okay, I was looking through my code, and I remember what I was doing now:
+I was working on IAC.
+I was implementing the `Basic Features`.
+
+2026/05/20
+
+I gave an LLM the last github issue I wrote, and it suggested using dynamic libraries.
+
+I looked up `rust plugins with dynamic libraries` on google,
+and accidentally discovered a crate called
+[`dynamic_plugin`](https://docs.rs/dynamic-plugin/latest/dynamic_plugin/),
+and it seems like what I want to do but it only has 4000 users so I won't use it.
+Bevy also has a [dynamic plugin crate](https://crates.io/crates/bevy_dynamic_plugin).
+(I think this is different from that other Bevy thing I was looking at; maybe not)
+I will dig through both crates' source code to see what they are doing.
+
+dynamic_plugin is actually pretty cool.
+The main library only uses a few crates: `libloading`, `thiserror`, `libc`, and `sa` (static assertions).
+Actually, the main library is nothing and the actual value seems to come from the macros.
+The macros are too big brained for me.
+TBH, there is a very good case for just using this crate right now.
+Okay, I am going to use `dynamic_plugin` and then `cargo expand` it.
+
+2025/05/29
+
+I pretty much copied the [example host and plugin](https://github.com/lilopkins/dynamic-plugins-rs/blob/main/example-plugin/src/lib.rs) into [dynamic_plugin_sandbox](./dynamic_plugin_sandbox/)
+and then expanded the macros, then made it more understandable.
+
+I'll commit what I learned, and the next step would be to set this up for sap.
+The template interface would go in sap,
+ideally the plugin runner would be in a crate only sde used but in practice I'll probably put it in sap,
+and the plugin making macro would ideally be in sde but it might be easier to have it in sap.
+Maybe I could add cargo features for sap to have client and server specific code without needing a new crate.
+
+2025/05/30
+
+I will actually more or less deprecate the unix socket and pipes for now
+while I work on dynamic library.
+Also, I will ignore the waiting stuff for now.
+
+2025/06/03
+
+I have a problem that I can't use closures as extern "C" functions,
+which makes sense because the extern "C" function expects a pointer to a function or something;
+I can't rigorously explain it but it just makes sense to me.
+
+Let me explain my usecase with an example
+(I haven't tested if anything works other than checking for compiler errors, so...).
+Suppose I had an app, as well as a library for printing things pretty.
+Lets start with something like:
+
+```rust
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics() {
+    println!("The gravitational constant on Earth is 9.81m/s^2!")
+}
+
+// main.rs
+pub fn main() {
+    let print_statistics: extern "C" fn() = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics();
+}
+```
+
+but now, what if we wanted the pretty print library to be able to print changing values
+like a version number?
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(app_state: &AppState) {
+    println!(
+        "The version number is {}! The next version will be {}!",
+        app_state.version_number,
+        app_state.version_number + 1,
+    );
+}
+
+// main.rs
+pub fn main() {
+    let app_state = AppState { version_number: 10 };
+
+    let print_statistics: extern "C" fn(&AppState) = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(&app_state);
+}
+```
+
+Now, what if `print_statistics` needed to print things dependent on a function provided by the app?
+IE, what if the dynamic library needs to call a function provided by the caller?
+
+This is still quite simple:
+
+```rust
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(f: extern "C" fn(u8) -> u8) {
+    println!("The y-intercept of f is f(0)={}", f(0));
+}
+
+// main.rs
+extern "C" fn f(x: u8) -> u8 {
+    x + 2
+}
+pub fn main() {
+    let print_statistics: extern "C" fn(extern "C" fn(u8) -> u8) = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(f);
+}
+```
+
+but now, what if the function `f` was a closure (it captures variables from its surrounding scope)?
+For example, say f returned the app's version 
+With Rust, we could do something like:
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+fn print_statistics(get_next_version: impl Fn() -> u8) {
+    println!("The next version will be {}", get_next_version());
+}
+
+// main.rs
+pub fn main() {
+    let app_state = AppState { version_number: 5 };
+    let get_next_version = move || app_state.version_number + 1;
+
+    let print_statistics = print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(get_next_version);
+}
+```
+
+The closure `get_next_version` accesses `app_state`.
+But we can't do this for dylibs,
+because closures in general aren't supported,
+and a pointer to such a closure would somehow need to also capture the app state it refers to.
+
+```rust
+// in a shared library
+#[repr(C)]
+pub struct AppState {
+    version_number: u8,
+}
+
+// lib.rs
+#[no_mangle]
+extern "C" fn print_statistics(
+    app_state: *const AppState,
+    get_next_version: extern "C" fn(*const AppState) -> u8,
+) {
+    println!("The next version will be {}", get_next_version(app_state));
+}
+
+// main.rs
+extern "C" fn get_next_version(app_state: *const AppState) -> u8 {
+    unsafe { (*app_state).version_number }
+}
+
+pub fn main() {
+    let app_state = AppState { version_number: 10 };
+
+    let print_statistics: extern "C" fn(*const AppState, extern "C" fn(*const AppState) -> u8) =
+        print_statistics; // in practice we'd load the print_statistics function
+    print_statistics(&app_state, get_next_version);
+}
+```
+
+In other words, we just make the captured state (aka context)
+an argument to a static function.
+
+Note the use of raw pointers (`*const AppState`) instead of references (`&AppState`),
+even though both technically compile.
+This stack overflow [post](https://stackoverflow.com/questions/71749287/why-do-most-ffi-functions-use-raw-pointers-instead-of-references)
+explains better than me.
+(In other words, I don't understand why. I just do it bc it is standard.)
+
+2025-06-09
+
+I finished the above blog-ish blob.
+I should commit, but I began writing code even before writing the blog thing,
+and sunk cost fallacy dictates
+that I should finish writing that code before finishing.
+
+2025-06-11
+
+The issue I'd like to address now is letting query return a vec of bytes,
+which is harder than it seems.
+Passing immutable bytes as an argument is easy:
+we can just send a pointer to the start of the slice as well as the length,
+and we don't worry about memory safety because
+the caller is still in charge of freeing the slice.
+But for returning bytes,
+there isn't such a simple way.
+[This thread](https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136)
+mentions some ways.
+
+The big problem is freeing memory.
+Rust has actually sheltered me pretty well from directly
+thinking/worrying about memory safety,
+but I will try to explain memory to the best of my abilities.
+When we call an external function,
+we expect everything that function is given ownership of and creates
+to be freed when that function returns (except for things it returns).
+I was going to list more rules, but actually, that is kind of it.
+Just the basics of ownership.
+(I don't really know where I was going with that.
+I was kind of hoping I'd list down the premise then think of a clever solution.)
+
+The safest (imo) is by using an output buffer.
+The external function doesn't actually return anything,
+it modifies an output buffer that was given to it by the caller as an argument.
+But as it stands, the output buffer limits how large the output can be.
+So, we could set up an elaborate system with more functions
+where the external library somehow tells the caller how long the output is going to be,
+then the caller allocates an output buffer of that length,
+then the external library writes to the output buffer.
+Look at `uncompress` in the
+[Rustonomicon FFI page](https://doc.rust-lang.org/nomicon/ffi.html).
+I don't like this though.
+Maybe I could do a higher layer abstraction where this is done in the background,
+but it feels like I am sacrificing performance for no good reason.
+
+The aforementioned rust-lang thread offers the solution that I want to implement.
+The external function returns a raw pointer to the bytes and the length.
+It is scary though, since it plays with `std::mem::forget`
+and creating and dropping it from the raw pointer
+(even scarier is that [`forget` is safe because Rust doesn't gurantee no memory leaks](https://stackoverflow.com/questions/74824779/why-is-it-considered-safe-to-memforget-boxes)).
+The external code should provide the freeing apparatus.
+
+Another safe way I just thought of is using files like in IPC.
+This is overkill though.
+
+...
+
+This is implementation 1:
+
+```rust
+/// Whoever owns this object is in charge of freeing the slice this points to.
+/// Don't modify this though; I don't know what would happen if you modify this.
+///
+/// From: https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/4.
+#[repr(C)]
+pub struct OwnedCBytes {
+    bytes_ptr: *mut u8,
+    len: usize,
+    /// REVIEW: check if this is actually needed; the rustlang thread doesn't use it.
+    capacity: usize,
+    free: extern "C" fn(&mut Self),
+}
+impl From<Vec<u8>> for OwnedCBytes {
+    fn from(mut value: Vec<u8>) -> Self {
+        let bytes_ptr = value.as_mut_ptr();
+        let len = value.len();
+        let capacity = value.capacity();
+
+        // https://stackoverflow.com/questions/74824779/why-is-it-considered-safe-to-memforget-boxes
+        // this memory is leaked here but will be freed in the `free_vec` function, which is called exactly once in `drop`
+        std::mem::forget(value);
+
+        /// https://users.rust-lang.org/t/how-to-return-byte-array-from-rust-function-to-ffi-c/18136/13?u=mathkimchi
+        extern "C" fn free_vec(bytes: &mut OwnedCBytes) {
+            let vec = unsafe { Vec::from_raw_parts(bytes.bytes_ptr, bytes.len, bytes.capacity) };
+            // no need to manually call drop, but I just wanted to highlight it
+            drop(vec);
+        }
+
+        Self {
+            bytes_ptr,
+            len,
+            capacity,
+            free: free_vec,
+        }
+    }
+}
+impl Drop for OwnedCBytes {
+    fn drop(&mut self) {
+        // free the forgotten vec
+        (self.free)(self);
+        // the rest will be freed normally
+    }
+}
+```
+
+I liked it as an improvement of the rust thread solution,
+because it was super abstract and stuff,
+but it gives me the icks just a little.
+I'll commit this current implementation though.
+
+The capacity is really annoying with this.
+It just feels so arbitrary.
+I could further abstract into:
+
+```rust
+// worst OOP ever, lol
+#[repr(C)]
+pub struct OwnedCBytes {
+    ptr: *mut c_void,
+    get_len: extern "C" fn(*const c_void) -> usize,
+    /// fills the buffer, which is expected to be length of `get_len`
+    get_bytes: extern "C" fn(*const c_void, *mut u8),
+    free: extern "C" fn(*mut c_void),
+}
+```
+
+(`c_void` represents an opaque type)
+but I don't want to do this.
+This is just OOP but horrible.
+(Actually, this might be useful later.)
+
+Instead, I am going to do the opposite approach and specify for rust Vecs.
+I suppose I am just going all-in on the assumption that both sides are written in rust
+and will use the shared libraries provided by me.
+(Given that I am likely the only person who will use and even-more-so develop for singularity,
+I'd say that is a fair assumption.)
+
+---
+
+SIDE NOTE: I noticed I could do `ManuallyDrop::new(value).capacity`
+but manual drop is defined as:
+
+```rust
+pub struct ManuallyDrop<T: ?Sized> {
+    value: T,
+}
+```
+
+so you'd assume the proper syntax is `ManuallyDrop::new(value).value.capacity`.
+Apparently it is from the `Deref` trait.
+TODO: harness this for `(pub` matches or grep for certain structs.
+
+---
+
+I asked ChatGPT about the memory safety of:
+
+```rust
+impl Drop for CVec {
+    fn drop(&mut self) {
+        // REVIEW: is this going to double free?
+        let vec: Vec<u8> = unsafe { Vec::from_raw_parts(self.bytes_ptr, self.len, self.capacity) };
+        // unnecessary but highlights that the vec is dropped
+        std::mem::drop(vec);
+    }
+}
+impl From<CVec> for Vec<u8> {
+    fn from(value: CVec) -> Self {
+        let vec = unsafe { Vec::from_raw_parts(value.bytes_ptr, value.len, value.capacity) };
+
+        // prevent double freeing the vec in CVec's drop
+        std::mem::forget(value);
+
+        vec
+    }
+}
+```
+
+and now I realize I don't understand how memory works in rust.
+I am going to watch a video on it.
+
+---
+
+I watched [Visualizing memory layout of Rust's data types](https://www.youtube.com/watch?v=7_o-YRxf_cc)
+and it is pretty informative.
+It doesn't go over what happens with Forget and Drop,
+but whatever.
+
+After the research,
+I still am not sure if the code is safe,
+I guess I will find out if it bites me in the behind.
+
+2025-06-14
+
+I am now implementing the applet context,
+which is like the new ServerHandler.
+In doing this, I realized that I should actually deviate from the `UniversalStream`
+implementations.
+
+So, I want to explain the protocols/implementations that exist for singularity:
+- Datable Trait
+  - `Datable`, `ToData`, `TryFromData`
+  - Just a rust trait for converting an object to bytes and vice versa, where the object's type is known.
+  - This allows for sending objects with pre-known types through FFI and sockets and saving objects to files.
+- Packet Trait System
+  - `PacketTrait` is a `Datable` with a type id.
+  - An implementor type of `PacketUnion` represents a bundle of different types that implement `PacketTrait`.
+  - An object instance `PacketUnion` represents a specific `PacketTrait` object.
+  - Given a `PacketTrait`'s byte representation + the `TypeId` of the `PacketTrait` the bytes came from, if that `PacketTrait` is in a `PacketUnion` type's bundle, the `PacketUnion` type will create an object instance of itself.
+  - Allows for sending and storing objects with multiple possible types (the multiple possible `PacketTrait` types are bundled into `PacketUnion`).
+- Categorized Packet Traits
+  - Just `PacketTrait`'s and `PacketUnion`'s with category (Event, Request, Query, Response) specified for additional safety.
+  - `UniversalQueryTrait`, `EventPacketTrait`, `RequestPacketTrait`, `EventPacketUnion`, `RequestPacketUnion`
+- Byte Stream Trait
+  - `ByteStream`, `ByteReader`, `ByteWriter`
+  - Deals in chunks of bytes, where the length matters and isn't constant. ('Hi' is different from 'H' then 'i')
+  - Flexible reading:
+    - Poll (gives all byte chunks currently readable)
+    - Waits (waits until a byte chunk is readable and then returns it)
+  - Writing:
+    - Send a byte chunk
+  - Implementation Note: many implementations send the length first and then sends the actual byte chunk
+- Universal Stream Structs
+  - `UniversalClientStream`, `UniversalServerStream`
+  - Given a byte stream object and with recieving bundle types (eg: a `EventPacketUnion` type for the client's universal stream), the universal stream is able to send `PacketTrait` or `PacketUnion` objects and recieve `PacketUnion` objects
+  - Is implemented (everything above is a protocol with open implementation).
+  - The byte-level structure of the packets that I described earlier (like in 2025/03/26) are pretty much just for the Universal Stream implementation
+- Dylib Applet
+  - I am working on this right now. The scope of it is currently unknown.
+
+With active applets, the SDE and applet talk to each other via universal stream,
+where they use matching byte stream methods.
+With reactive applets (`dylib_applet`),
+I am planning on making the `dylib_applet` protocols.
+
+In both methods, they send categorized packet traits to each other.
+
+I am compelled to also provide specific methods to dylib applet,
+for reasons like performance.
+
+...
+
+Dylib Applet feels so out of place in `singularity_sap`,
+I felt like I should put it in its own crate.
+But, I realized that rust modules exist for a reason;
+I should stop making new crates and just make modules with cargo cfg features.
+
+Side note: Wowie, 10k lines of singularity? Noice!
+
+...
+
+I will add a `ratk`,
+which will be the `reactive applet toolkit`
+
+2025-06-16 1:17AM
+
+I finished writing the `register_applet` macro.
+I haven't tested it yet (that is the next step, to make a dylib client).
+The macro itself is very simple, and the bulk of the time I spent on
+developing today was avoiding code repetition by implementing packet to and fro `typed_data`,
+as well as figuring out lifetimes for `CBytes`.
+I also tried to clean up some code.
+
+I don't know why I am trying to write down excuses for why I worked unreasonably
+long on this commit.
+If I had to guess, it is probably because I am trying to cope with the fact
+that I tried to multitask watching Last Week Tonight while working on singularity
+for an hour or two (or three possibly, sue me) and realized that
+I should only code until I finish this commit,
+and then I can focus entirely on whatever else I want.
+Welp, now it is 1:25AM, and I am starting a lab tommorow
+(technically today, 2025-06-16).
+I want to wake up at 7AM, eat breakfast, and get to the lab early, like 8:30AM,
+even though for the last 3 weeks of summer, I've been sleeping after 2AM and waking up at 12-3PM.
+
+I wanted to finish a course of 16, 1 hour lectures before starting the lab,
+but I think I watched the important parts, so that won't worry me to the point of not sleeping
+(instead, that will simply be my inconsistent sleeping habit).
+Anyways, I guess am kind of stalling now because I need to shower,
+and I kind of don't want to, even though once I start showering I enjoy the warmness of it.
+
+It is weird that I hijacked this devlog entry with personal info.
+I already write relatively a lot about my personal life in my devlogs,
+but this is more than usual.
+I am not sorry for adding this entry to the singularity devlog,
+but I am feeling dejected
+(it's the feeling of to sighing and saying whatever then reluctantly following along with what is happening,
+but it's weird since I am the one who is making it happen),
+because I have a seperate journal specifically for personal thoughts,
+as well as a seperate diary for events in my personal life,
+and I am currently messing up the organization of those journals.
+
+But, once I get the documentation/devlog/journal/diary writing applet working,
+these organizational problems will be of the past.
+(HA, NOICE!
+I was able to make this entry somewhat relevant to singularity,
+thereby justifying its location!
+Truly, a genius maneuver.)
+
+... well, now this entry does belong here,
+so me talking about how it ruins my organization should be removed,
+but if that is removed, then the entry wouldn't be relevant to singularity,
+so I could add back the ramblings,
+which would make this entry relevant again.
+But then, I'd need to...
+
+Whatever, I'm "going to sleep" now.
+
+2025-06-16
+
+To test dylib applet, I will make a math game.
+
+I wanted to do a sudoku or maze game,
+but the logic for both of those is unnecessarily complicated
+for a simple demo.
+
+Also, I noticed that all my crates are still 2021,
+so I will update them to 2024, which came out a few months ago.
+
+2025-06-19
+
+I am going to write two sets of functions in the `ReactiveApplet` trait
+for global events vs instance events.
+I also might want a seperate function for creating an applet.
+I also might want two seperate events for global vs instance.
+
+2025-08-09 10:16PM
+
+WOW, it has been a while.
+Over summer, I have been working on an internship, college apps,
+and for my personal project I've been working on celldom.
+
+I have been thinking about singularity, but evidently, I haven't been coding for it much.
+
+I remember I was doing something with dylibs, but I don't know what this commit was.
+
+I don't want to use VSCode, but neovim and emacs are annoying to configure with Nix,
+but this is good because it will incentivize me to work on singularity even faster.
+
+I guess I should start by looking at what I've modified and maybe some TODO, REVIEW, and FIXMEs.
+Maybe I should actually start by looking at the logs.
+
+Okay, so it seems like my previous commit was me writing a play.
+Then, on 2062-06-16, I said I would make a math game to *test* the dylib in this commit,
+so it seems I already wrote code for the dylib infastructure.
+Then, I updated my crates to rust 2024.
+On 2025-06-19, it seems I was going to make two different function typesfor global vs instance events,
+and I am not sure if that is still a TODO.
+Knowing me, it is probably still a TODO.
+On 2025-08-09 10:16PM, it seems like I started logging the time of day in the devlog so I could brag about having no life.
+I commented on how I haven't been working on singularity and gave some half-baked excuses.
+Then, I babbled a bit about random stuff, and then I started to look at the logs and summarizing them.
+Then, I finished singularity, did a backflip, and made it in time for my daughter's ballet recital.
+Oh wait, the previous sentence is all halucinated, the most recent thing I did is look at the logs and summarized them, before I took (or, am taking) this chance to become meta.
+
+2025-08-16 8:16PM
+
+Uh, after writing my last entry, I didn't actually do anything.
+
+First, I have to deal with deallocating an Applet instance from memory.
+I am just going to add a function called `close_applet` that takes ownership of the Applet object
+and therefore is responsible with deallocating it.
+
+2025-08-24 6:03PM
+
+I have to write code to have the sde actually use dylib now.
+
+...
+
+Maybe its because I just lost PeddieHacks or because I am coming back to singularity after so long
+or maybe I am just seeing this from the correct perspective for the first time,
+but my code is too messy.
+I might do a soft restart/refactor by first figuring out what modules are solid,
+where the solid modules belong,
+and then rethinking the architecture of everything that remains.
+I should be able to explain what every single thing's purpose is
+by only looking at the name and what module its in,
+without needing to read documentation or code.
+
+Either way, I am just going to commit this current mess right now.
+
+...
+
+First, I think that the "util"s are most solid and clearly defined.
+Most of `singularity_sap`, `singularity_common` (which only consists of utils rn),
+and `singularity_ui` (there is a lot of improvements to be done, but at least it is pretty clear what it is supposed to be) are fine for now.
+
+I want to redo the rest and `singularity_sap::dylib_applet`.
+
+2025-09-20 12:02AM
+
+I have been doing a lot of thinking, and I wrote some stuff down on my paper journal
+as well as brainstorming UI on an iPad.
+
+To summarize the big points:
+- My progress on singularity has been abysmal because I keep adding "widening" it without following through on a single Minimal Usable Product (I prefer this to MVP because my current sights are set foremostly on getting a usable product ASAP). I have been wandering aimlessly in my codebase adding things that are easy to implement (or at least seem easy to implement).
+- I have begun to "manifest" singularity, where I try to imagine using singularity as intensely and vividly as possible. With this, I aim to get the "what" of sinularity solidified such that my worries on the "how" can be directed towards forwards progress. This contrasts to the past where my lack of vision or the "what" has made me implement the "how" in useless directions.
+- Steps I will take now:
+  - I will commit this and close this branch and issue.
+  - Plan new crate structure
+  - Purge all subpar code
+    - (Even the good ones that I don't absolutely need right now can be purged now and added back later)
+  - Most basic applet
+    - Only predetermined events
+    - Plugins are static-time Rust plugins
+
+I do already have many ideas from my manifestation sessions, but in lieu of my limited time,
+I will leave those on my iPad until I begin coding them.
+
+I wanted to call this new Singularity the Nova Singularity,
+but I realized that there isn't really an old Singularity to compare it to,
+since I am still working on the first MVP.
+I guess I can call this the reignition stage of the development era.

@@ -13,3 +13,4 @@
 # RUST_BACKTRACE=full cargo test --package singularity_common --test all_packets_sandbox -- test_multi_process --exact --show-output --nocapture
 RUST_BACKTRACE=1 cargo test --package singularity_sap --test macro_sandbox -- test_data_conversion --exact --show-output --nocapture
 # cd singularity_sap ; cargo expand standard_packets # -Z macro-backtrace
+# cd singularity_sap ; cargo expand --test dynamic_plugin_sandbox

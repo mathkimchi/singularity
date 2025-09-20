@@ -65,6 +65,7 @@ impl Mode {
 }
 
 /// Look at devlog 2025/03/03
+#[derive(Debug)]
 pub enum UserAction {
     // SECTION - closing
 
@@ -167,7 +168,7 @@ impl UserAction {
                     shift: false,
                     caps_lock: false,
                     logo: true,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) if TREE_TRAVERSE_KEYS.contains(&key_char) => {
                 // sad that match doesn't support if let syntax
@@ -184,7 +185,7 @@ impl UserAction {
                     shift: false,
                     caps_lock: false,
                     logo: true,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) => Self::PluckPlace,
             // Alt+Windows+Enter swaps actually focused and focusing
@@ -197,7 +198,7 @@ impl UserAction {
                     shift: false,
                     caps_lock: false,
                     logo: true,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) => Self::TreeSwap,
 
@@ -211,7 +212,7 @@ impl UserAction {
                     shift: true,
                     caps_lock: false,
                     logo: false,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) => Self::OpenCommandPalette,
             // ESC quits command palette (see: https://github.com/mathkimchi/singularity/issues/11)
@@ -228,7 +229,7 @@ impl UserAction {
                     shift: false,
                     caps_lock: false,
                     logo: true,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) => Self::TransposeTileParent,
             // Logo+s swaps selected tile's siblings
@@ -241,7 +242,7 @@ impl UserAction {
                     shift: false,
                     caps_lock: false,
                     logo: true,
-                    num_lock: _,
+                    // num_lock: _,
                 },
             ) => Self::SwapTileSiblings,
             _ => {

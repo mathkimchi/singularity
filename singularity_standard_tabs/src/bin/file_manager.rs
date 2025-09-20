@@ -2,23 +2,23 @@ use singularity_common::utils::tree::{
     rooted_tree::RootedTree,
     tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
 };
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::EventPacketUnion;
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
-    datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketUnion, PacketTypeId, PacketUnion},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestSpawnChildTab,
-        RequestUpdateWindow, SessionDataQuery, UnfocusedEvent,
+        RequestUpdateWindow, SessionStorageQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
-use singularity_sporg::project_settings::TabData;
+use singularity_sporg::applet_data::{AppletSpawnData, AppletTypeId};
 use singularity_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 
-#[derive(PacketUnion, Packet)]
+#[derive(EventPacketUnion)]
 pub enum Event {
+    #[sub_union]
     DisplayEvent(DisplayEvent),
 }
 
@@ -86,7 +86,7 @@ impl FileManager {
         client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
-            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+            serde_json::from_value::<String>(client_stream.query(SessionStorageQuery).unwrap().0)
                 .unwrap(),
             client_stream,
         )
@@ -157,10 +157,13 @@ impl FileManager {
                     let selected_element = &self.directory_tree[&self.selected_path];
                     if selected_element.is_file() {
                         // TODO: add abstraction for editor, so it is just RequestOpenInEditor instead of calling SDE's specific editor
-                        client_stream.send_request(RequestSpawnChildTab(TabData::new_argless(
-                            "./target/release/editor",
-                            serde_json::to_value(selected_element.clone()).unwrap(),
-                        )));
+                        client_stream.send_request(RequestSpawnChildTab(
+                            AppletSpawnData::new_argless(
+                                Some(AppletTypeId::new("editor")),
+                                "./target/release/editor",
+                                serde_json::to_value(selected_element.clone()).unwrap(),
+                            ),
+                        ));
                     }
                     // if selected path isn't a file, then don't do anything
                 }

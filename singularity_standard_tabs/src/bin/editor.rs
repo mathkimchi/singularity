@@ -1,11 +1,10 @@
-use singularity_macros::{Packet, PacketUnion};
+use singularity_macros::EventPacketUnion;
 use singularity_sap::{
     byte_stream::{ByteReaderWrapper, ByteStream, CombinedByteStream},
-    datable::{ToData, TryFromData},
-    packet::{IdType, PacketTrait},
+    packet::{EventPacketUnion, PacketTypeId, PacketUnion},
     standard_packets::display_packets::{
         CloseWarningEvent, DisplayEvent, FocusedEvent, RequestChangeName, RequestUpdateWindow,
-        SessionDataQuery, UnfocusedEvent,
+        SessionStorageQuery, UnfocusedEvent,
     },
     universal_stream::universal_client_stream::UniversalClientStream,
 };
@@ -13,8 +12,9 @@ use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
 use std::{io::Stdout, path::PathBuf};
 
-#[derive(PacketUnion, Packet)]
+#[derive(EventPacketUnion)]
 pub enum Event {
+    #[sub_union]
     DisplayEvent(DisplayEvent),
 }
 
@@ -92,7 +92,7 @@ impl Editor {
         client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) -> Self {
         Self::new(
-            serde_json::from_value::<String>(client_stream.query(SessionDataQuery).unwrap().0)
+            serde_json::from_value::<String>(client_stream.query(SessionStorageQuery).unwrap().0)
                 .unwrap(),
             client_stream,
         )

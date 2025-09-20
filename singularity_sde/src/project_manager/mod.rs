@@ -11,29 +11,34 @@ use singularity_common::utils::{
     },
 };
 use singularity_sap::{
-    standard_packets::display_packets::{
-        CloseWarningEvent, NameQuery, NameResponse, PathQuery, PathResponse, RequestChangeName,
-        RequestSpawnChildTab, RequestUpdateWindow, SessionDataQuery, SessionDataResponse,
+    standard_packets::{
+        display_packets::{
+            CloseWarningEvent, DisplayEvent, DisplayRequest, NameQuery, NameResponse, PathQuery,
+            PathResponse, RequestChangeName, RequestSpawnChildTab, RequestSpawnDefaultChildApplet,
+            RequestUpdateWindow, SessionStorageQuery, SessionStorageResponse,
+        },
+        file_packets::{ReadFileQuery, ReadFileResponse, WriteFileRequest},
     },
     universal_stream::universal_server_stream::as_query_data_responder,
 };
 use singularity_sporg::{
-    project_settings::{SubappSettings, SubappStandardSettings},
+    applet_data::{AppletType, AppletTypeId},
+    session::Session,
     tile::{Orientation, Tile},
-    Project,
 };
 use singularity_ui::{
+    UIDisplay,
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{KeyTrait, UIEvent},
-    UIDisplay,
 };
 use std::{
-    io::{self},
+    fs::File,
+    io::{self, Read, Write},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     thread,
 };
@@ -43,7 +48,7 @@ mod mode;
 mod tabs;
 
 pub struct ProjectManager {
-    project: Project,
+    session: Session,
 
     tabs: Tabs,
 
@@ -61,11 +66,11 @@ impl ProjectManager {
         P: 'static + AsRef<std::path::Path> + Clone + Send,
         std::path::PathBuf: From<P>,
     {
-        let project = Project::new(project_directory.clone());
-        let tabs = Tabs::parse_from_project(&project);
+        let session = Session::get_or_make_session(project_directory.clone());
+        let tabs = Tabs::parse_from_session(&session);
 
         Self {
-            project,
+            session,
             tabs,
             mode: Mode::TabFocus,
             is_running: Arc::new(AtomicBool::new(false)),
@@ -100,7 +105,9 @@ impl ProjectManager {
 
         // close tab processes
         for mut tab in self.tabs.tabs.into_values() {
-            tab.send_event(SDEEvent::Close(CloseWarningEvent));
+            tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::Close(
+                CloseWarningEvent,
+            )));
             tab.kill();
         }
 
@@ -280,8 +287,8 @@ impl ProjectManager {
     fn save_to_file(&mut self) {
         // save the tabs session
         let open_tabs = self.tabs.save_session();
-        self.project.project_settings.open_tabs = Some(open_tabs);
-        self.project.save_to_file();
+        self.session.session_data = open_tabs;
+        self.session.save_to_file();
     }
 
     /// Returns if it was a quit. Just for that specific case.
@@ -466,7 +473,9 @@ impl ProjectManager {
                 let focused_tab = self.tabs.get_focused_tab_mut();
 
                 // rebuild the keypress. redundant but feels safer
-                focused_tab.send_event(SDEEvent::UIEvent(UIEvent::KeyPress(key, key_mod)));
+                focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::UIEvent(
+                    UIEvent::KeyPress(key, key_mod),
+                )));
             }
             UserAction::ForwardKeyPressCommandPalette(key, _key_mod) => {
                 if let Some(command_buffer) = self.mode.try_get_command_palette_buffer_mut() {
@@ -480,22 +489,25 @@ impl ProjectManager {
                             // FIXME: hideous nesting
                             let command = command_buffer.trim();
                             let command = command.split_once(' ');
-                            if let Some((prefix, command)) = command {
+                            if let Some((prefix, args)) = command {
                                 match prefix {
                                     "spawn" => {
-                                        dbg!("Attempting to spawn:", command);
-                                        if let Some(SubappSettings {
-                                            subapp_standard_settings:
-                                                Some(SubappStandardSettings {
-                                                    spawnable_default: Some(default_tab_data),
-                                                }),
+                                        let applet = AppletTypeId::new(args);
+                                        dbg!("Attempting to spawn:", &applet);
+                                        if let Some(AppletType {
+                                            default_spawn: Some(applet_spawn_data),
                                             ..
-                                        }) = self.project.project_settings.subapps.get(command)
+                                        }) = self
+                                            .session
+                                            .project
+                                            .project_settings
+                                            .applet_types
+                                            .get(&applet)
                                         {
                                             dbg!("Spawning:", command);
                                             self.tabs.add(
-                                                TabHandler::new(
-                                                    default_tab_data.clone(),
+                                                TabHandler::spawn(
+                                                    applet_spawn_data,
                                                     Self::generate_tab_area(
                                                         self.tabs.num_tabs(),
                                                         1,
@@ -538,12 +550,12 @@ impl ProjectManager {
                         DisplayCoord::new((click_x as i32).into(), (click_y as i32).into()),
                         [tot_width as i32, tot_height as i32],
                     ) {
-                        focused_tab.send_event(SDEEvent::UIEvent(
+                        focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::UIEvent(
                             singularity_ui::ui_event::UIEvent::MousePress(
                                 [[click_x, click_y], [tot_width, tot_height]],
                                 focused_tab.get_area().map_onto(container),
                             ),
-                        ));
+                        )));
                     }
                 }
 
@@ -584,36 +596,48 @@ impl ProjectManager {
                 .unwrap();
             let requests = {
                 let sender_name = sender.tab_name.clone();
-                let session_data = sender.get_tab_data().session_data.clone();
+                let session_storage = sender.applet_session_storage.clone();
                 sender.handle_incoming(&mut vec![
                     &mut as_query_data_responder(|PathQuery| Some(PathResponse(tab_path.clone()))),
                     &mut as_query_data_responder(move |NameQuery| {
                         Some(NameResponse(sender_name.clone()))
                     }),
-                    &mut as_query_data_responder(move |SessionDataQuery| {
-                        Some(SessionDataResponse(session_data.clone()))
+                    &mut as_query_data_responder(move |SessionStorageQuery| {
+                        Some(SessionStorageResponse(session_storage.clone()))
+                    }),
+                    &mut as_query_data_responder(move |ReadFileQuery(path)| {
+                        let mut file = File::open(path).ok()?;
+                        let mut buf = Vec::new();
+                        file.read_to_end(&mut buf).ok()?;
+                        Some(ReadFileResponse(buf))
                     }),
                 ])
             };
 
             for request in requests {
                 match request {
-                    SDERequest::RequestChangeName(RequestChangeName { new_name }) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestChangeName(
+                        RequestChangeName { new_name },
+                    )) => {
                         self.tabs
                             .get_mut_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
                             .unwrap()
                             .tab_name = new_name;
                     }
-                    SDERequest::RequestUpdateWindow(RequestUpdateWindow { contents: new_ui }) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestUpdateWindow(
+                        RequestUpdateWindow { contents: new_ui },
+                    )) => {
                         self.tabs
                             .get_mut_tab_handler(self.tabs.get_id_by_org_path(&tab_path).unwrap())
                             .unwrap()
                             .tab_display = new_ui;
                     }
-                    SDERequest::RequestSpawnChildTab(RequestSpawnChildTab(tab_data)) => {
+                    SDERequest::DisplayRequest(DisplayRequest::RequestSpawnChildTab(
+                        RequestSpawnChildTab(tab_data),
+                    )) => {
                         self.tabs.add(
-                            TabHandler::new(
-                                tab_data,
+                            TabHandler::spawn(
+                                &tab_data,
                                 // NOTE: the argument child index is technically incorrect,
                                 // but the purpose of the generator is to generally prevent all
                                 // tabs from being spawned all in one place.
@@ -621,6 +645,38 @@ impl ProjectManager {
                             ),
                             &self.tabs.get_id_by_org_path(&tab_path).unwrap(),
                         );
+                    }
+                    SDERequest::DisplayRequest(DisplayRequest::RequestSpawnDefaultChildApplet(
+                        RequestSpawnDefaultChildApplet(applet_type_id),
+                    )) => {
+                        if let Some(applet) = self
+                            .session
+                            .project
+                            .project_settings
+                            .applet_types
+                            .get(&applet_type_id)
+                        {
+                            if let Some(default_spawn) = &applet.default_spawn {
+                                self.tabs.add(
+                                    TabHandler::spawn(
+                                        default_spawn,
+                                        // NOTE: the argument child index is technically incorrect,
+                                        // but the purpose of the generator is to generally prevent all
+                                        // tabs from being spawned all in one place.
+                                        Self::generate_tab_area(
+                                            self.tabs.num_tabs(),
+                                            tab_path.depth() + 1,
+                                        ),
+                                    ),
+                                    &self.tabs.get_id_by_org_path(&tab_path).unwrap(),
+                                );
+                            }
+                        }
+                    }
+                    SDERequest::WriteFileRequest(WriteFileRequest(dest, conent_bytes)) => {
+                        if let Ok(mut dest_file) = File::open(dest) {
+                            dest_file.write_all(&conent_bytes).unwrap();
+                        }
                     }
                 }
             }

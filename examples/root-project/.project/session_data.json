@@ -1,0 +1,238 @@
+{
+  "tabs": {
+    "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3": {
+      "applet_type_id": "editor",
+      "tab_area": [
+        {
+          "x": {
+            "Proportional": 0.0
+          },
+          "y": {
+            "Proportional": 0.5
+          }
+        },
+        {
+          "x": {
+            "Proportional": 1.0
+          },
+          "y": {
+            "Proportional": 1.0
+          }
+        }
+      ],
+      "applet_session_storage": "examples/root-project/file_to_edit.txt",
+      "spawn_method": {
+        "PipeChildProcess": {
+          "program": {
+            "Unix": [
+              46,
+              47,
+              116,
+              97,
+              114,
+              103,
+              101,
+              116,
+              47,
+              114,
+              101,
+              108,
+              101,
+              97,
+              115,
+              101,
+              47,
+              101,
+              100,
+              105,
+              116,
+              111,
+              114
+            ]
+          },
+          "args": []
+        }
+      }
+    },
+    "35ceac92-85ab-4012-a05b-30b9fdec1ea8": {
+      "applet_type_id": "editor",
+      "tab_area": [
+        {
+          "x": {
+            "Proportional": 0.0
+          },
+          "y": {
+            "Proportional": 0.25
+          }
+        },
+        {
+          "x": {
+            "Proportional": 1.0
+          },
+          "y": {
+            "Proportional": 0.5
+          }
+        }
+      ],
+      "applet_session_storage": "examples/root-project/subdir/subfile.txt",
+      "spawn_method": {
+        "PipeChildProcess": {
+          "program": {
+            "Unix": [
+              46,
+              47,
+              116,
+              97,
+              114,
+              103,
+              101,
+              116,
+              47,
+              114,
+              101,
+              108,
+              101,
+              97,
+              115,
+              101,
+              47,
+              101,
+              100,
+              105,
+              116,
+              111,
+              114
+            ]
+          },
+          "args": []
+        }
+      }
+    },
+    "48445fa1-99ca-4779-95f0-269bc245fae5": {
+      "applet_type_id": "file_manager",
+      "tab_area": [
+        {
+          "x": {
+            "Proportional": 0.0
+          },
+          "y": {
+            "Proportional": 0.0
+          }
+        },
+        {
+          "x": {
+            "Proportional": 1.0
+          },
+          "y": {
+            "Proportional": 0.25
+          }
+        }
+      ],
+      "applet_session_storage": "examples/root-project",
+      "spawn_method": {
+        "PipeChildProcess": {
+          "program": {
+            "Unix": [
+              46,
+              47,
+              116,
+              97,
+              114,
+              103,
+              101,
+              116,
+              47,
+              114,
+              101,
+              108,
+              101,
+              97,
+              115,
+              101,
+              47,
+              102,
+              105,
+              108,
+              101,
+              95,
+              109,
+              97,
+              110,
+              97,
+              103,
+              101,
+              114
+            ]
+          },
+          "args": []
+        }
+      }
+    }
+  },
+  "org_tree": {
+    "root_id": "48445fa1-99ca-4779-95f0-269bc245fae5",
+    "nodes": {
+      "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3": {
+        "children": [],
+        "parent": "48445fa1-99ca-4779-95f0-269bc245fae5"
+      },
+      "35ceac92-85ab-4012-a05b-30b9fdec1ea8": {
+        "children": [],
+        "parent": "48445fa1-99ca-4779-95f0-269bc245fae5"
+      },
+      "48445fa1-99ca-4779-95f0-269bc245fae5": {
+        "children": [
+          "35ceac92-85ab-4012-a05b-30b9fdec1ea8",
+          "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3"
+        ],
+        "parent": null
+      }
+    }
+  },
+  "focused_tab": "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3",
+  "display_tiles": {
+    "root_id": "6d95f1e6-1e75-4ff7-8664-b28cc27e6127",
+    "tiles": {
+      "080c279e-69d6-4ecc-81f6-a5b1be380570": {
+        "Tab": {
+          "tab_id": "48445fa1-99ca-4779-95f0-269bc245fae5"
+        }
+      },
+      "1c0a3ae2-d72e-4d79-849c-f2b07629bf04": {
+        "Tab": {
+          "tab_id": "35ceac92-85ab-4012-a05b-30b9fdec1ea8"
+        }
+      },
+      "6d95f1e6-1e75-4ff7-8664-b28cc27e6127": {
+        "Container": {
+          "children": [
+            "eec33413-4bec-4864-80f8-6977c7217571",
+            "af18f654-b545-4504-ace6-b8fb9335834d"
+          ],
+          "orientation": "Horizontal",
+          "split": 0.5
+        }
+      },
+      "af18f654-b545-4504-ace6-b8fb9335834d": {
+        "Tab": {
+          "tab_id": "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3"
+        }
+      },
+      "eec33413-4bec-4864-80f8-6977c7217571": {
+        "Container": {
+          "children": [
+            "080c279e-69d6-4ecc-81f6-a5b1be380570",
+            "1c0a3ae2-d72e-4d79-849c-f2b07629bf04"
+          ],
+          "orientation": "Horizontal",
+          "split": 0.5
+        }
+      }
+    },
+    "leaf_registry": {
+      "0c73278a-20a2-4d5e-8cdf-ce39f7858ac3": "af18f654-b545-4504-ace6-b8fb9335834d",
+      "35ceac92-85ab-4012-a05b-30b9fdec1ea8": "1c0a3ae2-d72e-4d79-849c-f2b07629bf04",
+      "48445fa1-99ca-4779-95f0-269bc245fae5": "080c279e-69d6-4ecc-81f6-a5b1be380570"
+    }
+  }
+}
