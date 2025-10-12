@@ -4196,3 +4196,19 @@ I wanted to call this new Singularity the Nova Singularity,
 but I realized that there isn't really an old Singularity to compare it to,
 since I am still working on the first MVP.
 I guess I can call this the reignition stage of the development era.
+
+2025-09-20 11:24AM
+
+The crates I need are:
+- UI
+  - Current one is good
+- SDE
+- STTK
+- Some tabs (standard tabs)
+- Sporg (but this is kind of a mess as well, might need to start it from scratch.)
+- and the common just for help
+
+2025-10-09 2:20AM
+
+I will delete unnecessary crates.
+
