@@ -4224,3 +4224,34 @@ I am getting rid of abstract packets while Singularity is still in pre-alpha.
 
 I think I will do reactive applets as the only way for now.
 I won't support processes or multithreading either in pre-alpha.
+
+2025-10-12 9:27PM
+
+I will start out by planning the Handlers,
+which represent communication between the SDE and applet.
+The `ServerHandler` is used by the Applet and implemented by the SDE.
+
+After thinking about it, I don't need a Ratk as a seperate thing,
+because I can just have an `AppletHandler` in singularity_common
+(and I'll call it `ReactiveHandler` since that is more clear).
+
+I guess if progress wasn't a priority, I'd put both of these things in singularity SAP,
+but it shall not exist while I continue forward.
+
+Actually, I am just going to make sap a folder in singularity_common,
+since I was going to make a folder for all the handler and related things anyways.
+
+My vague idea for communication:
+
+- Applet -> SDE:
+  - Requests (make queries=requests later?)
+  - Queries ask for a response in return
+  - Creating other Applets:
+    - Make the applet instance on its own and then just give it to the SDE and tell it to register it. (a type of Request)
+    - Could also have a more generic/abstract way, but idk how yet. Would still be a request.
+- SDE -> Applet:
+  - Event: inform applet of event that happened
+  - Response to queries
+  - Initialization: different from a normal event (currently all events are instance events, no global) because this is called globally and also requires return value
+
+I guess the new thing is the initialization.

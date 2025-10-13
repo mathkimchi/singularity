@@ -51,7 +51,7 @@ impl SessionData {
         let id = Id::generate();
 
         let root_tab = OpenTab {
-            applet_type_id: Some(AppletTypeId::new("file_manager")),
+            applet_type_id: Some(AppletTypeId::FileManager),
             tab_area: DisplayArea::new((0., 0.), (0.5, 1.)),
             applet_session_storage: serde_json::to_value(project.get_project_directory().clone())
                 .unwrap(),

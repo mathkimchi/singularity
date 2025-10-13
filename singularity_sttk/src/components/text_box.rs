@@ -1,4 +1,4 @@
-use singularity_common::packets::DisplayEvent;
+use singularity_common::sap::packets::DisplayEvent;
 use singularity_ui::ui_element::CharGrid;
 
 // use super::Component;
