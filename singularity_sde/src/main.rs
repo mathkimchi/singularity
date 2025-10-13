@@ -6,11 +6,13 @@ pub mod tab;
 fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
 
-    let project_manager = project_manager::ProjectManager::new(
-        args.get(1)
-            .unwrap_or(&"examples/root-project".to_string())
-            .clone(),
-    );
+    // let project_manager = project_manager::ProjectManager::new(
+    //     args.get(1)
+    //         .unwrap_or(&"examples/root-project".to_string())
+    //         .clone(),
+    // );
 
-    project_manager.run()
+    // project_manager.run()
+
+    Ok(())
 }

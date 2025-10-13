@@ -4212,3 +4212,15 @@ The crates I need are:
 
 I will delete unnecessary crates.
 
+2025-10-11 9:12PM
+
+I'm going to change the code now to get rid of unnecessary files and maybe add some skeleton.
+I want to get rid of errors from referencing code that doesn't exist.
+
+Things like the packets, I will put in singularity_common.
+
+Packets (both the abstract protocol and the standard packets) used to be in SAP.
+I am getting rid of abstract packets while Singularity is still in pre-alpha.
+
+I think I will do reactive applets as the only way for now.
+I won't support processes or multithreading either in pre-alpha.

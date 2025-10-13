@@ -1,6 +1,4 @@
-use singularity_sap::standard_packets::display_packets::{
-    CloseWarningEvent, DisplayEvent, FocusedEvent, UnfocusedEvent,
-};
+use singularity_common::packets::DisplayEvent;
 use singularity_ui::ui_element::CharGrid;
 
 // use super::Component;
