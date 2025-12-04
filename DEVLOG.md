@@ -4255,3 +4255,102 @@ My vague idea for communication:
   - Initialization: different from a normal event (currently all events are instance events, no global) because this is called globally and also requires return value
 
 I guess the new thing is the initialization.
+
+2025-11-11 11:26AM
+
+Lowkey, I am super lost because its been months since I actually worked on singularity.
+
+2025-11-12 5:04PM
+
+I explained to the other guy in Micro47 the overview of Singularity.
+The main issue is just connecting Applets to the Singularity server.
+The four levels of this I've considered (top is most general and difficult to rigid but easy):
+
+1. Processes
+   1. Dynamic
+2. Dylibs
+   1. Dynamic
+   2. Reactive
+3. Threads
+4. Reactive Rust Objects
+   1. Reactive
+   2. Server Context Object:
+      1. The server talks to applet by calling `applet.some_method(..., server_ctx)`
+      2. The applet talks back to server by calling `server_ctx.some_method()`
+      3. The server passing context as a bundle of callbacks
+      4. Metaphorically, when the server calls an applet's method, the server is sending a letter/order to the applet. Including the context is like signing the letter "You can call me for more information or help at _"
+
+I think I had something not bad for threads.
+Then, I was like "I want a challenge" and did dylibs.
+Then, I got annoyed by how slow I was implementing dylibs and switched to Reactive Rust,
+but gave up after that.
+
+So I tried to take 1 step forward, took 2 steps back,
+then just laid down.
+
+The really cool thing about Reactive Rust Objects is that maybe applets could have subapplets,
+but I don't want to think about that right now.
+
+I am going to try to run through a very basic flow
+(simplification of projects for now. Also, tree nodes store views not tabs):
+- User starts singularity for the first time
+- Singularity creates a tree with just the root which is a view of a hub applet
+  - (Hub is like a mix between a terminal and the vscode command palette)
+  - Creating a hub applet:
+    - Server runs `Hub::new()` and should get `Some`
+- User types in: `replace_self(apps.find("EDITOR"))` (syntax is just placeholder)
+  - Server relays user event to applet like `applet.handle_event(user_event, server_ctx)`
+  - Applet gets the typing information and stores it in its current string or st
+  - Applet updates its ui display with `server_ctx.request(...)`
+- When the server tells the applet the user's `<ENTER>`, the hub applet spawns an editor child applet
+  - Applet runs `let editor = Editor::new().unwrap();` (returns a blank editor without a file)
+  - Applet calls `server_ctx.request(Requests::ReplaceSelf(editor))`
+- Server replaces hub with applet in the view
+- User types stuff
+  - Already know how to deal with this
+- User closes the editor
+  - Server calls `applet.destruct(server_ctx)` (which takes ownership)
+  - In production, there should be a way to ask confirmation on non-forced closes, but ignore that for now. Pretend the app just saves the text to instance storage
+  - Applet calls `server_ctx.request(...)` to update instance storage
+  - Server updates applet's instance storage
+  - Applet ends everything it needs to (shouldn't be much)
+  - Server removes everything else related to applet (or puts it in the history)
+
+2025-12-03 11:46PM
+
+I don't have anything technical to write right now.
+
+But, I wanted to write down that maybe I should grab myself a whiteboard,
+a good hour or two, and maybe a friend/rubber ducky and re-draft all the
+types I need as well as the interactions between them (in the form of typed functions).
+
+Oh, I guess I can also say something I thought about the actual tree-hierarchy system of subapps.
+An idea I had is that I could do a recursive style implementation of the tree hierarchy.
+What I mean is, that SDE (or some part of its framework) could technically
+just be a single-applet runner.
+But, in practice, most applets can implement `NodeApplet` which would
+allow the implementer to implement the Applet itself,
+but the Applet itself is enclosed and the NodeApplet has code that allows for it to be a parent
+node as well.
+
+This idea is the culmination of a series of smaller change ideas:
+1. Just have a 1-to-1 correspondence between a tree node, applet instance, and a view.
+2. But what if I want two applets in one view? Create a TilerApplet that is a parent of those two. The TilerApplet's implementation is that it's view is updated by having one half be one child's view and the other side be the other child's view.
+3. But this sounds super wasteful if done through the same framework as all the other applets and I want to avoid adding a special exception just for a TilerApplet. Well, what if we made every applet recursive by nature?
+
+Making the entire tree-hierarchy of the applets come from recursion is the crux of the idea.
+Most Applets will run inside a NodeApplet,
+where the NodeApplet library handles all the tree-related stuff
+like setting focus & view and forwarding events/views between SDE (via parent) to
+the focused tab (either self or the focused child).
+
+This *is* kinda scary because if one parent messes up the hierarchical duties,
+then all its children will also stop working.
+But, I think this is fine if I make NodeApplets the default
+and people have to go out of their ways to do something else like a SplitView Applet.
+
+Right now, I am leaning towards SDE is just an AppletRunner so I might call it SAR
+or something,
+and the tree selection stuff is implemented by maybe the RootNodeApplet
+which is like NodeApplet but with extra root-related duties
+like the tree traversal/selection.
