@@ -4354,3 +4354,96 @@ or something,
 and the tree selection stuff is implemented by maybe the RootNodeApplet
 which is like NodeApplet but with extra root-related duties
 like the tree traversal/selection.
+
+2025-12-04 11:11PM
+
+I am going to just ignore tab restoration for now.
+
+I will have a Singularity App Runner, SAR, instead of SDE.
+I will just start by having the SAR and a basic text editor.
+SAR will be like Singularity UI where it could theoretically be a general
+crate for non-singularity app development.
+IE it will be a general app framework
+and all the singularity specific stuff (like hierarchy)
+will be implemented in the applet toolkits.
+
+2025-12-05 5:34PM
+
+As I am working on the skeleton code, I am not sure how to do the UI.
+
+The obvious plan I had was to just let them update with Queries and whatnot
+since I am just doing reactive applets.
+
+In theory, this should be fine but my gut,
+motivated perhaps by long-term planning or perhaps greed and ambition,
+is telling me I can and should do better right now.
+The problem with the reactive approach is that is has absolutely no way to work for active applets.
+
+The best alternative I've thought of right now is by thinking of the applet and SAR relationship
+through a new perspective:
+instead of SAR holding/owning the applets,
+the are two independent things (they don't own each other)
+and each have ways to call each other's functions.
+If I can make this work within Rust,
+then it will be efficient for reactive applets while also being fexible.
+
+2025-12-06 9:10AM
+
+The first thought I had was to use MPSC, but I want it to be even more flexible than that.
+Maybe just functions where MPSC is a default implementation.
+
+I don't know how the ordering would work for this.
+The naive way is to first create one (of the SAR or the applet) with an Option for communication
+and then make the other object and the communication and give it to the original thing.
+
+But I don't like the Option because we know that once everything is initiated,
+it will be a Some but we will need to keep calling unwrap.
+
+Another order would be to start by creating the connection and then create the two objects (like MPSC).
+But if I do that, then it wouldn't be very flexible.
+
+Or, I could do something slightly similar to the Option idea but just start them out with trivial methods
+and allow it to be modified.
+I think the term for this is hooks.
+
+So I think I could just have it so that the order is:
+1. Create an Applet which has methods: `set_hooks` and `handle_event` and `get_display`, ...
+2. Create the SAR and give it the applet
+   1. SAR makes everything it needs to
+   2. SAR makes hook that implements things like `notify_update_display` from itself
+   3. The SAR calls `applet.set_hooks` and gives it the hook
+
+This is actually similar to the reactive applet where I send the server_ctx
+as an argument every time the SDE called an applet's funciton,
+like `handle_event(event, server_ctx)`.
+
+I think I can assure myself that creating Applet first makes sense
+because an Applet should be allowed to exist without a runner,
+but a runner needs an applet to run.
+
+Hmmm...
+I am not sure how the ownership would work with this
+because Hook holds a reference to SDE
+but I don't want to deal with lifetimes and all that mess.
+I guess MPSC "dealt" with this problem by letting the user not worry about lifetimes
+and with no gurantee of the reciever's existance,
+but then you get an error if the reciever doesn't exist.
+
+In the current (above) idea with the hooks,
+I simply replaced an Optional hook by allowing a trivial implementation instead of a None.
+But, here is another perspective:
+we can kind of "drag out" the two states of the hook to say
+that the Applet itself has two states: an applet with a hook and an applet without a hook.
+The `set_hooks` function essentially consumes an applet without a hook
+and returns an applet with a hook in its place.
+So, what if we just make the before vs after two different functions entirely?
+This idea is the same as just having an applet initializer function.
+So, the steps taken would be:
+
+1. Create Applet initializer data
+2. Create Runner and give it applet initializer data
+   1. Runner makes its own things that it needs to
+   2. Runner makes the hook
+   3. Runner initializes the Applet, giving it the hook
+
+I actually vaguely remember doing this exact thing in the past.
