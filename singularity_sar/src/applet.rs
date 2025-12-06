@@ -7,8 +7,10 @@ pub trait RunnerHook {
     // fn query(&mut self, query: Query);
 }
 
-pub trait Applet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent);
+pub trait BasicApplet {
+    type InitializingData;
 
-    fn set_hook(&mut self, hook: Box<dyn RunnerHook>);
+    fn initialize(initializing_data: Self::InitializingData, hook: Box<dyn RunnerHook>) -> Self;
+
+    fn handle_ui_event(&mut self, ui_event: UIEvent);
 }

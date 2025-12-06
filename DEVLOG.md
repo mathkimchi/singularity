@@ -4447,3 +4447,32 @@ So, the steps taken would be:
    3. Runner initializes the Applet, giving it the hook
 
 I actually vaguely remember doing this exact thing in the past.
+
+...
+
+The only communication between the applet and applet runner seems to be UI stuff
+when the Applet Runner is just SAR and doesn't implement hierarchy.
+
+With the recursive approach,
+if I set up the Applet to specifically be used by SAR
+and without any singularity stuff (like the tree hierarchy) in mind,
+then I might end up needing a new more flexible/versatile trait
+for apps being used in nodes and stuff like NodeApplet.
+I guess that wouldn't be the end of the world,
+but it feels like it defeats the point of having a recursive thing.
+I will allow it for now.
+
+I haven't explicitly said this yet,
+but one of the things I'd like to support is Components like textboxes through the Applet
+framework.
+But I think the applets' flexibility for being able to call the hook whenever
+might be kind of annoying when we know that the display should only update reactively.
+I could definitely make it work with MPSC and Mutex,
+but that is unnecessary resources and I will look for a simple way of doing it later.
+
+I guess I could start coding by simply making a textbox.
+
+...
+
+Oops, I forgot to update skeleton code to have the initializers.
+While I am changing that, I am also going to change the name for Applet to be BasicApplet.
