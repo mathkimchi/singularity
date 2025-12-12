@@ -9,6 +9,7 @@ singularity_macros = { path = "../singularity_common/singularity_macros" }
 singularity_ui = { path = "../singularity_ui" }
 # singularity_sap = { path = "../singularity_sap" }
 singularity_sporg = { path = "../singularity_sporg" }
+singularity_sar = { path = "../singularity_sar" }
 singularity_sttk = { path = "../singularity_sttk" }
 
 serde = { workspace = true }

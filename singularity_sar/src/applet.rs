@@ -18,7 +18,8 @@ where
 pub trait BasicApplet {
     type InitializingData;
 
-    fn initialize(initializing_data: Self::InitializingData, hook: impl RunnerHook) -> Self;
+    // REVIEW: should I use box or generic like BasicApplet<Hook: RunnerHook>?
+    fn initialize(initializing_data: Self::InitializingData, hook: Box<dyn RunnerHook>) -> Self;
 
     fn handle_ui_event(&mut self, ui_event: UIEvent);
 }

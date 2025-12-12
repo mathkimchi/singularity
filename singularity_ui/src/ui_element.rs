@@ -14,6 +14,7 @@ pub enum UIElement {
     Backgrounded(Box<UIElement>, Color),
 
     /// FIXME: literally just doesn't work
+    #[deprecated]
     Text(String),
 
     /// should display like a terminal

@@ -39,11 +39,14 @@ impl<A: BasicApplet> AppletRunner<A> {
             // clone to satisfy compiler
             let root_ui_element = root_ui_element.clone();
 
-            A::initialize(applet_initializing_data, move |display: &UIElement| {
-                // TODO: send reminder as well
+            A::initialize(
+                applet_initializing_data,
+                Box::new(move |display: &UIElement| {
+                    // TODO: send reminder as well
 
-                *root_ui_element.lock().unwrap() = display.clone();
-            })
+                    *root_ui_element.lock().unwrap() = display.clone();
+                }),
+            )
         };
 
         let mut runner = Self {
