@@ -8,7 +8,8 @@ use singularity_sar::{
 use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{
     color::Color,
-    ui_element::{CharGrid, UIElement},
+    ui_element::UIElement,
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
 
 struct TextBoxApplet {
@@ -25,7 +26,7 @@ impl BasicApplet for TextBoxApplet {
         }
     }
 
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: UIEvent) {
         // println!("{ui_event:?}");
         // self.hook.update_display(&UIElement::Backgrounded(
         //     Box::new(UIElement::CharGrid(CharGrid::from(format!("{ui_event:?}")))),
@@ -33,10 +34,23 @@ impl BasicApplet for TextBoxApplet {
         // ));
         // self.hook.update_display(&UIElement::Text("a".to_string()));
 
-        self.textbox
-            .handle_event(singularity_common::sap::packets::DisplayEvent::UIEvent(
-                ui_event,
-            ));
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: true,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && key.to_char() == Some('Q')
+        {
+            self.hook.close();
+            return;
+        }
+
+        self.textbox.handle_event(ui_event);
 
         self.hook.update_display(&UIElement::Backgrounded(
             Box::new(self.textbox.render()),

@@ -4476,3 +4476,14 @@ I guess I could start coding by simply making a textbox.
 
 Oops, I forgot to update skeleton code to have the initializers.
 While I am changing that, I am also going to change the name for Applet to be BasicApplet.
+
+2025-12-12 1:53PM
+
+Implementing the runner logic and a standalone app was very easy.
+Now, I will implement the singularity hierarchy logic in sttk,
+but I don't know if that is the best place for it.
+
+Actually, I will implement ending logic before that
+(I was cleaning up my code and realized I should add this).
+I could do some ownership stuff with this, but I don't see the usecase right now.
+I think drop is enough as well, as long as the user doesn't call any hooks on drop.

@@ -1,4 +1,4 @@
-use crate::applet::BasicApplet;
+use crate::applet::{BasicApplet, RunnerHook};
 use singularity_ui::{UIDisplay, ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
@@ -36,15 +36,29 @@ impl<A: BasicApplet> AppletRunner<A> {
         }
 
         let applet = {
-            // clone to satisfy compiler
-            let root_ui_element = root_ui_element.clone();
+            // anon implementation
+            struct AppletRunnerHook {
+                root_ui_element: Arc<Mutex<UIElement>>,
+                is_running: Arc<AtomicBool>,
+            }
+            impl RunnerHook for AppletRunnerHook {
+                fn update_display(&mut self, display: &UIElement) {
+                    // TODO: send reminder as well
+
+                    *self.root_ui_element.lock().unwrap() = display.clone();
+                }
+
+                fn close(&mut self) {
+                    self.is_running
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
 
             A::initialize(
                 applet_initializing_data,
-                Box::new(move |display: &UIElement| {
-                    // TODO: send reminder as well
-
-                    *root_ui_element.lock().unwrap() = display.clone();
+                Box::new(AppletRunnerHook {
+                    root_ui_element: root_ui_element.clone(),
+                    is_running: is_running.clone(),
                 }),
             )
         };
