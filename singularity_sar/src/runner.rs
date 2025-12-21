@@ -1,25 +1,32 @@
-use crate::applet::{BasicApplet, RunnerHook};
+use crate::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{UIDisplay, ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
+
+// /// Wrap this around an Arc
+// struct UIConnections {
+//     root_ui_element: Mutex<UIElement>,
+//     ui_event_queue: Mutex<Vec<UIEvent>>,
+//     is_running: AtomicBool,
+// }
 
 /// The Singularity Applet Runner (SAR) is kind of just a wrapper around the Singularity UI.
 /// The reason I want to abstract the UI is to make the recursive applet runners easier.
 ///
 /// Using Singularity UI requires the user to be active,
 /// but using Applet Runner is passive.
-pub struct AppletRunner<A: BasicApplet> {
-    applet: A,
+pub struct AppletRunner<Applet: BasicApplet> {
+    applet: Applet,
 
     // fields for dealing with the UI
     root_ui_element: Arc<Mutex<UIElement>>,
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
     is_running: Arc<AtomicBool>,
 }
-impl<A: BasicApplet> AppletRunner<A> {
+impl<Applet: BasicApplet> AppletRunner<Applet> {
     /// Returns after the applet is closed.
     ///
     /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
-    pub fn run(applet_initializing_data: A::InitializingData) {
+    pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
         let root_ui_element = Arc::new(Mutex::new(UIElement::Nothing));
         let ui_event_queue = Arc::new(Mutex::new(Vec::new()));
         let is_running = Arc::new(AtomicBool::new(true));
@@ -41,7 +48,7 @@ impl<A: BasicApplet> AppletRunner<A> {
                 root_ui_element: Arc<Mutex<UIElement>>,
                 is_running: Arc<AtomicBool>,
             }
-            impl RunnerHook for AppletRunnerHook {
+            impl BasicRunnerHook for AppletRunnerHook {
                 fn update_display(&mut self, display: &UIElement) {
                     // TODO: send reminder as well
 
@@ -54,13 +61,10 @@ impl<A: BasicApplet> AppletRunner<A> {
                 }
             }
 
-            A::initialize(
-                applet_initializing_data,
-                Box::new(AppletRunnerHook {
-                    root_ui_element: root_ui_element.clone(),
-                    is_running: is_running.clone(),
-                }),
-            )
+            applet_initizer(Box::new(AppletRunnerHook {
+                root_ui_element: root_ui_element.clone(),
+                is_running: is_running.clone(),
+            }))
         };
 
         let mut runner = Self {

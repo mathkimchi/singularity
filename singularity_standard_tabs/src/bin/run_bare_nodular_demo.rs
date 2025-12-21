@@ -1,11 +1,9 @@
-//! The goal of this demo is to run a simple textbox that is standalone
-//! (without the tree hierarchy stuff).
-
-use singularity_sar::{
-    applet::{BasicApplet, BasicRunnerHook},
-    runner::AppletRunner,
+use singularity_sar::applet::BasicRunnerHook;
+use singularity_sar::{applet::BasicApplet, runner::AppletRunner};
+use singularity_sttk::{
+    components::text_box::TextBox,
+    nodular_applet::{NodularApplet, NodularRunnerHook},
 };
-use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{
     color::Color,
     ui_element::UIElement,
@@ -13,7 +11,7 @@ use singularity_ui::{
 };
 
 struct TextBoxApplet {
-    hook: Box<dyn BasicRunnerHook>,
+    hook: Box<dyn NodularRunnerHook>,
     textbox: TextBox,
 }
 impl BasicApplet for TextBoxApplet {
@@ -56,6 +54,14 @@ impl BasicApplet for TextBoxApplet {
             Box::new(self.textbox.render()),
             Color::BLACK,
         ));
+    }
+}
+impl NodularApplet for TextBoxApplet {
+    fn handle_nodular_event(
+        &mut self,
+        nodular_event: singularity_sttk::nodular_applet::NodularEvent,
+    ) {
+        todo!()
     }
 }
 

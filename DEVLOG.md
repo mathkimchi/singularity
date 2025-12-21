@@ -4487,3 +4487,61 @@ Actually, I will implement ending logic before that
 (I was cleaning up my code and realized I should add this).
 I could do some ownership stuff with this, but I don't see the usecase right now.
 I think drop is enough as well, as long as the user doesn't call any hooks on drop.
+
+2025-12-14 11:33PM
+
+Now, this is the real test: the singularity hierarchy logic.
+
+The naming I will use is to say `BasicApplet` is the bare minimum needed to run and talk to the UI,
+and `NodularApplet` for the applets that support hierarchy operations.
+
+I am slightly bummed that the recursive approach doesn't really work with the ID system,
+but I acknowledge it could actually be an opportunity for theoretical purity.
+
+Ooh, I just got tingles from this idea:
+*IF* I somehow devise the interfaces such that the only differences is that the hook has more things,
+then this would be really good in rust
+(I don't want to explain explicitly, if you want to know why, then try implementing it yourself and you'll see).
+
+Well, now I have to actually see if I can do that.
+
+Recap of the basic applet:
+- Applet calls:
+  - `handle_ui_event`
+- Runner hooks:
+  - `update_display`
+  - `close`
+
+For the nodular applet, I plan on having a mini view which is a generalization of tree view.
+
+Nodular applet:
+- Applet calls:
+  - `handle_ui_event`
+  - `handle_nodular_event`
+    - For things like focus and highlighted
+- Runner hooks:
+  - `update_display`
+  - `close`
+  - `update_mini_view`
+  - `add_child`
+
+So unfortunately it seems like I need more applet calls.
+
+Or maybe I can somehow seperate the mini view logic from the normal stuff.
+The reason for me wanting to generalize the mini view logic is because of a usecase like a markdown editor with sections.
+
+Maybe I can brainstorm the seperated mini view later,
+but I guess I'll just pursue the naive approach right now.
+
+2025-12-21 2:46PM
+
+Freak...
+
+I just realized that some tree operations might be very annoying to implement recursively.
+Some might require global coordination from the root and the recursive implementation would
+just be a very contrived way to execute a globally coordinated algorithm recursively.
+
+Without thinking about it too much,
+I think this goes against the spirit of singularity.
+
+Let me commit the (atrocious) code I wrote so far in this commit and contemplate further.
