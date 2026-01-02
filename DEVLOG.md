@@ -4545,3 +4545,28 @@ Without thinking about it too much,
 I think this goes against the spirit of singularity.
 
 Let me commit the (atrocious) code I wrote so far in this commit and contemplate further.
+
+2026-01-01 12:42AM
+
+New year, new singularity!
+
+2026 will be the year of the singularity.
+
+Jokes aside, as I reflect on how long I've been "developing" singularity for,
+I can not mask my disappointment.
+
+If anything, I want 2026 to be the year of reflection and new directions in the context of
+singularity's development.
+
+That said, I decided to push through with the recursive subapp implementation
+and to address the flaw exposed by globally coordinated tree operations,
+I just won't address them (for now).
+I won't even worry about the minimap.
+For now, I will just implement two non-leaf applets:
+
+1. The standard NodeApplet (just shows the focused item)
+2. The TiledApplet is like a very limited tiling window manager, which, like the standard node applet, holds one main subapp and a list of children subapps. All the subapps are given equally sized rectangles, and it can switch between horizontal vs vertical stacks. This is mostly here right now for debugging purposes.
+
+I think all the tree traversal operations I've previously implemented can be done locally,
+and the only things that needed global coordination was tree modification.
+
