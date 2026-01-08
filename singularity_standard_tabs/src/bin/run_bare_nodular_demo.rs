@@ -1,5 +1,6 @@
 use singularity_sar::applet::BasicRunnerHook;
 use singularity_sar::{applet::BasicApplet, runner::AppletRunner};
+use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 use singularity_sttk::{
     components::text_box::TextBox,
     nodular_applet::{NodularApplet, NodularRunnerHook},
@@ -10,9 +11,27 @@ use singularity_ui::{
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
 
-struct TextBoxApplet {
+pub struct TextBoxApplet {
     hook: Box<dyn NodularRunnerHook>,
     textbox: TextBox,
+}
+impl TextBoxApplet {
+    pub fn get_initiator(text: String) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
+        |hook: Box<dyn NodularRunnerHook>| TextBoxApplet {
+            hook,
+            textbox: TextBox::from(text),
+        }
+    }
+    pub fn get_boxed_initiator(
+        text: String,
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+        |hook: Box<dyn NodularRunnerHook>| {
+            Box::new(TextBoxApplet {
+                hook,
+                textbox: TextBox::from(text),
+            })
+        }
+    }
 }
 impl BasicApplet for TextBoxApplet {
     // type InitializingData = String;
@@ -66,8 +85,7 @@ impl NodularApplet for TextBoxApplet {
 }
 
 fn main() {
-    AppletRunner::<TextBoxApplet>::run(|hook: Box<dyn BasicRunnerHook>| TextBoxApplet {
-        hook,
-        textbox: TextBox::default(),
-    })
+    AppletRunner::<RecursiveNodeApplet>::run(RecursiveNodeApplet::get_initiator(
+        TextBoxApplet::get_boxed_initiator(String::new()),
+    ))
 }

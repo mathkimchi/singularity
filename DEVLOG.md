@@ -4564,9 +4564,14 @@ I just won't address them (for now).
 I won't even worry about the minimap.
 For now, I will just implement two non-leaf applets:
 
-1. The standard NodeApplet (just shows the focused item)
+1. The standard RecursiveNodeApplet (just shows the focused item)
 2. The TiledApplet is like a very limited tiling window manager, which, like the standard node applet, holds one main subapp and a list of children subapps. All the subapps are given equally sized rectangles, and it can switch between horizontal vs vertical stacks. This is mostly here right now for debugging purposes.
 
 I think all the tree traversal operations I've previously implemented can be done locally,
 and the only things that needed global coordination was tree modification.
 
+2026-01-07 11:57AM
+
+Bruh, I am just spamming `Arc<Mutex<Box<T>>>` everywhere.
+I feel like I surely have a circular reference somewhere
+and it is very ugly.
