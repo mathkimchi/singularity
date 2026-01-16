@@ -4565,7 +4565,7 @@ I won't even worry about the minimap.
 For now, I will just implement two non-leaf applets:
 
 1. The standard RecursiveNodeApplet (just shows the focused item)
-2. The TiledApplet is like a very limited tiling window manager, which, like the standard node applet, holds one main subapp and a list of children subapps. All the subapps are given equally sized rectangles, and it can switch between horizontal vs vertical stacks. This is mostly here right now for debugging purposes.
+2. The DividedApplet is like a very limited tiling window manager, which, like the standard node applet, holds one main subapp and a list of children subapps. All the subapps are given equally sized rectangles, and it can switch between horizontal vs vertical stacks. This is mostly here right now for debugging purposes.
 
 I think all the tree traversal operations I've previously implemented can be done locally,
 and the only things that needed global coordination was tree modification.
@@ -4575,3 +4575,39 @@ and the only things that needed global coordination was tree modification.
 Bruh, I am just spamming `Arc<Mutex<Box<T>>>` everywhere.
 I feel like I surely have a circular reference somewhere
 and it is very ugly.
+
+2026-01-08 10:03AM
+
+The code makes me want to puke.
+Because of Rust's ownership rules, it is really hard to reuse functions in this case.
+Specifically, I was avoiding giving a reference to the parent (RecursiveNodeApplet) to the hooks,
+because the parent holds the child which holds the hook so if the hook holds the parent,
+we get a circular loop.
+There might also be a problem with Mutex getting infinitely stuck.
+But this means that I have to isolate everything that the hooks need to hold.
+So certain operations like updating the window to be the focused node
+has to be implemented 3 times
+(once for children, once for the primary child, and once for the focused node itself).
+
+I am going to look into weak references as well as creating
+bundling every shared object into just one type that is held by the hooks and parent.
+
+2026-01-09 9:22AM
+
+I have decided it will be easiest to start with `DividedApplet`
+without a special main child.
+I will add that later though.
+
+2025-01-16 11:58AM
+
+I have invaded a random Stats class because I got a class off,
+and I feel so productive.
+I finally squashed the multiple deadlocks I had,
+and surprisingly everything just worked smoothly from there.
+I am a little worried that the chances of deadlocks will only increase as
+the project gets more complicated.
+If that happens, I might end up just putting everything in its own thread,
+though that would make this architecture useless.
+
+Well, I am going to commit what I have.
+This is the first time I am running an app that holds another app.

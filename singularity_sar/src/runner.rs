@@ -49,13 +49,13 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 is_running: Arc<AtomicBool>,
             }
             impl BasicRunnerHook for AppletRunnerHook {
-                fn update_display(&mut self, display: &UIElement) {
+                fn update_display(&self, display: &UIElement) {
                     // TODO: send reminder as well
 
                     *self.root_ui_element.lock().unwrap() = display.clone();
                 }
 
-                fn close(&mut self) {
+                fn close(&self) {
                     self.is_running
                         .store(false, std::sync::atomic::Ordering::Relaxed);
                 }

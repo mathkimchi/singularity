@@ -2,18 +2,18 @@ use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
 
 /// The runner gives this to the Applet
 pub trait BasicRunnerHook {
-    fn update_display(&mut self, display: &UIElement);
+    fn update_display(&self, display: &UIElement);
 
-    fn close(&mut self);
+    fn close(&self);
 
     // fn query(&mut self, query: Query);
 }
 impl BasicRunnerHook for Box<dyn BasicRunnerHook> {
-    fn update_display(&mut self, display: &UIElement) {
+    fn update_display(&self, display: &UIElement) {
         (**self).update_display(display);
     }
 
-    fn close(&mut self) {
+    fn close(&self) {
         (**self).close();
     }
 }

@@ -55,14 +55,14 @@ pub trait NodularRunnerHook: BasicRunnerHook {
     // fn update_miniview(&mut self, miniview: &UIElement);
 
     /// REVIEW: the boxes and generics
-    fn add_child(&mut self, initializer: Box<NodularAppletInitializer>);
+    fn add_child(&self, initializer: Box<NodularAppletInitializer>);
 }
 impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
-    fn update_display(&mut self, display: &UIElement) {
+    fn update_display(&self, display: &UIElement) {
         (**self).update_display(display);
     }
 
-    fn close(&mut self) {
+    fn close(&self) {
         (**self).close();
     }
 }

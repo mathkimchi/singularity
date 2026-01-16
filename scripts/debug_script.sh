@@ -15,4 +15,4 @@
 # cd singularity_sap ; cargo expand standard_packets # -Z macro-backtrace
 # cd singularity_sap ; cargo expand --test dynamic_plugin_sandbox
 
-RUST_BACKTRACE=1 cargo run --bin run_standalone_demo
+RUST_BACKTRACE=1 cargo run --bin run_bare_nodular_demo

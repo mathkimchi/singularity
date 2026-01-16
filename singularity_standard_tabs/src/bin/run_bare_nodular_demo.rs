@@ -1,6 +1,6 @@
 use singularity_sar::applet::BasicRunnerHook;
 use singularity_sar::{applet::BasicApplet, runner::AppletRunner};
-use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
+use singularity_sttk::nodular_applet::recursive_node_applet::DividedApplet;
 use singularity_sttk::{
     components::text_box::TextBox,
     nodular_applet::{NodularApplet, NodularRunnerHook},
@@ -85,7 +85,7 @@ impl NodularApplet for TextBoxApplet {
 }
 
 fn main() {
-    AppletRunner::<RecursiveNodeApplet>::run(RecursiveNodeApplet::get_initiator(
+    AppletRunner::<DividedApplet>::run(DividedApplet::get_initiator(
         TextBoxApplet::get_boxed_initiator(String::new()),
     ))
 }
