@@ -108,7 +108,9 @@ impl NodularApplet for TextBoxApplet {
 }
 
 fn main() {
-    AppletRunner::<DividedApplet>::run(DividedApplet::get_initiator(
-        TextBoxApplet::get_boxed_initiator(String::new()),
-    ))
+    AppletRunner::run(
+        singularity_sttk::nodular_applet::root_node_applet::NodularHolderApplet::get_initializer(
+            DividedApplet::get_initializer(TextBoxApplet::get_boxed_initiator(String::new())),
+        ),
+    )
 }

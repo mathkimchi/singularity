@@ -4613,3 +4613,24 @@ Well, I am going to commit what I have.
 This is the first time I am running an app that holds another app.
 
 Now, I am going to give the holder two applets and switch between them.
+
+2026-01-19 10:04PM
+
+A system where applets return the display instead of updating shared memory
+would be philosophically more elegant,
+and would trivially support the updating shared memory method,
+but in practice, this would be bottleneck paradise.
+
+Anyways, I want to implement the tree hierarchy aspect of singularity.
+Specifically, the UI of it: the Quick Map.
+I have kind of been dreading this, because this is the make-or-break aspect of singularity.
+
+I sketched out an example of what this would look like on my iPad.
+In the final form, I imagine two main parts:
+the treeview and the selected view preview.
+There will also be a plucked root view.
+But the main feature is the treeview, so I'll implement only that for the MVP.
+(Treeview without space like preview; I'm making up this word.)
+
+The fact that there is no elegant interpretation/explanation of the tree view makes me sad.
+But whatevs.

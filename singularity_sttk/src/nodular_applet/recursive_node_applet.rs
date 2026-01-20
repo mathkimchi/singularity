@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex, RwLock, Weak, atomic::AtomicUsize};
 struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: Arc<Mutex<UIElement>>,
+    treeview: Arc<Mutex<UIElement>>,
 }
 
 /// The main divided applet holds an Arc to this and applets hold Weak to this.
@@ -20,7 +21,7 @@ struct SubAppletHolder {
 struct SharedResource {
     applets: RwLock<Vec<Arc<SubAppletHolder>>>,
     focus_index: AtomicUsize,
-    hook: Box<dyn BasicRunnerHook>,
+    hook: Box<dyn NodularRunnerHook>,
 }
 impl SharedResource {
     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
@@ -67,12 +68,14 @@ impl SharedResource {
     ) {
         let child_holder = {
             let inner_applet_window = Arc::new(Mutex::new(UIElement::Nothing));
+            let inner_applet_treeview = Arc::new(Mutex::new(UIElement::Nothing));
 
             struct InnerHook {
                 // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
                 // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
                 // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
                 window: Arc<Mutex<UIElement>>,
+                treeview: Arc<Mutex<UIElement>>,
                 // outer_focused_child_index: Arc<Mutex<usize>>,
                 shared_resource: Weak<SharedResource>,
 
@@ -81,37 +84,8 @@ impl SharedResource {
             }
             impl BasicRunnerHook for InnerHook {
                 fn update_display(&self, display: &UIElement) {
-                    // self.outer_hook.lock().unwrap().update_display(display);
-
                     *self.window.lock().unwrap() = display.clone();
-                    // *self
-                    //     .shared_resource
-                    //     .upgrade()
-                    //     .unwrap()
-                    //     .applets
-                    //     .read()
-                    //     .unwrap()[self.index]
-                    //     .window
-                    //     .lock()
-                    //     .unwrap() = display.clone();
 
-                    // // TODO: update if focused
-                    // // REVIEW: This is unwrap of unwrap seems potentially dangerous
-                    // if self
-                    //     .shared_resource
-                    //     .upgrade()
-                    //     .unwrap()
-                    //     .focus_index
-                    //     .load(std::sync::atomic::Ordering::Relaxed)
-                    //     == self.index
-                    // {
-                    //     // this child is focused
-                    //     self.shared_resource
-                    //         .upgrade()
-                    //         .unwrap()
-                    //         .hook
-                    //         .update_display(display);
-                    // }
                     self.shared_resource
                         .upgrade()
                         .unwrap()
@@ -125,6 +99,16 @@ impl SharedResource {
                 }
             }
             impl NodularRunnerHook for InnerHook {
+                fn update_treeview(&self, treeview: &UIElement) {
+                    *self.treeview.lock().unwrap() = treeview.clone();
+
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .update_treeview(&SharedResource::get_display(&self.shared_resource));
+                }
+
                 fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
                     SharedResource::add_child(self.shared_resource.clone(), initializer);
                 }
@@ -140,11 +124,13 @@ impl SharedResource {
                     .unwrap()
                     .len(),
                 shared_resource: shared_resource.clone(),
+                treeview: inner_applet_treeview.clone(),
             };
 
             Arc::new(SubAppletHolder {
                 applet: Mutex::new(child_initializer(Box::new(inner_hook))),
                 window: inner_applet_window,
+                treeview: inner_applet_treeview,
             })
         };
 
@@ -172,7 +158,7 @@ impl DividedApplet {
     fn new(
         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
         // hook: Box<dyn NodularRunnerHook>,
-        hook: Box<dyn BasicRunnerHook>,
+        hook: Box<dyn NodularRunnerHook>,
     ) -> Self {
         let hook = hook;
         let applets = RwLock::new(Vec::new());
@@ -192,10 +178,10 @@ impl DividedApplet {
     }
 
     /// Partial application
-    pub fn get_initiator(
-        inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
-    ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
-        move |hook: Box<dyn BasicRunnerHook>| Self::new(inner_initiator, hook)
+    pub fn get_initializer(
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
+        move |hook: Box<dyn NodularRunnerHook>| Self::new(inner_initializer, hook)
     }
 }
 impl BasicApplet for DividedApplet {

@@ -53,7 +53,7 @@ pub type NodularAppletInitializer =
     dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>;
 
 pub trait NodularRunnerHook: BasicRunnerHook {
-    // fn update_miniview(&mut self, miniview: &UIElement);
+    fn update_treeview(&self, treeview: &UIElement);
 
     /// REVIEW: the boxes and generics
     fn add_child(&self, initializer: Box<NodularAppletInitializer>);
