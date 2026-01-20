@@ -4611,3 +4611,5 @@ though that would make this architecture useless.
 
 Well, I am going to commit what I have.
 This is the first time I am running an app that holds another app.
+
+Now, I am going to give the holder two applets and switch between them.

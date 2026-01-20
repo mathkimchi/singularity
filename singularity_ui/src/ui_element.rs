@@ -3,12 +3,15 @@ use crate::{color::Color, display_units::DisplayArea};
 /// TODO: rename most everything here
 #[derive(Debug, Clone, PartialEq)]
 pub enum UIElement {
+    /// Contains a list of inner elements.
+    /// Overlapping is allowed.
     Container(Vec<UIElement>),
 
     /// contains inner element within a certain area
     ///
     /// elements that aren't contained should be assumed to take the entire space
     Contained(Box<UIElement>, DisplayArea),
+    /// TODO: Fix the right and bottom borders.
     Bordered(Box<UIElement>, Color),
     /// TODO: better name
     Backgrounded(Box<UIElement>, Color),

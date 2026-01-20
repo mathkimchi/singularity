@@ -67,6 +67,23 @@ impl BasicApplet for TextBoxApplet {
             return;
         }
 
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: true,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && key.to_char() == Some('+')
+        {
+            self.hook
+                .add_child(Box::new(TextBoxApplet::get_boxed_initiator(String::new())));
+            return;
+        }
+
         self.textbox.handle_event(ui_event);
 
         self.hook.update_display(&UIElement::Backgrounded(
@@ -80,7 +97,13 @@ impl NodularApplet for TextBoxApplet {
         &mut self,
         nodular_event: singularity_sttk::nodular_applet::NodularEvent,
     ) {
-        todo!()
+        match nodular_event {
+            singularity_sttk::nodular_applet::NodularEvent::Highlighted(_) => todo!(),
+            singularity_sttk::nodular_applet::NodularEvent::Focused(_) => {
+                println!("Yay focus!");
+                println!("The text is: {}", &self.textbox.get_text_as_string());
+            }
+        }
     }
 }
 

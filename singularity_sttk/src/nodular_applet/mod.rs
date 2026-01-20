@@ -35,6 +35,7 @@ pub enum NodularEvent {
 pub trait NodularApplet: BasicApplet {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent);
 }
+// TODO: look into Box::downcast
 impl BasicApplet for Box<dyn NodularApplet> {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
         // REVIEW: I don't know what ** does

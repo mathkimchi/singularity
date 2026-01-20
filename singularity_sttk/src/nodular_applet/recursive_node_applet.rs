@@ -2,8 +2,13 @@ use crate::nodular_applet::{
     NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::ui_element::UIElement;
-use std::sync::{Arc, Mutex, Weak, atomic::AtomicUsize};
+use singularity_ui::{
+    color::Color,
+    display_units::{DisplayArea, DisplayUnits},
+    ui_element::UIElement,
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+};
+use std::sync::{Arc, Mutex, RwLock, Weak, atomic::AtomicUsize};
 
 struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
@@ -13,11 +18,49 @@ struct SubAppletHolder {
 /// The main divided applet holds an Arc to this and applets hold Weak to this.
 /// REVIEW: rename
 struct SharedResource {
-    applets: Mutex<Vec<Arc<SubAppletHolder>>>,
+    applets: RwLock<Vec<Arc<SubAppletHolder>>>,
     focus_index: AtomicUsize,
     hook: Box<dyn BasicRunnerHook>,
 }
 impl SharedResource {
+    /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
+    /// across the horizontal axis and take full height.
+    fn combine_displays(subdisplays: Vec<UIElement>) -> UIElement {
+        // proportional units so widths out of 1
+        let widths = 1. / subdisplays.len() as f32;
+        UIElement::Container(
+            subdisplays
+                .into_iter()
+                .enumerate()
+                .map(|(i, subdisplay)| {
+                    subdisplay
+                        .bordered(Color::LIGHT_GREEN)
+                        .contain(DisplayArea::new(
+                            (widths * (i as f32), 0.),
+                            (DisplayUnits::from_mixed(-1, widths * ((i + 1) as f32)), 1.),
+                        ))
+                })
+                .collect(),
+        )
+    }
+
+    fn get_display(shared_resource: &Weak<Self>) -> UIElement {
+        let mut applet_displays = Vec::new();
+
+        for applet in shared_resource
+            .upgrade()
+            .unwrap()
+            .applets
+            .read()
+            .unwrap()
+            .iter()
+        {
+            applet_displays.push(applet.window.lock().unwrap().clone());
+        }
+
+        Self::combine_displays(applet_displays)
+    }
+
     fn add_child(
         shared_resource: Weak<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
@@ -41,24 +84,39 @@ impl SharedResource {
                     // self.outer_hook.lock().unwrap().update_display(display);
 
                     *self.window.lock().unwrap() = display.clone();
+                    // *self
+                    //     .shared_resource
+                    //     .upgrade()
+                    //     .unwrap()
+                    //     .applets
+                    //     .read()
+                    //     .unwrap()[self.index]
+                    //     .window
+                    //     .lock()
+                    //     .unwrap() = display.clone();
 
-                    // TODO: update if focused
-                    // REVIEW: This is unwrap of unwrap seems potentially dangerous
-                    if self
-                        .shared_resource
+                    // // TODO: update if focused
+                    // // REVIEW: This is unwrap of unwrap seems potentially dangerous
+                    // if self
+                    //     .shared_resource
+                    //     .upgrade()
+                    //     .unwrap()
+                    //     .focus_index
+                    //     .load(std::sync::atomic::Ordering::Relaxed)
+                    //     == self.index
+                    // {
+                    //     // this child is focused
+                    //     self.shared_resource
+                    //         .upgrade()
+                    //         .unwrap()
+                    //         .hook
+                    //         .update_display(display);
+                    // }
+                    self.shared_resource
                         .upgrade()
                         .unwrap()
-                        .focus_index
-                        .load(std::sync::atomic::Ordering::Relaxed)
-                        == self.index
-                    {
-                        // this child is focused
-                        self.shared_resource
-                            .upgrade()
-                            .unwrap()
-                            .hook
-                            .update_display(display);
-                    }
+                        .hook
+                        .update_display(&SharedResource::get_display(&self.shared_resource));
                 }
 
                 fn close(&self) {
@@ -78,13 +136,11 @@ impl SharedResource {
                     .upgrade()
                     .unwrap()
                     .applets
-                    .lock()
+                    .read()
                     .unwrap()
                     .len(),
                 shared_resource: shared_resource.clone(),
             };
-
-            println!("Hi");
 
             Arc::new(SubAppletHolder {
                 applet: Mutex::new(child_initializer(Box::new(inner_hook))),
@@ -96,9 +152,15 @@ impl SharedResource {
             .upgrade()
             .unwrap()
             .applets
-            .lock()
+            .write()
             .unwrap()
             .push(child_holder);
+
+        shared_resource
+            .upgrade()
+            .unwrap()
+            .hook
+            .update_display(&Self::get_display(&shared_resource));
     }
 }
 
@@ -113,7 +175,7 @@ impl DividedApplet {
         hook: Box<dyn BasicRunnerHook>,
     ) -> Self {
         let hook = hook;
-        let applets = Mutex::new(Vec::new());
+        let applets = RwLock::new(Vec::new());
         let focus_index = AtomicUsize::new(0);
 
         let s = Self {
@@ -137,21 +199,56 @@ impl DividedApplet {
     }
 }
 impl BasicApplet for DividedApplet {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
-        self.shared_resource.applets.lock().unwrap()[self
+    fn handle_ui_event(&mut self, ui_event: UIEvent) {
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && key.to_char() == Some('\t')
+        {
+            self.shared_resource
+                .focus_index
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.shared_resource.focus_index.fetch_min(
+                self.shared_resource.applets.read().unwrap().len() - 1,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            return;
+        }
+
+        let applet_holder = self.shared_resource.applets.read().unwrap()[self
             .shared_resource
             .focus_index
             .load(std::sync::atomic::Ordering::Relaxed)]
-        .applet
-        .lock()
-        .unwrap()
-        .handle_ui_event(ui_event);
+        .clone();
+        applet_holder
+            .applet
+            .lock()
+            .unwrap()
+            .handle_ui_event(ui_event);
     }
 }
 impl NodularApplet for DividedApplet {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
-        let _ = nodular_event;
-        todo!()
+        match nodular_event {
+            NodularEvent::Highlighted(_) => todo!(),
+            NodularEvent::Focused(state) => {
+                self.shared_resource.applets.read().unwrap()[self
+                    .shared_resource
+                    .focus_index
+                    .load(std::sync::atomic::Ordering::Relaxed)]
+                .applet
+                .lock()
+                .unwrap()
+                .handle_nodular_event(NodularEvent::Focused(state));
+            }
+        }
     }
 }
 
