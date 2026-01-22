@@ -4634,3 +4634,79 @@ But the main feature is the treeview, so I'll implement only that for the MVP.
 
 The fact that there is no elegant interpretation/explanation of the tree view makes me sad.
 But whatevs.
+
+...
+
+1:24PM
+
+<!-- I was not going to do this for fear of getting stuck in another rabbithole
+(or rather a rabbithole I've been in before).
+I am talking about the generic packets.
+
+I might need to do this because  -->
+
+I am going to generalize the multi-app holder.
+
+First, I should generalize the Mutex UI.
+
+2026-01-21 11:56AM
+
+Yesterday, as I was organizing my thoughts as one does,
+I had an idea for possibly optimization.
+Well, I guess it is more an extension of an idea I already had.
+The old idea is just the principle that if I have multiple things
+in a container and then I update the things inside the container,
+I don't have to update the whole thing; just the things that changed.
+
+I simply realized that I could combine this with the hook system.
+So each UI element will have a `was_updated` boolean,
+and when an element is updated, its parent is also updated.
+(Btw, I'd make a new struct like `EfficientUIElement`.)
+
+Another seperate idea is abstracting on the sync logic,
+which, above other benefits, can ensure no deadlocks.
+The most basic abstraction is surrounding all uses of Mutexes behind objects
+with methods where I can guarantee it executes fast and will not have deadlocks.
+For example, just having a setter and getter (of the clone to be precise)
+is the minimal implementation of this idea.
+
+The more exciting idea I had was a sort of lazy processing.
+The general task is that we want to run a sort of
+clean-up function once everyone stops using it.
+(The difference between this task and setting drop+Rc
+is that this clean-up function is called when everyone stops just actively accessing it
+not when they completely drop the object.)
+In the context of singularity, this could be useful for updates that only need to happen once,
+once everything else is done updating, like updating ui.
+More generally, since I allow for objects to call children or its parent,
+the call-stack can go up or down depths.
+The clean-up for object A should be called when the last occurance
+of object A in the call stack is finishing.
+
+(I watched a video on Djikstra's Semaphores and want to make my own synchronization object.)
+Let me introduce my solution in the form of a data structure:
+the Clam (name in progress).
+The clam holds an inner object<!-- (clonable, most likely Arc)-->,
+a borrow counter (like Rc), and a clean-up hook.
+(The clean-up hook *could* theoretically be static, but I'm not going to worry about that.)
+You can call get_pearl on the clam, which increases the counter and
+returns a pearl containing a clone of the inner object.
+A pearl lets you access the inner object.
+When it is dropped, it decrements the counter and if the counter becomes zero,
+runs the clean-up hook.
+Clam should be clonable.
+Maybe I should let Pearls be cloned or even allow Pearls to
+output its spawner Clam too.
+
+Actually implementing this is annoying because I don't know
+how much I actually need to use Arc for.
+I don't need a Mutex around the inner because the user can specify
+`Clam<Mutex<T>>` if they need it.
+
+Also, I think I should just document a simple
+principle for avoiding deadlocks where a thread waits on itself
+with Mutex/RWLock:
+do as little as possible while there is a lock.
+When debugging deadlocks, try to look for functions that are called
+while there is a lock, and avoid possibly recursive calls while
+there is a lock.
