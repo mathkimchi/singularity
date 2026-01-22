@@ -4717,3 +4717,13 @@ Clam is the dormant state
 and Pearl means you are actively accessing the object.
 When a pearl is dropped and there are no current pearls,
 the clean-up function is called.
+
+2026-01-22 9:53AM
+
+I implemented the EncapsulatedLock,
+which should gurantee that there are no deadlocks
+by only exposing a getter function that clones and a setter.
+
+I was also considering having something similar to Mpsc
+called Mrsw (multiple reader, single writer),
+which is just encapsulated lock but even more limited.

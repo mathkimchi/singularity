@@ -1,7 +1,31 @@
 use std::{
     ops::Deref,
-    sync::{Arc, atomic::AtomicUsize},
+    sync::{Arc, RwLock, atomic::AtomicUsize},
 };
+
+/// Lock (RwLock) but you can only call getter and setter,
+/// so this is guranteed to prevent deadlocks.
+/// (Don't hold me liable for the above statement.)
+#[derive(Clone)]
+pub struct EncapsulatedLock<T: Clone> {
+    inner: Arc<RwLock<T>>,
+}
+impl<T: Clone> EncapsulatedLock<T> {
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(inner)),
+        }
+    }
+
+    /// Returns a clone of the held object.
+    pub fn get(&self) -> T {
+        self.inner.read().unwrap().clone()
+    }
+
+    pub fn set(&self, object: T) {
+        *self.inner.write().unwrap() = object;
+    }
+}
 
 /// The data in a clam, just not wrapped in Arc.
 struct ClamFields<T, CleanUpHook: Fn()> {
