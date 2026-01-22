@@ -4710,3 +4710,10 @@ do as little as possible while there is a lock.
 When debugging deadlocks, try to look for functions that are called
 while there is a lock, and avoid possibly recursive calls while
 there is a lock.
+
+In the documentation, I explained it like this:
+Clam is the dormant state
+(meaning you can access the object later but aren't accessing it now)
+and Pearl means you are actively accessing the object.
+When a pearl is dropped and there are no current pearls,
+the clean-up function is called.
