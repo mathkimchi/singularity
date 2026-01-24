@@ -4727,3 +4727,102 @@ by only exposing a getter function that clones and a setter.
 I was also considering having something similar to Mpsc
 called Mrsw (multiple reader, single writer),
 which is just encapsulated lock but even more limited.
+
+...
+
+Now I have to figure out how to actually use my sync abstractions.
+
+1:26PM
+
+I was just squashing the syntax errors after adding AppletHolder
+(I made AppletHolder before the last few commits until I got distracted)
+and using it in recursive node applet.
+
+On an irrelevant note, I was thinking more about a generalized UI Element.
+A generalized UI Element should be able to do two things:
+- draw self onto a rectangle of some size
+- return whether self should be redrawn
+
+When the element is resized, its parent should automatically call `element.redraw`,
+but when the element is just translated, then maybe it would be optional.
+
+I could also tweak this to be hook-based and also with a boolean for to_update,
+which would enforce speed.
+
+2026-01-23 9:13AM
+
+During breakfast, the person I sat next to left
+so I took out a pen and started drawing the `to_update` on a napkin.
+
+Then, first block was CS, so my teacher wanted me to present
+what I've done since my last presentation.
+I just went through my commits and then we talked about IPC and theorized about performance.
+I didn't show them the most recent working demo,
+because I feel like if the kids found out this is the result of years of work,
+they would laugh at me.
+(I am not being overly self conscious, I know am in a class of jokesters.)
+
+Anyways, the analogy I gave my teacher for
+the feature I am currently working on was that instead of upwards requests being like:
+"hey parent, I need you to do XYZ for me right now"
+(`parent.update_display` updating the display in that call),
+the new structure would make children be like:
+"Hey parent, I have an update for you. Call me when you are ready to hear it".
+
+TANGENT:
+I don't know how queries are going to work in this system though,
+but that is a problem for the future.
+Something to note is that I am inverting the previous (like before this branch) expectation
+that the child shouldn't be waited on by a parent.
+With my new recursive active+passive (reactive) architecture,
+I actually encourage calls to the parent to be simple.
+But this inversion is quite a coincidence more than anything.
+The old architecture enforced not waiting on children
+for the sake of safety, to prevent a child from freezing the whole system when it freezes.
+But the way I take advantage of multi-threading being unneccessary in passive apps
+means that I must take the risk of waiting on generalized child calls.
+I encourage upward calls to be simple to avoid self-deadlocks.
+
+Anyways, let me be more specific on how I want to technically implement this.
+Consider a minimal example where the fundamental necessary interactions are
+event notifying from parent to child and update display from child to parent.
+Event notifying should work as normal.
+If a child wanted to update the display,
+it would set `to_update = true` and then call `parent.notify_update()`
+if `to_update` wasn't already false.
+And the parent would do the same thing to its parent.
+On the root applet's side, it would set its own `to_update = true`,
+and then finish and let all the calls to the children finish.
+Once we are back at the root, at the end of the root's original function,
+it checks if its own `to_update` is true.
+Then for all its children, if the child's `to_update` is true,
+it turns the child's `to_update` to false then calls something like `get_display` on it,
+and this happens recursively.
+A standard applet should just store the ui already before notifying the parent,
+if it is a good boi.
+But, for something that is subject to changing very fast,
+a lazier approach is sensible.
+(The shared bool might be unneccessary,
+but I am fine with it because it is helpful anyways for preventing redundat notifications.
+I kind of wanted to have all downwards functions return a boolean for the new `to_update`
+value, but if that was ever needed, the child can just call `parent.notify_update()`
+at the very end.)
+
+I'm not actually going to do the generalized UI thing just yet.
+
+With this `simplify upward calls` refactor,
+I am implementing a more specific solution, but it is simpler than having the whole clam.
+
+(By the way, just want to note that I *have* been coding,
+specifically I was using the Sync primitives I made,
+but I am just not storing them in the git.)
+
+...
+
+Something I've been wanting to start but is scared to do is streaming my coding sessions
+because 1: for more connvenient devlog, and 2: its fun.
+
+I am kind of scared to do it on MathKimchi
+and even considered making a second channel just for streams,
+but I think I just need to stop pretending like this is some huge thing
+and start without super high expectations.
