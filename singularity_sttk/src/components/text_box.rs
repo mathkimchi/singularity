@@ -120,7 +120,7 @@ impl TextBox {
         text_clone
     }
 
-    pub fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+    pub fn render(&self) -> singularity_ui::ui_element::UIElement {
         singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
     }
 

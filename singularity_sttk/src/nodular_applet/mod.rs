@@ -42,6 +42,10 @@ impl BasicApplet for Box<dyn NodularApplet> {
         // REVIEW: I don't know what ** does
         (**self).handle_ui_event(ui_event);
     }
+
+    fn get_window(&self) -> UIElement {
+        (**self).get_window()
+    }
 }
 impl NodularApplet for Box<dyn NodularApplet> {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
@@ -60,8 +64,8 @@ pub trait NodularRunnerHook: BasicRunnerHook {
     fn add_child(&self, initializer: Box<NodularAppletInitializer>);
 }
 impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
-    fn update_display(&self, display: &UIElement) {
-        (**self).update_display(display);
+    fn damage_window(&self) {
+        (**self).damage_window();
     }
 
     fn close(&self) {

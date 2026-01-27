@@ -18,7 +18,9 @@ pub struct AppletRunner<Applet: BasicApplet> {
     applet: Applet,
 
     // fields for dealing with the UI
-    root_ui_element: Arc<Mutex<UIElement>>,
+    root_window: Arc<Mutex<UIElement>>,
+    root_window_damaged: Arc<AtomicBool>,
+
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
     is_running: Arc<AtomicBool>,
 }
@@ -27,32 +29,39 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
     ///
     /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
     pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
-        let root_ui_element = Arc::new(Mutex::new(UIElement::Nothing));
+        let root_window = Arc::new(Mutex::new(UIElement::Nothing));
+        let root_window_damaged = Arc::new(AtomicBool::new(true));
         let ui_event_queue = Arc::new(Mutex::new(Vec::new()));
         let is_running = Arc::new(AtomicBool::new(true));
 
         {
             // clone to satisfy compiler
-            let root_ui_element = root_ui_element.clone();
+            let root_window = root_window.clone();
             let ui_event_queue = ui_event_queue.clone();
             let is_running = is_running.clone();
 
             std::thread::spawn(move || {
-                UIDisplay::run_display(root_ui_element, ui_event_queue, is_running)
+                UIDisplay::run_display(root_window, ui_event_queue, is_running)
             });
         }
 
         let applet = {
             // anon implementation
             struct AppletRunnerHook {
-                root_ui_element: Arc<Mutex<UIElement>>,
+                root_window_damaged: Arc<AtomicBool>,
+
                 is_running: Arc<AtomicBool>,
             }
             impl BasicRunnerHook for AppletRunnerHook {
-                fn update_display(&self, display: &UIElement) {
-                    // TODO: send reminder as well
+                // fn update_display(&self, display: &UIElement) {
+                //     // TODO: send reminder as well
 
-                    *self.root_ui_element.lock().unwrap() = display.clone();
+                //     *self.root_ui_element.lock().unwrap() = display.clone();
+                // }
+
+                fn damage_window(&self) {
+                    self.root_window_damaged
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
                 }
 
                 fn close(&self) {
@@ -62,54 +71,30 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             }
 
             applet_initizer(Box::new(AppletRunnerHook {
-                root_ui_element: root_ui_element.clone(),
+                root_window_damaged: root_window_damaged.clone(),
                 is_running: is_running.clone(),
             }))
         };
 
         let mut runner = Self {
             applet,
-            root_ui_element,
+            root_window,
+            root_window_damaged,
             ui_event_queue,
             is_running,
         };
 
         while runner.is_running.load(std::sync::atomic::Ordering::Relaxed) {
             for ui_event in std::mem::take(&mut *(runner.ui_event_queue.lock().unwrap())) {
-                // use singularity_ui::ui_event::{KeyModifiers, UIEvent};
-                // match ui_event {
-                //     // UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
-                //     //     // Ctrl+Q
-                //     //     dbg!("Ending demo");
-                //     //     is_running.store(false, std::sync::atomic::Ordering::Relaxed);
-                //     //     return;
-                //     // }
-                //     UIEvent::KeyPress(_, _) => {
-                //         test_widget.handle_event(singularity_common::tab::packets::Event::UIEvent(
-                //             ui_event,
-                //         ));
-                //     }
-                //     UIEvent::WindowResized(_) => {}
-                //     UIEvent::MousePress(
-                //         [[click_x, click_y], [tot_width, tot_height]],
-                //         container,
-                //     ) => {
-                //         test_widget.handle_event(singularity_common::tab::packets::Event::UIEvent(
-                //             singularity_ui::ui_event::UIEvent::MousePress(
-                //                 [[click_x, click_y], [tot_width, tot_height]],
-                //                 container,
-                //             ),
-                //         ));
-                //     }
-                // }
-
                 runner.applet.handle_ui_event(ui_event);
+            }
+
+            if runner
+                .root_window_damaged
+                .swap(false, std::sync::atomic::Ordering::Relaxed)
+            {
+                *runner.root_window.lock().unwrap() = runner.applet.get_window();
             }
         }
     }
-
-    // /// Returns after the applet is closed.
-    // pub fn run(self) {
-    //     todo!()
-    // }
 }

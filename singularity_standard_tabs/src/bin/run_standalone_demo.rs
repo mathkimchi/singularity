@@ -52,10 +52,16 @@ impl BasicApplet for TextBoxApplet {
 
         self.textbox.handle_event(ui_event);
 
-        self.hook.update_display(&UIElement::Backgrounded(
-            Box::new(self.textbox.render()),
-            Color::BLACK,
-        ));
+        self.hook.damage_window();
+
+        // self.hook.update_display(&UIElement::Backgrounded(
+        //     Box::new(self.textbox.render()),
+        //     Color::BLACK,
+        // ));
+    }
+
+    fn get_window(&self) -> UIElement {
+        self.textbox.render().fill_bg(Color::BLACK)
     }
 }
 

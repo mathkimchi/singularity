@@ -40,6 +40,7 @@ pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 
 pub struct UIDisplay {
+    /// TODO: use `EncapsulatedLock`?
     root_element: Arc<Mutex<UIElement>>,
 
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,

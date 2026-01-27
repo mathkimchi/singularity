@@ -2,39 +2,52 @@ use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
 use singularity_common::sync::EncapsulatedLock;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements storing window and treeview holder.
 pub struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
-    window: EncapsulatedLock<UIElement>,
+    // window: EncapsulatedLock<UIElement>,
+    window_damaged: Arc<AtomicBool>,
     treeview: EncapsulatedLock<UIElement>,
 }
 impl SubAppletHolder {
-    pub fn set_window(&self, window: UIElement) {
-        self.window.set(window);
-    }
+    // pub fn set_window(&self, window: UIElement) {
+    //     self.window.set(window);
+    // }
 
-    pub fn get_window(&self) -> UIElement {
-        self.window.get()
-    }
+    // pub fn get_window(&self) -> UIElement {
+    //     self.window.get()
+    // }
 
     pub fn new(
         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
         outer_hook: Box<dyn NodularRunnerHook>,
-        window: EncapsulatedLock<UIElement>,
+        // window: EncapsulatedLock<UIElement>,
+        window_damaged: Arc<AtomicBool>,
         treeview: EncapsulatedLock<UIElement>,
     ) -> Self {
         struct InnerHook {
-            window: EncapsulatedLock<UIElement>,
+            // window: EncapsulatedLock<UIElement>,
+            window_damaged: Arc<AtomicBool>,
             treeview: EncapsulatedLock<UIElement>,
             outer_hook: Box<dyn NodularRunnerHook>,
         }
         impl BasicRunnerHook for InnerHook {
-            fn update_display(&self, display: &UIElement) {
-                self.window.set(display.clone());
+            // fn update_display(&self, display: &UIElement) {
+            //     self.window.set(display.clone());
 
-                self.outer_hook.update_display(display);
+            //     self.outer_hook.update_display(display);
+            // }
+
+            fn damage_window(&self) {
+                if !self
+                    .window_damaged
+                    .swap(true, std::sync::atomic::Ordering::Relaxed)
+                {
+                    // was previously not damaged
+                    self.outer_hook.damage_window();
+                }
             }
 
             fn close(&self) {
@@ -54,14 +67,16 @@ impl SubAppletHolder {
         }
 
         let inner_hook = InnerHook {
-            window: window.clone(),
+            // window: window.clone(),
+            window_damaged: window_damaged.clone(),
             treeview: treeview.clone(),
             outer_hook,
         };
 
         Self {
             applet: Mutex::new(inner_initiator(Box::new(inner_hook))),
-            window,
+            // window,
+            window_damaged,
             treeview,
         }
     }
@@ -78,6 +93,15 @@ impl SubAppletHolder {
     }
 }
 impl BasicApplet for SubAppletHolder {
+    fn get_window(&self) -> UIElement {
+        let window = self.applet.lock().unwrap().get_window();
+
+        self.window_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+
+        window
+    }
+
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
         self.immut_handle_ui_event(ui_event);
     }

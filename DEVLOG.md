@@ -4847,10 +4847,12 @@ I briefly looked into Wayland's protocol and I think I am getting closer to it.
 The interface is:
 
 BasicApplet:
-- handle_event
+- handle_ui_event
 - get_window (I kind of use window, display, ui interchangably)
   - I am not enforcing Mutex here to support lazy apps (and not to support my laziness)
 
 BasicRunnerHook:
 - damage_window ("damage" seems to be the term Wayland uses for saying that the window should be updated)
 - close
+
+Later, I should update the UI library to match this new protocol.
