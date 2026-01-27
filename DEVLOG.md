@@ -4856,3 +4856,10 @@ BasicRunnerHook:
 - close
 
 Later, I should update the UI library to match this new protocol.
+
+...
+
+10:21AM
+
+The performance is obviously very bad,
+but can't remember if it was always bad or this is worse.
