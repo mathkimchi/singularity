@@ -6,6 +6,14 @@ use std::{
 /// Lock (RwLock) but you can only call getter and setter,
 /// so this is guranteed to prevent deadlocks.
 /// (Don't hold me liable for the above statement.)
+///
+/// NOTE: technically, I don't need the Arc here bc I could use
+/// `Arc<EncapsulatedLock<T>>` whenever.
+/// And if I was writing a library,
+/// coupling EncapsulatedLock with Arc is bad practice,
+/// but I am fine with this.
+///
+/// TODO: decouple `EncapsulatedLock` and `Arc`.
 #[derive(Clone)]
 pub struct EncapsulatedLock<T: Clone> {
     inner: Arc<RwLock<T>>,

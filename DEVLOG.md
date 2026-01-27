@@ -4826,3 +4826,31 @@ I am kind of scared to do it on MathKimchi
 and even considered making a second channel just for streams,
 but I think I just need to stop pretending like this is some huge thing
 and start without super high expectations.
+
+2026-01-24 8:40AM
+
+I'm not sure if I should consider the root
+the outermost applet (the root applet),
+or just make it the runner.
+
+This also brings up the question of how this works with different types of updates.
+I am going to do something really scuffed and say that for display updates,
+the runner is doing the root stuff.
+For treeview updates, I guess the app that is a basic app but holds nodular apps should handle that.
+
+2026-01-27 8:26AM
+
+Bruh, I finished my work early for my stats class.
+
+I briefly looked into Wayland's protocol and I think I am getting closer to it.
+
+The interface is:
+
+BasicApplet:
+- handle_event
+- get_window (I kind of use window, display, ui interchangably)
+  - I am not enforcing Mutex here to support lazy apps (and not to support my laziness)
+
+BasicRunnerHook:
+- damage_window ("damage" seems to be the term Wayland uses for saying that the window should be updated)
+- close

@@ -1,6 +1,8 @@
 use crate::nodular_applet::{
     NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
+    applet_holder::SubAppletHolder,
 };
+use singularity_common::sync::EncapsulatedLock;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
@@ -8,22 +10,16 @@ use singularity_ui::{
     ui_element::UIElement,
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
-use std::sync::{Arc, Mutex, RwLock, Weak, atomic::AtomicUsize};
-
-struct SubAppletHolder {
-    applet: Mutex<Box<dyn NodularApplet>>,
-    window: Arc<Mutex<UIElement>>,
-    treeview: Arc<Mutex<UIElement>>,
-}
+use std::sync::{Arc, RwLock, Weak, atomic::AtomicUsize};
 
 /// The main divided applet holds an Arc to this and applets hold Weak to this.
 /// REVIEW: rename
-struct SharedResource {
+struct MultiAppletHolder {
     applets: RwLock<Vec<Arc<SubAppletHolder>>>,
     focus_index: AtomicUsize,
     hook: Box<dyn NodularRunnerHook>,
 }
-impl SharedResource {
+impl MultiAppletHolder {
     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
     /// across the horizontal axis and take full height.
     fn combine_displays(subdisplays: Vec<UIElement>) -> UIElement {
@@ -56,7 +52,7 @@ impl SharedResource {
             .unwrap()
             .iter()
         {
-            applet_displays.push(applet.window.lock().unwrap().clone());
+            applet_displays.push(applet.get_window());
         }
 
         Self::combine_displays(applet_displays)
@@ -67,30 +63,30 @@ impl SharedResource {
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
     ) {
         let child_holder = {
-            let inner_applet_window = Arc::new(Mutex::new(UIElement::Nothing));
-            let inner_applet_treeview = Arc::new(Mutex::new(UIElement::Nothing));
+            let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
+            let inner_applet_treeview = EncapsulatedLock::new(UIElement::Nothing);
 
             struct InnerHook {
                 // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
                 // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
                 // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
-                window: Arc<Mutex<UIElement>>,
-                treeview: Arc<Mutex<UIElement>>,
+                window: EncapsulatedLock<UIElement>,
+                treeview: EncapsulatedLock<UIElement>,
                 // outer_focused_child_index: Arc<Mutex<usize>>,
-                shared_resource: Weak<SharedResource>,
+                shared_resource: Weak<MultiAppletHolder>,
 
                 // the index of this hook's corresponding app in the shared resource list of applets
                 index: usize,
             }
             impl BasicRunnerHook for InnerHook {
                 fn update_display(&self, display: &UIElement) {
-                    *self.window.lock().unwrap() = display.clone();
+                    self.window.set(display.clone());
 
                     self.shared_resource
                         .upgrade()
                         .unwrap()
                         .hook
-                        .update_display(&SharedResource::get_display(&self.shared_resource));
+                        .update_display(&MultiAppletHolder::get_display(&self.shared_resource));
                 }
 
                 fn close(&self) {
@@ -100,17 +96,17 @@ impl SharedResource {
             }
             impl NodularRunnerHook for InnerHook {
                 fn update_treeview(&self, treeview: &UIElement) {
-                    *self.treeview.lock().unwrap() = treeview.clone();
+                    self.treeview.set(treeview.clone());
 
                     self.shared_resource
                         .upgrade()
                         .unwrap()
                         .hook
-                        .update_treeview(&SharedResource::get_display(&self.shared_resource));
+                        .update_treeview(&MultiAppletHolder::get_display(&self.shared_resource));
                 }
 
                 fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
-                    SharedResource::add_child(self.shared_resource.clone(), initializer);
+                    MultiAppletHolder::add_child(self.shared_resource.clone(), initializer);
                 }
             }
 
@@ -127,11 +123,12 @@ impl SharedResource {
                 treeview: inner_applet_treeview.clone(),
             };
 
-            Arc::new(SubAppletHolder {
-                applet: Mutex::new(child_initializer(Box::new(inner_hook))),
-                window: inner_applet_window,
-                treeview: inner_applet_treeview,
-            })
+            Arc::new(SubAppletHolder::new(
+                child_initializer,
+                todo!(),
+                inner_applet_window,
+                inner_applet_treeview,
+            ))
         };
 
         shared_resource
@@ -148,11 +145,23 @@ impl SharedResource {
             .hook
             .update_display(&Self::get_display(&shared_resource));
     }
+
+    fn new(hook: Box<dyn NodularRunnerHook>) -> Self {
+        let hook = hook;
+        let applets = RwLock::new(Vec::new());
+        let focus_index = AtomicUsize::new(0);
+
+        Self {
+            applets,
+            focus_index,
+            hook,
+        }
+    }
 }
 
 /// Has a list of inner applets and displays them in vertical or horizontal division.
 pub struct DividedApplet {
-    shared_resource: Arc<SharedResource>,
+    shared_resource: Arc<MultiAppletHolder>,
 }
 impl DividedApplet {
     fn new(
@@ -165,14 +174,14 @@ impl DividedApplet {
         let focus_index = AtomicUsize::new(0);
 
         let s = Self {
-            shared_resource: Arc::new(SharedResource {
+            shared_resource: Arc::new(MultiAppletHolder {
                 applets,
                 focus_index,
                 hook,
             }),
         };
 
-        SharedResource::add_child(Arc::downgrade(&s.shared_resource), inner_initiator);
+        MultiAppletHolder::add_child(Arc::downgrade(&s.shared_resource), inner_initiator);
 
         s
     }
@@ -213,11 +222,7 @@ impl BasicApplet for DividedApplet {
             .focus_index
             .load(std::sync::atomic::Ordering::Relaxed)]
         .clone();
-        applet_holder
-            .applet
-            .lock()
-            .unwrap()
-            .handle_ui_event(ui_event);
+        applet_holder.immut_handle_ui_event(ui_event);
     }
 }
 impl NodularApplet for DividedApplet {
@@ -229,10 +234,7 @@ impl NodularApplet for DividedApplet {
                     .shared_resource
                     .focus_index
                     .load(std::sync::atomic::Ordering::Relaxed)]
-                .applet
-                .lock()
-                .unwrap()
-                .handle_nodular_event(NodularEvent::Focused(state));
+                .immut_handle_nodular_event(NodularEvent::Focused(state));
             }
         }
     }

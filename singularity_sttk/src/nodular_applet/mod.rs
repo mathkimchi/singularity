@@ -3,6 +3,7 @@
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 
+pub mod applet_holder;
 pub mod recursive_node_applet;
 pub mod root_node_applet;
 
