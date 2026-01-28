@@ -14,12 +14,14 @@ use singularity_ui::{
 pub struct TextBoxApplet {
     hook: Box<dyn NodularRunnerHook>,
     textbox: TextBox,
+    focused: bool,
 }
 impl TextBoxApplet {
     pub fn get_initiator(text: String) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
         |hook: Box<dyn NodularRunnerHook>| TextBoxApplet {
             hook,
             textbox: TextBox::from(text),
+            focused: true,
         }
     }
     pub fn get_boxed_initiator(
@@ -29,6 +31,7 @@ impl TextBoxApplet {
             Box::new(TextBoxApplet {
                 hook,
                 textbox: TextBox::from(text),
+                focused: true,
             })
         }
     }
@@ -90,7 +93,16 @@ impl BasicApplet for TextBoxApplet {
     }
 
     fn get_window(&self) -> UIElement {
-        self.textbox.render().fill_bg(Color::BLACK)
+        let cursor_color = if self.focused {
+            Color::LIGHT_YELLOW
+        } else {
+            Color::MEDIUM_GRAY
+        };
+
+        self.textbox
+            .render_grid_with_color((Color::BLACK, cursor_color))
+            .element()
+            .fill_bg(Color::BLACK)
     }
 }
 impl NodularApplet for TextBoxApplet {
@@ -100,9 +112,12 @@ impl NodularApplet for TextBoxApplet {
     ) {
         match nodular_event {
             singularity_sttk::nodular_applet::NodularEvent::Highlighted(_) => todo!(),
-            singularity_sttk::nodular_applet::NodularEvent::Focused(_) => {
-                println!("Yay focus!");
+            singularity_sttk::nodular_applet::NodularEvent::Focused(focus) => {
+                self.focused = focus;
+                println!("Yay focus {focus}!");
                 println!("The text is: {}", &self.textbox.get_text_as_string());
+
+                self.hook.damage_window();
             }
         }
     }

@@ -67,6 +67,14 @@ impl MultiAppletHolder {
         shared_resource: Weak<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
     ) {
+        // breaks when adding the first child
+        // shared_resource.upgrade().unwrap().applets.read().unwrap()[shared_resource
+        //     .upgrade()
+        //     .unwrap()
+        //     .focus_index
+        //     .load(std::sync::atomic::Ordering::Relaxed)]
+        // .immut_handle_nodular_event(NodularEvent::Focused(false));
+
         let child_holder = {
             let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
             let inner_applet_treeview = EncapsulatedLock::new(UIElement::Nothing);
@@ -221,6 +229,12 @@ impl BasicApplet for DividedApplet {
         ) = &ui_event
             && key.to_char() == Some('\t')
         {
+            self.shared_resource.applets.read().unwrap()[self
+                .shared_resource
+                .focus_index
+                .load(std::sync::atomic::Ordering::Relaxed)]
+            .immut_handle_nodular_event(NodularEvent::Focused(false));
+
             self.shared_resource
                 .focus_index
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -228,6 +242,13 @@ impl BasicApplet for DividedApplet {
                 self.shared_resource.applets.read().unwrap().len() - 1,
                 std::sync::atomic::Ordering::Relaxed,
             );
+
+            self.shared_resource.applets.read().unwrap()[self
+                .shared_resource
+                .focus_index
+                .load(std::sync::atomic::Ordering::Relaxed)]
+            .immut_handle_nodular_event(NodularEvent::Focused(true));
+
             return;
         }
 
@@ -244,6 +265,12 @@ impl BasicApplet for DividedApplet {
             && key.raw_code == 15
         {
             // Ctrl+Shift+Tab
+            self.shared_resource.applets.read().unwrap()[self
+                .shared_resource
+                .focus_index
+                .load(std::sync::atomic::Ordering::Relaxed)]
+            .immut_handle_nodular_event(NodularEvent::Focused(false));
+
             self.shared_resource
                 .focus_index
                 .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
@@ -251,6 +278,12 @@ impl BasicApplet for DividedApplet {
                 self.shared_resource.applets.read().unwrap().len() - 1,
                 std::sync::atomic::Ordering::Relaxed,
             );
+
+            self.shared_resource.applets.read().unwrap()[self
+                .shared_resource
+                .focus_index
+                .load(std::sync::atomic::Ordering::Relaxed)]
+            .immut_handle_nodular_event(NodularEvent::Focused(true));
             return;
         }
 
