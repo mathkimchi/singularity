@@ -4863,3 +4863,46 @@ Later, I should update the UI library to match this new protocol.
 
 The performance is obviously very bad,
 but can't remember if it was always bad or this is worse.
+
+2026-01-28 11:19AM
+
+Enough procrastination, I should start the treeview.
+
+9:02PM
+
+After thinking (aka sitting on my bum),
+I have concluded that for now, I will implement the treeview
+by making each applet return an actual tree of strings,
+not the generic UIDisplay I am hoping to do in the future.
+
+I ask myself whether it was the right decision to refactor
+what was already working.
+I knew that I would waver and regret switching to a new architecture.
+Yet I trudge on, not because it is too late to back out,
+but because it is still too early.
+Singularity deserves to be broken down and rebuilt
+until it can no longer be improved.
+
+Erhm, what the yap?
+
+Ignoring whatever that was,
+I have a fun, side quest-y mini-project for singularity.
+I am supposed to give a 5 minute presentation
+and then a 3 minute demo on singularity.
+So, I want to do the whole presentation in singularity and then be like:
+"Aha! You thought this was a boring slideshow app,
+but it was singularity this whole time!"
+
+Since this is due kind of soon,
+I'd probably make the slides in google slides and export it as a PDF.
+To display a PDF, I'd first add PNG/JPG support to Singularity,
+then I'd just use
+https://github.com/pdf-rs/pdf_render/blob/master/examples/pdf2image/src/main.rs
+to convert each PDF page to an image.
+
+Oh, and another thing I want to note is a really cool
+digital interface analysis YouTuber I came across named
+[InterfaceStudies](https://www.youtube.com/@interfacestudies/videos).
+Some videos:
+- [Verb vs Noun order](https://www.youtube.com/watch?v=jP5PQ8ix7JE&pp=2Ab5Cw%3D%3D)
+- [Pie menus](https://www.youtube.com/watch?v=6uTSwJ3uqEg&pp=2AYC) (vs linear menus)
