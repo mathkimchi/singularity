@@ -1,5 +1,5 @@
 use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
-use singularity_common::sync::EncapsulatedLock;
+use singularity_common::{sync::EncapsulatedLock, utils::tree::rooted_tree::RootedTree};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
@@ -9,7 +9,8 @@ pub struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
     window_damaged: Arc<AtomicBool>,
-    treeview: EncapsulatedLock<UIElement>,
+    treeview: EncapsulatedLock<RootedTree<String>>,
+    treeview_damaged: Arc<AtomicBool>,
 }
 impl SubAppletHolder {
     pub fn new(
@@ -17,13 +18,14 @@ impl SubAppletHolder {
         outer_hook: Box<dyn NodularRunnerHook>,
         window: EncapsulatedLock<UIElement>,
         // window_damaged: Arc<AtomicBool>,
-        treeview: EncapsulatedLock<UIElement>,
+        treeview: EncapsulatedLock<RootedTree<String>>,
     ) -> Self {
         let window_damaged = Arc::new(AtomicBool::new(true));
+        let treeview_damaged = Arc::new(AtomicBool::new(true));
 
         struct InnerHook {
             window_damaged: Arc<AtomicBool>,
-            treeview: EncapsulatedLock<UIElement>,
+            treeview_damaged: Arc<AtomicBool>,
             outer_hook: Box<dyn NodularRunnerHook>,
         }
         impl BasicRunnerHook for InnerHook {
@@ -42,20 +44,30 @@ impl SubAppletHolder {
             }
         }
         impl NodularRunnerHook for InnerHook {
-            fn update_treeview(&self, treeview: &UIElement) {
-                self.treeview.set(treeview.clone());
+            // fn update_treeview(&self, treeview: &UIElement) {
+            //     self.treeview.set(treeview.clone());
 
-                self.outer_hook.update_treeview(treeview);
-            }
+            //     self.outer_hook.update_treeview(treeview);
+            // }
 
             fn add_child(&self, initializer: Box<super::NodularAppletInitializer>) {
                 self.outer_hook.add_child(initializer);
+            }
+
+            fn damage_treeview(&self) {
+                if !self
+                    .treeview_damaged
+                    .swap(true, std::sync::atomic::Ordering::Relaxed)
+                {
+                    // was previously not damaged
+                    self.outer_hook.damage_treeview();
+                }
             }
         }
 
         let inner_hook = InnerHook {
             window_damaged: window_damaged.clone(),
-            treeview: treeview.clone(),
+            treeview_damaged: treeview_damaged.clone(),
             outer_hook,
         };
 
@@ -64,6 +76,7 @@ impl SubAppletHolder {
             window,
             window_damaged,
             treeview,
+            treeview_damaged,
         }
     }
 
@@ -97,5 +110,17 @@ impl BasicApplet for SubAppletHolder {
 impl NodularApplet for SubAppletHolder {
     fn handle_nodular_event(&mut self, nodular_event: super::NodularEvent) {
         self.immut_handle_nodular_event(nodular_event);
+    }
+
+    fn get_treeview(&self) -> RootedTree<String> {
+        if self
+            .treeview_damaged
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+        {
+            self.treeview
+                .set(self.applet.lock().unwrap().get_treeview());
+        }
+
+        self.treeview.get()
     }
 }

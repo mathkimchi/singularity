@@ -4906,3 +4906,94 @@ digital interface analysis YouTuber I came across named
 Some videos:
 - [Verb vs Noun order](https://www.youtube.com/watch?v=jP5PQ8ix7JE&pp=2Ab5Cw%3D%3D)
 - [Pie menus](https://www.youtube.com/watch?v=6uTSwJ3uqEg&pp=2AYC) (vs linear menus)
+
+2026-01-31 6:37PM
+
+I've been chipping away at the treeview little-by-little over the past few days
+and didn't even log because I thought it would be easy and simple.
+
+But Darnwin damn it, I currently feel like recursive treeview
+is the dumbest freeeeeaking idea I've ever created.
+
+I'm telling myself to stay calm.
+
+Did I even think this idea through
+before committing to it-before ditching a working prototype?
+
+But secretly, I think I have stumbled onto an even better architecture.
+(*Reader who has the power of foresight, or perhaps just basic common sense and pattern recognition facepalms as I propose an entirely new organizational paradigm.*)
+
+Let me propose the specific version first then generalize.
+
+The idea is called dimension-tree
+(or maybe: world-tree, order, axis, level, layer).
+
+For the specific example, lets say dim zero is project,
+dim one is applet, and dim two is applet elements
+(like if the applet was a markdown reader, it could be the markdown elements).
+Then there would be a project tree,
+each project holds an applet tree,
+each applet holds an element tree.
+
+Dim is short for dimension btw.
+Btw is short for by the way by the way.
+
+(I get excited and start talking about extending this idea:)
+We could even say dim negative 1 is is task-type
+(like coding, music, etc) and so on
+but keep in mind that the numbers don't really matter.
+If I end up displaying the dim, I'd try to ensure that the lowest dim is 0.
+We could go even more even further and say that the layers are not fixed,
+and the layer depends on what world this tree is inside
+(I think this is similar to dependent types in type theory).
+
+2026-02-02 3:55PM
+
+I don't think the dimension tree actually solves the problem I have with the recursive node.
+At least not in the way I want.
+
+Let me try to define a dimension tree that is used slightly differently
+from how I described it above, to let it "solve" the recursive node problem.
+`DimensionTree<T>` is a tree where a node's value is either
+another `DimensionTree<T>` in which the node is a world with a subtree
+or a `T` in which case the node is elementary.
+
+<!-- ...
+
+I don't think this is it, gang.
+The dimension tree is a generalization of the project tree -> applet tree -> element tree idea,
+but I feel like project tree is so solid that I don't need to generalize it.
+
+But, this helped me come to a simple solution to the recursive node thing:
+there wasn't a problem with the architecture,
+I just needed to think about the root differently. -->
+
+2026-02-03 4:28PM
+
+...I am not sure if this idea is going to solve anything.
+
+Technically, it does solve the problem,
+but it just changes/adds so many other things
+that the problem is kind of irrelevant to this decision.
+In other words, if I were to do the dimension tree,
+it would be because I prefer it in general,
+not just because it solves the problem.
+
+The problem with the normal tree and recursive nodes
+is that since the recursive node's value in the hierarchy
+is the main applet's hierarchy value,
+the main applet should return `T` (currently just a String) but the general framework
+makes it return `Tree<T>`.
+A quick solution is just to take the root value of the main applet's output.
+There are safer ways like creating a new type of applet that does return `T`.
+I also asked myself if it is possible to not have a main applet
+and just have children applets that are all equal,
+but I don't think that would work.
+
+You know what, I am feeling freaky today,
+so I will make the rash decision to start implementing the dimension tree.
+I am sure to blame this moment when I run into a problem later,
+but that is a problem for future me.
+
+I'll commit what I have now
+(what I was working on before I decided to jump ship for `DimensionTree`).

@@ -1,5 +1,5 @@
 use crate::nodular_applet::{
-    NodularApplet, NodularRunnerHook, recursive_node_applet::DividedApplet,
+    NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
@@ -32,9 +32,13 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
             }
         }
         impl NodularRunnerHook for InnerHook {
-            fn update_treeview(&self, _treeview: &singularity_ui::ui_element::UIElement) {}
+            // fn update_treeview(&self, _treeview: &singularity_ui::ui_element::UIElement) {}
 
             fn add_child(&self, _initializer: Box<super::NodularAppletInitializer>) {}
+
+            fn damage_treeview(&self) {
+                todo!()
+            }
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
@@ -62,7 +66,7 @@ impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
 pub struct RootNodeApplet {
-    applet: DividedApplet,
+    applet: RecursiveNodeApplet,
     window: Arc<Mutex<UIElement>>,
 
     hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
