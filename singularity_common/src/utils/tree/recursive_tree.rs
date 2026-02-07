@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// NOTE: Idk, how serialize and deserialize can be derived
 /// if T isn't guranteed to be either, but I am not complaining.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecursiveTreeNode<T> {
     value: T,
     children: Vec<RecursiveTreeNode<T>>,
@@ -40,6 +40,16 @@ impl<T> RecursiveTreeNode<T> {
             value,
             children: Vec::new(),
         }
+    }
+
+    /// Gets the value held by this node.
+    /// If this is the root node, we can say this is the root value.
+    pub fn get_value(&self) -> &T {
+        &self.value
+    }
+
+    pub fn get_value_mut(&mut self) -> &mut T {
+        &mut self.value
     }
 
     /// add child as last

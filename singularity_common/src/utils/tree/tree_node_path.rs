@@ -2,6 +2,7 @@
 /// Also like a file path
 ///
 /// NOTE: Most functions for a path are better thought of as functions for the Node that the path refers to
+/// TODO: use slice instead
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TreeNodePath(pub Vec<usize>);
 impl TreeNodePath {

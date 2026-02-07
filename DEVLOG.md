@@ -4997,3 +4997,48 @@ but that is a problem for future me.
 
 I'll commit what I have now
 (what I was working on before I decided to jump ship for `DimensionTree`).
+
+...
+
+> The problem with the normal tree and recursive nodes
+> is that since the recursive node's value in the hierarchy
+> is the main applet's hierarchy value,
+> the main applet should return `T` (currently just a String) but the general framework
+> makes it return `Tree<T>`.
+
+Another way of phrasing this is:
+in a tree `Tree<T>`, the value is type `T` but children are type `Tree<T>`.
+In our recursive node applet, the main "value" applet and children all have the same type.
+
+The `WorldTree<T>` solves this problem,
+because it holds either:
+`T` itself (base case)
+or holds the value of `WorldTree<T>` and children are also `WorldTree<T>`.
+
+...
+
+If this goes to shiz, I can just modify it to be a normal tree again.
+
+Things to figure out:
+- Traversal
+- Display
+  - How to display focus
+  - World dimensions:
+    - Could have the inner worlds displayed inside (could be crowded but also pretty and elegant, sounds hard to implement)
+      - Would support having everything displayed out, only the focused guy displayed out, or allowing user to open and collapse
+    - Could have different worlds horizontally split
+      - I think mac's file explorer has something like this
+
+I think an elegant way of thinking about this is to think about symbolic tree.
+The symbolic view aka treeview is actually kind of like looking at the HTML document tree
+(functionally different, but is kind of familiar so bear with me).
+Each node in the treeview document tree can draw to the screen.
+A difference is that we aren't actually just drawing the focused thing;
+we are always asking the root to draw and simply telling it what to focus on.
+One could propose a method where we ask the focused applet to draw and the focused applet
+could then call its parents when needed,
+but I see no benefit of this.
+
+2026-02-06 11:05AM
+
+I am going to try implementing now.
