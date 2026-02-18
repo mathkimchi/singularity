@@ -2,7 +2,7 @@ use crate::nodular_applet::{
     NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
     applet_holder::SubAppletHolder,
 };
-use singularity_common::{sync::EncapsulatedLock, utils::tree::rooted_tree::RootedTree};
+use singularity_common::{sync::EncapsulatedLock, utils::tree::world_tree::WorldTree};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
@@ -46,14 +46,14 @@ impl MultiAppletHolder {
         let child_holder = {
             let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
             let inner_applet_treeview =
-                EncapsulatedLock::new(RootedTree::from_root(String::from("Hi")));
+                EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
 
             struct InnerHook {
                 // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
                 // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
                 // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
                 window: EncapsulatedLock<UIElement>,
-                treeview: EncapsulatedLock<RootedTree<String>>,
+                treeview: EncapsulatedLock<WorldTree<String>>,
                 // outer_focused_child_index: Arc<Mutex<usize>>,
                 shared_resource: Weak<MultiAppletHolder>,
 
@@ -507,7 +507,7 @@ impl NodularApplet for RecursiveNodeApplet {
         }
     }
 
-    fn get_treeview(&self) -> RootedTree<String> {
+    fn get_treeview(&self) -> WorldTree<String> {
         self.shared_resource
             .treeview_damaged
             .store(false, std::sync::atomic::Ordering::Relaxed);

@@ -18,7 +18,7 @@
 
 use super::tree_node_path::{TraversableTree, TreeNodePath};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct Node<T> {
     item: T,
     // even this on its own can be contradictory (eg duplicates)
@@ -32,7 +32,7 @@ struct Node<T> {
 }
 
 /// The rooted tree has exactly one root
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RootedTree<T> {
     /// REVIEW: put this in some kind of order?
     flattened_nodes: Vec<Node<T>>,

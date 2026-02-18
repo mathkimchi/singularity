@@ -1,5 +1,5 @@
 use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
-use singularity_common::{sync::EncapsulatedLock, utils::tree::rooted_tree::RootedTree};
+use singularity_common::{sync::EncapsulatedLock, utils::tree::world_tree::WorldTree};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
@@ -9,7 +9,7 @@ pub struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
     window_damaged: Arc<AtomicBool>,
-    treeview: EncapsulatedLock<RootedTree<String>>,
+    treeview: EncapsulatedLock<WorldTree<String>>,
     treeview_damaged: Arc<AtomicBool>,
 }
 impl SubAppletHolder {
@@ -18,7 +18,7 @@ impl SubAppletHolder {
         outer_hook: Box<dyn NodularRunnerHook>,
         window: EncapsulatedLock<UIElement>,
         // window_damaged: Arc<AtomicBool>,
-        treeview: EncapsulatedLock<RootedTree<String>>,
+        treeview: EncapsulatedLock<WorldTree<String>>,
     ) -> Self {
         let window_damaged = Arc::new(AtomicBool::new(true));
         let treeview_damaged = Arc::new(AtomicBool::new(true));
@@ -112,7 +112,7 @@ impl NodularApplet for SubAppletHolder {
         self.immut_handle_nodular_event(nodular_event);
     }
 
-    fn get_treeview(&self) -> RootedTree<String> {
+    fn get_treeview(&self) -> WorldTree<String> {
         if self
             .treeview_damaged
             .swap(false, std::sync::atomic::Ordering::Relaxed)

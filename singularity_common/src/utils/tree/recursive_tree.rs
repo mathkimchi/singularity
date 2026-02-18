@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// NOTE: Idk, how serialize and deserialize can be derived
 /// if T isn't guranteed to be either, but I am not complaining.
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RecursiveTreeNode<T> {
     value: T,
     children: Vec<RecursiveTreeNode<T>>,

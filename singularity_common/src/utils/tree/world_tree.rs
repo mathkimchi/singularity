@@ -4,7 +4,7 @@ use crate::utils::tree::{recursive_tree::RecursiveTreeNode, tree_node_path::Tree
 pub struct WorldTreePath<'a>(pub &'a [TreeNodePath]);
 
 /// A tree whose values are other trees or the base value.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum WorldTree<T> {
     Base(T),
     World(Box<RecursiveTreeNode<WorldTree<T>>>),

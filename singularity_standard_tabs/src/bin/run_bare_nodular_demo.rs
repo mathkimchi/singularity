@@ -121,11 +121,17 @@ impl NodularApplet for TextBoxApplet {
             }
         }
     }
+
+    fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
+        singularity_common::utils::tree::world_tree::WorldTree::Base(
+            "Bare Nodular Placeholder".to_string(),
+        )
+    }
 }
 
 fn main() {
     AppletRunner::run(
-        singularity_sttk::nodular_applet::root_node_applet::NodularHolderApplet::get_initializer(
+        singularity_sttk::nodular_applet::root_node_applet::RootNodeApplet::get_initializer(
             RecursiveNodeApplet::get_initializer(TextBoxApplet::get_boxed_initiator(String::new())),
         ),
     )

@@ -5042,3 +5042,27 @@ but I see no benefit of this.
 2026-02-06 11:05AM
 
 I am going to try implementing now.
+
+2026-02-07 10:10AM
+
+Here is the interpretation of the treeview
+(the name doesn't make as much sense anymore, but I think it is a cool name):
+apps have a hierarchy on their own, which could be lazy and dynamic,
+but the treeview is simply a symbolic cache of this heirarchy.
+(Rn, the symbol is names in string.)
+
+2026-02-10 12:48PM
+
+I don't know my old code for displaying trees is.
+I guess I'll have to implement it again.
+
+I will just start out with only displaying the current layer,
+and always showing the treeview.
+No previewing the select.
+No highlighting the focused.
+
+2026-02-16 3:10PM
+
+I am not worried about this right now,
+but moving focus should be done by the currently focused app 99% percent of the time,
+where they either do it on their own or it calls the parent.

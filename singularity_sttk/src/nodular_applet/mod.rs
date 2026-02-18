@@ -1,6 +1,6 @@
 //! This is where the hierarchy stuff is implemented.
 
-use singularity_common::utils::tree::rooted_tree::RootedTree;
+use singularity_common::utils::tree::world_tree::WorldTree;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 
@@ -37,7 +37,7 @@ pub enum NodularEvent {
 pub trait NodularApplet: BasicApplet {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent);
 
-    fn get_treeview(&self) -> RootedTree<String>;
+    fn get_treeview(&self) -> WorldTree<String>;
 }
 // TODO: look into Box::downcast
 impl BasicApplet for Box<dyn NodularApplet> {
@@ -56,7 +56,7 @@ impl NodularApplet for Box<dyn NodularApplet> {
         (**self).handle_nodular_event(nodular_event);
     }
 
-    fn get_treeview(&self) -> RootedTree<String> {
+    fn get_treeview(&self) -> WorldTree<String> {
         // REVIEW: I don't know what ** does
         (**self).get_treeview()
     }
