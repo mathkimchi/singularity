@@ -5066,3 +5066,81 @@ No highlighting the focused.
 I am not worried about this right now,
 but moving focus should be done by the currently focused app 99% percent of the time,
 where they either do it on their own or it calls the parent.
+
+2026-02-19 10:56AM
+
+I am working on implementing focus.
+I am actually going to ignore caching for now,
+since that is just an optimization.
+This means that passive applet will be very slow,
+but I'd rather have a slow demo than a non-existent one.
+
+Also, somethning completely unrelated:
+I was thinking of an efficient way to store a tree's structure
+without caring about the values.
+The best algorithm I've thought of so far is with a bitmap.
+To create the bitmap, we pretend like we are traversing through the tree in
+more or less pre-order (but you also print on the way back up),
+and append 0 to the bitmap when we go down and append 1 when we go up.
+
+An interesting thing about this algorithm is that it stores the order of children.
+If the order of children matters, this is good.
+If it doesn't, then there is redundancy.
+There is also redundancy because there can never be more 1s than 0s
+and at the end, the 1 and 0 counts must equal.
+This is the parenthesis stacks rules,
+so if there is an algorithm to compress the parenthesis stacks,
+we could apply it to this bitmap.
+
+In general, representing some structure as data should avoid
+redundancy by ensuring:
+two different data representations lead to same structure
+and all data representations have a structure.
+A possibly slow but efficient way of ensuring efficiency
+is simply to order all the structures and storing the unsigned integer order as the data.
+
+...
+
+Indexing the world tree and modifying paths makes me feel mad.
+It could also be the fact my hair makes me look like a stereotypical conspiracy theorist.
+I can't help with the hair,
+but I will draw crude ascii art to help with the world tree confusion.
+Look at the following world trees where a node's value (in parentheses)
+is the path it takes to get there.
+I will make it more complex as you go downwards:
+
+```rust
+// Just a value (level 0)
+( [] )
+
+// Structure of a normal tree (level 1)
+( [[]] )
+|
+|--- ( [[0]] )
+|
+|--- ( [[1]] )
+|
+|--- ( [[2]] )
+         |
+         |--- ( [[2, 0]] )
+         |
+         |--- ( [[2, 1]] )
+
+// Level 2: tree in a tree
+// Now imagine that the above tree is still the outermost tree,
+// but replace its value with the following tree:
+...
+( [[2, 1], []] )
+|
+|--- ( [[2, 1], [0]] )
+|           |
+|           |--- ( [[2, 1], [0, 0]] )
+|           |
+|           |--- ( [[2, 1], [0, 1]] )
+|
+|--- ( [[2, 1], [1]] )
+            |
+            |--- ( [[2, 1], [1, 0]] )
+            |
+            |--- ( [[2, 1], [1, 1]] )
+```
