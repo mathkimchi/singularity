@@ -5,6 +5,7 @@ use crate::nodular_applet::{
 use singularity_common::{
     sync::EncapsulatedLock,
     utils::tree::{
+        recursive_tree::RecursiveTreeNode,
         tree_node_path::TreeNodePath,
         world_tree::{WorldTree, WorldTreePath},
     },
@@ -521,8 +522,28 @@ impl NodularApplet for RecursiveNodeApplet {
             .treeview_damaged
             .store(false, std::sync::atomic::Ordering::Relaxed);
 
-        // RootedTree::
-        todo!()
+        let mut raw_treeview = RecursiveTreeNode::from_value(
+            self.shared_resource.applets.read().unwrap()[0].get_treeview(),
+        );
+
+        for child_index in 0..(self.shared_resource.applets.read().unwrap().len() - 1) {
+            let child_treeview =
+                self.shared_resource.applets.read().unwrap()[child_index + 1].get_treeview();
+
+            match child_treeview {
+                WorldTree::World(recursive_tree_node) => {
+                    raw_treeview.push_child_node(*recursive_tree_node);
+                }
+                _ => {
+                    // REVIEW: should this ever even happen?
+                    raw_treeview.push_child_node(RecursiveTreeNode::from_value(child_treeview))
+                }
+            }
+
+            // raw_treeview.push_child_node(child_treeview);
+        }
+
+        WorldTree::World(Box::new(raw_treeview))
     }
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {

@@ -5195,3 +5195,14 @@ so that is probably the problem.
 
 I just had to take in `&impl Fn(...)` instead of taking in `f: impl Fn(...)` and calling
 `&f` recursively.
+
+...
+
+2026-02-21 12:41PM
+
+Noice!
+After filling out all the `todo`'s and squashing all the compile-time errors,
+it looks like this is working on the surface-level.
+Let me commit first and then check for bugs.
+
+(I already know there is an error with my tree display logic.)
