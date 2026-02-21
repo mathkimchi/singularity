@@ -62,7 +62,7 @@ impl WorldTree<String> {
         match self {
             WorldTree::Base(inner) => inner.clone(),
             WorldTree::World(recursive_tree_node) => {
-                recursive_tree_node.simple_to_string(|node| node.get_root_value().clone())
+                recursive_tree_node.simple_to_string(&|node| node.get_root_value().clone())
             }
         }
     }

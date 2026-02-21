@@ -82,7 +82,7 @@ impl<T> RecursiveTreeNode<T> {
     fn append_to_string_with_prefix(
         &self,
         s: &mut String,
-        value_stringizer: impl Fn(&T) -> String,
+        value_stringizer: &impl Fn(&T) -> String,
         prefix: &str,
     ) -> std::fmt::Result {
         // value stringizer should return a single line
@@ -91,13 +91,13 @@ impl<T> RecursiveTreeNode<T> {
         let child_prefix = format!("{prefix}|-");
 
         for child in &self.children {
-            child.append_to_string_with_prefix(s, &value_stringizer, &child_prefix)?;
+            child.append_to_string_with_prefix(s, value_stringizer, &child_prefix)?;
         }
 
         Ok(())
     }
 
-    pub fn simple_to_string(&self, value_stringizer: impl Fn(&T) -> String) -> String {
+    pub fn simple_to_string(&self, value_stringizer: &impl Fn(&T) -> String) -> String {
         let mut s = String::new();
 
         self.append_to_string_with_prefix(&mut s, value_stringizer, "")

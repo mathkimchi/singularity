@@ -1,10 +1,8 @@
 use crate::nodular_applet::{
     NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
 };
-use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
-    color::Color,
     display_units::DisplayArea,
     ui_element::{CharGrid, UIElement},
 };

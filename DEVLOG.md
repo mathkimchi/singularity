@@ -5182,3 +5182,16 @@ error: could not compile `singularity_common` (lib) due to 1 previous error; 8 w
 Caused by:
   process didn't exit successfully: `/home/mathkimchi/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name singularity_common --edition=2024 singularity_common/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --diagnostic-width=147 --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=6576969d03177834 -C extra-filename=-2cff6ef231fd4809 --out-dir /home/mathkimchi/Documents/GitHub/singularity/target/debug/deps -C incremental=/home/mathkimchi/Documents/GitHub/singularity/target/debug/incremental -L dependency=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps --extern paste=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libpaste-d0c2464c2e21dc95.so --extern serde=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde-6cbd7ea2176590a6.rmeta --extern serde_json=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde_json-82a21528811a9091.rmeta --extern singularity_macros=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_macros-45dc683801d26304.so --extern singularity_ui=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_ui-1da54f7a021d6d83.rmeta --extern uuid=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libuuid-5db6acd5583582aa.rmeta -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/8vi4i41i9w86i3hc925lb2n6r0css4ih-fontconfig-2.15.0-lib/lib -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/4iyki6wsawj3qyisw3yqqam6x7w50had-libxkbcommon-1.7.0/lib` (exit status: 1)
 ```
+
+...
+
+Hmm, viewing the type written in the file shows:
+
+`RecursiveTreeNode::<WorldTree<std::string::String>>::append_to_string_with_prefix::<&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&{closure@singularity_common/src/utils/tree/world_tree.rs:65:54: 65:60}>`
+
+so that is probably the problem.
+
+...
+
+I just had to take in `&impl Fn(...)` instead of taking in `f: impl Fn(...)` and calling
+`&f` recursively.
