@@ -1,3 +1,4 @@
+use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::BasicRunnerHook;
 use singularity_sar::{applet::BasicApplet, runner::AppletRunner};
 use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
@@ -126,6 +127,10 @@ impl NodularApplet for TextBoxApplet {
         singularity_common::utils::tree::world_tree::WorldTree::Base(
             "Bare Nodular Placeholder".to_string(),
         )
+    }
+
+    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+        WorldTreePath::new_empty()
     }
 }
 

@@ -5144,3 +5144,41 @@ I will make it more complex as you go downwards:
             |
             |--- ( [[2, 1], [1, 1]] )
 ```
+
+2026-02-20 5:13PM
+
+I could also make a new data struct like `FocusedWorldTree`
+that is a world tree but every node also holds its local focus.
+
+2026-02-21 10:43AM
+
+I hit a recursion limit while compiling for some reason.
+I will commit now to leave a record of this weird error.
+
+```rust
+error: reached the recursion limit while instantiating `RecursiveTreeNode::<WorldTree<...>>::append_to_string_with_prefix::<...>`
+  --> singularity_common/src/utils/tree/recursive_tree.rs:94:13
+   |
+94 | /             child
+95 | |                 .append_to_string_with_prefix(s, &value_stringizer, &child_prefix)
+   | |__________________________________________________________________________________^
+   |
+note: `RecursiveTreeNode::<T>::append_to_string_with_prefix` defined here
+  --> singularity_common/src/utils/tree/recursive_tree.rs:82:5
+   |
+82 | /     fn append_to_string_with_prefix(
+83 | |         &self,
+84 | |         s: &mut String,
+85 | |         value_stringizer: impl Fn(&T) -> String,
+86 | |         prefix: &str,
+87 | |     ) -> std::fmt::Result {
+   | |_________________________^
+   = note: the full name for the type has been written to '/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/singularity_common-2cff6ef231fd4809.long-type-8030479317095937628.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+warning: `singularity_common` (lib) generated 8 warnings
+error: could not compile `singularity_common` (lib) due to 1 previous error; 8 warnings emitted
+
+Caused by:
+  process didn't exit successfully: `/home/mathkimchi/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name singularity_common --edition=2024 singularity_common/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --diagnostic-width=147 --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=6576969d03177834 -C extra-filename=-2cff6ef231fd4809 --out-dir /home/mathkimchi/Documents/GitHub/singularity/target/debug/deps -C incremental=/home/mathkimchi/Documents/GitHub/singularity/target/debug/incremental -L dependency=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps --extern paste=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libpaste-d0c2464c2e21dc95.so --extern serde=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde-6cbd7ea2176590a6.rmeta --extern serde_json=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde_json-82a21528811a9091.rmeta --extern singularity_macros=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_macros-45dc683801d26304.so --extern singularity_ui=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_ui-1da54f7a021d6d83.rmeta --extern uuid=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libuuid-5db6acd5583582aa.rmeta -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/8vi4i41i9w86i3hc925lb2n6r0css4ih-fontconfig-2.15.0-lib/lib -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/4iyki6wsawj3qyisw3yqqam6x7w50had-libxkbcommon-1.7.0/lib` (exit status: 1)
+```

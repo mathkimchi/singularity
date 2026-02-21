@@ -1,4 +1,7 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    fmt::Write,
+    ops::{Index, IndexMut},
+};
 
 use super::{
     rooted_tree::RootedTree,
@@ -74,6 +77,33 @@ impl<T> RecursiveTreeNode<T> {
         }
 
         Some(node)
+    }
+
+    fn append_to_string_with_prefix(
+        &self,
+        s: &mut String,
+        value_stringizer: impl Fn(&T) -> String,
+        prefix: &str,
+    ) -> std::fmt::Result {
+        // value stringizer should return a single line
+        writeln!(s, "{}{}", prefix, value_stringizer(self.get_value()))?;
+
+        let child_prefix = format!("{prefix}|-");
+
+        for child in &self.children {
+            child.append_to_string_with_prefix(s, &value_stringizer, &child_prefix)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn simple_to_string(&self, value_stringizer: impl Fn(&T) -> String) -> String {
+        let mut s = String::new();
+
+        self.append_to_string_with_prefix(&mut s, value_stringizer, "")
+            .unwrap();
+
+        s
     }
 }
 impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {

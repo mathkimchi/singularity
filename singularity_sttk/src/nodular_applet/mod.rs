@@ -1,6 +1,6 @@
 //! This is where the hierarchy stuff is implemented.
 
-use singularity_common::utils::tree::world_tree::WorldTree;
+use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 
@@ -38,6 +38,9 @@ pub trait NodularApplet: BasicApplet {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent);
 
     fn get_treeview(&self) -> WorldTree<String>;
+
+    /// Assume focus updates when treeview updates
+    fn get_focus_path(&self) -> WorldTreePath;
 }
 // TODO: look into Box::downcast
 impl BasicApplet for Box<dyn NodularApplet> {
@@ -53,12 +56,17 @@ impl BasicApplet for Box<dyn NodularApplet> {
 impl NodularApplet for Box<dyn NodularApplet> {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
         // REVIEW: I don't know what ** does
-        (**self).handle_nodular_event(nodular_event);
+        (**self).handle_nodular_event(nodular_event)
     }
 
     fn get_treeview(&self) -> WorldTree<String> {
         // REVIEW: I don't know what ** does
         (**self).get_treeview()
+    }
+
+    fn get_focus_path(&self) -> WorldTreePath {
+        // REVIEW: I don't know what ** does
+        (**self).get_focus_path()
     }
 }
 

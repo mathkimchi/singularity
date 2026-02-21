@@ -1,6 +1,7 @@
 use crate::nodular_applet::{
     NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
 };
+use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
@@ -69,6 +70,7 @@ impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
 pub struct RootNodeApplet {
+    /// NOTE: this could be generic
     applet: RecursiveNodeApplet,
     // window: Arc<Mutex<UIElement>>,
     // hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
@@ -120,6 +122,10 @@ impl RootNodeApplet {
     ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
         move |hook| Self::new(inner_initializer, hook)
     }
+
+    fn get_treeview_display(&self) -> UIElement {
+        CharGrid::from(self.applet.get_treeview().outer_world_to_string()).element()
+    }
 }
 impl BasicApplet for RootNodeApplet {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
@@ -128,13 +134,7 @@ impl BasicApplet for RootNodeApplet {
 
     fn get_window(&self) -> UIElement {
         UIElement::Container(vec![
-            // self.applet
-            //     .get_treeview()
-            //     .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
-            // TODO
-            CharGrid::from("hey".to_string())
-                .element()
-                .fill_bg(Color::BLACK)
+            self.get_treeview_display()
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
             self.applet
                 .get_window()

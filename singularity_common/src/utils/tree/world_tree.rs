@@ -1,7 +1,18 @@
 use crate::utils::tree::{recursive_tree::RecursiveTreeNode, tree_node_path::TreeNodePath};
 
 // pub struct WorldTreePath(Vec<TreeNodePath>);
-pub struct WorldTreePath<'a>(pub &'a [TreeNodePath]);
+#[derive(Debug, Clone)]
+pub struct WorldTreePath(pub Box<[TreeNodePath]>);
+impl WorldTreePath {
+    // pub fn new(inner: &[TreeNodePath]) -> Self {
+    //     Self(Rc::new(inner))
+    // }
+
+    /// getting by this will return the same thing
+    pub fn new_empty() -> Self {
+        Self(Box::new([]))
+    }
+}
 
 /// A tree whose values are other trees or the base value.
 #[derive(PartialEq, Eq, Clone)]
@@ -41,8 +52,18 @@ impl<T> WorldTree<T> {
                 WorldTree::World(recursive_tree_node) => recursive_tree_node
                     .safe_get(tree_path)?
                     .get_value()
-                    .safe_get(WorldTreePath(&path.0[1..])),
+                    .safe_get(WorldTreePath(path.0[1..].into())),
             },
+        }
+    }
+}
+impl WorldTree<String> {
+    pub fn outer_world_to_string(&self) -> String {
+        match self {
+            WorldTree::Base(inner) => inner.clone(),
+            WorldTree::World(recursive_tree_node) => {
+                recursive_tree_node.simple_to_string(|node| node.get_root_value().clone())
+            }
         }
     }
 }

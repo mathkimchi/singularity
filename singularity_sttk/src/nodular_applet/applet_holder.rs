@@ -4,7 +4,7 @@ use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
-/// Implements storing window and treeview holder.
+/// Implements caching for an app.
 pub struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
@@ -122,5 +122,10 @@ impl NodularApplet for SubAppletHolder {
         }
 
         self.treeview.get()
+    }
+
+    /// TODO: cache this
+    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+        self.applet.lock().unwrap().get_focus_path()
     }
 }

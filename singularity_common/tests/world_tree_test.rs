@@ -4,7 +4,7 @@ use singularity_common::utils::tree::{
 };
 
 fn assert_index_zero_does_nothing(world_tree: &WorldTree<impl PartialEq>) {
-    assert!(world_tree.safe_get(WorldTreePath(&[])) == Some(world_tree));
+    assert!(world_tree.safe_get(WorldTreePath([].into())) == Some(world_tree));
 }
 
 #[test]
@@ -14,7 +14,7 @@ fn test_world_tree() {
     assert_eq!(a.get_root_value(), &"Hi");
     assert_index_zero_does_nothing(&a);
     assert!(
-        a.safe_get(WorldTreePath(&[TreeNodePath(Vec::new())]))
+        a.safe_get(WorldTreePath([TreeNodePath(Vec::new())].into()))
             .is_none()
     );
 
@@ -22,7 +22,10 @@ fn test_world_tree() {
 
     assert_eq!(b.get_root_value(), &"Hi");
     assert_index_zero_does_nothing(&b);
-    assert!(b.safe_get(WorldTreePath(&[TreeNodePath(Vec::new())])) == Some(&WorldTree::Base("Hi")));
+    assert!(
+        b.safe_get(WorldTreePath([TreeNodePath(Vec::new())].into()))
+            == Some(&WorldTree::Base("Hi"))
+    );
 
     // TODO: test more things
 }

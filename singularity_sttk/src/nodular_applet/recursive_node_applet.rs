@@ -2,7 +2,13 @@ use crate::nodular_applet::{
     NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
     applet_holder::SubAppletHolder,
 };
-use singularity_common::{sync::EncapsulatedLock, utils::tree::world_tree::WorldTree};
+use singularity_common::{
+    sync::EncapsulatedLock,
+    utils::tree::{
+        tree_node_path::TreeNodePath,
+        world_tree::{WorldTree, WorldTreePath},
+    },
+};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
@@ -176,6 +182,7 @@ impl MultiAppletHolder {
     }
 }
 
+/*
 // /// Has a list of inner applets and displays them in vertical or horizontal division.
 // pub struct DividedApplet {
 //     shared_resource: Arc<MultiAppletHolder>,
@@ -346,6 +353,8 @@ impl MultiAppletHolder {
 //     }
 // }
 
+*/
+
 /// Holds a main Applet (at index 0) and also children.
 /// Displays the main child
 pub struct RecursiveNodeApplet {
@@ -514,5 +523,27 @@ impl NodularApplet for RecursiveNodeApplet {
 
         // RootedTree::
         todo!()
+    }
+
+    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+        let focus_index = self
+            .shared_resource
+            .focus_index
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        let mut path_tail = self.shared_resource.applets.read().unwrap()[focus_index]
+            .get_focus_path()
+            .0
+            .to_vec();
+
+        if focus_index == 0 {
+            // main is focused
+            path_tail.insert(0, TreeNodePath::new_root());
+        } else {
+            // child of index `focus - 1` is focused
+            path_tail[0].0.insert(0, focus_index - 1);
+        }
+
+        WorldTreePath(path_tail.into_boxed_slice())
     }
 }
