@@ -383,6 +383,12 @@ impl RecursiveNodeApplet {
         move |hook: Box<dyn NodularRunnerHook>| Self::new(inner_initializer, hook)
     }
 
+    pub fn get_boxed_initializer(
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+        move |hook| Box::new(Self::new(inner_initializer, hook))
+    }
+
     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
     /// across the horizontal axis and take full height.
     fn combine_displays(subdisplays: Vec<UIElement>) -> UIElement {

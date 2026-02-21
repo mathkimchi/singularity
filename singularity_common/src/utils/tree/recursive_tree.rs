@@ -38,11 +38,12 @@ pub struct RecursiveTreeNode<T> {
     children: Vec<RecursiveTreeNode<T>>,
 }
 impl<T> RecursiveTreeNode<T> {
+    pub fn new(value: T, children: Vec<RecursiveTreeNode<T>>) -> Self {
+        Self { value, children }
+    }
+
     pub fn from_value(value: T) -> Self {
-        Self {
-            value,
-            children: Vec::new(),
-        }
+        Self::new(value, Vec::new())
     }
 
     /// Gets the value held by this node.
@@ -79,29 +80,51 @@ impl<T> RecursiveTreeNode<T> {
         Some(node)
     }
 
+    fn append_child_to_string_with_prefix(
+        &self,
+        s: &mut String,
+        value_stringizer: &impl Fn(&T) -> String,
+        prefix: &str,
+        last_child: bool,
+    ) {
+        s.push_str(prefix);
+
+        let child_prefix = if last_child {
+            s.push_str("  └─");
+            prefix.to_string() + "    "
+        } else {
+            s.push_str("  ├─");
+            prefix.to_string() + "  │ "
+        };
+
+        self.append_to_string_with_prefix(s, value_stringizer, &child_prefix);
+    }
+
     fn append_to_string_with_prefix(
         &self,
         s: &mut String,
         value_stringizer: &impl Fn(&T) -> String,
         prefix: &str,
-    ) -> std::fmt::Result {
+    ) {
         // value stringizer should return a single line
-        writeln!(s, "{}{}", prefix, value_stringizer(self.get_value()))?;
+        s.push_str(&value_stringizer(self.get_value()));
+        s.push('\n');
 
-        let child_prefix = format!("{prefix}|-");
+        if let Some((last_child, normal_children)) = self.children.split_last() {
+            for child in normal_children {
+                child.append_child_to_string_with_prefix(s, value_stringizer, prefix, false);
+            }
 
-        for child in &self.children {
-            child.append_to_string_with_prefix(s, value_stringizer, &child_prefix)?;
+            last_child.append_child_to_string_with_prefix(s, value_stringizer, prefix, true);
         }
-
-        Ok(())
     }
 
+    /// Uses the algorithm from:
+    /// https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
     pub fn simple_to_string(&self, value_stringizer: &impl Fn(&T) -> String) -> String {
         let mut s = String::new();
 
-        self.append_to_string_with_prefix(&mut s, value_stringizer, "")
-            .unwrap();
+        self.append_to_string_with_prefix(&mut s, value_stringizer, "");
 
         s
     }

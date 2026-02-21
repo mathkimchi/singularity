@@ -5206,3 +5206,19 @@ it looks like this is working on the surface-level.
 Let me commit first and then check for bugs.
 
 (I already know there is an error with my tree display logic.)
+
+...
+
+Hmmm...
+I thought making BasicApplet ask to spawn RecursiveNodeApplet(BasicApplet)
+would fix the tree hierarchy,
+but when spawning from a child, the treeview doesn't change,
+so I assume that it is creating it as an inner world for some reason.
+
+I think I need to test out tree printing first.
+
+...
+
+I will use the algorithm from:
+https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
+to draw the tree.

@@ -3,6 +3,7 @@ use crate::nodular_applet::{
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
+    color::Color,
     display_units::DisplayArea,
     ui_element::{CharGrid, UIElement},
 };
@@ -122,7 +123,9 @@ impl RootNodeApplet {
     }
 
     fn get_treeview_display(&self) -> UIElement {
-        CharGrid::from(self.applet.get_treeview().outer_world_to_string()).element()
+        CharGrid::from(self.applet.get_treeview().outer_world_to_string())
+            .element()
+            .fill_bg(Color::BLACK)
     }
 }
 impl BasicApplet for RootNodeApplet {

@@ -1,4 +1,5 @@
 use singularity_common::utils::tree::{
+    recursive_tree::RecursiveTreeNode,
     tree_node_path::TreeNodePath,
     world_tree::{WorldTree, WorldTreePath},
 };
@@ -28,4 +29,133 @@ fn test_world_tree() {
     );
 
     // TODO: test more things
+}
+
+#[test]
+fn test_printing() {
+    /*
+     * From the DEVLOG 2026-02-19 10:56AM:
+     *
+     *
+     * // Just a value (level 0)
+     * ( [] )
+     *
+     * // Structure of a normal tree (level 1)
+     * ( [[]] )
+     * |
+     * |--- ( [[0]] )
+     * |
+     * |--- ( [[1]] )
+     * |
+     * |--- ( [[2]] )
+     *          |
+     *          |--- ( [[2, 0]] )
+     *          |
+     *          |--- ( [[2, 1]] )
+     *
+     * // Level 2: tree in a tree
+     * // Now imagine that the above tree is still the outermost tree,
+     * // but replace ([[2, 1]]) with the following tree:
+     * ...
+     * ( [[2, 1], []] )
+     * |
+     * |--- ( [[2, 1], [0]] )
+     * |           |
+     * |           |--- ( [[2, 1], [0, 0]] )
+     * |           |
+     * |           |--- ( [[2, 1], [0, 1]] )
+     * |
+     * |--- ( [[2, 1], [1]] )
+     *             |
+     *             |--- ( [[2, 1], [1, 0]] )
+     *             |
+     *             |--- ( [[2, 1], [1, 1]] )
+     */
+    let level_0 = WorldTree::Base("([])".to_string());
+    println!("Level 0:");
+    println!("{}", level_0.outer_world_to_string());
+
+    let level_1 = WorldTree::World(Box::new(RecursiveTreeNode::new(
+        WorldTree::Base("([[]])".to_string()),
+        vec![
+            RecursiveTreeNode::from_value(WorldTree::Base("([[0]])".to_string())),
+            RecursiveTreeNode::from_value(WorldTree::Base("([[1]])".to_string())),
+            RecursiveTreeNode::new(
+                WorldTree::Base("([[2]])".to_string()),
+                vec![
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[2, 0]])".to_string())),
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[2, 1]])".to_string())),
+                ],
+            ),
+            RecursiveTreeNode::new(
+                WorldTree::Base("([[3]])".to_string()),
+                vec![
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[3, 0]])".to_string())),
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[3, 1]])".to_string())),
+                ],
+            ),
+        ],
+    )));
+    println!("Level 1:");
+    println!("{}", level_1.outer_world_to_string());
+
+    let level_2 = WorldTree::World(Box::new(RecursiveTreeNode::new(
+        WorldTree::Base("([[]])".to_string()),
+        vec![
+            RecursiveTreeNode::from_value(WorldTree::Base("([[0]])".to_string())),
+            RecursiveTreeNode::from_value(WorldTree::Base("([[1]])".to_string())),
+            RecursiveTreeNode::new(
+                WorldTree::Base("([[2]])".to_string()),
+                vec![
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[2, 0]])".to_string())),
+                    RecursiveTreeNode::from_value(WorldTree::World(Box::new(
+                        RecursiveTreeNode::new(
+                            WorldTree::Base("([[2, 1], []])".to_string()),
+                            vec![
+                                RecursiveTreeNode::new(
+                                    WorldTree::Base("([[2, 1], [0]])".to_string()),
+                                    vec![
+                                        RecursiveTreeNode::from_value(WorldTree::Base(
+                                            "([[2, 1], [0, 0]])".to_string(),
+                                        )),
+                                        RecursiveTreeNode::from_value(WorldTree::Base(
+                                            "([[2, 1], [0, 1]])".to_string(),
+                                        )),
+                                    ],
+                                ),
+                                RecursiveTreeNode::new(
+                                    WorldTree::Base("([[2, 1], [1]])".to_string()),
+                                    vec![
+                                        RecursiveTreeNode::from_value(WorldTree::Base(
+                                            "([[2, 1], [1, 0]])".to_string(),
+                                        )),
+                                        RecursiveTreeNode::from_value(WorldTree::Base(
+                                            "([[2, 1], [1, 1]])".to_string(),
+                                        )),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ))),
+                ],
+            ),
+            RecursiveTreeNode::new(
+                WorldTree::Base("([[3]])".to_string()),
+                vec![
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[3, 0]])".to_string())),
+                    RecursiveTreeNode::from_value(WorldTree::Base("([[3, 1]])".to_string())),
+                ],
+            ),
+        ],
+    )));
+    println!("Level 2 outer:");
+    println!("{}", level_2.outer_world_to_string());
+    println!("Level 2 indexed:");
+    println!(
+        "{}",
+        level_2
+            .safe_get(WorldTreePath(Box::new([TreeNodePath(vec![2, 1])])))
+            .unwrap()
+            .outer_world_to_string()
+    );
 }

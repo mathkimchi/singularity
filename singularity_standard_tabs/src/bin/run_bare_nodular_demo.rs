@@ -83,8 +83,12 @@ impl BasicApplet for TextBoxApplet {
         ) = &ui_event
             && key.to_char() == Some('+')
         {
+            // self.hook
+            //     .add_child(Box::new(TextBoxApplet::get_boxed_initiator(String::new())));
             self.hook
-                .add_child(Box::new(TextBoxApplet::get_boxed_initiator(String::new())));
+                .add_child(Box::new(RecursiveNodeApplet::get_boxed_initializer(
+                    TextBoxApplet::get_boxed_initiator(String::new()),
+                )));
             return;
         }
 
