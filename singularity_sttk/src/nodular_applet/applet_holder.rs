@@ -1,10 +1,14 @@
-use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
-use singularity_common::{sync::EncapsulatedLock, utils::tree::world_tree::WorldTree};
+use crate::nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook};
+use singularity_common::{
+    sync::EncapsulatedLock,
+    utils::tree::world_tree::{WorldTree, WorldTreePath},
+};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::ui_element::UIElement;
+use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
+/// REVIEW: rename to CachingApplet?
 pub struct SubAppletHolder {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
@@ -89,6 +93,44 @@ impl SubAppletHolder {
             .lock()
             .unwrap()
             .handle_nodular_event(nodular_event);
+    }
+
+    pub fn placeholder() -> Self {
+        /// Since I need an applet to make multi-applet holder
+        /// and the actual applet needs a hook to the multi-applet holder,
+        /// so I am going to make this placeholder first then make the holder
+        /// then make the actual applet.
+        struct PlaceholderApp;
+        impl BasicApplet for PlaceholderApp {
+            fn handle_ui_event(&mut self, _ui_event: UIEvent) {
+                panic!("Placeholder app's functions should not be called")
+            }
+
+            fn get_window(&self) -> UIElement {
+                panic!("Placeholder app's functions should not be called")
+            }
+        }
+        impl NodularApplet for PlaceholderApp {
+            fn handle_nodular_event(&mut self, _nodular_event: NodularEvent) {
+                panic!("Placeholder app's functions should not be called")
+            }
+
+            fn get_treeview(&self) -> WorldTree<String> {
+                panic!("Placeholder app's functions should not be called")
+            }
+
+            fn get_focus_path(&self) -> WorldTreePath {
+                panic!("Placeholder app's functions should not be called")
+            }
+        }
+
+        Self {
+            applet: Mutex::new(Box::new(PlaceholderApp)),
+            window: EncapsulatedLock::new(UIElement::Nothing),
+            window_damaged: Arc::new(AtomicBool::new(false)),
+            treeview: EncapsulatedLock::new(WorldTree::Base("Placeholder".to_string())),
+            treeview_damaged: Arc::new(AtomicBool::new(false)),
+        }
     }
 }
 impl BasicApplet for SubAppletHolder {

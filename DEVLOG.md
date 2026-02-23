@@ -5222,3 +5222,100 @@ I think I need to test out tree printing first.
 I will use the algorithm from:
 https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
 to draw the tree.
+
+...
+
+Okay, so now the normal tree display is working,
+so I can be pretty sure that the bug is in the logic of the structure,
+not in the display.
+
+I'm going to display all the worlds as I traverse down worlds in the focus path.
+
+...
+
+I wrote the algorithm for the display,
+but the focus management itself doesn't work.
+
+I am going to define these temporary shortcuts:
+
+- Q - out world
+- E - in world
+- A - to parent
+- D - to child
+- W - up sibling (can set this to clamp, wrap around, or go to parent like dfs prev)
+- S - down sibling (same thing)
+- 0..9 - to n-th child
+
+Alt is annoying to me because I remapped it on my laptop keyboard.
+
+This is going to be tedious,
+but let me walk through the big picture.
+It would help to look at an example world tree.
+
+```rust
+Level 2 outer:
+([[]])
+  ├─([[0]])
+  ├─([[1]])
+  ├─([[2]])
+  │   ├─([[2, 0]])
+  │   └─([[2, 1]]) <- (contains world)
+  └─([[3]])
+      ├─([[3, 0]])
+      └─([[3, 1]])
+
+Level 2 indexed at [[2, 1]]:
+([[2, 1], []])
+  ├─([[2, 1], [0]])
+  │   ├─([[2, 1], [0, 0]])
+  │   └─([[2, 1], [0, 1]])
+  └─([[2, 1], [1]])
+      ├─([[2, 1], [1, 0]])
+      └─([[2, 1], [1, 1]])
+```
+
+Suppose we are focused at `([[2, 1], [1]])` and for now,
+just pretend like it doesn't also contain a world.
+
+I am currently thinking that the world tree doesn't make sense.
+Let me draw out an example use-case on a whiteboard and walk through it.
+For this, I will use universally consistent layers:
+layer 0 - project,
+layer 1 - applet,
+layer 2 - items.
+
+(Universally consistent is somewhat like
+having matrices instead of variable-sized arrays of arrays.
+A matrix has universally consistent sub-array size.)
+
+2026-02-22 6:40PM
+
+I think for focus,
+each recursive node applet can store three possibilities for focus:
+1. focus on self (or Focusing)
+2. focus on inner
+3. focus on child
+
+The difference between focus on self and focus on inner is that focus on self is kind of like the transition state
+and the focus on inner means that input is actually being passed.
+
+...
+
+2026-02-22 9:02PM
+
+I talked to @MrPoWasTaken about the world tree,
+and the conclusion was that I should continue with the world tree for now.
+The reasoning was that I should either fully commit to different layers (do world tree)
+or just not do it at all (normal tree),
+instead of doing hard-coded layers (like a project tree, project being an applet tree, and applet having elements tree)
+since fully generalized layer seems to not have downside to hard-coded layers.
+And since I prefer hard-coded layers over no layers,
+the conclusion is that I should at least try generalized layers for the MVP.
+
+I decided to put the main applet of recursive node applet in a seperate field
+instead of putting it in the vec of all applets.
+So, I tried using a placeholder applet for instantiation as a botch
+but now it looks like a less botched solution might actually be easier,
+so I will do that.
+I am just going to create a seperate struct that doesn't have the main applet vs one that does.
+I will commit now just to save the botch work (that doesn't work).

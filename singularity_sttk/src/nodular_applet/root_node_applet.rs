@@ -1,6 +1,7 @@
 use crate::nodular_applet::{
     NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
 };
+use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
@@ -123,9 +124,38 @@ impl RootNodeApplet {
     }
 
     fn get_treeview_display(&self) -> UIElement {
-        CharGrid::from(self.applet.get_treeview().outer_world_to_string())
-            .element()
-            .fill_bg(Color::BLACK)
+        let focused_path = self.applet.get_focus_path();
+        let treeview = self.applet.get_treeview();
+
+        // width of each world's display
+        let width = (focused_path.0.len() as f32).recip();
+
+        // println!("Focused path: {:?}", focused_path);
+
+        UIElement::Container(
+            (0..focused_path.0.len())
+                .map(|world_level_index| {
+                    let world_path = WorldTreePath(
+                        focused_path.0[0..world_level_index]
+                            .to_vec()
+                            .into_boxed_slice(),
+                    );
+                    CharGrid::from(
+                        treeview
+                            .safe_get(world_path)
+                            .unwrap()
+                            .outer_world_to_string(),
+                    )
+                    .element()
+                    .bordered(Color::LIGHT_GREEN)
+                    .contain(DisplayArea::new(
+                        (width * (world_level_index as f32), 0.0),
+                        (width * (world_level_index as f32 + 1.0), 1.0),
+                    ))
+                })
+                .collect(),
+        )
+        .fill_bg(Color::BLACK)
     }
 }
 impl BasicApplet for RootNodeApplet {
@@ -141,6 +171,5 @@ impl BasicApplet for RootNodeApplet {
                 .get_window()
                 .contain(DisplayArea::new((0.2, 0.0), (1.0, 1.0))),
         ])
-        // self.applet.get_window().
     }
 }
