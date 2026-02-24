@@ -95,6 +95,7 @@ impl SubAppletHolder {
             .handle_nodular_event(nodular_event);
     }
 
+    #[deprecated]
     pub fn placeholder() -> Self {
         /// Since I need an applet to make multi-applet holder
         /// and the actual applet needs a hook to the multi-applet holder,

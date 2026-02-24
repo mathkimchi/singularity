@@ -1,4 +1,7 @@
-use crate::{color::Color, display_units::DisplayArea};
+use crate::{
+    color::Color,
+    display_units::{DisplayArea, DisplayUnits},
+};
 
 /// TODO: rename most everything here
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +39,28 @@ impl UIElement {
     }
     pub fn fill_bg(self, bg: Color) -> Self {
         Self::Backgrounded(Box::new(self), bg)
+    }
+
+    /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
+    /// across the horizontal axis and take full height.
+    /// TODO: take in horizontal vs vertical as input or make this into two functions
+    pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = UIElement>) -> UIElement {
+        // proportional units so widths out of 1
+        let widths = 1. / subdisplays.len() as f32;
+        UIElement::Container(
+            subdisplays
+                .into_iter()
+                .enumerate()
+                .map(|(i, subdisplay)| {
+                    subdisplay
+                        .bordered(Color::LIGHT_GREEN)
+                        .contain(DisplayArea::new(
+                            (widths * (i as f32), 0.),
+                            (DisplayUnits::from_mixed(-1, widths * ((i + 1) as f32)), 1.),
+                        ))
+                })
+                .collect(),
+        )
     }
 }
 impl From<Option<UIElement>> for UIElement {
