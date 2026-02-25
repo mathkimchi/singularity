@@ -78,6 +78,8 @@ pub trait NodularRunnerHook: BasicRunnerHook {
 
     /// REVIEW: the boxes and generics
     fn add_child(&self, initializer: Box<NodularAppletInitializer>);
+
+    fn focus_out(&self);
 }
 impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
     fn damage_window(&self) {

@@ -43,6 +43,8 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
             fn damage_treeview(&self) {
                 todo!()
             }
+
+            fn focus_out(&self) {}
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
@@ -108,6 +110,8 @@ impl RootNodeApplet {
                 // REVIEW
                 self.outer_hook.damage_window();
             }
+
+            fn focus_out(&self) {}
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
@@ -127,34 +131,29 @@ impl RootNodeApplet {
         let focused_path = self.applet.get_focus_path();
         let treeview = self.applet.get_treeview();
 
-        // width of each world's display
-        let width = (focused_path.0.len() as f32).recip();
+        println!("Focused path: {:?}", focused_path);
 
-        // println!("Focused path: {:?}", focused_path);
+        // CharGrid::from(treeview.outer_world_to_string())
+        //     .element()
+        //     .bordered(Color::LIGHT_GREEN)
+        //     .fill_bg(Color::BLACK)
 
-        UIElement::Container(
-            (0..focused_path.0.len())
-                .map(|world_level_index| {
-                    let world_path = WorldTreePath(
-                        focused_path.0[0..world_level_index]
-                            .to_vec()
-                            .into_boxed_slice(),
-                    );
-                    CharGrid::from(
-                        treeview
-                            .safe_get(world_path)
-                            .unwrap()
-                            .outer_world_to_string(),
-                    )
-                    .element()
-                    .bordered(Color::LIGHT_GREEN)
-                    .contain(DisplayArea::new(
-                        (width * (world_level_index as f32), 0.0),
-                        (width * (world_level_index as f32 + 1.0), 1.0),
-                    ))
-                })
-                .collect(),
-        )
+        // This is the horizontal split
+        UIElement::combine_displays((0..(focused_path.0.len() + 1)).map(|world_level_index| {
+            let world_path = WorldTreePath(
+                focused_path.0[0..world_level_index]
+                    .to_vec()
+                    .into_boxed_slice(),
+            );
+            CharGrid::from(
+                treeview
+                    .safe_get(world_path)
+                    .unwrap()
+                    .outer_world_to_string(),
+            )
+            .element()
+            .bordered(Color::LIGHT_GREEN)
+        }))
         .fill_bg(Color::BLACK)
     }
 }

@@ -5319,3 +5319,5 @@ but now it looks like a less botched solution might actually be easier,
 so I will do that.
 I am just going to create a seperate struct that doesn't have the main applet vs one that does.
 I will commit now just to save the botch work (that doesn't work).
+
+...

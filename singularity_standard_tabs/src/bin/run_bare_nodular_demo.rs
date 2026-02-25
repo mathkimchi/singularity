@@ -92,6 +92,22 @@ impl BasicApplet for TextBoxApplet {
             return;
         }
 
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && key.to_char() == Some('q')
+        {
+            self.hook.focus_out();
+            return;
+        }
+
         self.textbox.handle_event(ui_event);
 
         self.hook.damage_window();

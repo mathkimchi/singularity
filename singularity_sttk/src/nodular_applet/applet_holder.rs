@@ -67,6 +67,10 @@ impl SubAppletHolder {
                     self.outer_hook.damage_treeview();
                 }
             }
+
+            fn focus_out(&self) {
+                self.outer_hook.focus_out();
+            }
         }
 
         let inner_hook = InnerHook {

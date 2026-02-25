@@ -11,7 +11,10 @@ use singularity_common::{
     },
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::{
+    ui_element::UIElement,
+    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+};
 use std::sync::{Arc, RwLock, Weak, atomic::AtomicBool};
 
 #[derive(Debug, Clone, Copy)]
@@ -54,13 +57,12 @@ impl SharedResource {
                 // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
                 // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
                 // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
-                window: EncapsulatedLock<UIElement>,
-                treeview: EncapsulatedLock<WorldTree<String>>,
+                // window: EncapsulatedLock<UIElement>,
+                // treeview: EncapsulatedLock<WorldTree<String>>,
                 // outer_focused_child_index: Arc<Mutex<usize>>,
                 shared_resource: Weak<SharedResource>,
-
                 // the index of this hook's corresponding app in the shared resource list of applets
-                index: usize,
+                // index: usize,
             }
             impl BasicRunnerHook for InnerHook {
                 // fn update_display(&self, display: &UIElement) {
@@ -120,14 +122,26 @@ impl SharedResource {
                 fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
+
+                fn focus_out(&self) {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .focus_index
+                        .set(FocusIndex::Focusing);
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .damage_treeview();
+                }
             }
 
             let inner_hook = InnerHook {
-                window: inner_applet_window.clone(),
-                index: shared_resource.children.read().unwrap().len(),
-                // TODO: -1?
+                // window: inner_applet_window.clone(),
+                // index: shared_resource.children.read().unwrap().len(),
                 shared_resource: Arc::downgrade(&shared_resource),
-                treeview: inner_applet_treeview.clone(),
+                // treeview: inner_applet_treeview.clone(),
             };
 
             Arc::new(SubAppletHolder::new(
@@ -374,8 +388,8 @@ impl RecursiveNodeApplet {
                 // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
                 // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
                 // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
-                window: EncapsulatedLock<UIElement>,
-                treeview: EncapsulatedLock<WorldTree<String>>,
+                // window: EncapsulatedLock<UIElement>,
+                // treeview: EncapsulatedLock<WorldTree<String>>,
                 // outer_focused_child_index: Arc<Mutex<usize>>,
                 shared_resource: Weak<SharedResource>,
             }
@@ -437,12 +451,25 @@ impl RecursiveNodeApplet {
                 fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
+
+                fn focus_out(&self) {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .focus_index
+                        .set(FocusIndex::Focusing);
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .damage_treeview();
+                }
             }
 
             let inner_hook = InnerHook {
-                window: inner_applet_window.clone(),
+                // window: inner_applet_window.clone(),
                 shared_resource: Arc::downgrade(&shared_resource),
-                treeview: inner_applet_treeview.clone(),
+                // treeview: inner_applet_treeview.clone(),
             };
 
             SubAppletHolder::new(
@@ -503,84 +530,45 @@ impl RecursiveNodeApplet {
 }
 impl BasicApplet for RecursiveNodeApplet {
     fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        // if let UIEvent::KeyPress(
-        //     key,
-        //     KeyModifiers {
-        //         ctrl: true,
-        //         alt: false,
-        //         shift: false,
-        //         caps_lock: false,
-        //         logo: false,
-        //     },
-        // ) = &ui_event
-        //     && key.to_char() == Some('\t')
-        // {
-        //     self.get_focused_applet()
-        //         .immut_handle_nodular_event(NodularEvent::Focused(false));
-
-        //     self.shared_resource
-        //         .focus_index
-        //         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        //     self.shared_resource.focus_index.fetch_min(
-        //         self.shared_resource.applets.read().unwrap().len() - 1,
-        //         std::sync::atomic::Ordering::Relaxed,
-        //     );
-
-        //     self.shared_resource.applets.read().unwrap()[self
-        //         .shared_resource
-        //         .focus_index
-        //         .load(std::sync::atomic::Ordering::Relaxed)]
-        //     .immut_handle_nodular_event(NodularEvent::Focused(true));
-
-        //     return;
-        // }
-
-        // if let UIEvent::KeyPress(
-        //     key,
-        //     KeyModifiers {
-        //         ctrl: true,
-        //         alt: false,
-        //         shift: true,
-        //         caps_lock: false,
-        //         logo: false,
-        //     },
-        // ) = &ui_event
-        //     && key.raw_code == 15
-        // {
-        //     // Ctrl+Shift+Tab
-        //     self.shared_resource.applets.read().unwrap()[self
-        //         .shared_resource
-        //         .focus_index
-        //         .load(std::sync::atomic::Ordering::Relaxed)]
-        //     .immut_handle_nodular_event(NodularEvent::Focused(false));
-
-        //     self.shared_resource
-        //         .focus_index
-        //         .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-        //     self.shared_resource.focus_index.fetch_min(
-        //         self.shared_resource.applets.read().unwrap().len() - 1,
-        //         std::sync::atomic::Ordering::Relaxed,
-        //     );
-
-        //     self.shared_resource.applets.read().unwrap()[self
-        //         .shared_resource
-        //         .focus_index
-        //         .load(std::sync::atomic::Ordering::Relaxed)]
-        //     .immut_handle_nodular_event(NodularEvent::Focused(true));
-        //     return;
-        // }
-
-        // let applet_holder = self.shared_resource.applets.read().unwrap()[self
-        //     .shared_resource
-        //     .focus_index
-        //     .load(std::sync::atomic::Ordering::Relaxed)]
-        // .clone();
-
-        // get_focused_applet!(self, immut_handle_ui_event(ui_event));
         match self.shared_resource.focus_index.get() {
-            FocusIndex::Focusing | FocusIndex::Inner => {
-                self.main_applet.immut_handle_ui_event(ui_event)
+            FocusIndex::Focusing => {
+                // We can intercept
+
+                if let UIEvent::KeyPress(
+                    key,
+                    KeyModifiers {
+                        ctrl: false,
+                        alt: true,
+                        shift: false,
+                        caps_lock: false,
+                        logo: false,
+                    },
+                ) = &ui_event
+                {
+                    match key.to_char() {
+                        Some('q') => {
+                            self.shared_resource.hook.focus_out();
+                            self.shared_resource.hook.damage_treeview();
+                        }
+                        Some('e') => {
+                            self.shared_resource.focus_index.set(FocusIndex::Inner);
+                            self.shared_resource.hook.damage_treeview();
+                        }
+                        Some('d') => {
+                            self.shared_resource.focus_index.set(FocusIndex::Child(0));
+                            self.shared_resource.hook.damage_treeview();
+                        }
+                        Some('0'..='9') => {
+                            self.shared_resource
+                                .focus_index
+                                .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
+                            self.shared_resource.hook.damage_treeview();
+                        }
+                        _ => {}
+                    }
+                }
             }
+            FocusIndex::Inner => self.main_applet.immut_handle_ui_event(ui_event),
             FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                 [child_index]
                 .immut_handle_ui_event(ui_event),
@@ -669,6 +657,10 @@ impl NodularApplet for RecursiveNodeApplet {
                     .get_focus_path()
                     .0
                     .to_vec();
+
+                if path_tail.is_empty() {
+                    path_tail.push(TreeNodePath::new_root());
+                }
 
                 // child of index `focus - 1` is focused
                 path_tail[0].0.insert(0, child_index);
