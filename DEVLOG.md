@@ -5321,3 +5321,10 @@ I am just going to create a seperate struct that doesn't have the main applet vs
 I will commit now just to save the botch work (that doesn't work).
 
 ...
+
+2026-02-24 11:14PM
+
+I suspect that my traversal code could be working,
+but I really can't tell what's happening because I can't see what is focused.
+
+So, I guess that's my next task.
