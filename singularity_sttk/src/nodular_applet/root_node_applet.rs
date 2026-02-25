@@ -149,7 +149,7 @@ impl RootNodeApplet {
                 treeview
                     .safe_get(world_path)
                     .unwrap()
-                    .outer_world_to_string(),
+                    .outer_world_to_string(focused_path.0.get(world_level_index).cloned()),
             )
             .element()
             .bordered(Color::LIGHT_GREEN)

@@ -179,6 +179,7 @@ impl<T> RecursiveTreeNode<T> {
         value_stringizer: &impl Fn(&T) -> String,
         prefix: &str,
         last_child: bool,
+        focus_path: Option<TreeNodePath>,
     ) {
         s.push_str(prefix);
 
@@ -190,7 +191,7 @@ impl<T> RecursiveTreeNode<T> {
             prefix.to_string() + "  │ "
         };
 
-        self.append_to_string_with_prefix(s, value_stringizer, &child_prefix);
+        self.append_to_string_with_prefix(s, value_stringizer, &child_prefix, focus_path);
     }
 
     fn append_to_string_with_prefix(
@@ -198,26 +199,62 @@ impl<T> RecursiveTreeNode<T> {
         s: &mut String,
         value_stringizer: &impl Fn(&T) -> String,
         prefix: &str,
+        focus_path: Option<TreeNodePath>,
     ) {
+        if let Some(focus_path) = &focus_path {
+            if focus_path.is_root() {
+                s.push_str(">> ");
+            } else {
+                s.push('→');
+            }
+        }
         // value stringizer should return a single line
         s.push_str(&value_stringizer(self.get_value()));
         s.push('\n');
 
         if let Some((last_child, normal_children)) = self.children.split_last() {
-            for child in normal_children {
-                child.append_child_to_string_with_prefix(s, value_stringizer, prefix, false);
+            for (child_index, child) in normal_children.iter().enumerate() {
+                child.append_child_to_string_with_prefix(
+                    s,
+                    value_stringizer,
+                    prefix,
+                    false,
+                    focus_path.as_ref().and_then(|focus_path| {
+                        if focus_path.0.first() == Some(&child_index) {
+                            Some(TreeNodePath(focus_path.0[1..].to_vec()))
+                        } else {
+                            None
+                        }
+                    }),
+                );
             }
 
-            last_child.append_child_to_string_with_prefix(s, value_stringizer, prefix, true);
+            last_child.append_child_to_string_with_prefix(
+                s,
+                value_stringizer,
+                prefix,
+                true,
+                focus_path.and_then(|focus_path| {
+                    if focus_path.0.first() == Some(&(self.children.len() - 1)) {
+                        Some(TreeNodePath(focus_path.0[1..].to_vec()))
+                    } else {
+                        None
+                    }
+                }),
+            );
         }
     }
 
     /// Uses the algorithm from:
     /// https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
-    pub fn simple_to_string(&self, value_stringizer: &impl Fn(&T) -> String) -> String {
+    pub fn simple_to_string(
+        &self,
+        value_stringizer: &impl Fn(&T) -> String,
+        focus_path: Option<TreeNodePath>,
+    ) -> String {
         let mut s = String::new();
 
-        self.append_to_string_with_prefix(&mut s, value_stringizer, "");
+        self.append_to_string_with_prefix(&mut s, value_stringizer, "", focus_path);
 
         s
     }

@@ -58,12 +58,17 @@ impl<T> WorldTree<T> {
     }
 }
 impl WorldTree<String> {
-    pub fn outer_world_to_string(&self) -> String {
+    pub fn outer_world_to_string(&self, focus_path: Option<TreeNodePath>) -> String {
         match self {
-            WorldTree::Base(inner) => inner.clone(),
-            WorldTree::World(recursive_tree_node) => {
-                recursive_tree_node.simple_to_string(&|node| node.get_root_value().clone())
+            WorldTree::Base(inner) => {
+                if focus_path.is_some() {
+                    format!(">> {}", inner)
+                } else {
+                    inner.clone()
+                }
             }
+            WorldTree::World(recursive_tree_node) => recursive_tree_node
+                .simple_to_string(&|node| node.get_root_value().clone(), focus_path),
         }
     }
 }

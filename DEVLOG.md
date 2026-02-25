@@ -5328,3 +5328,20 @@ I suspect that my traversal code could be working,
 but I really can't tell what's happening because I can't see what is focused.
 
 So, I guess that's my next task.
+
+2026-02-25 2:43PM
+
+I am kind of printing the things,
+but there is a weird bug.
+Take the following move sequence:
+into, add child, out, 0-th child.
+Allegedly, your path is `[[0]]` and your input isn't sent to the child inner
+(try typing Hi or adding subchild or quitting, nothing happens).
+Then, go into again.
+It prints that your focused path is still `[[0]]`,
+and the focus indicators on the treeview don't change.
+But, clearly something happened because it lets you interact
+with the inner app.
+
+I think that the path should be `[[0], []]`.
+So, I guess I'll have to bug find.

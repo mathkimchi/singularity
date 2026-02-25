@@ -555,14 +555,20 @@ impl BasicApplet for RecursiveNodeApplet {
                             self.shared_resource.hook.damage_treeview();
                         }
                         Some('d') => {
-                            self.shared_resource.focus_index.set(FocusIndex::Child(0));
-                            self.shared_resource.hook.damage_treeview();
+                            if !self.shared_resource.children.read().unwrap().is_empty() {
+                                self.shared_resource.focus_index.set(FocusIndex::Child(0));
+                                self.shared_resource.hook.damage_treeview();
+                            }
                         }
                         Some('0'..='9') => {
-                            self.shared_resource
-                                .focus_index
-                                .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
-                            self.shared_resource.hook.damage_treeview();
+                            if (key.to_digit().unwrap() as usize)
+                                < self.shared_resource.children.read().unwrap().len()
+                            {
+                                self.shared_resource
+                                    .focus_index
+                                    .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
+                                self.shared_resource.hook.damage_treeview();
+                            }
                         }
                         _ => {}
                     }

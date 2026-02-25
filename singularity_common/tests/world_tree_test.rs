@@ -73,7 +73,7 @@ fn test_printing() {
      */
     let level_0 = WorldTree::Base("([])".to_string());
     println!("Level 0:");
-    println!("{}", level_0.outer_world_to_string());
+    println!("{}", level_0.outer_world_to_string(None));
 
     let level_1 = WorldTree::World(Box::new(RecursiveTreeNode::new(
         WorldTree::Base("([[]])".to_string()),
@@ -97,7 +97,7 @@ fn test_printing() {
         ],
     )));
     println!("Level 1:");
-    println!("{}", level_1.outer_world_to_string());
+    println!("{}", level_1.outer_world_to_string(None));
 
     let level_2 = WorldTree::World(Box::new(RecursiveTreeNode::new(
         WorldTree::Base("([[]])".to_string()),
@@ -149,13 +149,13 @@ fn test_printing() {
         ],
     )));
     println!("Level 2 outer:");
-    println!("{}", level_2.outer_world_to_string());
+    println!("{}", level_2.outer_world_to_string(None));
     println!("Level 2 indexed:");
     println!(
         "{}",
         level_2
             .safe_get(WorldTreePath(Box::new([TreeNodePath(vec![2, 1])])))
             .unwrap()
-            .outer_world_to_string()
+            .outer_world_to_string(None)
     );
 }
