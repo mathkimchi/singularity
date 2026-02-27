@@ -12,6 +12,11 @@ impl WorldTreePath {
     pub fn new_empty() -> Self {
         Self(Box::new([]))
     }
+
+    /// Goes one level `into`
+    pub fn new_into() -> Self {
+        Self(Box::new([TreeNodePath::new_root()]))
+    }
 }
 
 /// A tree whose values are other trees or the base value.

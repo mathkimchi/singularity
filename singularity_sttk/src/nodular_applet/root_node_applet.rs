@@ -139,7 +139,8 @@ impl RootNodeApplet {
         //     .fill_bg(Color::BLACK)
 
         // This is the horizontal split
-        UIElement::combine_displays((0..(focused_path.0.len() + 1)).map(|world_level_index| {
+        // UIElement::combine_displays((0..(focused_path.0.len() + 1)).map(|world_level_index| {
+        UIElement::combine_displays((0..focused_path.0.len()).map(|world_level_index| {
             let world_path = WorldTreePath(
                 focused_path.0[0..world_level_index]
                     .to_vec()

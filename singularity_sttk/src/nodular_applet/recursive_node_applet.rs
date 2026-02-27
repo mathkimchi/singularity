@@ -155,6 +155,12 @@ impl SharedResource {
         shared_resource.children.write().unwrap().push(child_holder);
 
         if !shared_resource
+            .treeview_damaged
+            .swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            shared_resource.hook.damage_treeview();
+        }
+        if !shared_resource
             .window_damaged
             .swap(true, std::sync::atomic::Ordering::Relaxed)
         {
@@ -647,7 +653,7 @@ impl NodularApplet for RecursiveNodeApplet {
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
         match self.shared_resource.focus_index.get() {
-            FocusIndex::Focusing => WorldTreePath::new_empty(),
+            FocusIndex::Focusing => WorldTreePath::new_into(),
             FocusIndex::Inner => {
                 let mut path_tail = self.main_applet.get_focus_path().0.to_vec();
 
@@ -665,6 +671,7 @@ impl NodularApplet for RecursiveNodeApplet {
                     .to_vec();
 
                 if path_tail.is_empty() {
+                    println!("Warning: this shouldn't happen");
                     path_tail.push(TreeNodePath::new_root());
                 }
 

@@ -5345,3 +5345,21 @@ with the inner app.
 
 I think that the path should be `[[0], []]`.
 So, I guess I'll have to bug find.
+
+2026-02-27 1:54PM
+
+Wait, what the heck?
+
+I got it working, but I don't know why.
+
+I had to make it so the text applet returns `[[]]`
+and focusing state also returns `[[]]`.
+(Making focusing state return `[[]]` was the thing I really missed.)
+I also think I am technically going into a value,
+but I don't care.
+
+I can believe it because I haven't thought about it too much,
+but it feels unintuitive.
+I'm not going to question it though because it seems to be working.
+Maybe I bug-test it later, but I've been really frustrated about this
+so I don't care.

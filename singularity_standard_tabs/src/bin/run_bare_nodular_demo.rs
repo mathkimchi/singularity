@@ -150,7 +150,8 @@ impl NodularApplet for TextBoxApplet {
     }
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
-        WorldTreePath::new_empty()
+        // WorldTreePath::new_empty()
+        WorldTreePath::new_into()
     }
 }
 
