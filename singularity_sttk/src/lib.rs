@@ -1,2 +1,2 @@
 pub mod components;
-pub mod ratk;
+pub mod nodular_applet;

@@ -1,10 +1,9 @@
-use std::ops::{Index, IndexMut};
-
 use super::{
     rooted_tree::RootedTree,
     tree_node_path::{TraversableTree, TreeNodePath},
 };
 use serde::{Deserialize, Serialize};
+use std::ops::{Index, IndexMut};
 
 /// This and `RootedTree` store the same information,
 /// but this is the conceptual version of it.
@@ -29,17 +28,28 @@ use serde::{Deserialize, Serialize};
 ///
 /// NOTE: Idk, how serialize and deserialize can be derived
 /// if T isn't guranteed to be either, but I am not complaining.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RecursiveTreeNode<T> {
     value: T,
     children: Vec<RecursiveTreeNode<T>>,
 }
 impl<T> RecursiveTreeNode<T> {
+    pub fn new(value: T, children: Vec<RecursiveTreeNode<T>>) -> Self {
+        Self { value, children }
+    }
+
     pub fn from_value(value: T) -> Self {
-        Self {
-            value,
-            children: Vec::new(),
-        }
+        Self::new(value, Vec::new())
+    }
+
+    /// Gets the value held by this node.
+    /// If this is the root node, we can say this is the root value.
+    pub fn get_value(&self) -> &T {
+        &self.value
+    }
+
+    pub fn get_value_mut(&mut self) -> &mut T {
+        &mut self.value
     }
 
     /// add child as last
@@ -64,6 +74,189 @@ impl<T> RecursiveTreeNode<T> {
         }
 
         Some(node)
+    }
+
+    // fn append_child_to_display<O: AddAssign + Add<Output = O> + Clone>(
+    //     &self,
+    //     v: &mut O,
+    //     value_getter: &impl Fn(TreeNodePath, &T) -> O,
+    //     indent: O,
+    //     pipe: O,
+    //     branch: O,
+    //     corner: O,
+    //     new_line: O,
+    //     prefix: O,
+    //     last_child: bool,
+    // ) {
+    //     *v += prefix.clone();
+
+    //     let child_prefix = if last_child {
+    //         *v += corner.clone();
+    //         prefix.clone() + indent.clone()
+    //     } else {
+    //         *v += branch.clone();
+    //         prefix.clone() + pipe.clone()
+    //     };
+
+    //     self.append_to_display(
+    //         v,
+    //         value_getter,
+    //         indent,
+    //         pipe,
+    //         branch,
+    //         corner,
+    //         new_line,
+    //         child_prefix,
+    //     );
+    // }
+
+    // fn append_to_display<O: AddAssign + Add + Clone>(
+    //     &self,
+    //     v: &mut O,
+    //     value_getter: &impl Fn(TreeNodePath, &T) -> O,
+    //     indent: O,
+    //     pipe: O,
+    //     branch: O,
+    //     corner: O,
+    //     new_line: O,
+    //     prefix: O,
+    // ) {
+    //     // value stringizer should return a single line
+    //     *v += value_getter(self.get_value());
+    //     *v += new_line;
+
+    //     if let Some((last_child, normal_children)) = self.children.split_last() {
+    //         for child in normal_children {
+    //             child.append_child_to_display(s, value_stringizer, prefix, false);
+    //         }
+
+    //         last_child.append_child_to_display(s, value_stringizer, prefix, true);
+    //     }
+    // }
+
+    // pub fn generic_display<O: Default + AddAssign + Add + Clone>(
+    //     &self,
+    //     value_getter: &impl Fn(TreeNodePath, &T) -> O,
+    //     indent: O,
+    //     pipe: O,
+    //     branch: O,
+    //     corner: O,
+    //     new_line: O,
+    // ) -> O {
+    //     let mut v = O::default();
+
+    //     self.append_to_display(
+    //         &mut v,
+    //         value_getter,
+    //         indent,
+    //         pipe,
+    //         branch,
+    //         corner,
+    //         new_line,
+    //         O::default(),
+    //     );
+
+    //     v
+    // }
+
+    // /// Uses the algorithm from:
+    // /// https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
+    // pub fn simple_to_string(&self, value_getter: &impl Fn(TreeNodePath, &T) -> String) -> String {
+    //     self.generic_display(
+    //         value_getter,
+    //         "    ".to_string(),
+    //         "  │ ".to_string(),
+    //         "  ├─".to_string(),
+    //         "  └─".to_string(),
+    //         "\n".to_string(),
+    //     )
+    //     .join("")
+    // }
+
+    fn append_child_to_string_with_prefix(
+        &self,
+        s: &mut String,
+        value_stringizer: &impl Fn(&T) -> String,
+        prefix: &str,
+        last_child: bool,
+        focus_path: Option<TreeNodePath>,
+    ) {
+        s.push_str(prefix);
+
+        let child_prefix = if last_child {
+            s.push_str("  └─");
+            prefix.to_string() + "    "
+        } else {
+            s.push_str("  ├─");
+            prefix.to_string() + "  │ "
+        };
+
+        self.append_to_string_with_prefix(s, value_stringizer, &child_prefix, focus_path);
+    }
+
+    fn append_to_string_with_prefix(
+        &self,
+        s: &mut String,
+        value_stringizer: &impl Fn(&T) -> String,
+        prefix: &str,
+        focus_path: Option<TreeNodePath>,
+    ) {
+        if let Some(focus_path) = &focus_path {
+            if focus_path.is_root() {
+                s.push_str(">> ");
+            } else {
+                s.push('→');
+            }
+        }
+        // value stringizer should return a single line
+        s.push_str(&value_stringizer(self.get_value()));
+        s.push('\n');
+
+        if let Some((last_child, normal_children)) = self.children.split_last() {
+            for (child_index, child) in normal_children.iter().enumerate() {
+                child.append_child_to_string_with_prefix(
+                    s,
+                    value_stringizer,
+                    prefix,
+                    false,
+                    focus_path.as_ref().and_then(|focus_path| {
+                        if focus_path.0.first() == Some(&child_index) {
+                            Some(TreeNodePath(focus_path.0[1..].to_vec()))
+                        } else {
+                            None
+                        }
+                    }),
+                );
+            }
+
+            last_child.append_child_to_string_with_prefix(
+                s,
+                value_stringizer,
+                prefix,
+                true,
+                focus_path.and_then(|focus_path| {
+                    if focus_path.0.first() == Some(&(self.children.len() - 1)) {
+                        Some(TreeNodePath(focus_path.0[1..].to_vec()))
+                    } else {
+                        None
+                    }
+                }),
+            );
+        }
+    }
+
+    /// Uses the algorithm from:
+    /// https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
+    pub fn simple_to_string(
+        &self,
+        value_stringizer: &impl Fn(&T) -> String,
+        focus_path: Option<TreeNodePath>,
+    ) -> String {
+        let mut s = String::new();
+
+        self.append_to_string_with_prefix(&mut s, value_stringizer, "", focus_path);
+
+        s
     }
 }
 impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {

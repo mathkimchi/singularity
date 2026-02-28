@@ -11,35 +11,36 @@ use smithay_client_toolkit::{
     registry::RegistryState,
     seat::SeatState,
     shell::{
-        xdg::{
-            window::{Window, WindowDecorations},
-            XdgShell,
-        },
         WaylandSurface,
+        xdg::{
+            XdgShell,
+            window::{Window, WindowDecorations},
+        },
     },
     shm::{
-        slot::{Buffer, SlotPool},
         Shm,
+        slot::{Buffer, SlotPool},
     },
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
 use ui_event::{KeyModifiers, UIEvent};
 use wayland_client::{
+    Connection,
     globals::registry_queue_init,
     protocol::{wl_keyboard, wl_pointer},
-    Connection,
 };
 
 pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 
 pub struct UIDisplay {
+    /// TODO: use `EncapsulatedLock`?
     root_element: Arc<Mutex<UIElement>>,
 
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
@@ -190,7 +191,7 @@ mod drawing_impls {
     use font_kit::font::Font;
     use raqote::{DrawOptions, DrawTarget, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
-    use wayland_client::{protocol::wl_shm, Connection, QueueHandle};
+    use wayland_client::{Connection, QueueHandle, protocol::wl_shm};
 
     impl UIElement {
         fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
@@ -424,8 +425,8 @@ mod drawing_impls {
 }
 mod ui_display_wayland_impls {
     use super::{
-        ui_event::{Key, KeyModifiers},
         UIDisplay,
+        ui_event::{Key, KeyModifiers},
     };
     use crate::display_units::DisplayArea;
     use smithay_client_toolkit::{
@@ -438,19 +439,19 @@ mod ui_display_wayland_impls {
         registry::{ProvidesRegistryState, RegistryState},
         registry_handlers,
         seat::{
+            Capability, SeatHandler, SeatState,
             keyboard::{KeyboardHandler, Keysym, Modifiers},
             pointer::{PointerEvent, PointerHandler},
-            Capability, SeatHandler, SeatState,
         },
         shell::{
-            xdg::window::{Window, WindowConfigure, WindowHandler},
             WaylandSurface,
+            xdg::window::{Window, WindowConfigure, WindowHandler},
         },
         shm::{Shm, ShmHandler},
     };
     use wayland_client::{
-        protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_surface},
         Connection, QueueHandle,
+        protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_surface},
     };
 
     impl CompositorHandler for UIDisplay {
@@ -481,6 +482,8 @@ mod ui_display_wayland_impls {
             _surface: &wl_surface::WlSurface,
             _time: u32,
         ) {
+            // Draw every frame
+            // TODO: only draw when updated
             self.draw(conn, qh);
         }
 
@@ -832,11 +835,7 @@ pub mod ui_event {
     impl KeyTrait for Key {
         fn to_alphabet(&self) -> Option<char> {
             let c = self.to_char()?;
-            if c.is_ascii() {
-                Some(c)
-            } else {
-                None
-            }
+            if c.is_ascii() { Some(c) } else { None }
         }
 
         fn to_digit(&self) -> Option<u8> {

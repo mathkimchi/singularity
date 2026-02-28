@@ -382,8 +382,8 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
     let define_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
-            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
-            let data_len_ident = proc_macro2::Ident::new(&format!("len_{}", field_ident), proc_macro2::Span::call_site());
+            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{field_ident}"), proc_macro2::Span::call_site());
+            let data_len_ident = proc_macro2::Ident::new(&format!("len_{field_ident}"), proc_macro2::Span::call_site());
             quote! {
                 let #data_bytes_ident = self.#field_ident.to_data();
                 // TODO: make this le bytes
@@ -395,8 +395,8 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
     let combine_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
-            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{}", field_ident), proc_macro2::Span::call_site());
-            let data_len_ident = proc_macro2::Ident::new(&format!("len_{}", field_ident), proc_macro2::Span::call_site());
+            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{field_ident}"), proc_macro2::Span::call_site());
+            let data_len_ident = proc_macro2::Ident::new(&format!("len_{field_ident}"), proc_macro2::Span::call_site());
             quote! {
                 #data_len_ident.as_slice(),
                 #data_bytes_ident.as_slice(),

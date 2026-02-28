@@ -1,7 +1,4 @@
-use singularity_sap::standard_packets::display_packets::{
-    CloseWarningEvent, DisplayEvent, FocusedEvent, UnfocusedEvent,
-};
-use singularity_ui::ui_element::CharGrid;
+use singularity_ui::{ui_element::CharGrid, ui_event::UIEvent};
 
 // use super::Component;
 
@@ -123,59 +120,53 @@ impl TextBox {
         text_clone
     }
 
-    pub fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+    pub fn render(&self) -> singularity_ui::ui_element::UIElement {
         singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
     }
 
-    pub fn handle_event(&mut self, event: DisplayEvent) {
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
-        match event {
-            DisplayEvent::UIEvent(ui_event) => match ui_event {
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
-                    // arrow down
-                    self.cursor_logical_position.1 += 1;
+    pub fn handle_event(&mut self, ui_event: UIEvent) {
+        use singularity_ui::ui_event::{KeyModifiers, KeyTrait};
+
+        match ui_event {
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
+                // arrow down
+                self.cursor_logical_position.1 += 1;
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 103 => {
+                // arrow up
+                self.cursor_logical_position.1 = self.cursor_logical_position.1.saturating_sub(1);
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 106 => {
+                // arrow right
+                self.cursor_logical_position.0 += 1;
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 105 => {
+                // arrow left
+                if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
+                    self.cursor_logical_position.0 = new_cursor_x;
+                } else {
+                    // TODO wrap to prev line
                 }
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 103 => {
-                    // arrow up
-                    self.cursor_logical_position.1 =
-                        self.cursor_logical_position.1.saturating_sub(1);
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 14 => {
+                // backspace key
+                self.delete_character();
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 28 => {
+                // Enter key
+                self.write_new_line();
+            }
+            UIEvent::KeyPress(key, KeyModifiers::NONE | KeyModifiers::SHIFT)
+                if key
+                    .to_char()
+                    .is_some_and(|c| c.is_ascii_graphic() || c == ' ') =>
+            {
+                // NOTE: I wish rust will soon implement if let within matches
+                if let Some(c) = key.to_char() {
+                    self.write_character(singularity_ui::ui_element::CharCell::new(c));
                 }
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 106 => {
-                    // arrow right
-                    self.cursor_logical_position.0 += 1;
-                }
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 105 => {
-                    // arrow left
-                    if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
-                        self.cursor_logical_position.0 = new_cursor_x;
-                    } else {
-                        // TODO wrap to prev line
-                    }
-                }
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 14 => {
-                    // backspace key
-                    self.delete_character();
-                }
-                UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 28 => {
-                    // Enter key
-                    self.write_new_line();
-                }
-                UIEvent::KeyPress(key, KeyModifiers::NONE | KeyModifiers::SHIFT)
-                    if key
-                        .to_char()
-                        .is_some_and(|c| c.is_ascii_graphic() || c == ' ') =>
-                {
-                    // NOTE: I wish rust will soon implement if let within matches
-                    if let Some(c) = key.to_char() {
-                        self.write_character(singularity_ui::ui_element::CharCell::new(c));
-                    }
-                }
-                _ => {}
-            },
-            DisplayEvent::Focused(FocusedEvent) => {}
-            DisplayEvent::Unfocused(UnfocusedEvent) => {}
-            DisplayEvent::Resize(_) => {}
-            DisplayEvent::Close(CloseWarningEvent) => {}
+            }
+            _ => {}
         }
 
         self.clamp_everything();

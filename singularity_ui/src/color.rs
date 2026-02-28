@@ -7,6 +7,8 @@ impl Color {
     pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
     pub const BLACK: Self = Color([0, 0, 0, 0xFF]);
     pub const WHITE: Self = Color([0xFF, 0xFF, 0xFF, 0xFF]);
+    pub const LIGHT_GRAY: Self = Color([0xDF, 0xDF, 0xDF, 0xFF]);
+    pub const MEDIUM_GRAY: Self = Color([0x7F, 0x7F, 0x7F, 0xFF]);
     pub const DARK_GRAY: Self = Color([0x1F, 0x1F, 0x1F, 0xFF]);
     pub const LIGHT_YELLOW: Self = Color([0xFF, 0xFF, 0, 0xFF]);
     pub const LIGHT_GREEN: Self = Color([0, 0xFF, 0, 0xFF]);

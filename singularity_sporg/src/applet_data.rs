@@ -81,10 +81,16 @@ impl Borrow<AppletTypeId> for AppletType {
 /// Standard naming scheme is snake case: `file_manager`
 /// REVIEW: make this a hash of the string instead of the string?
 /// REVIEW: call this `AppletTypeIdName`?
+///
+/// NOTE: This is currently an enum because for pre-alpha,
+/// all the applets are known.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct AppletTypeId(pub String);
-impl AppletTypeId {
-    pub fn new(s: impl ToString) -> Self {
-        Self(s.to_string())
-    }
+pub enum AppletTypeId {
+    FileManager,
 }
+// pub struct AppletTypeId(pub String);
+// impl AppletTypeId {
+//     pub fn new(s: impl ToString) -> Self {
+//         Self(s.to_string())
+//     }
+// }

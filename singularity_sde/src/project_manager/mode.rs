@@ -1,7 +1,7 @@
-use crate::tab::TabHandler;
+use crate::project_manager::TabHandler;
 use singularity_common::utils::tree::{
     id_tree::IdTree,
-    tree_node_path::{TreeNodePath, TreeTraverseOperation, TREE_TRAVERSE_KEYS},
+    tree_node_path::{TREE_TRAVERSE_KEYS, TreeNodePath, TreeTraverseOperation},
 };
 use singularity_ui::{
     display_units::DisplayArea,

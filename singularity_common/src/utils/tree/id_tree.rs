@@ -156,12 +156,11 @@ impl<T> IdTree<T> {
             }
             if self.root_id == id {
                 return Err(format!(
-                    "Node {:?} has parent {:?} but is also root",
-                    id, parent_id
+                    "Node {id:?} has parent {parent_id:?} but is also root"
                 ));
             }
             if parent_id == &id {
-                return Err(format!("Node {:?} is its own parent", id));
+                return Err(format!("Node {id:?} is its own parent"));
             }
         } else {
             // root pointer serves as pointer if no parent
@@ -541,7 +540,7 @@ mod derive_macro_impls {
                             return serde::__private::Err(serde::de::Error::invalid_length(
                                 0usize,
                                 &"struct IdTree with 2 elements",
-                            ))
+                            ));
                         }
                     };
                     let __field1 = match serde::de::SeqAccess::next_element::<
@@ -553,7 +552,7 @@ mod derive_macro_impls {
                             return serde::__private::Err(serde::de::Error::invalid_length(
                                 1usize,
                                 &"struct IdTree with 2 elements",
-                            ))
+                            ));
                         }
                     };
                     serde::__private::Ok(IdTree {

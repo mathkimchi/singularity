@@ -7,6 +7,6 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-singularity_sap = { path = "../../singularity_sap" }
+# singularity_sap = { path = "../../singularity_sap" }
 singularity_sttk = { path = "../../singularity_sttk" }
 singularity_ui = { path = "../../singularity_ui" }

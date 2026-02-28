@@ -58,9 +58,9 @@ impl Project {
         Self::try_from_project_directory(project_directory.clone()).unwrap_or_else(|| Self {
             project_settings: ProjectSettings {
                 applet_types: HashSet::from_iter(vec![AppletType {
-                    type_id: AppletTypeId::new("file_manager"),
+                    type_id: AppletTypeId::FileManager,
                     default_spawn: Some(AppletSpawnData::new_argless_pipe_child_process(
-                        Some(AppletTypeId::new("file_manager")),
+                        Some(AppletTypeId::FileManager),
                         "./target/release/file_manager",
                         serde_json::to_value(PathBuf::from(project_directory.clone())).unwrap(),
                     )),

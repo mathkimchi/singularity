@@ -4196,3 +4196,1194 @@ I wanted to call this new Singularity the Nova Singularity,
 but I realized that there isn't really an old Singularity to compare it to,
 since I am still working on the first MVP.
 I guess I can call this the reignition stage of the development era.
+
+2025-09-20 11:24AM
+
+The crates I need are:
+- UI
+  - Current one is good
+- SDE
+- STTK
+- Some tabs (standard tabs)
+- Sporg (but this is kind of a mess as well, might need to start it from scratch.)
+- and the common just for help
+
+2025-10-09 2:20AM
+
+I will delete unnecessary crates.
+
+2025-10-11 9:12PM
+
+I'm going to change the code now to get rid of unnecessary files and maybe add some skeleton.
+I want to get rid of errors from referencing code that doesn't exist.
+
+Things like the packets, I will put in singularity_common.
+
+Packets (both the abstract protocol and the standard packets) used to be in SAP.
+I am getting rid of abstract packets while Singularity is still in pre-alpha.
+
+I think I will do reactive applets as the only way for now.
+I won't support processes or multithreading either in pre-alpha.
+
+2025-10-12 9:27PM
+
+I will start out by planning the Handlers,
+which represent communication between the SDE and applet.
+The `ServerHandler` is used by the Applet and implemented by the SDE.
+
+After thinking about it, I don't need a Ratk as a seperate thing,
+because I can just have an `AppletHandler` in singularity_common
+(and I'll call it `ReactiveHandler` since that is more clear).
+
+I guess if progress wasn't a priority, I'd put both of these things in singularity SAP,
+but it shall not exist while I continue forward.
+
+Actually, I am just going to make sap a folder in singularity_common,
+since I was going to make a folder for all the handler and related things anyways.
+
+My vague idea for communication:
+
+- Applet -> SDE:
+  - Requests (make queries=requests later?)
+  - Queries ask for a response in return
+  - Creating other Applets:
+    - Make the applet instance on its own and then just give it to the SDE and tell it to register it. (a type of Request)
+    - Could also have a more generic/abstract way, but idk how yet. Would still be a request.
+- SDE -> Applet:
+  - Event: inform applet of event that happened
+  - Response to queries
+  - Initialization: different from a normal event (currently all events are instance events, no global) because this is called globally and also requires return value
+
+I guess the new thing is the initialization.
+
+2025-11-11 11:26AM
+
+Lowkey, I am super lost because its been months since I actually worked on singularity.
+
+2025-11-12 5:04PM
+
+I explained to the other guy in Micro47 the overview of Singularity.
+The main issue is just connecting Applets to the Singularity server.
+The four levels of this I've considered (top is most general and difficult to rigid but easy):
+
+1. Processes
+   1. Dynamic
+2. Dylibs
+   1. Dynamic
+   2. Reactive
+3. Threads
+4. Reactive Rust Objects
+   1. Reactive
+   2. Server Context Object:
+      1. The server talks to applet by calling `applet.some_method(..., server_ctx)`
+      2. The applet talks back to server by calling `server_ctx.some_method()`
+      3. The server passing context as a bundle of callbacks
+      4. Metaphorically, when the server calls an applet's method, the server is sending a letter/order to the applet. Including the context is like signing the letter "You can call me for more information or help at _"
+
+I think I had something not bad for threads.
+Then, I was like "I want a challenge" and did dylibs.
+Then, I got annoyed by how slow I was implementing dylibs and switched to Reactive Rust,
+but gave up after that.
+
+So I tried to take 1 step forward, took 2 steps back,
+then just laid down.
+
+The really cool thing about Reactive Rust Objects is that maybe applets could have subapplets,
+but I don't want to think about that right now.
+
+I am going to try to run through a very basic flow
+(simplification of projects for now. Also, tree nodes store views not tabs):
+- User starts singularity for the first time
+- Singularity creates a tree with just the root which is a view of a hub applet
+  - (Hub is like a mix between a terminal and the vscode command palette)
+  - Creating a hub applet:
+    - Server runs `Hub::new()` and should get `Some`
+- User types in: `replace_self(apps.find("EDITOR"))` (syntax is just placeholder)
+  - Server relays user event to applet like `applet.handle_event(user_event, server_ctx)`
+  - Applet gets the typing information and stores it in its current string or st
+  - Applet updates its ui display with `server_ctx.request(...)`
+- When the server tells the applet the user's `<ENTER>`, the hub applet spawns an editor child applet
+  - Applet runs `let editor = Editor::new().unwrap();` (returns a blank editor without a file)
+  - Applet calls `server_ctx.request(Requests::ReplaceSelf(editor))`
+- Server replaces hub with applet in the view
+- User types stuff
+  - Already know how to deal with this
+- User closes the editor
+  - Server calls `applet.destruct(server_ctx)` (which takes ownership)
+  - In production, there should be a way to ask confirmation on non-forced closes, but ignore that for now. Pretend the app just saves the text to instance storage
+  - Applet calls `server_ctx.request(...)` to update instance storage
+  - Server updates applet's instance storage
+  - Applet ends everything it needs to (shouldn't be much)
+  - Server removes everything else related to applet (or puts it in the history)
+
+2025-12-03 11:46PM
+
+I don't have anything technical to write right now.
+
+But, I wanted to write down that maybe I should grab myself a whiteboard,
+a good hour or two, and maybe a friend/rubber ducky and re-draft all the
+types I need as well as the interactions between them (in the form of typed functions).
+
+Oh, I guess I can also say something I thought about the actual tree-hierarchy system of subapps.
+An idea I had is that I could do a recursive style implementation of the tree hierarchy.
+What I mean is, that SDE (or some part of its framework) could technically
+just be a single-applet runner.
+But, in practice, most applets can implement `NodeApplet` which would
+allow the implementer to implement the Applet itself,
+but the Applet itself is enclosed and the NodeApplet has code that allows for it to be a parent
+node as well.
+
+This idea is the culmination of a series of smaller change ideas:
+1. Just have a 1-to-1 correspondence between a tree node, applet instance, and a view.
+2. But what if I want two applets in one view? Create a TilerApplet that is a parent of those two. The TilerApplet's implementation is that it's view is updated by having one half be one child's view and the other side be the other child's view.
+3. But this sounds super wasteful if done through the same framework as all the other applets and I want to avoid adding a special exception just for a TilerApplet. Well, what if we made every applet recursive by nature?
+
+Making the entire tree-hierarchy of the applets come from recursion is the crux of the idea.
+Most Applets will run inside a NodeApplet,
+where the NodeApplet library handles all the tree-related stuff
+like setting focus & view and forwarding events/views between SDE (via parent) to
+the focused tab (either self or the focused child).
+
+This *is* kinda scary because if one parent messes up the hierarchical duties,
+then all its children will also stop working.
+But, I think this is fine if I make NodeApplets the default
+and people have to go out of their ways to do something else like a SplitView Applet.
+
+Right now, I am leaning towards SDE is just an AppletRunner so I might call it SAR
+or something,
+and the tree selection stuff is implemented by maybe the RootNodeApplet
+which is like NodeApplet but with extra root-related duties
+like the tree traversal/selection.
+
+2025-12-04 11:11PM
+
+I am going to just ignore tab restoration for now.
+
+I will have a Singularity App Runner, SAR, instead of SDE.
+I will just start by having the SAR and a basic text editor.
+SAR will be like Singularity UI where it could theoretically be a general
+crate for non-singularity app development.
+IE it will be a general app framework
+and all the singularity specific stuff (like hierarchy)
+will be implemented in the applet toolkits.
+
+2025-12-05 5:34PM
+
+As I am working on the skeleton code, I am not sure how to do the UI.
+
+The obvious plan I had was to just let them update with Queries and whatnot
+since I am just doing reactive applets.
+
+In theory, this should be fine but my gut,
+motivated perhaps by long-term planning or perhaps greed and ambition,
+is telling me I can and should do better right now.
+The problem with the reactive approach is that is has absolutely no way to work for active applets.
+
+The best alternative I've thought of right now is by thinking of the applet and SAR relationship
+through a new perspective:
+instead of SAR holding/owning the applets,
+the are two independent things (they don't own each other)
+and each have ways to call each other's functions.
+If I can make this work within Rust,
+then it will be efficient for reactive applets while also being fexible.
+
+2025-12-06 9:10AM
+
+The first thought I had was to use MPSC, but I want it to be even more flexible than that.
+Maybe just functions where MPSC is a default implementation.
+
+I don't know how the ordering would work for this.
+The naive way is to first create one (of the SAR or the applet) with an Option for communication
+and then make the other object and the communication and give it to the original thing.
+
+But I don't like the Option because we know that once everything is initiated,
+it will be a Some but we will need to keep calling unwrap.
+
+Another order would be to start by creating the connection and then create the two objects (like MPSC).
+But if I do that, then it wouldn't be very flexible.
+
+Or, I could do something slightly similar to the Option idea but just start them out with trivial methods
+and allow it to be modified.
+I think the term for this is hooks.
+
+So I think I could just have it so that the order is:
+1. Create an Applet which has methods: `set_hooks` and `handle_event` and `get_display`, ...
+2. Create the SAR and give it the applet
+   1. SAR makes everything it needs to
+   2. SAR makes hook that implements things like `notify_update_display` from itself
+   3. The SAR calls `applet.set_hooks` and gives it the hook
+
+This is actually similar to the reactive applet where I send the server_ctx
+as an argument every time the SDE called an applet's funciton,
+like `handle_event(event, server_ctx)`.
+
+I think I can assure myself that creating Applet first makes sense
+because an Applet should be allowed to exist without a runner,
+but a runner needs an applet to run.
+
+Hmmm...
+I am not sure how the ownership would work with this
+because Hook holds a reference to SDE
+but I don't want to deal with lifetimes and all that mess.
+I guess MPSC "dealt" with this problem by letting the user not worry about lifetimes
+and with no gurantee of the reciever's existance,
+but then you get an error if the reciever doesn't exist.
+
+In the current (above) idea with the hooks,
+I simply replaced an Optional hook by allowing a trivial implementation instead of a None.
+But, here is another perspective:
+we can kind of "drag out" the two states of the hook to say
+that the Applet itself has two states: an applet with a hook and an applet without a hook.
+The `set_hooks` function essentially consumes an applet without a hook
+and returns an applet with a hook in its place.
+So, what if we just make the before vs after two different functions entirely?
+This idea is the same as just having an applet initializer function.
+So, the steps taken would be:
+
+1. Create Applet initializer data
+2. Create Runner and give it applet initializer data
+   1. Runner makes its own things that it needs to
+   2. Runner makes the hook
+   3. Runner initializes the Applet, giving it the hook
+
+I actually vaguely remember doing this exact thing in the past.
+
+...
+
+The only communication between the applet and applet runner seems to be UI stuff
+when the Applet Runner is just SAR and doesn't implement hierarchy.
+
+With the recursive approach,
+if I set up the Applet to specifically be used by SAR
+and without any singularity stuff (like the tree hierarchy) in mind,
+then I might end up needing a new more flexible/versatile trait
+for apps being used in nodes and stuff like NodeApplet.
+I guess that wouldn't be the end of the world,
+but it feels like it defeats the point of having a recursive thing.
+I will allow it for now.
+
+I haven't explicitly said this yet,
+but one of the things I'd like to support is Components like textboxes through the Applet
+framework.
+But I think the applets' flexibility for being able to call the hook whenever
+might be kind of annoying when we know that the display should only update reactively.
+I could definitely make it work with MPSC and Mutex,
+but that is unnecessary resources and I will look for a simple way of doing it later.
+
+I guess I could start coding by simply making a textbox.
+
+...
+
+Oops, I forgot to update skeleton code to have the initializers.
+While I am changing that, I am also going to change the name for Applet to be BasicApplet.
+
+2025-12-12 1:53PM
+
+Implementing the runner logic and a standalone app was very easy.
+Now, I will implement the singularity hierarchy logic in sttk,
+but I don't know if that is the best place for it.
+
+Actually, I will implement ending logic before that
+(I was cleaning up my code and realized I should add this).
+I could do some ownership stuff with this, but I don't see the usecase right now.
+I think drop is enough as well, as long as the user doesn't call any hooks on drop.
+
+2025-12-14 11:33PM
+
+Now, this is the real test: the singularity hierarchy logic.
+
+The naming I will use is to say `BasicApplet` is the bare minimum needed to run and talk to the UI,
+and `NodularApplet` for the applets that support hierarchy operations.
+
+I am slightly bummed that the recursive approach doesn't really work with the ID system,
+but I acknowledge it could actually be an opportunity for theoretical purity.
+
+Ooh, I just got tingles from this idea:
+*IF* I somehow devise the interfaces such that the only differences is that the hook has more things,
+then this would be really good in rust
+(I don't want to explain explicitly, if you want to know why, then try implementing it yourself and you'll see).
+
+Well, now I have to actually see if I can do that.
+
+Recap of the basic applet:
+- Applet calls:
+  - `handle_ui_event`
+- Runner hooks:
+  - `update_display`
+  - `close`
+
+For the nodular applet, I plan on having a mini view which is a generalization of tree view.
+
+Nodular applet:
+- Applet calls:
+  - `handle_ui_event`
+  - `handle_nodular_event`
+    - For things like focus and highlighted
+- Runner hooks:
+  - `update_display`
+  - `close`
+  - `update_mini_view`
+  - `add_child`
+
+So unfortunately it seems like I need more applet calls.
+
+Or maybe I can somehow seperate the mini view logic from the normal stuff.
+The reason for me wanting to generalize the mini view logic is because of a usecase like a markdown editor with sections.
+
+Maybe I can brainstorm the seperated mini view later,
+but I guess I'll just pursue the naive approach right now.
+
+2025-12-21 2:46PM
+
+Freak...
+
+I just realized that some tree operations might be very annoying to implement recursively.
+Some might require global coordination from the root and the recursive implementation would
+just be a very contrived way to execute a globally coordinated algorithm recursively.
+
+Without thinking about it too much,
+I think this goes against the spirit of singularity.
+
+Let me commit the (atrocious) code I wrote so far in this commit and contemplate further.
+
+2026-01-01 12:42AM
+
+New year, new singularity!
+
+2026 will be the year of the singularity.
+
+Jokes aside, as I reflect on how long I've been "developing" singularity for,
+I can not mask my disappointment.
+
+If anything, I want 2026 to be the year of reflection and new directions in the context of
+singularity's development.
+
+That said, I decided to push through with the recursive subapp implementation
+and to address the flaw exposed by globally coordinated tree operations,
+I just won't address them (for now).
+I won't even worry about the minimap.
+For now, I will just implement two non-leaf applets:
+
+1. The standard RecursiveNodeApplet (just shows the focused item)
+2. The DividedApplet is like a very limited tiling window manager, which, like the standard node applet, holds one main subapp and a list of children subapps. All the subapps are given equally sized rectangles, and it can switch between horizontal vs vertical stacks. This is mostly here right now for debugging purposes.
+
+I think all the tree traversal operations I've previously implemented can be done locally,
+and the only things that needed global coordination was tree modification.
+
+2026-01-07 11:57AM
+
+Bruh, I am just spamming `Arc<Mutex<Box<T>>>` everywhere.
+I feel like I surely have a circular reference somewhere
+and it is very ugly.
+
+2026-01-08 10:03AM
+
+The code makes me want to puke.
+Because of Rust's ownership rules, it is really hard to reuse functions in this case.
+Specifically, I was avoiding giving a reference to the parent (RecursiveNodeApplet) to the hooks,
+because the parent holds the child which holds the hook so if the hook holds the parent,
+we get a circular loop.
+There might also be a problem with Mutex getting infinitely stuck.
+But this means that I have to isolate everything that the hooks need to hold.
+So certain operations like updating the window to be the focused node
+has to be implemented 3 times
+(once for children, once for the primary child, and once for the focused node itself).
+
+I am going to look into weak references as well as creating
+bundling every shared object into just one type that is held by the hooks and parent.
+
+2026-01-09 9:22AM
+
+I have decided it will be easiest to start with `DividedApplet`
+without a special main child.
+I will add that later though.
+
+2025-01-16 11:58AM
+
+I have invaded a random Stats class because I got a class off,
+and I feel so productive.
+I finally squashed the multiple deadlocks I had,
+and surprisingly everything just worked smoothly from there.
+I am a little worried that the chances of deadlocks will only increase as
+the project gets more complicated.
+If that happens, I might end up just putting everything in its own thread,
+though that would make this architecture useless.
+
+Well, I am going to commit what I have.
+This is the first time I am running an app that holds another app.
+
+Now, I am going to give the holder two applets and switch between them.
+
+2026-01-19 10:04PM
+
+A system where applets return the display instead of updating shared memory
+would be philosophically more elegant,
+and would trivially support the updating shared memory method,
+but in practice, this would be bottleneck paradise.
+
+Anyways, I want to implement the tree hierarchy aspect of singularity.
+Specifically, the UI of it: the Quick Map.
+I have kind of been dreading this, because this is the make-or-break aspect of singularity.
+
+I sketched out an example of what this would look like on my iPad.
+In the final form, I imagine two main parts:
+the treeview and the selected view preview.
+There will also be a plucked root view.
+But the main feature is the treeview, so I'll implement only that for the MVP.
+(Treeview without space like preview; I'm making up this word.)
+
+The fact that there is no elegant interpretation/explanation of the tree view makes me sad.
+But whatevs.
+
+...
+
+1:24PM
+
+<!-- I was not going to do this for fear of getting stuck in another rabbithole
+(or rather a rabbithole I've been in before).
+I am talking about the generic packets.
+
+I might need to do this because  -->
+
+I am going to generalize the multi-app holder.
+
+First, I should generalize the Mutex UI.
+
+2026-01-21 11:56AM
+
+Yesterday, as I was organizing my thoughts as one does,
+I had an idea for possibly optimization.
+Well, I guess it is more an extension of an idea I already had.
+The old idea is just the principle that if I have multiple things
+in a container and then I update the things inside the container,
+I don't have to update the whole thing; just the things that changed.
+
+I simply realized that I could combine this with the hook system.
+So each UI element will have a `was_updated` boolean,
+and when an element is updated, its parent is also updated.
+(Btw, I'd make a new struct like `EfficientUIElement`.)
+
+Another seperate idea is abstracting on the sync logic,
+which, above other benefits, can ensure no deadlocks.
+The most basic abstraction is surrounding all uses of Mutexes behind objects
+with methods where I can guarantee it executes fast and will not have deadlocks.
+For example, just having a setter and getter (of the clone to be precise)
+is the minimal implementation of this idea.
+
+The more exciting idea I had was a sort of lazy processing.
+The general task is that we want to run a sort of
+clean-up function once everyone stops using it.
+(The difference between this task and setting drop+Rc
+is that this clean-up function is called when everyone stops just actively accessing it
+not when they completely drop the object.)
+In the context of singularity, this could be useful for updates that only need to happen once,
+once everything else is done updating, like updating ui.
+More generally, since I allow for objects to call children or its parent,
+the call-stack can go up or down depths.
+The clean-up for object A should be called when the last occurance
+of object A in the call stack is finishing.
+
+(I watched a video on Djikstra's Semaphores and want to make my own synchronization object.)
+Let me introduce my solution in the form of a data structure:
+the Clam (name in progress).
+The clam holds an inner object<!-- (clonable, most likely Arc)-->,
+a borrow counter (like Rc), and a clean-up hook.
+(The clean-up hook *could* theoretically be static, but I'm not going to worry about that.)
+You can call get_pearl on the clam, which increases the counter and
+returns a pearl containing a clone of the inner object.
+A pearl lets you access the inner object.
+When it is dropped, it decrements the counter and if the counter becomes zero,
+runs the clean-up hook.
+Clam should be clonable.
+Maybe I should let Pearls be cloned or even allow Pearls to
+output its spawner Clam too.
+
+Actually implementing this is annoying because I don't know
+how much I actually need to use Arc for.
+I don't need a Mutex around the inner because the user can specify
+`Clam<Mutex<T>>` if they need it.
+
+Also, I think I should just document a simple
+principle for avoiding deadlocks where a thread waits on itself
+with Mutex/RWLock:
+do as little as possible while there is a lock.
+When debugging deadlocks, try to look for functions that are called
+while there is a lock, and avoid possibly recursive calls while
+there is a lock.
+
+In the documentation, I explained it like this:
+Clam is the dormant state
+(meaning you can access the object later but aren't accessing it now)
+and Pearl means you are actively accessing the object.
+When a pearl is dropped and there are no current pearls,
+the clean-up function is called.
+
+2026-01-22 9:53AM
+
+I implemented the EncapsulatedLock,
+which should gurantee that there are no deadlocks
+by only exposing a getter function that clones and a setter.
+
+I was also considering having something similar to Mpsc
+called Mrsw (multiple reader, single writer),
+which is just encapsulated lock but even more limited.
+
+...
+
+Now I have to figure out how to actually use my sync abstractions.
+
+1:26PM
+
+I was just squashing the syntax errors after adding AppletHolder
+(I made AppletHolder before the last few commits until I got distracted)
+and using it in recursive node applet.
+
+On an irrelevant note, I was thinking more about a generalized UI Element.
+A generalized UI Element should be able to do two things:
+- draw self onto a rectangle of some size
+- return whether self should be redrawn
+
+When the element is resized, its parent should automatically call `element.redraw`,
+but when the element is just translated, then maybe it would be optional.
+
+I could also tweak this to be hook-based and also with a boolean for to_update,
+which would enforce speed.
+
+2026-01-23 9:13AM
+
+During breakfast, the person I sat next to left
+so I took out a pen and started drawing the `to_update` on a napkin.
+
+Then, first block was CS, so my teacher wanted me to present
+what I've done since my last presentation.
+I just went through my commits and then we talked about IPC and theorized about performance.
+I didn't show them the most recent working demo,
+because I feel like if the kids found out this is the result of years of work,
+they would laugh at me.
+(I am not being overly self conscious, I know am in a class of jokesters.)
+
+Anyways, the analogy I gave my teacher for
+the feature I am currently working on was that instead of upwards requests being like:
+"hey parent, I need you to do XYZ for me right now"
+(`parent.update_display` updating the display in that call),
+the new structure would make children be like:
+"Hey parent, I have an update for you. Call me when you are ready to hear it".
+
+TANGENT:
+I don't know how queries are going to work in this system though,
+but that is a problem for the future.
+Something to note is that I am inverting the previous (like before this branch) expectation
+that the child shouldn't be waited on by a parent.
+With my new recursive active+passive (reactive) architecture,
+I actually encourage calls to the parent to be simple.
+But this inversion is quite a coincidence more than anything.
+The old architecture enforced not waiting on children
+for the sake of safety, to prevent a child from freezing the whole system when it freezes.
+But the way I take advantage of multi-threading being unneccessary in passive apps
+means that I must take the risk of waiting on generalized child calls.
+I encourage upward calls to be simple to avoid self-deadlocks.
+
+Anyways, let me be more specific on how I want to technically implement this.
+Consider a minimal example where the fundamental necessary interactions are
+event notifying from parent to child and update display from child to parent.
+Event notifying should work as normal.
+If a child wanted to update the display,
+it would set `to_update = true` and then call `parent.notify_update()`
+if `to_update` wasn't already false.
+And the parent would do the same thing to its parent.
+On the root applet's side, it would set its own `to_update = true`,
+and then finish and let all the calls to the children finish.
+Once we are back at the root, at the end of the root's original function,
+it checks if its own `to_update` is true.
+Then for all its children, if the child's `to_update` is true,
+it turns the child's `to_update` to false then calls something like `get_display` on it,
+and this happens recursively.
+A standard applet should just store the ui already before notifying the parent,
+if it is a good boi.
+But, for something that is subject to changing very fast,
+a lazier approach is sensible.
+(The shared bool might be unneccessary,
+but I am fine with it because it is helpful anyways for preventing redundat notifications.
+I kind of wanted to have all downwards functions return a boolean for the new `to_update`
+value, but if that was ever needed, the child can just call `parent.notify_update()`
+at the very end.)
+
+I'm not actually going to do the generalized UI thing just yet.
+
+With this `simplify upward calls` refactor,
+I am implementing a more specific solution, but it is simpler than having the whole clam.
+
+(By the way, just want to note that I *have* been coding,
+specifically I was using the Sync primitives I made,
+but I am just not storing them in the git.)
+
+...
+
+Something I've been wanting to start but is scared to do is streaming my coding sessions
+because 1: for more connvenient devlog, and 2: its fun.
+
+I am kind of scared to do it on MathKimchi
+and even considered making a second channel just for streams,
+but I think I just need to stop pretending like this is some huge thing
+and start without super high expectations.
+
+2026-01-24 8:40AM
+
+I'm not sure if I should consider the root
+the outermost applet (the root applet),
+or just make it the runner.
+
+This also brings up the question of how this works with different types of updates.
+I am going to do something really scuffed and say that for display updates,
+the runner is doing the root stuff.
+For treeview updates, I guess the app that is a basic app but holds nodular apps should handle that.
+
+2026-01-27 8:26AM
+
+Bruh, I finished my work early for my stats class.
+
+I briefly looked into Wayland's protocol and I think I am getting closer to it.
+
+The interface is:
+
+BasicApplet:
+- handle_ui_event
+- get_window (I kind of use window, display, ui interchangably)
+  - I am not enforcing Mutex here to support lazy apps (and not to support my laziness)
+
+BasicRunnerHook:
+- damage_window ("damage" seems to be the term Wayland uses for saying that the window should be updated)
+- close
+
+Later, I should update the UI library to match this new protocol.
+
+...
+
+10:21AM
+
+The performance is obviously very bad,
+but can't remember if it was always bad or this is worse.
+
+2026-01-28 11:19AM
+
+Enough procrastination, I should start the treeview.
+
+9:02PM
+
+After thinking (aka sitting on my bum),
+I have concluded that for now, I will implement the treeview
+by making each applet return an actual tree of strings,
+not the generic UIDisplay I am hoping to do in the future.
+
+I ask myself whether it was the right decision to refactor
+what was already working.
+I knew that I would waver and regret switching to a new architecture.
+Yet I trudge on, not because it is too late to back out,
+but because it is still too early.
+Singularity deserves to be broken down and rebuilt
+until it can no longer be improved.
+
+Erhm, what the yap?
+
+Ignoring whatever that was,
+I have a fun, side quest-y mini-project for singularity.
+I am supposed to give a 5 minute presentation
+and then a 3 minute demo on singularity.
+So, I want to do the whole presentation in singularity and then be like:
+"Aha! You thought this was a boring slideshow app,
+but it was singularity this whole time!"
+
+Since this is due kind of soon,
+I'd probably make the slides in google slides and export it as a PDF.
+To display a PDF, I'd first add PNG/JPG support to Singularity,
+then I'd just use
+https://github.com/pdf-rs/pdf_render/blob/master/examples/pdf2image/src/main.rs
+to convert each PDF page to an image.
+
+Oh, and another thing I want to note is a really cool
+digital interface analysis YouTuber I came across named
+[InterfaceStudies](https://www.youtube.com/@interfacestudies/videos).
+Some videos:
+- [Verb vs Noun order](https://www.youtube.com/watch?v=jP5PQ8ix7JE&pp=2Ab5Cw%3D%3D)
+- [Pie menus](https://www.youtube.com/watch?v=6uTSwJ3uqEg&pp=2AYC) (vs linear menus)
+
+2026-01-31 6:37PM
+
+I've been chipping away at the treeview little-by-little over the past few days
+and didn't even log because I thought it would be easy and simple.
+
+But Darnwin damn it, I currently feel like recursive treeview
+is the dumbest freeeeeaking idea I've ever created.
+
+I'm telling myself to stay calm.
+
+Did I even think this idea through
+before committing to it-before ditching a working prototype?
+
+But secretly, I think I have stumbled onto an even better architecture.
+(*Reader who has the power of foresight, or perhaps just basic common sense and pattern recognition facepalms as I propose an entirely new organizational paradigm.*)
+
+Let me propose the specific version first then generalize.
+
+The idea is called dimension-tree
+(or maybe: world-tree, order, axis, level, layer).
+
+For the specific example, lets say dim zero is project,
+dim one is applet, and dim two is applet elements
+(like if the applet was a markdown reader, it could be the markdown elements).
+Then there would be a project tree,
+each project holds an applet tree,
+each applet holds an element tree.
+
+Dim is short for dimension btw.
+Btw is short for by the way by the way.
+
+(I get excited and start talking about extending this idea:)
+We could even say dim negative 1 is is task-type
+(like coding, music, etc) and so on
+but keep in mind that the numbers don't really matter.
+If I end up displaying the dim, I'd try to ensure that the lowest dim is 0.
+We could go even more even further and say that the layers are not fixed,
+and the layer depends on what world this tree is inside
+(I think this is similar to dependent types in type theory).
+
+2026-02-02 3:55PM
+
+I don't think the dimension tree actually solves the problem I have with the recursive node.
+At least not in the way I want.
+
+Let me try to define a dimension tree that is used slightly differently
+from how I described it above, to let it "solve" the recursive node problem.
+`DimensionTree<T>` is a tree where a node's value is either
+another `DimensionTree<T>` in which the node is a world with a subtree
+or a `T` in which case the node is elementary.
+
+<!-- ...
+
+I don't think this is it, gang.
+The dimension tree is a generalization of the project tree -> applet tree -> element tree idea,
+but I feel like project tree is so solid that I don't need to generalize it.
+
+But, this helped me come to a simple solution to the recursive node thing:
+there wasn't a problem with the architecture,
+I just needed to think about the root differently. -->
+
+2026-02-03 4:28PM
+
+...I am not sure if this idea is going to solve anything.
+
+Technically, it does solve the problem,
+but it just changes/adds so many other things
+that the problem is kind of irrelevant to this decision.
+In other words, if I were to do the dimension tree,
+it would be because I prefer it in general,
+not just because it solves the problem.
+
+The problem with the normal tree and recursive nodes
+is that since the recursive node's value in the hierarchy
+is the main applet's hierarchy value,
+the main applet should return `T` (currently just a String) but the general framework
+makes it return `Tree<T>`.
+A quick solution is just to take the root value of the main applet's output.
+There are safer ways like creating a new type of applet that does return `T`.
+I also asked myself if it is possible to not have a main applet
+and just have children applets that are all equal,
+but I don't think that would work.
+
+You know what, I am feeling freaky today,
+so I will make the rash decision to start implementing the dimension tree.
+I am sure to blame this moment when I run into a problem later,
+but that is a problem for future me.
+
+I'll commit what I have now
+(what I was working on before I decided to jump ship for `DimensionTree`).
+
+...
+
+> The problem with the normal tree and recursive nodes
+> is that since the recursive node's value in the hierarchy
+> is the main applet's hierarchy value,
+> the main applet should return `T` (currently just a String) but the general framework
+> makes it return `Tree<T>`.
+
+Another way of phrasing this is:
+in a tree `Tree<T>`, the value is type `T` but children are type `Tree<T>`.
+In our recursive node applet, the main "value" applet and children all have the same type.
+
+The `WorldTree<T>` solves this problem,
+because it holds either:
+`T` itself (base case)
+or holds the value of `WorldTree<T>` and children are also `WorldTree<T>`.
+
+...
+
+If this goes to shiz, I can just modify it to be a normal tree again.
+
+Things to figure out:
+- Traversal
+- Display
+  - How to display focus
+  - World dimensions:
+    - Could have the inner worlds displayed inside (could be crowded but also pretty and elegant, sounds hard to implement)
+      - Would support having everything displayed out, only the focused guy displayed out, or allowing user to open and collapse
+    - Could have different worlds horizontally split
+      - I think mac's file explorer has something like this
+
+I think an elegant way of thinking about this is to think about symbolic tree.
+The symbolic view aka treeview is actually kind of like looking at the HTML document tree
+(functionally different, but is kind of familiar so bear with me).
+Each node in the treeview document tree can draw to the screen.
+A difference is that we aren't actually just drawing the focused thing;
+we are always asking the root to draw and simply telling it what to focus on.
+One could propose a method where we ask the focused applet to draw and the focused applet
+could then call its parents when needed,
+but I see no benefit of this.
+
+2026-02-06 11:05AM
+
+I am going to try implementing now.
+
+2026-02-07 10:10AM
+
+Here is the interpretation of the treeview
+(the name doesn't make as much sense anymore, but I think it is a cool name):
+apps have a hierarchy on their own, which could be lazy and dynamic,
+but the treeview is simply a symbolic cache of this heirarchy.
+(Rn, the symbol is names in string.)
+
+2026-02-10 12:48PM
+
+I don't know my old code for displaying trees is.
+I guess I'll have to implement it again.
+
+I will just start out with only displaying the current layer,
+and always showing the treeview.
+No previewing the select.
+No highlighting the focused.
+
+2026-02-16 3:10PM
+
+I am not worried about this right now,
+but moving focus should be done by the currently focused app 99% percent of the time,
+where they either do it on their own or it calls the parent.
+
+2026-02-19 10:56AM
+
+I am working on implementing focus.
+I am actually going to ignore caching for now,
+since that is just an optimization.
+This means that passive applet will be very slow,
+but I'd rather have a slow demo than a non-existent one.
+
+Also, somethning completely unrelated:
+I was thinking of an efficient way to store a tree's structure
+without caring about the values.
+The best algorithm I've thought of so far is with a bitmap.
+To create the bitmap, we pretend like we are traversing through the tree in
+more or less pre-order (but you also print on the way back up),
+and append 0 to the bitmap when we go down and append 1 when we go up.
+
+An interesting thing about this algorithm is that it stores the order of children.
+If the order of children matters, this is good.
+If it doesn't, then there is redundancy.
+There is also redundancy because there can never be more 1s than 0s
+and at the end, the 1 and 0 counts must equal.
+This is the parenthesis stacks rules,
+so if there is an algorithm to compress the parenthesis stacks,
+we could apply it to this bitmap.
+
+In general, representing some structure as data should avoid
+redundancy by ensuring:
+two different data representations lead to same structure
+and all data representations have a structure.
+A possibly slow but efficient way of ensuring efficiency
+is simply to order all the structures and storing the unsigned integer order as the data.
+
+...
+
+Indexing the world tree and modifying paths makes me feel mad.
+It could also be the fact my hair makes me look like a stereotypical conspiracy theorist.
+I can't help with the hair,
+but I will draw crude ascii art to help with the world tree confusion.
+Look at the following world trees where a node's value (in parentheses)
+is the path it takes to get there.
+I will make it more complex as you go downwards:
+
+```rust
+// Just a value (level 0)
+( [] )
+
+// Structure of a normal tree (level 1)
+( [[]] )
+|
+|--- ( [[0]] )
+|
+|--- ( [[1]] )
+|
+|--- ( [[2]] )
+         |
+         |--- ( [[2, 0]] )
+         |
+         |--- ( [[2, 1]] )
+
+// Level 2: tree in a tree
+// Now imagine that the above tree is still the outermost tree,
+// but replace its value with the following tree:
+...
+( [[2, 1], []] )
+|
+|--- ( [[2, 1], [0]] )
+|           |
+|           |--- ( [[2, 1], [0, 0]] )
+|           |
+|           |--- ( [[2, 1], [0, 1]] )
+|
+|--- ( [[2, 1], [1]] )
+            |
+            |--- ( [[2, 1], [1, 0]] )
+            |
+            |--- ( [[2, 1], [1, 1]] )
+```
+
+2026-02-20 5:13PM
+
+I could also make a new data struct like `FocusedWorldTree`
+that is a world tree but every node also holds its local focus.
+
+2026-02-21 10:43AM
+
+I hit a recursion limit while compiling for some reason.
+I will commit now to leave a record of this weird error.
+
+```rust
+error: reached the recursion limit while instantiating `RecursiveTreeNode::<WorldTree<...>>::append_to_string_with_prefix::<...>`
+  --> singularity_common/src/utils/tree/recursive_tree.rs:94:13
+   |
+94 | /             child
+95 | |                 .append_to_string_with_prefix(s, &value_stringizer, &child_prefix)
+   | |__________________________________________________________________________________^
+   |
+note: `RecursiveTreeNode::<T>::append_to_string_with_prefix` defined here
+  --> singularity_common/src/utils/tree/recursive_tree.rs:82:5
+   |
+82 | /     fn append_to_string_with_prefix(
+83 | |         &self,
+84 | |         s: &mut String,
+85 | |         value_stringizer: impl Fn(&T) -> String,
+86 | |         prefix: &str,
+87 | |     ) -> std::fmt::Result {
+   | |_________________________^
+   = note: the full name for the type has been written to '/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/singularity_common-2cff6ef231fd4809.long-type-8030479317095937628.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+warning: `singularity_common` (lib) generated 8 warnings
+error: could not compile `singularity_common` (lib) due to 1 previous error; 8 warnings emitted
+
+Caused by:
+  process didn't exit successfully: `/home/mathkimchi/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name singularity_common --edition=2024 singularity_common/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --diagnostic-width=147 --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=6576969d03177834 -C extra-filename=-2cff6ef231fd4809 --out-dir /home/mathkimchi/Documents/GitHub/singularity/target/debug/deps -C incremental=/home/mathkimchi/Documents/GitHub/singularity/target/debug/incremental -L dependency=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps --extern paste=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libpaste-d0c2464c2e21dc95.so --extern serde=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde-6cbd7ea2176590a6.rmeta --extern serde_json=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libserde_json-82a21528811a9091.rmeta --extern singularity_macros=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_macros-45dc683801d26304.so --extern singularity_ui=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libsingularity_ui-1da54f7a021d6d83.rmeta --extern uuid=/home/mathkimchi/Documents/GitHub/singularity/target/debug/deps/libuuid-5db6acd5583582aa.rmeta -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/8vi4i41i9w86i3hc925lb2n6r0css4ih-fontconfig-2.15.0-lib/lib -L native=/nix/store/p1ackxjqznm2q5dl3r178wp487q86jig-freetype-2.13.2/lib -L native=/nix/store/4iyki6wsawj3qyisw3yqqam6x7w50had-libxkbcommon-1.7.0/lib` (exit status: 1)
+```
+
+...
+
+Hmm, viewing the type written in the file shows:
+
+`RecursiveTreeNode::<WorldTree<std::string::String>>::append_to_string_with_prefix::<&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&{closure@singularity_common/src/utils/tree/world_tree.rs:65:54: 65:60}>`
+
+so that is probably the problem.
+
+...
+
+I just had to take in `&impl Fn(...)` instead of taking in `f: impl Fn(...)` and calling
+`&f` recursively.
+
+...
+
+2026-02-21 12:41PM
+
+Noice!
+After filling out all the `todo`'s and squashing all the compile-time errors,
+it looks like this is working on the surface-level.
+Let me commit first and then check for bugs.
+
+(I already know there is an error with my tree display logic.)
+
+...
+
+Hmmm...
+I thought making BasicApplet ask to spawn RecursiveNodeApplet(BasicApplet)
+would fix the tree hierarchy,
+but when spawning from a child, the treeview doesn't change,
+so I assume that it is creating it as an inner world for some reason.
+
+I think I need to test out tree printing first.
+
+...
+
+I will use the algorithm from:
+https://andrewlock.net/creating-an-ascii-art-tree-in-csharp/
+to draw the tree.
+
+...
+
+Okay, so now the normal tree display is working,
+so I can be pretty sure that the bug is in the logic of the structure,
+not in the display.
+
+I'm going to display all the worlds as I traverse down worlds in the focus path.
+
+...
+
+I wrote the algorithm for the display,
+but the focus management itself doesn't work.
+
+I am going to define these temporary shortcuts:
+
+- Q - out world
+- E - in world
+- A - to parent
+- D - to child
+- W - up sibling (can set this to clamp, wrap around, or go to parent like dfs prev)
+- S - down sibling (same thing)
+- 0..9 - to n-th child
+
+Alt is annoying to me because I remapped it on my laptop keyboard.
+
+This is going to be tedious,
+but let me walk through the big picture.
+It would help to look at an example world tree.
+
+```rust
+Level 2 outer:
+([[]])
+  ├─([[0]])
+  ├─([[1]])
+  ├─([[2]])
+  │   ├─([[2, 0]])
+  │   └─([[2, 1]]) <- (contains world)
+  └─([[3]])
+      ├─([[3, 0]])
+      └─([[3, 1]])
+
+Level 2 indexed at [[2, 1]]:
+([[2, 1], []])
+  ├─([[2, 1], [0]])
+  │   ├─([[2, 1], [0, 0]])
+  │   └─([[2, 1], [0, 1]])
+  └─([[2, 1], [1]])
+      ├─([[2, 1], [1, 0]])
+      └─([[2, 1], [1, 1]])
+```
+
+Suppose we are focused at `([[2, 1], [1]])` and for now,
+just pretend like it doesn't also contain a world.
+
+I am currently thinking that the world tree doesn't make sense.
+Let me draw out an example use-case on a whiteboard and walk through it.
+For this, I will use universally consistent layers:
+layer 0 - project,
+layer 1 - applet,
+layer 2 - items.
+
+(Universally consistent is somewhat like
+having matrices instead of variable-sized arrays of arrays.
+A matrix has universally consistent sub-array size.)
+
+2026-02-22 6:40PM
+
+I think for focus,
+each recursive node applet can store three possibilities for focus:
+1. focus on self (or Focusing)
+2. focus on inner
+3. focus on child
+
+The difference between focus on self and focus on inner is that focus on self is kind of like the transition state
+and the focus on inner means that input is actually being passed.
+
+...
+
+2026-02-22 9:02PM
+
+I talked to @MrPoWasTaken about the world tree,
+and the conclusion was that I should continue with the world tree for now.
+The reasoning was that I should either fully commit to different layers (do world tree)
+or just not do it at all (normal tree),
+instead of doing hard-coded layers (like a project tree, project being an applet tree, and applet having elements tree)
+since fully generalized layer seems to not have downside to hard-coded layers.
+And since I prefer hard-coded layers over no layers,
+the conclusion is that I should at least try generalized layers for the MVP.
+
+I decided to put the main applet of recursive node applet in a seperate field
+instead of putting it in the vec of all applets.
+So, I tried using a placeholder applet for instantiation as a botch
+but now it looks like a less botched solution might actually be easier,
+so I will do that.
+I am just going to create a seperate struct that doesn't have the main applet vs one that does.
+I will commit now just to save the botch work (that doesn't work).
+
+...
+
+2026-02-24 11:14PM
+
+I suspect that my traversal code could be working,
+but I really can't tell what's happening because I can't see what is focused.
+
+So, I guess that's my next task.
+
+2026-02-25 2:43PM
+
+I am kind of printing the things,
+but there is a weird bug.
+Take the following move sequence:
+into, add child, out, 0-th child.
+Allegedly, your path is `[[0]]` and your input isn't sent to the child inner
+(try typing Hi or adding subchild or quitting, nothing happens).
+Then, go into again.
+It prints that your focused path is still `[[0]]`,
+and the focus indicators on the treeview don't change.
+But, clearly something happened because it lets you interact
+with the inner app.
+
+I think that the path should be `[[0], []]`.
+So, I guess I'll have to bug find.
+
+2026-02-27 1:54PM
+
+Wait, what the heck?
+
+I got it working, but I don't know why.
+
+I had to make it so the text applet returns `[[]]`
+and focusing state also returns `[[]]`.
+(Making focusing state return `[[]]` was the thing I really missed.)
+I also think I am technically going into a value,
+but I don't care.
+
+I can believe it because I haven't thought about it too much,
+but it feels unintuitive.
+I'm not going to question it though because it seems to be working.
+Maybe I bug-test it later, but I've been really frustrated about this
+so I don't care.
+
+...
+
+Now that the bug is fixed,
+I'm just going to add more traversal logic and operations.
+
+2026-02-28 5:20PM
+
+These are the bindings, as a reminder:
+
+- Q - out world
+- E - in world
+- W - up sibling (can set this to clamp, wrap around, or go to parent like dfs prev)
+- S - down sibling (same thing)
+- A - to parent
+- D - to child (either 0th or previously selected child)
+- 0..9 - to n-th child
+
+As a side-task,
+I should do warnings with log or tracing crates.
+Before that, I should first merge this branch to master.
+
+In terms of just the framework, I'd say that I actually do have a MVP right now.
+But for a presentable MVP, I need to add more basic features as well as apps.
