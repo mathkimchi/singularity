@@ -71,6 +71,10 @@ impl SubAppletHolder {
             fn focus_out(&self) {
                 self.outer_hook.focus_out();
             }
+
+            fn focus_next_child(&self) {
+                self.outer_hook.focus_next_child();
+            }
         }
 
         let inner_hook = InnerHook {

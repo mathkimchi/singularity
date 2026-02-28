@@ -80,6 +80,9 @@ pub trait NodularRunnerHook: BasicRunnerHook {
     fn add_child(&self, initializer: Box<NodularAppletInitializer>);
 
     fn focus_out(&self);
+
+    /// REVIEW: just have a general `change_focus` that takes in different focus enums?
+    fn focus_next_child(&self);
 }
 impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
     fn damage_window(&self) {

@@ -135,6 +135,35 @@ impl SharedResource {
                         .hook
                         .damage_treeview();
                 }
+
+                fn focus_next_child(&self) {
+                    match self.shared_resource.upgrade().unwrap().focus_index.get() {
+                        FocusIndex::Child(child_index) => {
+                            self.shared_resource.upgrade().unwrap().focus_index.set(
+                                FocusIndex::Child(
+                                    (child_index + 1).min(
+                                        self.shared_resource
+                                            .upgrade()
+                                            .unwrap()
+                                            .children
+                                            .read()
+                                            .unwrap()
+                                            .len()
+                                            - 1,
+                                    ),
+                                ),
+                            );
+                        }
+                        _ => {
+                            println!("Warning 278y922eru: this shouldn't happen.");
+                        }
+                    }
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .damage_treeview();
+                }
             }
 
             let inner_hook = InnerHook {
@@ -470,6 +499,37 @@ impl RecursiveNodeApplet {
                         .hook
                         .damage_treeview();
                 }
+
+                fn focus_next_child(&self) {
+                    println!("Warning: should this ever even be called?");
+                    match self.shared_resource.upgrade().unwrap().focus_index.get() {
+                        FocusIndex::Child(child_index) => {
+                            self.shared_resource.upgrade().unwrap().focus_index.set(
+                                FocusIndex::Child(
+                                    (child_index + 1).min(
+                                        self.shared_resource
+                                            .upgrade()
+                                            .unwrap()
+                                            .children
+                                            .read()
+                                            .unwrap()
+                                            .len()
+                                            - 1,
+                                    ),
+                                ),
+                            );
+                        }
+                        _ => {
+                            // TODO: use log or tracing crate
+                            println!("Warning 278y922eru: this shouldn't happen.");
+                        }
+                    }
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .damage_treeview();
+                }
             }
 
             let inner_hook = InnerHook {
@@ -558,6 +618,10 @@ impl BasicApplet for RecursiveNodeApplet {
                         }
                         Some('e') => {
                             self.shared_resource.focus_index.set(FocusIndex::Inner);
+                            self.shared_resource.hook.damage_treeview();
+                        }
+                        Some('s') => {
+                            self.shared_resource.hook.focus_next_child();
                             self.shared_resource.hook.damage_treeview();
                         }
                         Some('d') => {

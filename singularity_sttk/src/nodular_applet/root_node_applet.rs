@@ -45,6 +45,8 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
             }
 
             fn focus_out(&self) {}
+
+            fn focus_next_child(&self) {}
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
@@ -112,6 +114,8 @@ impl RootNodeApplet {
             }
 
             fn focus_out(&self) {}
+
+            fn focus_next_child(&self) {}
         }
 
         let inner_hook = InnerHook { outer_hook: hook };

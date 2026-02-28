@@ -5363,3 +5363,27 @@ but it feels unintuitive.
 I'm not going to question it though because it seems to be working.
 Maybe I bug-test it later, but I've been really frustrated about this
 so I don't care.
+
+...
+
+Now that the bug is fixed,
+I'm just going to add more traversal logic and operations.
+
+2026-02-28 5:20PM
+
+These are the bindings, as a reminder:
+
+- Q - out world
+- E - in world
+- W - up sibling (can set this to clamp, wrap around, or go to parent like dfs prev)
+- S - down sibling (same thing)
+- A - to parent
+- D - to child (either 0th or previously selected child)
+- 0..9 - to n-th child
+
+As a side-task,
+I should do warnings with log or tracing crates.
+Before that, I should first merge this branch to master.
+
+In terms of just the framework, I'd say that I actually do have a MVP right now.
+But for a presentable MVP, I need to add more basic features as well as apps.
