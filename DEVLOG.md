@@ -5387,3 +5387,32 @@ Before that, I should first merge this branch to master.
 
 In terms of just the framework, I'd say that I actually do have a MVP right now.
 But for a presentable MVP, I need to add more basic features as well as apps.
+
+## [#24 Towards an MVP](https://github.com/mathkimchi/singularity/issues/24)
+
+2026-02-28 5:34PM
+
+So I merged to the dev branch,
+and I am going to just work in dev for the forseeable future,
+until I have an MVP, need to make a big risky change, or work with someone else.
+My reasoning for this is similar to how the semantic versioning system
+`x.y.z` only allows breaking changes when `x` changes,
+but when x=0 (pre-alpha), then its a free-for-all
+because it's so primitive that we just assume that there are going to be
+so many breaking changes.
+
+I am not feeling eager to write about my general plans-I think
+I know what to do and I'd rather do the plan right now than talk about
+it-but I guess I should just mention it so I don't forget.
+(Btw, I just learned that people actually use em-dashes in real life.
+And another btw, I haven't used LLM chatbots or code assistants for a few months.)
+
+I'll put the checklist in a seperate issue.
+
+For me, a time manager was a big thing I desired from singularity.
+However, it is not critical for an MVP, so I'll do it after.
+
+Ok, I made the issue and also have a subissue
+([#26](https://github.com/mathkimchi/singularity/issues/26))
+for traversal,
+so I'll commit the plans now and get working on that.
