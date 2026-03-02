@@ -247,7 +247,11 @@ impl SharedResource {
                 WorldTreeTraversalOperation::NextLayer => todo!(),
                 WorldTreeTraversalOperation::Layerwise(tree_traverse_operation) => {
                     match tree_traverse_operation {
-                        TreeTraverseOperation::Parent => todo!(),
+                        TreeTraverseOperation::Parent => (
+                            // the child wants to focus on parent, so just focus on self
+                            Some(FocusIndex::Focusing),
+                            None,
+                        ),
                         TreeTraverseOperation::RelShiftSibling(shift) => (
                             Some(FocusIndex::Child(
                                 (child_index as isize + shift)
@@ -459,45 +463,52 @@ impl BasicApplet for RecursiveNodeApplet {
                         logo: false,
                     },
                 ) = &ui_event
+                    && let Some(key_char) = key.to_char()
+                    && let Some(operation) = WorldTreeTraversalOperation::from_char(key_char)
                 {
-                    match key.to_char() {
-                        Some('q') => {
-                            self.shared_resource
-                                .hook
-                                .change_focus(WorldTreeTraversalOperation::PrevLayer);
-                            self.shared_resource.hook.damage_treeview();
-                        }
-                        Some('e') => {
-                            self.shared_resource.focus_index.set(FocusIndex::Inner);
-                            self.shared_resource.hook.damage_treeview();
-                        }
-                        Some('s') => {
-                            self.shared_resource.hook.change_focus(
-                                WorldTreeTraversalOperation::Layerwise(
-                                    TreeTraverseOperation::RelShiftSibling(1),
-                                ),
-                            );
-                            self.shared_resource.hook.damage_treeview();
-                        }
-                        Some('d') => {
-                            if !self.shared_resource.children.read().unwrap().is_empty() {
-                                self.shared_resource.focus_index.set(FocusIndex::Child(0));
-                                self.shared_resource.hook.damage_treeview();
-                            }
-                        }
-                        Some('0'..='9') => {
-                            if (key.to_digit().unwrap() as usize)
-                                < self.shared_resource.children.read().unwrap().len()
-                            {
-                                self.shared_resource
-                                    .focus_index
-                                    .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
-                                self.shared_resource.hook.damage_treeview();
-                            }
-                        }
-                        _ => {}
-                    }
+                    self.shared_resource.change_focus(operation);
                 }
+
+                // match key.to_char() {
+                //     Some('q') => {
+                //         self.shared_resource
+                //             .hook
+                //             .change_focus(WorldTreeTraversalOperation::PrevLayer);
+                //         self.shared_resource.hook.damage_treeview();
+                //     }
+                //     Some('e') => {
+                //         self.shared_resource.focus_index.set(FocusIndex::Inner);
+                //         self.shared_resource.hook.damage_treeview();
+                //     }
+                //     Some('a') => {
+                //         self
+                //     }
+                //     Some('s') => {
+                //         self.shared_resource.hook.change_focus(
+                //             WorldTreeTraversalOperation::Layerwise(
+                //                 TreeTraverseOperation::RelShiftSibling(1),
+                //             ),
+                //         );
+                //         self.shared_resource.hook.damage_treeview();
+                //     }
+                //     Some('d') => {
+                //         if !self.shared_resource.children.read().unwrap().is_empty() {
+                //             self.shared_resource.focus_index.set(FocusIndex::Child(0));
+                //             self.shared_resource.hook.damage_treeview();
+                //         }
+                //     }
+                //     Some('0'..='9') => {
+                //         if (key.to_digit().unwrap() as usize)
+                //             < self.shared_resource.children.read().unwrap().len()
+                //         {
+                //             self.shared_resource
+                //                 .focus_index
+                //                 .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
+                //             self.shared_resource.hook.damage_treeview();
+                //         }
+                //     }
+                //     _ => {}
+                // }
             }
             FocusIndex::Inner => self.main_applet.immut_handle_ui_event(ui_event),
             FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
