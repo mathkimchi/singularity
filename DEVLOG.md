@@ -5428,3 +5428,17 @@ This is technically redundant but I'll just change behavior based
 on current focus state
 (it is redundant because based on why the event is happening,
 we can infer the focus state already).
+
+2026-03-02 9:22AM
+
+I feel like the only thing really left to do now is the layerwise DFS.
+
+I am thinking of replacing the sibling relshifts keybinds (`w` and `s`).
+
+...you know what, I don't need to do this.
+I am working towards an MVP
+(wow, he said the thing!)
+and while extremely scuffed, I think this is fine.
+Especially since the point is to create a workspace and not a game or something.
+
+I'll start making basic apps now.
