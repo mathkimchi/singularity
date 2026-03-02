@@ -50,3 +50,17 @@ pub enum WorldTreeTraversalOperation {
     // Child,
     Layerwise(TreeTraverseOperation),
 }
+impl WorldTreeTraversalOperation {
+    /// Some keys are different than the outdated normal tree traverse operations.
+    /// So, check the overridden bindings first then pass to layerwise normal traversal.
+    pub fn from_char(traverse_key: char) -> Option<Self> {
+        match traverse_key {
+            'e' => Some(Self::NextLayer),
+            'q' | '\n' => Some(Self::PrevLayer),
+            // If it isn't one of the above overridden bindings, try the layerwise.
+            _ => Some(Self::Layerwise(TreeTraverseOperation::from_char(
+                traverse_key,
+            )?)),
+        }
+    }
+}

@@ -180,6 +180,10 @@ impl SharedResource {
         }
     }
 
+    /// FIXME: Bruh, this needs to differentiate between if a child is calling this
+    /// or if its being called from self.
+    /// Right now, this is only being called by children,
+    /// but it would make more sense if these were from the perspective of itself.
     fn change_focus(&self, operation: WorldTreeTraversalOperation) {
         match operation {
             WorldTreeTraversalOperation::GlobalRoot => {
