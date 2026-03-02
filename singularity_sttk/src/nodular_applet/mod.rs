@@ -1,6 +1,8 @@
 //! This is where the hierarchy stuff is implemented.
 
-use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
+use singularity_common::utils::tree::world_tree::{
+    WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
+};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 
@@ -79,10 +81,7 @@ pub trait NodularRunnerHook: BasicRunnerHook {
     /// REVIEW: the boxes and generics
     fn add_child(&self, initializer: Box<NodularAppletInitializer>);
 
-    fn focus_out(&self);
-
-    /// REVIEW: just have a general `change_focus` that takes in different focus enums?
-    fn focus_next_child(&self);
+    fn change_focus(&self, operation: WorldTreeTraversalOperation);
 }
 impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
     fn damage_window(&self) {
