@@ -215,192 +215,6 @@ impl SharedResource {
     }
 }
 
-/*
-// /// Has a list of inner applets and displays them in vertical or horizontal division.
-// pub struct DividedApplet {
-//     shared_resource: Arc<MultiAppletHolder>,
-// }
-// impl DividedApplet {
-//     fn new(
-//         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
-//         // hook: Box<dyn NodularRunnerHook>,
-//         hook: Box<dyn NodularRunnerHook>,
-//     ) -> Self {
-//         let s = Self {
-//             shared_resource: Arc::new(MultiAppletHolder::new(hook)),
-//         };
-
-//         MultiAppletHolder::add_child(Arc::downgrade(&s.shared_resource), inner_initiator);
-
-//         s
-//     }
-
-//     /// Partial application
-//     pub fn get_initializer(
-//         inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
-//     ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
-//         move |hook: Box<dyn NodularRunnerHook>| Self::new(inner_initializer, hook)
-//     }
-
-//     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
-//     /// across the horizontal axis and take full height.
-//     fn combine_displays(subdisplays: Vec<UIElement>) -> UIElement {
-//         // proportional units so widths out of 1
-//         let widths = 1. / subdisplays.len() as f32;
-//         UIElement::Container(
-//             subdisplays
-//                 .into_iter()
-//                 .enumerate()
-//                 .map(|(i, subdisplay)| {
-//                     subdisplay
-//                         .bordered(Color::LIGHT_GREEN)
-//                         .contain(DisplayArea::new(
-//                             (widths * (i as f32), 0.),
-//                             (DisplayUnits::from_mixed(-1, widths * ((i + 1) as f32)), 1.),
-//                         ))
-//                 })
-//                 .collect(),
-//         )
-//     }
-
-//     fn get_display(&self) -> UIElement {
-//         let mut applet_displays = Vec::new();
-
-//         for applet in self.shared_resource.applets.read().unwrap().iter() {
-//             applet_displays.push(applet.get_window());
-//         }
-
-//         Self::combine_displays(applet_displays)
-//     }
-// }
-// impl BasicApplet for DividedApplet {
-//     fn handle_ui_event(&mut self, ui_event: UIEvent) {
-//         if let UIEvent::KeyPress(
-//             key,
-//             KeyModifiers {
-//                 ctrl: true,
-//                 alt: false,
-//                 shift: false,
-//                 caps_lock: false,
-//                 logo: false,
-//             },
-//         ) = &ui_event
-//             && key.to_char() == Some('\t')
-//         {
-//             self.shared_resource.applets.read().unwrap()[self
-//                 .shared_resource
-//                 .focus_index
-//                 .load(std::sync::atomic::Ordering::Relaxed)]
-//             .immut_handle_nodular_event(NodularEvent::Focused(false));
-
-//             self.shared_resource
-//                 .focus_index
-//                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-//             self.shared_resource.focus_index.fetch_min(
-//                 self.shared_resource.applets.read().unwrap().len() - 1,
-//                 std::sync::atomic::Ordering::Relaxed,
-//             );
-
-//             self.shared_resource.applets.read().unwrap()[self
-//                 .shared_resource
-//                 .focus_index
-//                 .load(std::sync::atomic::Ordering::Relaxed)]
-//             .immut_handle_nodular_event(NodularEvent::Focused(true));
-
-//             return;
-//         }
-
-//         if let UIEvent::KeyPress(
-//             key,
-//             KeyModifiers {
-//                 ctrl: true,
-//                 alt: false,
-//                 shift: true,
-//                 caps_lock: false,
-//                 logo: false,
-//             },
-//         ) = &ui_event
-//             && key.raw_code == 15
-//         {
-//             // Ctrl+Shift+Tab
-//             self.shared_resource.applets.read().unwrap()[self
-//                 .shared_resource
-//                 .focus_index
-//                 .load(std::sync::atomic::Ordering::Relaxed)]
-//             .immut_handle_nodular_event(NodularEvent::Focused(false));
-
-//             self.shared_resource
-//                 .focus_index
-//                 .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-//             self.shared_resource.focus_index.fetch_min(
-//                 self.shared_resource.applets.read().unwrap().len() - 1,
-//                 std::sync::atomic::Ordering::Relaxed,
-//             );
-
-//             self.shared_resource.applets.read().unwrap()[self
-//                 .shared_resource
-//                 .focus_index
-//                 .load(std::sync::atomic::Ordering::Relaxed)]
-//             .immut_handle_nodular_event(NodularEvent::Focused(true));
-//             return;
-//         }
-
-//         let applet_holder = self.shared_resource.applets.read().unwrap()[self
-//             .shared_resource
-//             .focus_index
-//             .load(std::sync::atomic::Ordering::Relaxed)]
-//         .clone();
-//         applet_holder.immut_handle_ui_event(ui_event);
-//     }
-
-//     fn get_window(&self) -> UIElement {
-//         // TODO: return cached if damaged is already false?
-//         self.shared_resource
-//             .window_damaged
-//             .store(false, std::sync::atomic::Ordering::Relaxed);
-
-//         self.get_display()
-//     }
-// }
-// impl NodularApplet for DividedApplet {
-//     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
-//         match nodular_event {
-//             NodularEvent::Highlighted(_) => todo!(),
-//             NodularEvent::Focused(state) => {
-//                 self.shared_resource.applets.read().unwrap()[self
-//                     .shared_resource
-//                     .focus_index
-//                     .load(std::sync::atomic::Ordering::Relaxed)]
-//                 .immut_handle_nodular_event(NodularEvent::Focused(state));
-//             }
-//         }
-//     }
-
-//     fn get_treeview(&self) -> RootedTree<String> {
-//         self.shared_resource
-//             .treeview_damaged
-//             .store(false, std::sync::atomic::Ordering::Relaxed);
-
-//         // RootedTree::
-//         todo!()
-//     }
-// }
-
-*/
-
-// /// Ideally, this would've been a function,
-// /// but I couldn't get the types working.
-// macro_rules! get_focused_applet {
-//     ($s:expr, $f:literal) => {
-//         match $s.shared_resource.focus_index.get() {
-//             FocusIndex::Focusing | FocusIndex::Inner => ($f)($s.main_applet),
-//             FocusIndex::Child(child_index) => {
-//                 ($f)($s.shared_resource.children.read().unwrap()[child_index])
-//             }
-//         }
-//     };
-// }
-
 /// Holds a main Applet (at index 0) and also children.
 /// Displays the main child
 pub struct RecursiveNodeApplet {
@@ -759,3 +573,189 @@ impl NodularApplet for RecursiveNodeApplet {
         }
     }
 }
+
+/*
+// /// Has a list of inner applets and displays them in vertical or horizontal division.
+// pub struct DividedApplet {
+//     shared_resource: Arc<MultiAppletHolder>,
+// }
+// impl DividedApplet {
+//     fn new(
+//         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+//         // hook: Box<dyn NodularRunnerHook>,
+//         hook: Box<dyn NodularRunnerHook>,
+//     ) -> Self {
+//         let s = Self {
+//             shared_resource: Arc::new(MultiAppletHolder::new(hook)),
+//         };
+
+//         MultiAppletHolder::add_child(Arc::downgrade(&s.shared_resource), inner_initiator);
+
+//         s
+//     }
+
+//     /// Partial application
+//     pub fn get_initializer(
+//         inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+//     ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
+//         move |hook: Box<dyn NodularRunnerHook>| Self::new(inner_initializer, hook)
+//     }
+
+//     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
+//     /// across the horizontal axis and take full height.
+//     fn combine_displays(subdisplays: Vec<UIElement>) -> UIElement {
+//         // proportional units so widths out of 1
+//         let widths = 1. / subdisplays.len() as f32;
+//         UIElement::Container(
+//             subdisplays
+//                 .into_iter()
+//                 .enumerate()
+//                 .map(|(i, subdisplay)| {
+//                     subdisplay
+//                         .bordered(Color::LIGHT_GREEN)
+//                         .contain(DisplayArea::new(
+//                             (widths * (i as f32), 0.),
+//                             (DisplayUnits::from_mixed(-1, widths * ((i + 1) as f32)), 1.),
+//                         ))
+//                 })
+//                 .collect(),
+//         )
+//     }
+
+//     fn get_display(&self) -> UIElement {
+//         let mut applet_displays = Vec::new();
+
+//         for applet in self.shared_resource.applets.read().unwrap().iter() {
+//             applet_displays.push(applet.get_window());
+//         }
+
+//         Self::combine_displays(applet_displays)
+//     }
+// }
+// impl BasicApplet for DividedApplet {
+//     fn handle_ui_event(&mut self, ui_event: UIEvent) {
+//         if let UIEvent::KeyPress(
+//             key,
+//             KeyModifiers {
+//                 ctrl: true,
+//                 alt: false,
+//                 shift: false,
+//                 caps_lock: false,
+//                 logo: false,
+//             },
+//         ) = &ui_event
+//             && key.to_char() == Some('\t')
+//         {
+//             self.shared_resource.applets.read().unwrap()[self
+//                 .shared_resource
+//                 .focus_index
+//                 .load(std::sync::atomic::Ordering::Relaxed)]
+//             .immut_handle_nodular_event(NodularEvent::Focused(false));
+
+//             self.shared_resource
+//                 .focus_index
+//                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+//             self.shared_resource.focus_index.fetch_min(
+//                 self.shared_resource.applets.read().unwrap().len() - 1,
+//                 std::sync::atomic::Ordering::Relaxed,
+//             );
+
+//             self.shared_resource.applets.read().unwrap()[self
+//                 .shared_resource
+//                 .focus_index
+//                 .load(std::sync::atomic::Ordering::Relaxed)]
+//             .immut_handle_nodular_event(NodularEvent::Focused(true));
+
+//             return;
+//         }
+
+//         if let UIEvent::KeyPress(
+//             key,
+//             KeyModifiers {
+//                 ctrl: true,
+//                 alt: false,
+//                 shift: true,
+//                 caps_lock: false,
+//                 logo: false,
+//             },
+//         ) = &ui_event
+//             && key.raw_code == 15
+//         {
+//             // Ctrl+Shift+Tab
+//             self.shared_resource.applets.read().unwrap()[self
+//                 .shared_resource
+//                 .focus_index
+//                 .load(std::sync::atomic::Ordering::Relaxed)]
+//             .immut_handle_nodular_event(NodularEvent::Focused(false));
+
+//             self.shared_resource
+//                 .focus_index
+//                 .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+//             self.shared_resource.focus_index.fetch_min(
+//                 self.shared_resource.applets.read().unwrap().len() - 1,
+//                 std::sync::atomic::Ordering::Relaxed,
+//             );
+
+//             self.shared_resource.applets.read().unwrap()[self
+//                 .shared_resource
+//                 .focus_index
+//                 .load(std::sync::atomic::Ordering::Relaxed)]
+//             .immut_handle_nodular_event(NodularEvent::Focused(true));
+//             return;
+//         }
+
+//         let applet_holder = self.shared_resource.applets.read().unwrap()[self
+//             .shared_resource
+//             .focus_index
+//             .load(std::sync::atomic::Ordering::Relaxed)]
+//         .clone();
+//         applet_holder.immut_handle_ui_event(ui_event);
+//     }
+
+//     fn get_window(&self) -> UIElement {
+//         // TODO: return cached if damaged is already false?
+//         self.shared_resource
+//             .window_damaged
+//             .store(false, std::sync::atomic::Ordering::Relaxed);
+
+//         self.get_display()
+//     }
+// }
+// impl NodularApplet for DividedApplet {
+//     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
+//         match nodular_event {
+//             NodularEvent::Highlighted(_) => todo!(),
+//             NodularEvent::Focused(state) => {
+//                 self.shared_resource.applets.read().unwrap()[self
+//                     .shared_resource
+//                     .focus_index
+//                     .load(std::sync::atomic::Ordering::Relaxed)]
+//                 .immut_handle_nodular_event(NodularEvent::Focused(state));
+//             }
+//         }
+//     }
+
+//     fn get_treeview(&self) -> RootedTree<String> {
+//         self.shared_resource
+//             .treeview_damaged
+//             .store(false, std::sync::atomic::Ordering::Relaxed);
+
+//         // RootedTree::
+//         todo!()
+//     }
+// }
+
+*/
+
+// /// Ideally, this would've been a function,
+// /// but I couldn't get the types working.
+// macro_rules! get_focused_applet {
+//     ($s:expr, $f:literal) => {
+//         match $s.shared_resource.focus_index.get() {
+//             FocusIndex::Focusing | FocusIndex::Inner => ($f)($s.main_applet),
+//             FocusIndex::Child(child_index) => {
+//                 ($f)($s.shared_resource.children.read().unwrap()[child_index])
+//             }
+//         }
+//     };
+// }
