@@ -59,12 +59,20 @@ pub const TREE_TRAVERSE_KEYS: [char; 16] = [
 pub enum TreeTraverseOperation {
     /// `a` and `0`
     Parent,
+
     /// `d`
+    /// Equivalent to `Child(0)`
+    /// TODO: get rid of redundant operations
     FirstChild,
     /// `w`
+    /// Equivalent to `RelShiftSibling(-1)`
     PrevSibling,
     /// `s`
+    /// Equivalent to `RelShiftSibling(1)`
     NextSibling,
+
+    /// Stands for Relative Sibling
+    RelShiftSibling(isize),
 
     /// `q`
     BfsPrev,
@@ -202,6 +210,28 @@ mod tree_node_path_traversal_impls {
             }
         }
 
+        /// No wrapping
+        pub fn traverse_rel_shift_sibling(
+            &self,
+            tree_to_traverse: &impl TraversableTree,
+            shift: isize,
+        ) -> Option<Self> {
+            let sibling_path = {
+                let mut sibling_path_vec = self.0.clone();
+                let last_child_number =
+                    usize::try_from((sibling_path_vec.pop()? as isize).checked_add(shift)?).ok()?;
+                sibling_path_vec.push(last_child_number);
+                Self(sibling_path_vec)
+            };
+
+            // check that path points to an existing node
+            if tree_to_traverse.exists_at(&sibling_path) {
+                Some(sibling_path)
+            } else {
+                None
+            }
+        }
+
         pub fn traverse_dfs_next(&self, tree_to_traverse: &impl TraversableTree) -> Option<Self> {
             if let Some(first_child_path) = self.traverse_to_first_child(tree_to_traverse) {
                 // has child
@@ -254,6 +284,9 @@ mod tree_node_path_traversal_impls {
                 TreeTraverseOperation::PrevSibling => self.traverse_to_previous_sibling(),
                 TreeTraverseOperation::NextSibling => {
                     self.traverse_to_next_sibling(tree_to_traverse)
+                }
+                TreeTraverseOperation::RelShiftSibling(shift) => {
+                    self.traverse_rel_shift_sibling(tree_to_traverse, shift)
                 }
                 TreeTraverseOperation::BfsPrev => self.traverse_dfs_prev(tree_to_traverse),
                 TreeTraverseOperation::BfsNext => self.traverse_dfs_next(tree_to_traverse),
