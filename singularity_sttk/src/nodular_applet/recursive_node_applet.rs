@@ -36,7 +36,7 @@ struct SharedResource {
     treeview_damaged: AtomicBool,
 }
 impl SharedResource {
-    fn new(hook: Box<dyn NodularRunnerHook>) -> Arc<Self> {
+    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Arc<Self> {
         let hook = hook;
         let children = RwLock::new(Vec::new());
         let focus_index = EncapsulatedLock::new(FocusIndex::Focusing);
@@ -54,7 +54,7 @@ impl SharedResource {
 
     /// NOTE: this can't take `&self` because we need to create a weak reference to shared resource,
     /// so we need to get this already wrapped in an Arc.
-    fn add_child(
+    pub fn add_child(
         shared_resource: Arc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
     ) {
@@ -180,39 +180,108 @@ impl SharedResource {
         }
     }
 
+    /// Doesn't actually change anything.
+    /// Just returns the new focus and what to call for the parent.
+    fn calculate_new_focus(
+        &self,
+        operation: WorldTreeTraversalOperation,
+    ) -> (Option<FocusIndex>, Option<WorldTreeTraversalOperation>) {
+        match self.focus_index.get() {
+            FocusIndex::Focusing => match operation {
+                WorldTreeTraversalOperation::GlobalRoot
+                | WorldTreeTraversalOperation::PrevLayer
+                | WorldTreeTraversalOperation::Layerwise(
+                    TreeTraverseOperation::Parent | TreeTraverseOperation::RelShiftSibling(_),
+                ) => {
+                    // With PrevLayer, propagate the prev layer until the lowest level of prev layer gets this message
+                    (None, Some(operation))
+                }
+                WorldTreeTraversalOperation::NextLayer => (Some(FocusIndex::Inner), None),
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsPrev) => todo!(),
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsNext) => todo!(),
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Child(
+                    child_index,
+                )) => {
+                    if child_index < self.children.read().unwrap().len() {
+                        (Some(FocusIndex::Child(child_index)), None)
+                    } else {
+                        (None, None)
+                    }
+                }
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::LastChild) => {
+                    let num_children = self.children.read().unwrap().len();
+                    if num_children > 0 {
+                        (Some(FocusIndex::Child(num_children - 1)), None)
+                    } else {
+                        (None, None)
+                    }
+                }
+            },
+            FocusIndex::Inner => match operation {
+                WorldTreeTraversalOperation::GlobalRoot => todo!(),
+                WorldTreeTraversalOperation::PrevLayer => (Some(FocusIndex::Focusing), None),
+                WorldTreeTraversalOperation::NextLayer => todo!(),
+                WorldTreeTraversalOperation::Layerwise(tree_traverse_operation) => {
+                    match tree_traverse_operation {
+                        TreeTraverseOperation::Parent => todo!(),
+                        TreeTraverseOperation::RelShiftSibling(_) => todo!(),
+                        TreeTraverseOperation::BfsPrev => todo!(),
+                        TreeTraverseOperation::BfsNext => todo!(),
+                        TreeTraverseOperation::Child(_) => todo!(),
+                        TreeTraverseOperation::LastChild => todo!(),
+                    }
+                }
+            },
+            FocusIndex::Child(child_index) => match operation {
+                WorldTreeTraversalOperation::GlobalRoot
+                | WorldTreeTraversalOperation::PrevLayer => {
+                    (Some(FocusIndex::Focusing), Some(operation))
+                }
+                // WorldTreeTraversalOperation::PrevLayer => {
+                //     // If I don't change this guy's focus,
+                //     // then it will automatically focus to
+                //     // the previous spot when it comes here next time
+                //     // self.focus_index.set(FocusIndex::Focusing);
+                //     (None, Some(operation))
+                // }
+                WorldTreeTraversalOperation::NextLayer => todo!(),
+                WorldTreeTraversalOperation::Layerwise(tree_traverse_operation) => {
+                    match tree_traverse_operation {
+                        TreeTraverseOperation::Parent => todo!(),
+                        TreeTraverseOperation::RelShiftSibling(shift) => (
+                            Some(FocusIndex::Child(
+                                (child_index as isize + shift)
+                                    .clamp(0, self.children.read().unwrap().len() as isize - 1)
+                                    as usize,
+                            )),
+                            None,
+                        ),
+                        TreeTraverseOperation::BfsPrev => todo!(),
+                        TreeTraverseOperation::BfsNext => todo!(),
+                        TreeTraverseOperation::Child(_) => todo!(),
+                        TreeTraverseOperation::LastChild => todo!(),
+                    }
+                }
+            },
+        }
+    }
+
     /// FIXME: Bruh, this needs to differentiate between if a child is calling this
     /// or if its being called from self.
     /// Right now, this is only being called by children,
     /// but it would make more sense if these were from the perspective of itself.
-    fn change_focus(&self, operation: WorldTreeTraversalOperation) {
-        match operation {
-            WorldTreeTraversalOperation::GlobalRoot => {
-                self.focus_index.set(FocusIndex::Focusing);
-                self.hook
-                    .change_focus(WorldTreeTraversalOperation::GlobalRoot);
-            }
-            WorldTreeTraversalOperation::PrevLayer => self.focus_index.set(FocusIndex::Focusing),
-            WorldTreeTraversalOperation::NextLayer => self.focus_index.set(FocusIndex::Inner),
-            WorldTreeTraversalOperation::Layerwise(tree_operation) => match tree_operation {
-                TreeTraverseOperation::Parent => todo!(),
-                TreeTraverseOperation::RelShiftSibling(shift) => match self.focus_index.get() {
-                    FocusIndex::Child(child_index) => {
-                        self.focus_index.set(FocusIndex::Child(
-                            (child_index as isize + shift)
-                                .clamp(0, self.children.read().unwrap().len() as isize - 1)
-                                as usize,
-                        ));
-                    }
-                    _ => {
-                        println!("Warning 278y922eru: this shouldn't happen.");
-                    }
-                },
-                TreeTraverseOperation::BfsPrev => todo!(),
-                TreeTraverseOperation::BfsNext => todo!(),
-                TreeTraverseOperation::Child(_) => todo!(),
-                TreeTraverseOperation::LastChild => todo!(),
-            },
+    /// It is technically redundant but makes sense to change behavior
+    /// based on the current focus path.
+    pub fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+        let (new_focus, parent_call) = self.calculate_new_focus(operation);
+
+        if let Some(new_focus) = new_focus {
+            self.focus_index.set(new_focus);
         }
+        if let Some(parent_call) = parent_call {
+            self.hook.change_focus(parent_call);
+        }
+
         self.hook.damage_treeview();
     }
 }

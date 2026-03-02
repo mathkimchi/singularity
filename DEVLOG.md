@@ -5416,3 +5416,15 @@ Ok, I made the issue and also have a subissue
 ([#26](https://github.com/mathkimchi/singularity/issues/26))
 for traversal,
 so I'll commit the plans now and get working on that.
+
+2026-03-02 8:18AM
+
+I am consolidating all the movement logic of the recursive node applet
+into one function,
+but the problem is that a traversal operation means different things
+based on who is calling it aka the current focus.
+
+This is technically redundant but I'll just change behavior based
+on current focus state
+(it is redundant because based on why the event is happening,
+we can infer the focus state already).
