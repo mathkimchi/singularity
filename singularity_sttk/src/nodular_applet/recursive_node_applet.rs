@@ -36,6 +36,24 @@ struct SharedResource {
     treeview_damaged: AtomicBool,
 }
 impl SharedResource {
+    fn new(hook: Box<dyn NodularRunnerHook>) -> Arc<Self> {
+        let hook = hook;
+        let children = RwLock::new(Vec::new());
+        let focus_index = EncapsulatedLock::new(FocusIndex::Focusing);
+        let window_damaged = AtomicBool::new(true);
+        let treeview_damaged = AtomicBool::new(true);
+
+        Arc::new(Self {
+            children,
+            focus_index,
+            hook,
+            window_damaged,
+            treeview_damaged,
+        })
+    }
+
+    /// NOTE: this can't take `&self` because we need to create a weak reference to shared resource,
+    /// so we need to get this already wrapped in an Arc.
     fn add_child(
         shared_resource: Arc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
@@ -124,46 +142,10 @@ impl SharedResource {
                 }
 
                 fn change_focus(&self, operation: WorldTreeTraversalOperation) {
-                    match operation {
-                        WorldTreeTraversalOperation::GlobalRoot => todo!(),
-                        WorldTreeTraversalOperation::PrevLayer => {
-                            self.shared_resource
-                                .upgrade()
-                                .unwrap()
-                                .focus_index
-                                .set(FocusIndex::Focusing);
-                        }
-                        WorldTreeTraversalOperation::NextLayer => todo!(),
-                        WorldTreeTraversalOperation::Layerwise(
-                            TreeTraverseOperation::NextSibling,
-                        ) => match self.shared_resource.upgrade().unwrap().focus_index.get() {
-                            FocusIndex::Child(child_index) => {
-                                self.shared_resource.upgrade().unwrap().focus_index.set(
-                                    FocusIndex::Child(
-                                        (child_index + 1).min(
-                                            self.shared_resource
-                                                .upgrade()
-                                                .unwrap()
-                                                .children
-                                                .read()
-                                                .unwrap()
-                                                .len()
-                                                - 1,
-                                        ),
-                                    ),
-                                );
-                            }
-                            _ => {
-                                println!("Warning 278y922eru: this shouldn't happen.");
-                            }
-                        },
-                        _ => todo!(),
-                    }
                     self.shared_resource
                         .upgrade()
                         .unwrap()
-                        .hook
-                        .damage_treeview();
+                        .change_focus(operation);
                 }
             }
 
@@ -198,20 +180,45 @@ impl SharedResource {
         }
     }
 
-    fn new(hook: Box<dyn NodularRunnerHook>) -> Arc<Self> {
-        let hook = hook;
-        let children = RwLock::new(Vec::new());
-        let focus_index = EncapsulatedLock::new(FocusIndex::Focusing);
-        let window_damaged = AtomicBool::new(true);
-        let treeview_damaged = AtomicBool::new(true);
-
-        Arc::new(Self {
-            children,
-            focus_index,
-            hook,
-            window_damaged,
-            treeview_damaged,
-        })
+    fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+        match operation {
+            WorldTreeTraversalOperation::GlobalRoot => {
+                self.focus_index.set(FocusIndex::Focusing);
+                self.hook
+                    .change_focus(WorldTreeTraversalOperation::GlobalRoot);
+            }
+            WorldTreeTraversalOperation::PrevLayer => self.focus_index.set(FocusIndex::Focusing),
+            WorldTreeTraversalOperation::NextLayer => self.focus_index.set(FocusIndex::Inner),
+            WorldTreeTraversalOperation::Layerwise(tree_operation) => match tree_operation {
+                TreeTraverseOperation::Parent => todo!(),
+                TreeTraverseOperation::FirstChild => todo!(),
+                TreeTraverseOperation::PrevSibling => match self.focus_index.get() {
+                    FocusIndex::Child(child_index) => {
+                        self.focus_index
+                            .set(FocusIndex::Child(child_index.saturating_sub(1)));
+                    }
+                    _ => {
+                        println!("Warning 278y922eru: this shouldn't happen.");
+                    }
+                },
+                TreeTraverseOperation::NextSibling => match self.focus_index.get() {
+                    FocusIndex::Child(child_index) => {
+                        self.focus_index.set(FocusIndex::Child(
+                            (child_index + 1).min(self.children.read().unwrap().len() - 1),
+                        ));
+                    }
+                    _ => {
+                        println!("Warning 278y922eru: this shouldn't happen.");
+                    }
+                },
+                TreeTraverseOperation::RelShiftSibling(_) => todo!(),
+                TreeTraverseOperation::BfsPrev => todo!(),
+                TreeTraverseOperation::BfsNext => todo!(),
+                TreeTraverseOperation::Child(_) => todo!(),
+                TreeTraverseOperation::LastChild => todo!(),
+            },
+        }
+        self.hook.damage_treeview();
     }
 }
 
@@ -303,49 +310,10 @@ impl RecursiveNodeApplet {
                 }
 
                 fn change_focus(&self, operation: WorldTreeTraversalOperation) {
-                    match operation {
-                        WorldTreeTraversalOperation::GlobalRoot => todo!(),
-                        WorldTreeTraversalOperation::PrevLayer => {
-                            self.shared_resource
-                                .upgrade()
-                                .unwrap()
-                                .focus_index
-                                .set(FocusIndex::Focusing);
-                        }
-                        WorldTreeTraversalOperation::NextLayer => todo!(),
-                        WorldTreeTraversalOperation::Layerwise(
-                            TreeTraverseOperation::NextSibling,
-                        ) => {
-                            println!("Warning: should this ever even be called?");
-                            match self.shared_resource.upgrade().unwrap().focus_index.get() {
-                                FocusIndex::Child(child_index) => {
-                                    self.shared_resource.upgrade().unwrap().focus_index.set(
-                                        FocusIndex::Child(
-                                            (child_index + 1).min(
-                                                self.shared_resource
-                                                    .upgrade()
-                                                    .unwrap()
-                                                    .children
-                                                    .read()
-                                                    .unwrap()
-                                                    .len()
-                                                    - 1,
-                                            ),
-                                        ),
-                                    );
-                                }
-                                _ => {
-                                    println!("Warning 278y922eru: this shouldn't happen.");
-                                }
-                            }
-                        }
-                        _ => todo!(),
-                    }
                     self.shared_resource
                         .upgrade()
                         .unwrap()
-                        .hook
-                        .damage_treeview();
+                        .change_focus(operation);
                 }
             }
 
