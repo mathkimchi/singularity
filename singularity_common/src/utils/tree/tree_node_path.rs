@@ -60,18 +60,9 @@ pub enum TreeTraverseOperation {
     /// `a` and `0`
     Parent,
 
-    /// `d`
-    /// Equivalent to `Child(0)`
-    /// TODO: get rid of redundant operations
-    FirstChild,
-    /// `w`
-    /// Equivalent to `RelShiftSibling(-1)`
-    PrevSibling,
-    /// `s`
-    /// Equivalent to `RelShiftSibling(1)`
-    NextSibling,
-
     /// Stands for Relative Sibling
+    /// `w` is `RelShiftSibling(-1)`, which was previously equivalent to `PrevSibling`
+    /// `s` is `RelShiftSibling(1)`, which was previously equivalent to `NextSibling`
     RelShiftSibling(isize),
 
     /// `q`
@@ -79,8 +70,9 @@ pub enum TreeTraverseOperation {
     /// `w`
     BfsNext,
 
-    /// 1-8
+    /// `1-8`
     /// This is 0-indexed
+    /// `d` is `Child(0)`, which was previously equivalent to `FirstChild`
     Child(usize),
     /// `9`
     LastChild,
@@ -89,9 +81,9 @@ impl TreeTraverseOperation {
     pub fn from_char(traverse_key: char) -> Option<Self> {
         match traverse_key {
             'a' => Some(Self::Parent),
-            'd' => Some(Self::FirstChild),
-            'w' => Some(Self::PrevSibling),
-            's' => Some(Self::NextSibling),
+            'd' => Some(Self::Child(0)),
+            'w' => Some(Self::RelShiftSibling(-1)),
+            's' => Some(Self::RelShiftSibling(1)),
 
             'q' => Some(Self::BfsPrev),
             'e' => Some(Self::BfsNext),
@@ -280,11 +272,6 @@ mod tree_node_path_traversal_impls {
         ) -> Option<Self> {
             match traverse_operation {
                 TreeTraverseOperation::Parent => self.traverse_to_parent(),
-                TreeTraverseOperation::FirstChild => self.traverse_to_first_child(tree_to_traverse),
-                TreeTraverseOperation::PrevSibling => self.traverse_to_previous_sibling(),
-                TreeTraverseOperation::NextSibling => {
-                    self.traverse_to_next_sibling(tree_to_traverse)
-                }
                 TreeTraverseOperation::RelShiftSibling(shift) => {
                     self.traverse_rel_shift_sibling(tree_to_traverse, shift)
                 }

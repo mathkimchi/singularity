@@ -191,27 +191,18 @@ impl SharedResource {
             WorldTreeTraversalOperation::NextLayer => self.focus_index.set(FocusIndex::Inner),
             WorldTreeTraversalOperation::Layerwise(tree_operation) => match tree_operation {
                 TreeTraverseOperation::Parent => todo!(),
-                TreeTraverseOperation::FirstChild => todo!(),
-                TreeTraverseOperation::PrevSibling => match self.focus_index.get() {
-                    FocusIndex::Child(child_index) => {
-                        self.focus_index
-                            .set(FocusIndex::Child(child_index.saturating_sub(1)));
-                    }
-                    _ => {
-                        println!("Warning 278y922eru: this shouldn't happen.");
-                    }
-                },
-                TreeTraverseOperation::NextSibling => match self.focus_index.get() {
+                TreeTraverseOperation::RelShiftSibling(shift) => match self.focus_index.get() {
                     FocusIndex::Child(child_index) => {
                         self.focus_index.set(FocusIndex::Child(
-                            (child_index + 1).min(self.children.read().unwrap().len() - 1),
+                            (child_index as isize + shift)
+                                .clamp(0, self.children.read().unwrap().len() as isize - 1)
+                                as usize,
                         ));
                     }
                     _ => {
                         println!("Warning 278y922eru: this shouldn't happen.");
                     }
                 },
-                TreeTraverseOperation::RelShiftSibling(_) => todo!(),
                 TreeTraverseOperation::BfsPrev => todo!(),
                 TreeTraverseOperation::BfsNext => todo!(),
                 TreeTraverseOperation::Child(_) => todo!(),
@@ -410,7 +401,7 @@ impl BasicApplet for RecursiveNodeApplet {
                         Some('s') => {
                             self.shared_resource.hook.change_focus(
                                 WorldTreeTraversalOperation::Layerwise(
-                                    TreeTraverseOperation::NextSibling,
+                                    TreeTraverseOperation::RelShiftSibling(1),
                                 ),
                             );
                             self.shared_resource.hook.damage_treeview();
