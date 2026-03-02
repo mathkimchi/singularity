@@ -1,4 +1,5 @@
 use singularity_common::utils::tree::world_tree::WorldTreePath;
+use singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation;
 use singularity_sar::applet::BasicRunnerHook;
 use singularity_sar::{applet::BasicApplet, runner::AppletRunner};
 use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
@@ -104,7 +105,8 @@ impl BasicApplet for TextBoxApplet {
         ) = &ui_event
             && key.to_char() == Some('q')
         {
-            self.hook.focus_out();
+            self.hook
+                .change_focus(WorldTreeTraversalOperation::PrevLayer);
             return;
         }
 

@@ -68,12 +68,11 @@ impl SubAppletHolder {
                 }
             }
 
-            fn focus_out(&self) {
-                self.outer_hook.focus_out();
-            }
-
-            fn focus_next_child(&self) {
-                self.outer_hook.focus_next_child();
+            fn change_focus(
+                &self,
+                operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+            ) {
+                self.outer_hook.change_focus(operation);
             }
         }
 

@@ -6,8 +6,8 @@ use singularity_common::{
     sync::EncapsulatedLock,
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
-        tree_node_path::TreeNodePath,
-        world_tree::{WorldTree, WorldTreePath},
+        tree_node_path::{TreeNodePath, TreeTraverseOperation},
+        world_tree::{WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation},
     },
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
@@ -123,40 +123,41 @@ impl SharedResource {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
 
-                fn focus_out(&self) {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .focus_index
-                        .set(FocusIndex::Focusing);
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .damage_treeview();
-                }
-
-                fn focus_next_child(&self) {
-                    match self.shared_resource.upgrade().unwrap().focus_index.get() {
-                        FocusIndex::Child(child_index) => {
-                            self.shared_resource.upgrade().unwrap().focus_index.set(
-                                FocusIndex::Child(
-                                    (child_index + 1).min(
-                                        self.shared_resource
-                                            .upgrade()
-                                            .unwrap()
-                                            .children
-                                            .read()
-                                            .unwrap()
-                                            .len()
-                                            - 1,
+                fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+                    match operation {
+                        WorldTreeTraversalOperation::GlobalRoot => todo!(),
+                        WorldTreeTraversalOperation::PrevLayer => {
+                            self.shared_resource
+                                .upgrade()
+                                .unwrap()
+                                .focus_index
+                                .set(FocusIndex::Focusing);
+                        }
+                        WorldTreeTraversalOperation::NextLayer => todo!(),
+                        WorldTreeTraversalOperation::Layerwise(
+                            TreeTraverseOperation::NextSibling,
+                        ) => match self.shared_resource.upgrade().unwrap().focus_index.get() {
+                            FocusIndex::Child(child_index) => {
+                                self.shared_resource.upgrade().unwrap().focus_index.set(
+                                    FocusIndex::Child(
+                                        (child_index + 1).min(
+                                            self.shared_resource
+                                                .upgrade()
+                                                .unwrap()
+                                                .children
+                                                .read()
+                                                .unwrap()
+                                                .len()
+                                                - 1,
+                                        ),
                                     ),
-                                ),
-                            );
-                        }
-                        _ => {
-                            println!("Warning 278y922eru: this shouldn't happen.");
-                        }
+                                );
+                            }
+                            _ => {
+                                println!("Warning 278y922eru: this shouldn't happen.");
+                            }
+                        },
+                        _ => todo!(),
                     }
                     self.shared_resource
                         .upgrade()
@@ -487,42 +488,44 @@ impl RecursiveNodeApplet {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
 
-                fn focus_out(&self) {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .focus_index
-                        .set(FocusIndex::Focusing);
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .damage_treeview();
-                }
-
-                fn focus_next_child(&self) {
-                    println!("Warning: should this ever even be called?");
-                    match self.shared_resource.upgrade().unwrap().focus_index.get() {
-                        FocusIndex::Child(child_index) => {
-                            self.shared_resource.upgrade().unwrap().focus_index.set(
-                                FocusIndex::Child(
-                                    (child_index + 1).min(
-                                        self.shared_resource
-                                            .upgrade()
-                                            .unwrap()
-                                            .children
-                                            .read()
-                                            .unwrap()
-                                            .len()
-                                            - 1,
-                                    ),
-                                ),
-                            );
+                fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+                    match operation {
+                        WorldTreeTraversalOperation::GlobalRoot => todo!(),
+                        WorldTreeTraversalOperation::PrevLayer => {
+                            self.shared_resource
+                                .upgrade()
+                                .unwrap()
+                                .focus_index
+                                .set(FocusIndex::Focusing);
                         }
-                        _ => {
-                            // TODO: use log or tracing crate
-                            println!("Warning 278y922eru: this shouldn't happen.");
+                        WorldTreeTraversalOperation::NextLayer => todo!(),
+                        WorldTreeTraversalOperation::Layerwise(
+                            TreeTraverseOperation::NextSibling,
+                        ) => {
+                            println!("Warning: should this ever even be called?");
+                            match self.shared_resource.upgrade().unwrap().focus_index.get() {
+                                FocusIndex::Child(child_index) => {
+                                    self.shared_resource.upgrade().unwrap().focus_index.set(
+                                        FocusIndex::Child(
+                                            (child_index + 1).min(
+                                                self.shared_resource
+                                                    .upgrade()
+                                                    .unwrap()
+                                                    .children
+                                                    .read()
+                                                    .unwrap()
+                                                    .len()
+                                                    - 1,
+                                            ),
+                                        ),
+                                    );
+                                }
+                                _ => {
+                                    println!("Warning 278y922eru: this shouldn't happen.");
+                                }
+                            }
                         }
+                        _ => todo!(),
                     }
                     self.shared_resource
                         .upgrade()
@@ -613,7 +616,9 @@ impl BasicApplet for RecursiveNodeApplet {
                 {
                     match key.to_char() {
                         Some('q') => {
-                            self.shared_resource.hook.focus_out();
+                            self.shared_resource
+                                .hook
+                                .change_focus(WorldTreeTraversalOperation::PrevLayer);
                             self.shared_resource.hook.damage_treeview();
                         }
                         Some('e') => {
@@ -621,7 +626,11 @@ impl BasicApplet for RecursiveNodeApplet {
                             self.shared_resource.hook.damage_treeview();
                         }
                         Some('s') => {
-                            self.shared_resource.hook.focus_next_child();
+                            self.shared_resource.hook.change_focus(
+                                WorldTreeTraversalOperation::Layerwise(
+                                    TreeTraverseOperation::NextSibling,
+                                ),
+                            );
                             self.shared_resource.hook.damage_treeview();
                         }
                         Some('d') => {

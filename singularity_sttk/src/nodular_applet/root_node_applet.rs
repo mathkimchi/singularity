@@ -9,6 +9,8 @@ use singularity_ui::{
     ui_element::{CharGrid, UIElement},
 };
 
+/*
+
 /// Holds a nodular applet but only supports Basic operations.
 /// NOTE: This is really for debugging; for the actual, I'll implement RootNodeApplet.
 pub struct NodularHolderApplet<InnerApplet: NodularApplet> {
@@ -44,9 +46,11 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
                 todo!()
             }
 
-            fn focus_out(&self) {}
-
-            fn focus_next_child(&self) {}
+            fn change_focus(
+                &self,
+                _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+            ) {
+            }
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
@@ -71,6 +75,8 @@ impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet
         self.inner_applet.get_window()
     }
 }
+
+*/
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
 pub struct RootNodeApplet {
@@ -113,9 +119,12 @@ impl RootNodeApplet {
                 self.outer_hook.damage_window();
             }
 
-            fn focus_out(&self) {}
-
-            fn focus_next_child(&self) {}
+            fn change_focus(
+                &self,
+                _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+            ) {
+                // REVIEW: do I need to do anything here?
+            }
         }
 
         let inner_hook = InnerHook { outer_hook: hook };
