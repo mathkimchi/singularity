@@ -113,6 +113,7 @@ impl BasicApplet for TextBoxApplet {
         self.textbox.handle_event(ui_event);
 
         self.hook.damage_window();
+        self.hook.damage_treeview();
     }
 
     fn get_window(&self) -> UIElement {
@@ -146,9 +147,20 @@ impl NodularApplet for TextBoxApplet {
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
-        singularity_common::utils::tree::world_tree::WorldTree::Base(
-            "Bare Nodular Placeholder".to_string(),
-        )
+        let mut title = self
+            .textbox
+            .get_text_as_string()
+            .lines()
+            .next()
+            .unwrap_or("Bare Nodular Placeholder")
+            .trim()
+            .to_string();
+
+        if title.is_empty() {
+            title = "Bare Nodular Placeholder".to_string();
+        }
+
+        singularity_common::utils::tree::world_tree::WorldTree::Base(title)
     }
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
