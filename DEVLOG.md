@@ -5442,3 +5442,25 @@ and while extremely scuffed, I think this is fine.
 Especially since the point is to create a workspace and not a game or something.
 
 I'll start making basic apps now.
+
+2026-03-02 11:47PM
+
+I thought embedding Alacritty was going to be
+easier than I expected for a few minutes.
+It's not.
+I thought maybe proper colors would fix it,
+I couldn't even do proper colors.
+I thought maybe fixing input would fix it,
+it didn't.
+
+I haven't even figured out how
+actually running a terminal app is supposed to work.
+I thought it would automatically come with Alacritty.
+
+I am unironically considering just looking into Smithay again.
+
+...
+
+Nope, no.
+No, I'm not going to make a Smithay Wayland compositor
+until I have the MVP.

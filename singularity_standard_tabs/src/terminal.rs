@@ -173,6 +173,34 @@ impl BasicApplet for TerminalApplet {
         {
             self.term.input(key_char);
         }
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: _,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && let Some('\n') = key.to_char()
+        {
+            self.term.newline();
+        }
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: _,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
+            && let Some('\u{8}') = key.to_char()
+        {
+            self.term.backspace();
+        }
 
         self.hook.damage_window();
     }
