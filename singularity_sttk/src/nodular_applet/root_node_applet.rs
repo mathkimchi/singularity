@@ -113,6 +113,7 @@ impl BasicApplet for RootNodeApplet {
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
             self.applet
                 .get_window()
+                .bordered(Color::LIGHT_GREEN)
                 .contain(DisplayArea::new((0.2, 0.0), (1.0, 1.0))),
         ])
     }

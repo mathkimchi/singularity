@@ -65,7 +65,7 @@ impl TerminalApplet {
             hook,
             term: Term::new(
                 Config::default(),
-                &TermSize::new(20, 20),
+                &TermSize::new(60, 40),
                 TerminalEventListener {
                     title: title.clone(),
                 },
@@ -194,6 +194,7 @@ impl BasicApplet for TerminalApplet {
                 .collect(),
         }
         .element()
+        .fill_bg(Color::BLACK)
 
         // for cell in self.term.grid().display_iter() {
         //     cell.point.
