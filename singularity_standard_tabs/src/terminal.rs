@@ -81,6 +81,18 @@ impl TerminalApplet {
     {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
     }
+
+    fn ansi_color_to_singularity_color(
+        color: alacritty_terminal::vte::ansi::Color,
+        colors: &alacritty_terminal::term::color::Colors,
+    ) -> Option<Color> {
+        let rgb = match color {
+            alacritty_terminal::vte::ansi::Color::Named(named_color) => colors[named_color],
+            alacritty_terminal::vte::ansi::Color::Spec(rgb) => Some(rgb),
+            alacritty_terminal::vte::ansi::Color::Indexed(index) => colors[index as usize],
+        }?;
+        Some(Color([rgb.r, rgb.g, rgb.b, u8::MAX]))
+    }
 }
 impl BasicApplet for TerminalApplet {
     fn handle_ui_event(&mut self, ui_event: UIEvent) {
@@ -166,13 +178,15 @@ impl BasicApplet for TerminalApplet {
     }
 
     fn get_window(&self) -> UIElement {
-        // let cursor_color = if self.focused {
-        //     Color::LIGHT_YELLOW
-        // } else {
-        //     Color::MEDIUM_GRAY
-        // };
+        let cursor_color = if self.focused {
+            Color::LIGHT_YELLOW
+        } else {
+            Color::MEDIUM_GRAY
+        };
 
+        let content = self.term.renderable_content();
         let grid = self.term.grid();
+        let colors = content.colors;
 
         CharGrid {
             content: (0..grid.screen_lines())
@@ -185,8 +199,10 @@ impl BasicApplet for TerminalApplet {
                             CharCell {
                                 character: cell.c,
                                 // TODO: figure out how to use cell.fg and cell.bg colors
-                                fg: Color::WHITE,
-                                bg: Color::BLACK,
+                                fg: Self::ansi_color_to_singularity_color(cell.fg, colors)
+                                    .unwrap_or(cursor_color),
+                                bg: Self::ansi_color_to_singularity_color(cell.bg, colors)
+                                    .unwrap_or(Color::BLACK),
                             }
                         })
                         .collect()
