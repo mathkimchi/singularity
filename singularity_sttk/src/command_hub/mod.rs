@@ -63,8 +63,17 @@ impl CommandHubApplet {
                 Some("Done!".to_string())
             }
 
-            // TODO: run command
-            "$" => todo!(),
+            // TODO: help function
+
+            // FIXME: currently waits for command to finish.
+            // This is stupid, figure out another way.
+            "$" => {
+                let mut command = std::process::Command::new(args[0]);
+                command.args(&args[1..]);
+
+                // for some reason, String::from_utf8 doesn't work but debug does
+                String::from_utf8(command.output().ok()?.stdout).ok()
+            }
             _ => None,
         }
     }
@@ -76,7 +85,8 @@ impl CommandHubApplet {
         self.history.push((
             command,
             output.unwrap_or(
-                "Err: unknown command.\nCurrently working commands: `add`, `set_title`".to_string(),
+                "Err: unknown command.\nCurrently working commands: `add`, `set_title`, `$`"
+                    .to_string(),
             ),
         ));
     }

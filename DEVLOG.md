@@ -5660,3 +5660,19 @@ I just have addition working right now,
 but it's pretty cool and it was easier than I thought.
 
 I'm going to have to actively suppress my urges to make my own scripting language.
+
+...
+
+1:00PM
+
+Making this run shell commands had a very minor hiccup with `spawn` vs `output`,
+but it was also surprisingly easy.
+
+It is very bad though, since it just waits until the program is finished
+instead of running it async.
+
+If I run `$ sleep 10` twice in a row without waiting,
+it sleeps for 10 seconds, then updates the ui,
+then sleeps for another 10 seconds.
+This makes sense.
+The holder for this is probably waiting on a mutex somewhere.
