@@ -5631,3 +5631,7 @@ so I thought this would be easy as well.
 But I don't want to force singularity to rely on `mach` until I do my own research on it,
 which I do not have time for.
 So for now, I will give up on embedding Singularity.
+
+...
+
+I will undo the mess I created trying to get servo to work.
