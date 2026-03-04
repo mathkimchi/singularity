@@ -46,7 +46,7 @@ impl CommandHubApplet {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
     }
 
-    fn execute_command(command: &str) -> Option<String> {
+    fn execute_command(&mut self, command: &str) -> Option<String> {
         let tokens: Vec<_> = command.split_whitespace().collect();
 
         let (verb, args) = tokens.split_first()?;
@@ -58,6 +58,10 @@ impl CommandHubApplet {
                     .sum::<f32>()
                     .to_string(),
             ),
+            "set_title" => {
+                self.title = command.split_once(' ')?.1.to_string();
+                Some("Done!".to_string())
+            }
 
             // TODO: run command
             "$" => todo!(),
@@ -68,9 +72,13 @@ impl CommandHubApplet {
     fn handle_enter(&mut self) {
         let command = std::mem::take(&mut self.current_prompt);
 
-        let output = Self::execute_command(&command);
-        self.history
-            .push((command, output.unwrap_or("Err".to_string())));
+        let output = self.execute_command(&command);
+        self.history.push((
+            command,
+            output.unwrap_or(
+                "Err: unknown command.\nCurrently working commands: `add`, `set_title`".to_string(),
+            ),
+        ));
     }
 }
 impl BasicApplet for CommandHubApplet {
