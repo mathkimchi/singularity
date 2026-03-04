@@ -5604,3 +5604,30 @@ so I will try to get those.
 
 Still breaks, I'll try running build with sudo.
 I need to first run `sudo rustup default stable` because ai guess rust was only installed on my user.
+
+...
+
+It was taking over 5 minutes just to get servo again.
+I committed in the meanwhile because I was already pretty sure it wouldn't fix the problem.
+
+Apparently servo uses some alternative to `cargo` called `mach`
+and I have to use `mach`: https://book.servo.org/contributing/editor-setup.html#nixos.
+
+6 years ago (was just 2020, yikes!),
+there was this issue: https://github.com/servo/servo/issues/27613 saying they couldn't build servo either.
+The error seemed to be with dependencies and the "fix" was hardly a fix.
+
+I'm going to try using the new release [0.0.5](https://github.com/servo/servo/tree/release/v0.0.5)
+from 4 days ago.
+
+...
+
+Okay, I am giving up on embedding servo.
+I can't embed it if I can't even build it.
+
+The annoying thing is that running it on nixos was really easy,
+so I thought this would be easy as well.
+
+But I don't want to force singularity to rely on `mach` until I do my own research on it,
+which I do not have time for.
+So for now, I will give up on embedding Singularity.
