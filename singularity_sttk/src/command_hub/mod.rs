@@ -116,7 +116,16 @@ impl BasicApplet for CommandHubApplet {
             return;
         }
 
-        if let UIEvent::KeyPress(key, KeyModifiers::SHIFT) = &ui_event
+        if let UIEvent::KeyPress(
+            key,
+            KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: true,
+                caps_lock: false,
+                logo: false,
+            },
+        ) = &ui_event
             && key.to_char() == Some('+')
         {
             // self.hook
