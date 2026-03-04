@@ -8,15 +8,14 @@ use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
-/// REVIEW: rename to CachingApplet?
-pub struct SubAppletHolder {
+pub struct CachingApplet {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
     window_damaged: Arc<AtomicBool>,
     treeview: EncapsulatedLock<WorldTree<String>>,
     treeview_damaged: Arc<AtomicBool>,
 }
-impl SubAppletHolder {
+impl CachingApplet {
     pub fn new(
         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
         outer_hook: Box<dyn NodularRunnerHook>,
@@ -141,7 +140,7 @@ impl SubAppletHolder {
         }
     }
 }
-impl BasicApplet for SubAppletHolder {
+impl BasicApplet for CachingApplet {
     fn get_window(&self) -> UIElement {
         if self
             .window_damaged
@@ -157,7 +156,7 @@ impl BasicApplet for SubAppletHolder {
         self.immut_handle_ui_event(ui_event);
     }
 }
-impl NodularApplet for SubAppletHolder {
+impl NodularApplet for CachingApplet {
     fn handle_nodular_event(&mut self, nodular_event: super::NodularEvent) {
         self.immut_handle_nodular_event(nodular_event);
     }

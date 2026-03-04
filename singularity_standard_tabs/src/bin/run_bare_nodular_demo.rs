@@ -150,10 +150,8 @@ impl NodularApplet for TextBoxApplet {
         let mut title = self
             .textbox
             .get_text_as_string()
-            .lines()
-            .next()
-            .unwrap_or("Bare Nodular Placeholder")
-            .trim()
+            .split_once('\n')
+            .map_or("Bare Nodular Placeholder", |t| t.0.trim())
             .to_string();
 
         if title.is_empty() {

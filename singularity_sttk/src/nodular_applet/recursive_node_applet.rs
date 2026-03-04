@@ -1,6 +1,6 @@
 use crate::nodular_applet::{
     NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
-    applet_holder::SubAppletHolder,
+    caching_applet::CachingApplet,
 };
 use singularity_common::{
     sync::EncapsulatedLock,
@@ -27,7 +27,7 @@ enum FocusIndex {
 /// Information needed for the main applet and child applet hooks
 /// REVIEW: rename
 struct SharedResource {
-    children: RwLock<Vec<Arc<SubAppletHolder>>>,
+    children: RwLock<Vec<Arc<CachingApplet>>>,
 
     focus_index: EncapsulatedLock<FocusIndex>,
     hook: Box<dyn NodularRunnerHook>,
@@ -156,7 +156,7 @@ impl SharedResource {
                 // treeview: inner_applet_treeview.clone(),
             };
 
-            Arc::new(SubAppletHolder::new(
+            Arc::new(CachingApplet::new(
                 child_initializer,
                 Box::new(inner_hook),
                 inner_applet_window,
@@ -293,7 +293,7 @@ impl SharedResource {
 /// Holds a main Applet (at index 0) and also children.
 /// Displays the main child
 pub struct RecursiveNodeApplet {
-    main_applet: SubAppletHolder,
+    main_applet: CachingApplet,
     shared_resource: Arc<SharedResource>,
 }
 impl RecursiveNodeApplet {
@@ -391,7 +391,7 @@ impl RecursiveNodeApplet {
                 // treeview: inner_applet_treeview.clone(),
             };
 
-            SubAppletHolder::new(
+            CachingApplet::new(
                 main_applet_initiator,
                 Box::new(inner_hook),
                 inner_applet_window,

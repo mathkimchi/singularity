@@ -6,9 +6,10 @@ use singularity_common::utils::tree::world_tree::{
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::ui_element::UIElement;
 
-pub mod applet_holder;
+pub mod caching_applet;
 pub mod recursive_node_applet;
 pub mod root_node_applet;
+pub mod simple_applet_holder;
 
 // pub struct RootApplet<Applet: BasicApplet> {
 //     inner: Applet,

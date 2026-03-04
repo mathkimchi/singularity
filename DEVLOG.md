@@ -5640,3 +5640,23 @@ I will undo the mess I created trying to get servo to work.
 
 As I update my cargo dependencies, I can run `cargo update --verbose`
 to see what needs updating.
+
+2026-03-04 11:48AM
+
+As I said in [this comment](https://github.com/mathkimchi/singularity/issues/27#issuecomment-3995439265),
+I am just going to work on the command hub.
+
+Technically, command hub is a standard app so it should go under singularity_standard_tabs,
+but it is also a tool so I am justifying its place in singularity sttk.
+
+...
+
+12:40PM
+
+I locked in for 50 minutes,
+and I am pretty happy.
+
+I just have addition working right now,
+but it's pretty cool and it was easier than I thought.
+
+I'm going to have to actively suppress my urges to make my own scripting language.
