@@ -5635,3 +5635,8 @@ So for now, I will give up on embedding Singularity.
 ...
 
 I will undo the mess I created trying to get servo to work.
+
+...
+
+As I update my cargo dependencies, I can run `cargo update --verbose`
+to see what needs updating.

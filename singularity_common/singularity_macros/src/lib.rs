@@ -1,7 +1,7 @@
 use std::{hash::{Hash, Hasher}, str::FromStr};
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{DeriveInput, Fields};
 
 
@@ -24,9 +24,9 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         let mut focused_component = None;
 
         for attr in &ast.attrs {
-            if attr.path.is_ident("focused_component") {
+            if attr.path().is_ident("focused_component") {
                 assert!(focused_component.is_none());
-                focused_component = match attr.tokens.clone().into_iter().next().unwrap() {
+                focused_component = match attr.to_token_stream().clone().into_iter().next().unwrap() {
                     proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
                         &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(node_renderer)] => {
                             assert_eq!(seperator.as_char(), ',');
@@ -50,9 +50,9 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         let mut components = vec![];
         for field in struct_.fields.iter() {
             for attr in field.attrs.iter() {
-                if attr.path.is_ident("component") {
+                if attr.path().is_ident("component") {
                     // just get the first thing from attr.tokens
-                    let (container_size, focus_id) = match attr.tokens.clone().into_iter().next().unwrap() {
+                    let (container_size, focus_id) = match attr.to_token_stream().clone().into_iter().next().unwrap() {
                         proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
                             &[proc_macro2::TokenTree::Group(container_size), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(focus_id)] => {
                                 assert_eq!(seperator.as_char(), ',');
@@ -65,7 +65,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                     components.push((field.ident.clone().unwrap(), container_size, focus_id));
                 }
 
-                if attr.path.is_ident("tree_component") {
+                if attr.path().is_ident("tree_component") {
                     // // just get the first thing from attr.tokens
                     // let container_size = match attr.tokens.clone().into_iter().next().unwrap() {
                     //     proc_macro2::TokenTree::Group(group) => {
@@ -85,9 +85,9 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         let mut tree_components = vec![];
         for field in struct_.fields.iter() {
             for attr in field.attrs.iter() {
-                if attr.path.is_ident("tree_component") {
+                if attr.path().is_ident("tree_component") {
                     let (area_generator, renderer, event_handler, focus_id) = 
-                    match attr.tokens.clone().into_iter().next().unwrap() {
+                    match attr.to_token_stream().clone().into_iter().next().unwrap() {
                         proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
                             &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator0), proc_macro2::TokenTree::Group(node_renderer), proc_macro2::TokenTree::Punct(seperator1), proc_macro2::TokenTree::Group(event_handler), proc_macro2::TokenTree::Punct(seperator2), proc_macro2::TokenTree::Group(focus_id)] => {
                                 assert_eq!(seperator0.as_char(), ',', "Delimiter between area_generator and node_renderer of tree_component should be ','");
@@ -227,7 +227,7 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
                 _=> panic!("Expected unnamed fields for all variants")
             };
             
-            if variant.attrs.iter().any(|attr| attr.path.is_ident("sub_union")) {
+            if variant.attrs.iter().any(|attr| attr.path().is_ident("sub_union")) {
                 packet_unions.push((variant.ident.clone(), inner_packet_type));
             } else {
                 packets.push((variant.ident.clone(), inner_packet_type));
@@ -583,10 +583,10 @@ pub fn query_derive(input: TokenStream) -> TokenStream {
     
     let identifier = ast.ident;
     let response_type = ast.attrs.iter().find_map(|attr| {
-        if attr.path.is_ident("ResponseType") {
+        if attr.path().is_ident("ResponseType") {
             // dbg!(&attr.tokens);
             // dbg!(&attr.tokens.clone().into_iter().next().unwrap());
-            match attr.tokens.clone().into_iter().next().unwrap() {
+            match attr.to_token_stream().clone().into_iter().next().unwrap() {
                 proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
                     &[proc_macro2::TokenTree::Ident(response_type_ident)] => {
                         Some(response_type_ident.clone())

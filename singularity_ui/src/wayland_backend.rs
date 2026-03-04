@@ -440,7 +440,7 @@ mod ui_display_wayland_impls {
         registry_handlers,
         seat::{
             Capability, SeatHandler, SeatState,
-            keyboard::{KeyboardHandler, Keysym, Modifiers},
+            keyboard::{KeyboardHandler, Keysym, Modifiers, RawModifiers},
             pointer::{PointerEvent, PointerHandler},
         },
         shell::{
@@ -706,14 +706,25 @@ mod ui_display_wayland_impls {
 
         fn update_modifiers(
             &mut self,
-            _: &Connection,
-            _: &QueueHandle<Self>,
-            _: &wl_keyboard::WlKeyboard,
+            _conn: &Connection,
+            _qh: &QueueHandle<Self>,
+            _keyboard: &wl_keyboard::WlKeyboard,
             _serial: u32,
             modifiers: Modifiers,
+            _raw_modifiers: RawModifiers,
             _layout: u32,
         ) {
             self.key_modifiers = KeyModifiers::from(modifiers);
+        }
+
+        fn repeat_key(
+            &mut self,
+            _conn: &Connection,
+            _qh: &QueueHandle<Self>,
+            _keyboard: &wl_keyboard::WlKeyboard,
+            _serial: u32,
+            _event: smithay_client_toolkit::seat::keyboard::KeyEvent,
+        ) {
         }
     }
 
