@@ -5464,3 +5464,143 @@ I am unironically considering just looking into Smithay again.
 Nope, no.
 No, I'm not going to make a Smithay Wayland compositor
 until I have the MVP.
+
+2026-03-03 11:59AM
+
+I am going to try to embed servo.
+
+While waiting for Servo to dependency to build,
+I was considering new names for Singularity.
+I like `sonamu` which means pine tree in Korean.
+
+Anyways, servo's `bitflags` crate dependency seems to be
+conflicting with Alacritty's bitflags dependency.
+
+```sh
+❯ cargo build
+    Updating git repository `https://github.com/servo/servo`
+    Updating crates.io index
+    Updating git repository `https://github.com/servo/stylo`
+error: failed to select a version for `bitflags`.
+    ... required by package `libservo v0.0.1 (https://github.com/servo/servo#036cb9a6)`
+    ... which satisfies git dependency `libservo` of package `singularity_standard_tabs v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs)`
+    ... which satisfies path dependency `singularity_standard_tabs` (locked to 0.1.0) of package `singularity_sde v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_sde)`
+versions that meet the requirements `^2.11` are: 2.11.0
+
+all possible versions conflict with previously selected packages.
+
+  previously selected package `bitflags v2.8.0`
+    ... which satisfies dependency `bitflags = "^2.4.1"` (locked to 2.8.0) of package `alacritty_terminal v0.25.1`
+    ... which satisfies dependency `alacritty_terminal = "^0.25"` (locked to 0.25.1) of package `singularity_standard_tabs v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs)`
+    ... which satisfies path dependency `singularity_standard_tabs` (locked to 0.1.0) of package `singularity_sde v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_sde)`
+
+failed to select a version for `bitflags` which could resolve this conflict
+```
+
+Since I am temporarily giving up on embedding Alacritty anyways,
+I will just comment out everything related to it.
+
+...
+
+```sh
+❯ cargo build
+    Updating git repository `https://github.com/servo/servo`
+    Updating crates.io index
+    Updating git repository `https://github.com/servo/stylo`
+error: failed to select a version for `bitflags`.
+    ... required by package `libservo v0.0.1 (https://github.com/servo/servo#036cb9a6)`
+    ... which satisfies git dependency `libservo` of package `singularity_standard_tabs v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs)`
+    ... which satisfies path dependency `singularity_standard_tabs` (locked to 0.1.0) of package `singularity_sde v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_sde)`
+versions that meet the requirements `^2.11` are: 2.11.0
+
+all possible versions conflict with previously selected packages.
+
+  previously selected package `bitflags v2.8.0`
+    ... which satisfies dependency `bitflags = "^2.4"` (locked to 2.8.0) of package `smithay-client-toolkit v0.19.2`
+    ... which satisfies dependency `smithay-client-toolkit = "^0.19"` (locked to 0.19.2) of package `singularity_ui v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_ui)`
+    ... which satisfies path dependency `singularity_ui` (locked to 0.1.0) of package `dylib_math_game v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs/dylib_math_game)`
+
+failed to select a version for `bitflags` which could resolve this conflict
+```
+
+Hmm... it seems that now it conflicts with smithay client toolkit's bitflags.
+After actually reading the error,
+it seems like servo wants a later version of bitflags than the other packages.
+I'll see if `cargo clean` changes anything.
+
+...
+
+Nope, still conflicts with smithay.
+Maybe I should update smithay from `^0.19` to `^0.20`?
+
+...
+
+```sh
+❯ cargo build
+    Updating crates.io index
+    Updating git repository `https://github.com/servo/servo`
+    Updating git repository `https://github.com/servo/stylo`
+error: failed to select a version for `yeslogic-fontconfig-sys`.
+    ... required by package `font-kit v0.11.0`
+    ... which satisfies dependency `font-kit = "^0.11.0"` of package `singularity_ui v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_ui)`
+    ... which satisfies path dependency `singularity_ui` (locked to 0.1.0) of package `dylib_math_game v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs/dylib_math_game)`
+versions that meet the requirements `^3.0.0` are: 3.2.0, 3.1.0, 3.0.1, 3.0.0
+
+package `yeslogic-fontconfig-sys` links to the native library `fontconfig`, but it conflicts with a previous package which links to `fontconfig` as well:
+package `yeslogic-fontconfig-sys v6.0.0`
+    ... which satisfies dependency `fontconfig_sys = "^6"` of package `servo-fonts v0.0.1 (https://github.com/servo/servo#036cb9a6)`
+    ... which satisfies git dependency `fonts` of package `libservo v0.0.1 (https://github.com/servo/servo#036cb9a6)`
+    ... which satisfies git dependency `libservo` of package `singularity_standard_tabs v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_standard_tabs)`
+    ... which satisfies path dependency `singularity_standard_tabs` (locked to 0.1.0) of package `singularity_sde v0.1.0 (/home/mathkimchi/Documents/GitHub/singularity/singularity_sde)`
+Only one package in the dependency graph may specify the same links value. This helps ensure that only one copy of a native library is linked in the final binary. Try to adjust your dependencies so that only one package uses the `links = "fontconfig"` value. For more information, see https://doc.rust-lang.org/cargo/reference/resolver.html#links.
+
+failed to select a version for `yeslogic-fontconfig-sys` which could resolve this conflict
+```
+
+So bitflags isn't the error anymore, but something with fonts is.
+I'll just update font_kit from `^0.11.0` to `^0.14.3`.
+
+...
+
+12:32PM
+
+I've been fighting with random build commands written in c.
+I am trying to add nix packages to make it work.
+`tikv-jemalloc-sys` just keeps on giving me more errors.
+
+Other people https://github.com/NixOS/nixpkgs/issues/370494
+seem to have had the same problem.
+
+You know what, instead of thinking about it,
+I'm just going to throw all the C related packages into my flake.nix
+and hope one of them solves the problem.
+
+...
+
+I'm fully cleaning my NixOS system because flake is not recognizing llvm 22 for some reason.
+I thought flake was supposed to prevent those issues from happening, but oh well...
+
+Since fonts are being weird, I also ran `rm -r ~/.cache/fontconfig`.
+
+...
+
+2026-03-03 11:44PM
+
+Still no luck,
+I am looking at the specific failing crates and trying to search up their dependencies
+or if someone who uses nixos+rust+that crate has made an issue yet.
+
+For example, fontsan-woff2 is failing.
+It has no documentation but its dependant [`fontsan`](https://crates.io/crates/fontsan) does,
+and has a list of dependancies:
+- ots
+- lz4
+- brotli
+- woff2
+
+so I will try to get those.
+
+...
+
+Still breaks, I'll try running build with sudo.
+I need to first run `sudo rustup default stable` because ai guess rust was only installed on my user.

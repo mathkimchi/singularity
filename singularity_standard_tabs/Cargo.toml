@@ -15,7 +15,8 @@ singularity_sttk = { path = "../singularity_sttk" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-alacritty_terminal = "0.25"
+# alacritty_terminal = "0.25"
+libservo = { git = "https://github.com/servo/servo" }
 
 # [[bin]]
 # name = "editor"
