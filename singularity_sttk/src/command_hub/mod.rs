@@ -52,12 +52,20 @@ impl CommandHubApplet {
         let (verb, args) = tokens.split_first()?;
 
         match *verb {
-            "add" => Some(
+            "addition" => Some(
                 args.iter()
                     .filter_map(|a| a.parse::<f32>().ok())
                     .sum::<f32>()
                     .to_string(),
             ),
+            "add_child" => match args.first() {
+                None | Some(&"command_hub") => {
+                    self.hook
+                        .add_child(Box::new(CommandHubApplet::get_boxed_initiator()));
+                    Some("Great success!".to_string())
+                }
+                _ => None,
+            },
             "set_title" => {
                 self.title = command.split_once(' ')?.1.to_string();
                 Some("Done!".to_string())
