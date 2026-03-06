@@ -46,30 +46,37 @@ impl CommandHubApplet {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
     }
 
-    fn execute_command(&mut self, command: &str) -> Option<String> {
+    fn execute_command(&mut self, command: &str) -> Result<String, String> {
         let tokens: Vec<_> = command.split_whitespace().collect();
 
-        let (verb, args) = tokens.split_first()?;
+        let (verb, args) = tokens
+            .split_first()
+            .ok_or("Couldn't split commands.".to_string())?;
 
         match *verb {
-            "addition" => Some(
-                args.iter()
-                    .filter_map(|a| a.parse::<f32>().ok())
-                    .sum::<f32>()
-                    .to_string(),
-            ),
+            "addition" => Ok(args
+                .iter()
+                .filter_map(|a| a.parse::<f32>().ok())
+                .sum::<f32>()
+                .to_string()),
             "add_child" => match args.first() {
                 None | Some(&"command_hub") => {
                     self.hook
                         .add_child(Box::new(CommandHubApplet::get_boxed_initiator()));
-                    Some("Great success!".to_string())
+                    Ok("Great success!".to_string())
                 }
-                _ => None,
+                Some(app_name) => Err(format!("Couldn't find app {app_name}.")),
             },
             "set_title" => {
-                self.title = command.split_once(' ')?.1.to_string();
-                Some("Done!".to_string())
+                self.title = command
+                    .split_once(' ')
+                    .ok_or("Couldn't get title from \"{command}\".")?
+                    .1
+                    .to_string();
+                Ok("Done!".to_string())
             }
+
+            "help" => Ok("Currently working commands: `add`, `set_title`, `$`".to_string()),
 
             // TODO: help function
 
@@ -80,9 +87,10 @@ impl CommandHubApplet {
                 command.args(&args[1..]);
 
                 // for some reason, String::from_utf8 doesn't work but debug does
-                String::from_utf8(command.output().ok()?.stdout).ok()
+                String::from_utf8(command.output().map_err(|err| err.to_string())?.stdout)
+                    .map_err(|err| err.to_string())
             }
-            _ => None,
+            verb => Err(format!("`{verb}` is an unknown command.")),
         }
     }
 
@@ -92,10 +100,10 @@ impl CommandHubApplet {
         let output = self.execute_command(&command);
         self.history.push((
             command,
-            output.unwrap_or(
-                "Err: unknown command.\nCurrently working commands: `add`, `set_title`, `$`"
-                    .to_string(),
-            ),
+            match output {
+                Ok(ok) => ok,
+                Err(err) => format!("Err: {err}"),
+            },
         ));
     }
 }
