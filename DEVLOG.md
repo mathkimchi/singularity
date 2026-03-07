@@ -5676,3 +5676,36 @@ it sleeps for 10 seconds, then updates the ui,
 then sleeps for another 10 seconds.
 This makes sense.
 The holder for this is probably waiting on a mutex somewhere.
+
+...
+
+2026-03-05
+
+I added command hub with very jank "parsing" (just split tokens).
+
+I don't 
+
+...
+
+2026-03-07 6:11PM
+
+Erhm, I kinda lost steam in the previous entry and didn't finish my sentence.
+
+I've been focusing on other things like finals, composing, and beginning to exercise again.
+But now, it's break so I'm still going to exercise,
+but there's no more finals.
+Plus, most my friends are traveling or going back home or visiting schools
+so I won't be wasting time with all that
+"making memories with friends before I graduate" business (sarchasm).
+
+In all seriousness, I've recently cut off the final unfulfilling time-wasters in my life.
+Namely, YouTube and Instagram.
+So, I'll try to do more productive things
+(like Singularity, music, maybe coding streams?) to overcome any urges I might get to
+suddenly start doomscrolling or something.
+
+I think I was going to say that I'll consider the Command Hub done for now,
+in the sense that I will move on.
+But, it isn't even done for the MVP yet, because I'll need to add actual children.
+
+Now, I'll work on a text editor, which should be really easy since I've done it before.
