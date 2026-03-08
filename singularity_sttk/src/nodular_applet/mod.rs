@@ -9,7 +9,6 @@ use singularity_ui::ui_element::UIElement;
 pub mod caching_applet;
 pub mod recursive_node_applet;
 pub mod root_node_applet;
-pub mod simple_applet_holder;
 
 // pub struct RootApplet<Applet: BasicApplet> {
 //     inner: Applet,
@@ -91,5 +90,18 @@ impl BasicRunnerHook for Box<dyn NodularRunnerHook> {
 
     fn close(&self) {
         (**self).close();
+    }
+}
+impl NodularRunnerHook for Box<dyn NodularRunnerHook> {
+    fn damage_treeview(&self) {
+        (**self).damage_treeview();
+    }
+
+    fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
+        (**self).add_child(initializer);
+    }
+
+    fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+        (**self).change_focus(operation);
     }
 }

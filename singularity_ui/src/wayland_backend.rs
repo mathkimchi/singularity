@@ -908,6 +908,20 @@ pub mod ui_event {
             logo: true,
             // num_lock: false,
         };
+
+        pub const CTRL_SHIFT: Self = KeyModifiers::both(Self::CTRL, Self::SHIFT);
+
+        /// For example, combine(CTRL, SHIFT) is CTRL_SHIFT
+        pub const fn both(self, rhs: Self) -> Self {
+            Self {
+                ctrl: self.ctrl | rhs.ctrl,
+                alt: self.alt | rhs.alt,
+                shift: self.shift | rhs.shift,
+                caps_lock: self.caps_lock | rhs.caps_lock,
+                logo: self.logo | rhs.logo,
+                // num_lock: self.num_lock | rhs.num_lock,
+            }
+        }
     }
     impl From<keyboard::Modifiers> for KeyModifiers {
         fn from(
@@ -934,14 +948,7 @@ pub mod ui_event {
         type Output = Self;
 
         fn bitor(self, rhs: Self) -> Self::Output {
-            Self {
-                ctrl: self.ctrl | rhs.ctrl,
-                alt: self.alt | rhs.alt,
-                shift: self.shift | rhs.shift,
-                caps_lock: self.caps_lock | rhs.caps_lock,
-                logo: self.logo | rhs.logo,
-                // num_lock: self.num_lock | rhs.num_lock,
-            }
+            Self::both(self, rhs)
         }
     }
     impl std::ops::BitAnd for KeyModifiers {

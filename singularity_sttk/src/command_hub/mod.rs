@@ -1,18 +1,15 @@
-use std::fmt::Write as _;
-
-use singularity_common::utils::tree::world_tree::{
-    WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
+use crate::{
+    nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook},
+    standard_keybinds::handle_standard_keybinds,
 };
+use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::BasicApplet;
 use singularity_ui::{
     color::Color,
     ui_element::{CharGrid, UIElement},
-    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+    ui_event::{KeyTrait, UIEvent},
 };
-
-use crate::nodular_applet::{
-    NodularApplet, NodularEvent, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
-};
+use std::fmt::Write as _;
 
 /// Technically, this is a standard app, but it is so essential
 /// that I am considering it a tool for sttk.
@@ -116,53 +113,9 @@ impl BasicApplet for CommandHubApplet {
         // ));
         // self.hook.update_display(&UIElement::Text("a".to_string()));
 
-        if let UIEvent::KeyPress(
-            key,
-            KeyModifiers {
-                ctrl: true,
-                alt: false,
-                shift: true,
-                caps_lock: false,
-                logo: false,
-            },
-        ) = &ui_event
-            && key.to_char() == Some('Q')
-        {
-            self.hook.close();
+        if handle_standard_keybinds(&ui_event, &self.hook) {
             return;
         }
-
-        if let UIEvent::KeyPress(
-            key,
-            KeyModifiers {
-                ctrl: true,
-                alt: false,
-                shift: true,
-                caps_lock: false,
-                logo: false,
-            },
-        ) = &ui_event
-            && key.to_char() == Some('+')
-        {
-            // self.hook
-            //     .add_child(Box::new(TextBoxApplet::get_boxed_initiator(String::new())));
-            self.hook
-                .add_child(Box::new(RecursiveNodeApplet::get_boxed_initializer(
-                    Self::get_boxed_initiator(),
-                )));
-            return;
-        }
-
-        if let UIEvent::KeyPress(key, KeyModifiers::ALT) = &ui_event
-            && key.to_char() == Some('q')
-        {
-            self.hook
-                .change_focus(WorldTreeTraversalOperation::PrevLayer);
-            return;
-        }
-
-        // above are special cases
-        // now actually handle events for self
 
         if let UIEvent::KeyPress(key, _) = &ui_event
             && let Some(key_char) = key.to_char()

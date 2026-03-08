@@ -5709,3 +5709,20 @@ in the sense that I will move on.
 But, it isn't even done for the MVP yet, because I'll need to add actual children.
 
 Now, I'll work on a text editor, which should be really easy since I've done it before.
+
+...
+
+Before that, I'll make "standard applet" which implements
+the standard applet shortcuts like add child and traversal.
+
+...
+
+Actually, instead of making a wrapper for the applet,
+I can just make a `handle_standard_keybinds` function.
+Later on, I want to do something more generic,
+but again, I am working "Towards an MVP" (wow, he said the thing again!).
+
+I feel like a Java OOP dev right now,
+becase I thought to do something that could so easily be done via a function
+with inheritance instead.
+I guess I got tunnel vision from making all the other wrappers.
