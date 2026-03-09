@@ -5726,3 +5726,82 @@ I feel like a Java OOP dev right now,
 becase I thought to do something that could so easily be done via a function
 with inheritance instead.
 I guess I got tunnel vision from making all the other wrappers.
+
+...
+
+7:28PM
+
+So, I made the editor.
+It was pretty easy, since I already made a text editor in the old framework,
+and since I also made the text box
+(lets you write text, but doesn't save to a file) in the current framework.
+
+Now, the question is how to run it.
+
+I have two general options that I am considering:
+- some system of registering commands or at least applets (which I'll do eventually)
+  - Could either be global (simpler) or do something similar to environments similar to env logger where applets inherit parent's environment (I'll probably need to have the env manually passed down instead of implicitly, which is how I think env logger does it)
+- A temporary solution: just move standard commands into sttk and hardcode the applets
+
+While I understand that I want to get an MVP asap, this is a pretty crucial feature,
+and I don't know if I can say Command Hub can be done until this is done.
+
+I'll give myself today and tomorrow to think of a command and env system.
+I still won't have an actual language for the MVP though.
+
+It seems like env_logger just uses shell env.
+I thought they did something cooler with like RAII,
+but it seems they just have something that sets the `RUST_LOG` variable on init
+and unsets it on drop.
+
+That's lame.
+I never liked env variables.
+
+If I wrote my own OS and language for that OS,
+I would make the environment an object that is passed from the parent to child.
+Or maybe I'd have a shorthand (special syntax) for passing the env automatically,
+but I don't like the standard way that kind of hides it
+unless you actively are thinking about it.
+
+2026-03-08 5:07PM
+
+The bare information I want to store in the Env is:
+- commands
+- list of applets
+
+...
+
+I went on a walk (I was going somewhere;
+I wasn't walking *just* to think about Singularity),
+and I realized that the "Env" system doesn't need to be some special thing:
+I can just make it a part of the hook.
+
+Eventually, I do want to bring back the abstract packets,
+but for the MVP, I just need to add the following operations to the nodular hook
+(maybe I should make another struct called the environmental hook or something,
+which would be the proper "single responsibility" way of doing things,
+but there is no reason to do that right now,
+especially since I'll abstract everything later):
+- `register_command(&self, name: String, command: Command)`
+- `get_commands(&self) -> Map<String, Command>`
+- `find_command(&self, name: String) -> Option<Command>`
+- `register_applet_spawner(&self, name: String, applet: AppletSpawner)`
+- `get_applet_spawners(&self) -> Map<String, AppletSpawner>`
+- `find_applet_spawner(&self, name: String) -> Option<AppletSpawner>`
+
+Now, there's a lot of repetition so I'll abstract
+that with a `Registration<T>` class later,
+but that's for a later me to think about.
+
+In the list of operations I just wrote down,
+you can see two new types: `Command` and `AppletSpawner`.
+I might need to rename `Command` to something else like
+`SCommand` (for singularity/sonamu command).
+These will be clonable and runnable.
+
+For now, I'll just say these take a list of strings as arguments when running,
+like in shell.
+
+By the way, it is 2026-03-09 12:02PM right now,
+so I'm 12 hours past my deadline, but I went to NY yesterday
+and when I got back I was texting so I coudn't work on brainstorming.

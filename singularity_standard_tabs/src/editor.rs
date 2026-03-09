@@ -114,7 +114,7 @@ impl BasicApplet for TextEditorApplet {
         self.textbox.handle_event(ui_event);
 
         self.hook.damage_window();
-        self.hook.damage_treeview();
+        // self.hook.damage_treeview();
     }
 
     fn get_window(&self) -> UIElement {
