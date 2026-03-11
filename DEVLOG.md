@@ -5785,7 +5785,7 @@ especially since I'll abstract everything later):
 - `register_command(&self, name: String, command: Command)`
 - `get_commands(&self) -> Map<String, Command>`
 - `find_command(&self, name: String) -> Option<Command>`
-- `register_applet_spawner(&self, name: String, applet: AppletSpawner)`
+- `register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner)`
 - `get_applet_spawners(&self) -> Map<String, AppletSpawner>`
 - `find_applet_spawner(&self, name: String) -> Option<AppletSpawner>`
 
@@ -5805,3 +5805,13 @@ like in shell.
 By the way, it is 2026-03-09 12:02PM right now,
 so I'm 12 hours past my deadline, but I went to NY yesterday
 and when I got back I was texting so I coudn't work on brainstorming.
+
+2026-03-11 5:21PM
+
+(I've been busy working on music and learning Topology.)
+
+Command registry isn't necessary for the MVP,
+so I'll only do the spawnable applet registry right now.
+
+I just realized that these are the first hooks that return something.
+I don't think that will cause any complications.

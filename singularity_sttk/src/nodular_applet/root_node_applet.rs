@@ -1,5 +1,5 @@
 use crate::nodular_applet::{
-    NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+    AppletSpawner, NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
@@ -8,6 +8,7 @@ use singularity_ui::{
     display_units::DisplayArea,
     ui_element::{CharGrid, UIElement},
 };
+use std::{collections::BTreeMap, sync::RwLock};
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
 pub struct RootNodeApplet {
@@ -15,6 +16,7 @@ pub struct RootNodeApplet {
     applet: RecursiveNodeApplet,
     // window: Arc<Mutex<UIElement>>,
     // hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
+    // applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
 }
 impl RootNodeApplet {
     pub fn new(
@@ -23,6 +25,7 @@ impl RootNodeApplet {
     ) -> Self {
         struct InnerHook {
             outer_hook: Box<dyn BasicRunnerHook>,
+            applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
         }
         impl BasicRunnerHook for InnerHook {
             // fn update_display(&self, display: &singularity_ui::ui_element::UIElement) {
@@ -41,7 +44,7 @@ impl RootNodeApplet {
         impl NodularRunnerHook for InnerHook {
             // fn update_treeview(&self, _treeview: &singularity_ui::ui_element::UIElement) {}
 
-            fn add_child(&self, _initializer: Box<super::NodularAppletInitializer>) {
+            fn add_child(&self, _initializer: super::NodularAppletInitializer) {
                 todo!()
             }
 
@@ -56,9 +59,32 @@ impl RootNodeApplet {
             ) {
                 // REVIEW: do I need to do anything here?
             }
+
+            fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
+                self.applet_spawner_registry
+                    .write()
+                    .unwrap()
+                    .insert(name, applet_spawner);
+            }
+            fn get_applet_spawners(
+                &self,
+            ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+                self.applet_spawner_registry.read().unwrap().clone()
+            }
+            fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+                self.applet_spawner_registry
+                    .read()
+                    .unwrap()
+                    .get(&name)
+                    .cloned()
+            }
         }
 
-        let inner_hook = InnerHook { outer_hook: hook };
+        let applet_spawner_registry = RwLock::new(BTreeMap::new());
+        let inner_hook = InnerHook {
+            outer_hook: hook,
+            applet_spawner_registry,
+        };
 
         Self {
             applet: inner_initializer(Box::new(inner_hook)),

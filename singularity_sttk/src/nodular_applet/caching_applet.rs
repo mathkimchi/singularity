@@ -53,7 +53,7 @@ impl CachingApplet {
             //     self.outer_hook.update_treeview(treeview);
             // }
 
-            fn add_child(&self, initializer: Box<super::NodularAppletInitializer>) {
+            fn add_child(&self, initializer: super::NodularAppletInitializer) {
                 self.outer_hook.add_child(initializer);
             }
 
@@ -72,6 +72,19 @@ impl CachingApplet {
                 operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
             ) {
                 self.outer_hook.change_focus(operation);
+            }
+
+            fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
+                self.outer_hook
+                    .register_applet_spawner(name, applet_spawner);
+            }
+            fn get_applet_spawners(
+                &self,
+            ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+                self.outer_hook.get_applet_spawners()
+            }
+            fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+                self.outer_hook.find_applet_spawner(name)
             }
         }
 

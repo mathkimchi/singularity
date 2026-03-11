@@ -1,3 +1,5 @@
+//! TODO: move to sttk
+
 use crate::{
     nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook},
     standard_keybinds::handle_standard_keybinds,

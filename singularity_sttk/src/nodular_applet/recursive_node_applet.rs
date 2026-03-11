@@ -137,7 +137,7 @@ impl SharedResource {
                     }
                 }
 
-                fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
+                fn add_child(&self, initializer: NodularAppletInitializer) {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
 
@@ -146,6 +146,34 @@ impl SharedResource {
                         .upgrade()
                         .unwrap()
                         .change_focus(operation);
+                }
+
+                fn register_applet_spawner(
+                    &self,
+                    name: String,
+                    applet_spawner: super::AppletSpawner,
+                ) {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .register_applet_spawner(name, applet_spawner);
+                }
+                fn get_applet_spawners(
+                    &self,
+                ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .get_applet_spawners()
+                }
+                fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .find_applet_spawner(name)
                 }
             }
 
@@ -373,7 +401,7 @@ impl RecursiveNodeApplet {
                     }
                 }
 
-                fn add_child(&self, initializer: Box<NodularAppletInitializer>) {
+                fn add_child(&self, initializer: NodularAppletInitializer) {
                     SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
                 }
 
@@ -382,6 +410,34 @@ impl RecursiveNodeApplet {
                         .upgrade()
                         .unwrap()
                         .change_focus(operation);
+                }
+
+                fn register_applet_spawner(
+                    &self,
+                    name: String,
+                    applet_spawner: super::AppletSpawner,
+                ) {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .register_applet_spawner(name, applet_spawner);
+                }
+                fn get_applet_spawners(
+                    &self,
+                ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .get_applet_spawners()
+                }
+                fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .find_applet_spawner(name)
                 }
             }
 
