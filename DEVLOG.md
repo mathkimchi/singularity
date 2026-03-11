@@ -5815,3 +5815,6 @@ so I'll only do the spawnable applet registry right now.
 
 I just realized that these are the first hooks that return something.
 I don't think that will cause any complications.
+
+The naming standard for the applets will be snake case,
+like most things in rust.

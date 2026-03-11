@@ -78,7 +78,7 @@ pub type NodularAppletInitializer =
     Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>>;
 
 pub trait AppletSpawnerTrait {
-    fn create_initializer(&self, args: &[String]) -> NodularAppletInitializer;
+    fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer>;
 
     /// Clone on its own is not dyn compatible because it outputs -> Self.
     /// Using the AppletSpawnerTrait, AppletSpawner workaround for that.
@@ -133,6 +133,7 @@ impl NodularRunnerHook for Box<dyn NodularRunnerHook> {
     fn get_applet_spawners(&self) -> BTreeMap<String, AppletSpawner> {
         (**self).get_applet_spawners()
     }
+    /// TODO: take &str
     fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
         (**self).find_applet_spawner(name)
     }

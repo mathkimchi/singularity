@@ -59,12 +59,24 @@ impl CommandHubApplet {
                 .sum::<f32>()
                 .to_string()),
             "add_child" => match args.first() {
-                None | Some(&"command_hub") => {
+                None => {
                     self.hook
                         .add_child(Box::new(CommandHubApplet::get_boxed_initiator()));
-                    Ok("Great success!".to_string())
+                    Ok("Unspecified child defaulting to command_hub.".to_string())
                 }
-                Some(app_name) => Err(format!("Couldn't find app {app_name}.")),
+                Some(app_name) => match self.hook.find_applet_spawner(app_name.to_string()) {
+                    Some(applet_spawner) => match applet_spawner.create_initializer(&args[1..]) {
+                        Some(applet_initializer) => {
+                            self.hook.add_child(applet_initializer);
+                            Ok("Great success!".to_string())
+                        }
+                        None => Err(format!("Couldn't create initializer from args {:?}.", args)),
+                    },
+                    None => Err(format!(
+                        "Couldn't find app {app_name}. Known applets: {:?}.",
+                        self.hook.get_applet_spawners().keys()
+                    )),
+                },
             },
             "set_title" => {
                 self.title = command
