@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation;
 use singularity_sar::applet::BasicRunnerHook;
@@ -171,6 +173,7 @@ fn main() {
     AppletRunner::run(
         singularity_sttk::nodular_applet::root_node_applet::RootNodeApplet::get_initializer(
             RecursiveNodeApplet::get_initializer(TextBoxApplet::get_boxed_initiator(String::new())),
+            BTreeMap::new(),
         ),
     )
 }

@@ -1,7 +1,10 @@
 //! TODO: move to sttk
 
 use crate::{
-    nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook},
+    nodular_applet::{
+        AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularEvent,
+        NodularRunnerHook,
+    },
     standard_keybinds::handle_standard_keybinds,
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
@@ -40,9 +43,28 @@ impl CommandHubApplet {
     pub fn get_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
         |hook: Box<dyn NodularRunnerHook>| Self::new(hook)
     }
-    pub fn get_boxed_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
-    {
-        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
+    pub fn get_boxed_initiator() -> NodularAppletInitializer {
+        Box::new(|hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook)))
+    }
+    pub fn get_applet_spawner() -> AppletSpawner {
+        struct CommandHubSpawner;
+        impl AppletSpawnerTrait for CommandHubSpawner {
+            fn create_initializer(
+                &self,
+                args: &[&str],
+            ) -> Option<crate::nodular_applet::NodularAppletInitializer> {
+                if !args.is_empty() {
+                    println!("Warning: command hub doesn't use spawn args.");
+                }
+
+                Some(CommandHubApplet::get_boxed_initiator())
+            }
+
+            fn duplicate(&self) -> AppletSpawner {
+                Box::new(Self)
+            }
+        }
+        Box::new(CommandHubSpawner)
     }
 
     fn execute_command(&mut self, command: &str) -> Result<String, String> {
@@ -60,8 +82,7 @@ impl CommandHubApplet {
                 .to_string()),
             "add_child" => match args.first() {
                 None => {
-                    self.hook
-                        .add_child(Box::new(CommandHubApplet::get_boxed_initiator()));
+                    self.hook.add_child(CommandHubApplet::get_boxed_initiator());
                     Ok("Unspecified child defaulting to command_hub.".to_string())
                 }
                 Some(app_name) => match self.hook.find_applet_spawner(app_name.to_string()) {
@@ -70,7 +91,10 @@ impl CommandHubApplet {
                             self.hook.add_child(applet_initializer);
                             Ok("Great success!".to_string())
                         }
-                        None => Err(format!("Couldn't create initializer from args {:?}.", args)),
+                        None => Err(format!(
+                            "Couldn't create initializer from args {:?}.",
+                            &args[1..]
+                        )),
                     },
                     None => Err(format!(
                         "Couldn't find app {app_name}. Known applets: {:?}.",

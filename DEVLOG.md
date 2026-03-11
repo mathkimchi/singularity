@@ -5818,3 +5818,17 @@ I don't think that will cause any complications.
 
 The naming standard for the applets will be snake case,
 like most things in rust.
+
+6:40PM
+
+Wow, it works!
+
+I shouldn't be this surprised that I know how to code,
+but it's very satisfying.
+
+I can really see Singularity coming together now.
+
+It is like really really slow and the fact that I messed up the saving shortcut
+(I was matching for a capital `S` even though the command had no shift).
+
+Next, I want to make a presentation viewer.

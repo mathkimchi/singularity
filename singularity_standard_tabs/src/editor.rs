@@ -1,5 +1,8 @@
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
+use singularity_sttk::nodular_applet::{
+    AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,
+};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
 use singularity_sttk::{
     components::text_box::TextBox,
@@ -67,6 +70,23 @@ impl TextEditorApplet {
     {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(file_path, hook))
     }
+    pub fn get_applet_spawner() -> AppletSpawner {
+        struct EditorSpawner;
+        impl AppletSpawnerTrait for EditorSpawner {
+            fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
+                let file_path = args.first()?;
+
+                Some(Box::new(TextEditorApplet::get_boxed_initiator(
+                    file_path.to_string(),
+                )))
+            }
+
+            fn duplicate(&self) -> AppletSpawner {
+                Box::new(Self)
+            }
+        }
+        Box::new(EditorSpawner)
+    }
 
     fn get_content(file_path: impl AsRef<std::path::Path>) -> String {
         std::fs::read_to_string(&file_path).unwrap()
@@ -104,7 +124,7 @@ impl BasicApplet for TextEditorApplet {
         }
 
         if let UIEvent::KeyPress(key, KeyModifiers::CTRL) = &ui_event
-            && key.to_char() == Some('S')
+            && key.to_char() == Some('s')
         {
             self.save_to_file();
 

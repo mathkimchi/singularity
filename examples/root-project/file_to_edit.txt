@@ -1,3 +1,12 @@
+2026-03-11 6:35PM
+
+Ok, so the first time I ran this command,
+everything worked except for the save (because I was looking for S instead of s).
+I got really happy and then it was anticlimactic.
+Well, 2nd try isn't the worst.
+
+Stuff from way back when (2025-04-15 commit e1666d1 allegedly):
+
 dJEKLS:hellofj asd;lkfjamkl testing0
 1
 wayl

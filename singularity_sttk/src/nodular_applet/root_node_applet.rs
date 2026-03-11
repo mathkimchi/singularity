@@ -21,6 +21,7 @@ pub struct RootNodeApplet {
 impl RootNodeApplet {
     pub fn new(
         inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet,
+        applet_spawner_registry: BTreeMap<String, AppletSpawner>,
         hook: Box<dyn BasicRunnerHook>,
     ) -> Self {
         struct InnerHook {
@@ -80,7 +81,7 @@ impl RootNodeApplet {
             }
         }
 
-        let applet_spawner_registry = RwLock::new(BTreeMap::new());
+        let applet_spawner_registry = RwLock::new(applet_spawner_registry);
         let inner_hook = InnerHook {
             outer_hook: hook,
             applet_spawner_registry,
@@ -93,8 +94,9 @@ impl RootNodeApplet {
 
     pub fn get_initializer(
         inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet,
+        applet_spawner_registry: BTreeMap<String, AppletSpawner>,
     ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
-        move |hook| Self::new(inner_initializer, hook)
+        move |hook| Self::new(inner_initializer, applet_spawner_registry, hook)
     }
 
     fn get_treeview_display(&self) -> UIElement {
