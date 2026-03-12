@@ -234,9 +234,10 @@ mod drawing_impls {
                         );
                         // bot
                         pb.rect(
-                            container_area.0.x.pixels(dt.width()) as f32,
-                            container_area.1.y.pixels(dt.height()) as f32,
-                            container_area.size().width.pixels(dt.width()) as f32,
+                            container_area.0.x.pixels(dt.width()) as f32 - 1.,
+                            container_area.1.y.pixels(dt.height()) as f32 - 1.,
+                            container_area.size().width.pixels(dt.width()) as f32 + 1.,
+                            // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
                             1.,
                         );
                         // left
@@ -248,10 +249,11 @@ mod drawing_impls {
                         );
                         // right
                         pb.rect(
-                            container_area.1.x.pixels(dt.width()) as f32,
-                            container_area.0.y.pixels(dt.height()) as f32,
+                            container_area.1.x.pixels(dt.width()) as f32 - 1.,
+                            container_area.0.y.pixels(dt.height()) as f32 - 1.,
                             1.,
-                            container_area.size().height.pixels(dt.height()) as f32,
+                            container_area.size().height.pixels(dt.height()) as f32 + 1.,
+                            // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
                         );
                         pb.finish()
                     };

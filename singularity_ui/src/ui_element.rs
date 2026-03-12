@@ -56,7 +56,7 @@ impl UIElement {
                         .bordered(Color::LIGHT_GREEN)
                         .contain(DisplayArea::new(
                             (widths * (i as f32), 0.),
-                            (DisplayUnits::from_mixed(-1, widths * ((i + 1) as f32)), 1.),
+                            (widths * ((i + 1) as f32), 1.),
                         ))
                 })
                 .collect(),
