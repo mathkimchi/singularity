@@ -5900,3 +5900,28 @@ Sometimes, I really ~~hate~~ am disappointed by NixOS lacking compatibility with
 Before I got on this wgpu rabbit hole, I *was* writing actual code
 to use pathfinder or some other gpu-based alternative to raqote.
 I have like 30 errors, but I'm just going to commit.
+
+...
+
+2026-03-13 12:56PM
+
+Looking at [this thread](https://github.com/gfx-rs/wgpu-rs/issues/332)
+about wgpu not working on NixOS,
+their fix is to add a `build.rs`.
+The person who asked the question also mentioned using [NixGL](https://github.com/nix-community/nixGL)
+which means if I had to run the command `program` that uses OpenGL or Vulkan,
+I can run `nixGL program` or `nixVulkan program`.
+
+I'm just going to copy the [glyphon hello world example]() to singularity_ui's examples,
+because it's annoying to work on a seperate directory.
+
+...
+
+I can't get the nixgl overlay to work and I am not going to learn Nix right now,
+but I have a slightly jank method: just run `nix run --impure github:nix-community/nixGL -- program`.
+
+So, if I run `nix run --impure github:nix-community/nixGL -- cargo run --example glyphon_hello_world`,
+it actually works.
+
+I don't know how liscenses work,
+so I'm just going to delete the example before I make this commit.

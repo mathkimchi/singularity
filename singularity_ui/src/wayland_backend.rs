@@ -189,242 +189,243 @@ mod drawing_impls {
         ui_element::{CharCell, UIElement},
     };
     use font_kit::{canvas::Canvas, font::Font};
+    use raqote::{DrawOptions, DrawTarget, SolidSource, Source};
     use smithay_client_toolkit::shell::WaylandSurface;
     use wayland_client::{Connection, QueueHandle, protocol::wl_shm};
 
-    impl UIElement {
-        fn fill_rect(canvas: &mut Canvas, area: DisplayArea, color: Color) {
-            let mut pb = raqote::PathBuilder::new();
-            pb.rect(
-                area.0.x.pixels(dt.width()) as f32,
-                area.0.y.pixels(dt.height()) as f32,
-                area.size().width.pixels(dt.width()) as f32,
-                area.size().height.pixels(dt.height()) as f32,
-            );
-            let path = pb.finish();
-            dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
-        }
+    // impl UIElement {
+    //     fn fill_rect(canvas: &mut Canvas, area: DisplayArea, color: Color) {
+    //         let mut pb = raqote::PathBuilder::new();
+    //         pb.rect(
+    //             area.0.x.pixels(dt.width()) as f32,
+    //             area.0.y.pixels(dt.height()) as f32,
+    //             area.size().width.pixels(dt.width()) as f32,
+    //             area.size().height.pixels(dt.height()) as f32,
+    //         );
+    //         let path = pb.finish();
+    //         dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
+    //     }
 
-        fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
-            /// think this is height in pixels
-            const FONT_SIZE: i32 = 12;
+    //     fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
+    //         /// think this is height in pixels
+    //         const FONT_SIZE: i32 = 12;
 
-            match self {
-                UIElement::Container(children) => {
-                    for ui_element in children {
-                        // draw the inner widget
-                        ui_element.draw(dt, container_area, font);
-                    }
-                }
-                UIElement::Contained(inner_element, area) => {
-                    inner_element.draw(dt, area.map_onto(container_area), font);
-                }
-                // FIXME: there are weird border lines
-                UIElement::Bordered(inner_element, border_color) => {
-                    // draw the border
-                    let border_path = {
-                        let mut pb = raqote::PathBuilder::new();
-                        // top
-                        pb.rect(
-                            container_area.0.x.pixels(dt.width()) as f32,
-                            container_area.0.y.pixels(dt.height()) as f32,
-                            container_area.size().width.pixels(dt.width()) as f32,
-                            1.,
-                        );
-                        // bot
-                        pb.rect(
-                            container_area.0.x.pixels(dt.width()) as f32 - 1.,
-                            container_area.1.y.pixels(dt.height()) as f32 - 1.,
-                            container_area.size().width.pixels(dt.width()) as f32 + 1.,
-                            // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                            1.,
-                        );
-                        // left
-                        pb.rect(
-                            container_area.0.x.pixels(dt.width()) as f32,
-                            container_area.0.y.pixels(dt.height()) as f32,
-                            1.,
-                            container_area.size().height.pixels(dt.height()) as f32,
-                        );
-                        // right
-                        pb.rect(
-                            container_area.1.x.pixels(dt.width()) as f32 - 1.,
-                            container_area.0.y.pixels(dt.height()) as f32 - 1.,
-                            1.,
-                            container_area.size().height.pixels(dt.height()) as f32 + 1.,
-                            // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                        );
-                        pb.finish()
-                    };
-                    dt.fill(
-                        &border_path,
-                        &Source::Solid((*border_color).into()),
-                        &DrawOptions::new(),
-                    );
+    //         match self {
+    //             UIElement::Container(children) => {
+    //                 for ui_element in children {
+    //                     // draw the inner widget
+    //                     ui_element.draw(dt, container_area, font);
+    //                 }
+    //             }
+    //             UIElement::Contained(inner_element, area) => {
+    //                 inner_element.draw(dt, area.map_onto(container_area), font);
+    //             }
+    //             // FIXME: there are weird border lines
+    //             UIElement::Bordered(inner_element, border_color) => {
+    //                 // draw the border
+    //                 let border_path = {
+    //                     let mut pb = raqote::PathBuilder::new();
+    //                     // top
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32,
+    //                         container_area.0.y.pixels(dt.height()) as f32,
+    //                         container_area.size().width.pixels(dt.width()) as f32,
+    //                         1.,
+    //                     );
+    //                     // bot
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32 - 1.,
+    //                         container_area.1.y.pixels(dt.height()) as f32 - 1.,
+    //                         container_area.size().width.pixels(dt.width()) as f32 + 1.,
+    //                         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
+    //                         1.,
+    //                     );
+    //                     // left
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32,
+    //                         container_area.0.y.pixels(dt.height()) as f32,
+    //                         1.,
+    //                         container_area.size().height.pixels(dt.height()) as f32,
+    //                     );
+    //                     // right
+    //                     pb.rect(
+    //                         container_area.1.x.pixels(dt.width()) as f32 - 1.,
+    //                         container_area.0.y.pixels(dt.height()) as f32 - 1.,
+    //                         1.,
+    //                         container_area.size().height.pixels(dt.height()) as f32 + 1.,
+    //                         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
+    //                     );
+    //                     pb.finish()
+    //                 };
+    //                 dt.fill(
+    //                     &border_path,
+    //                     &Source::Solid((*border_color).into()),
+    //                     &DrawOptions::new(),
+    //                 );
 
-                    let inner_area = DisplayArea(
-                        DisplayCoord::new(1.into(), 1.into()),
-                        DisplayCoord::new(
-                            DisplayUnits::from_mixed(-1, 1.0),
-                            DisplayUnits::from_mixed(-1, 1.0),
-                        ),
-                    )
-                    .map_onto(container_area);
+    //                 let inner_area = DisplayArea(
+    //                     DisplayCoord::new(1.into(), 1.into()),
+    //                     DisplayCoord::new(
+    //                         DisplayUnits::from_mixed(-1, 1.0),
+    //                         DisplayUnits::from_mixed(-1, 1.0),
+    //                     ),
+    //                 )
+    //                 .map_onto(container_area);
 
-                    // dbg!(&container_area);
-                    // dbg!(&container_area.size());
-                    // dbg!(&inner_area);
+    //                 // dbg!(&container_area);
+    //                 // dbg!(&container_area.size());
+    //                 // dbg!(&inner_area);
 
-                    // draw the inner widget
-                    inner_element.draw(dt, inner_area, font);
-                }
-                UIElement::Backgrounded(inner_element, bg_color) => {
-                    // clear the inside of the border
-                    Self::fill_rect(dt, container_area, *bg_color);
+    //                 // draw the inner widget
+    //                 inner_element.draw(dt, inner_area, font);
+    //             }
+    //             UIElement::Backgrounded(inner_element, bg_color) => {
+    //                 // clear the inside of the border
+    //                 Self::fill_rect(dt, container_area, *bg_color);
 
-                    // draw the inner widget
-                    inner_element.draw(dt, container_area, font);
-                }
-                UIElement::Text(text) => {
-                    // FIXME: doesn't work with space
-                    dt.draw_text(
-                        font,
-                        FONT_SIZE as f32,
-                        text,
-                        DisplayCoord::new(
-                            container_area.0.x,
-                            container_area.0.y + FONT_SIZE.into(),
-                        )
-                        .into_raqote_point(dt),
-                        &Source::Solid(SolidSource {
-                            r: 0,
-                            g: 0xFF,
-                            b: 0xFF,
-                            a: 0xFF,
-                        }),
-                        &DrawOptions::new(),
-                    );
-                }
-                UIElement::CharGrid(char_grid) => {
-                    for (line_index, line) in char_grid.content.iter().enumerate() {
-                        for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
-                            let top_left = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
-                            );
+    //                 // draw the inner widget
+    //                 inner_element.draw(dt, container_area, font);
+    //             }
+    //             UIElement::Text(text) => {
+    //                 // FIXME: doesn't work with space
+    //                 dt.draw_text(
+    //                     font,
+    //                     FONT_SIZE as f32,
+    //                     text,
+    //                     DisplayCoord::new(
+    //                         container_area.0.x,
+    //                         container_area.0.y + FONT_SIZE.into(),
+    //                     )
+    //                     .into_raqote_point(dt),
+    //                     &Source::Solid(SolidSource {
+    //                         r: 0,
+    //                         g: 0xFF,
+    //                         b: 0xFF,
+    //                         a: 0xFF,
+    //                     }),
+    //                     &DrawOptions::new(),
+    //                 );
+    //             }
+    //             UIElement::CharGrid(char_grid) => {
+    //                 for (line_index, line) in char_grid.content.iter().enumerate() {
+    //                     for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
+    //                         let top_left = DisplayCoord::new(
+    //                             container_area.0.x
+    //                                 + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+    //                             container_area.0.y
+    //                                 + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+    //                         );
 
-                            if !container_area.contains(top_left, [dt.width(), dt.height()]) {
-                                // FIXME: not completely foolproof -- main purpose is just optimization
-                                continue;
-                            }
+    //                         if !container_area.contains(top_left, [dt.width(), dt.height()]) {
+    //                             // FIXME: not completely foolproof -- main purpose is just optimization
+    //                             continue;
+    //                         }
 
-                            let bot_left = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                            );
+    //                         let bot_left = DisplayCoord::new(
+    //                             container_area.0.x
+    //                                 + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+    //                             container_area.0.y
+    //                                 + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+    //                         );
 
-                            Self::fill_rect(
-                                dt,
-                                DisplayArea::from_corner_size(
-                                    top_left,
-                                    DisplaySize::new(
-                                        (FONT_SIZE / 2 + 1).into(),
-                                        (FONT_SIZE + 2).into(),
-                                    ),
-                                ),
-                                *bg,
-                            );
+    //                         Self::fill_rect(
+    //                             dt,
+    //                             DisplayArea::from_corner_size(
+    //                                 top_left,
+    //                                 DisplaySize::new(
+    //                                     (FONT_SIZE / 2 + 1).into(),
+    //                                     (FONT_SIZE + 2).into(),
+    //                                 ),
+    //                             ),
+    //                             *bg,
+    //                         );
 
-                            if character == &' ' {
-                                continue;
-                            }
+    //                         if character == &' ' {
+    //                             continue;
+    //                         }
 
-                            dt.draw_text(
-                                font,
-                                FONT_SIZE as f32,
-                                &character.to_string(),
-                                // `start` is actually bottom left corner
-                                bot_left.into_raqote_point(dt),
-                                &raqote::Source::Solid((*fg).into()),
-                                &DrawOptions::new(),
-                            );
-                        }
-                    }
-                }
-                UIElement::Nothing => {}
-            }
-        }
-    }
+    //                         dt.draw_text(
+    //                             font,
+    //                             FONT_SIZE as f32,
+    //                             &character.to_string(),
+    //                             // `start` is actually bottom left corner
+    //                             bot_left.into_raqote_point(dt),
+    //                             &raqote::Source::Solid((*fg).into()),
+    //                             &DrawOptions::new(),
+    //                         );
+    //                     }
+    //                 }
+    //             }
+    //             UIElement::Nothing => {}
+    //         }
+    //     }
+    // }
 
-    impl UIDisplay {
-        pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
-            let stride = self.width as i32 * 4;
+    // impl UIDisplay {
+    //     pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
+    //         let stride = self.width as i32 * 4;
 
-            let buffer = self.buffer.get_or_insert_with(|| {
-                self.pool
-                    .create_buffer(
-                        self.width as i32,
-                        self.height as i32,
-                        stride,
-                        wl_shm::Format::Argb8888,
-                    )
-                    .expect("create buffer")
-                    .0
-            });
+    //         let buffer = self.buffer.get_or_insert_with(|| {
+    //             self.pool
+    //                 .create_buffer(
+    //                     self.width as i32,
+    //                     self.height as i32,
+    //                     stride,
+    //                     wl_shm::Format::Argb8888,
+    //                 )
+    //                 .expect("create buffer")
+    //                 .0
+    //         });
 
-            let canvas = match self.pool.canvas(buffer) {
-                Some(canvas) => canvas,
-                None => {
-                    // This should be rare, but if the compositor has not released the previous
-                    // buffer, we need double-buffering.
-                    let (second_buffer, canvas) = self
-                        .pool
-                        .create_buffer(
-                            self.width as i32,
-                            self.height as i32,
-                            stride,
-                            wl_shm::Format::Argb8888,
-                        )
-                        .expect("create buffer");
-                    *buffer = second_buffer;
-                    canvas
-                }
-            };
+    //         let canvas = match self.pool.canvas(buffer) {
+    //             Some(canvas) => canvas,
+    //             None => {
+    //                 // This should be rare, but if the compositor has not released the previous
+    //                 // buffer, we need double-buffering.
+    //                 let (second_buffer, canvas) = self
+    //                     .pool
+    //                     .create_buffer(
+    //                         self.width as i32,
+    //                         self.height as i32,
+    //                         stride,
+    //                         wl_shm::Format::Argb8888,
+    //                     )
+    //                     .expect("create buffer");
+    //                 *buffer = second_buffer;
+    //                 canvas
+    //             }
+    //         };
 
-            // Draw to the window:
-            // FIXME find an actual fix to the height difference
-            if canvas.len() as u32 == 4 * self.width * self.height {
-                let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
-                self.root_element
-                    .lock()
-                    .unwrap()
-                    .draw(&mut dt, DisplayArea::FULL, &self.font);
-                canvas.copy_from_slice(dt.get_data_u8());
-            }
+    //         // Draw to the window:
+    //         // FIXME find an actual fix to the height difference
+    //         if canvas.len() as u32 == 4 * self.width * self.height {
+    //             let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
+    //             self.root_element
+    //                 .lock()
+    //                 .unwrap()
+    //                 .draw(&mut dt, DisplayArea::FULL, &self.font);
+    //             canvas.copy_from_slice(dt.get_data_u8());
+    //         }
 
-            // Damage the entire window
-            self.window
-                .wl_surface()
-                .damage_buffer(0, 0, self.width as i32, self.height as i32);
+    //         // Damage the entire window
+    //         self.window
+    //             .wl_surface()
+    //             .damage_buffer(0, 0, self.width as i32, self.height as i32);
 
-            // Request our next frame
-            self.window
-                .wl_surface()
-                .frame(qh, self.window.wl_surface().clone());
+    //         // Request our next frame
+    //         self.window
+    //             .wl_surface()
+    //             .frame(qh, self.window.wl_surface().clone());
 
-            // Attach and commit to present.
-            buffer
-                .attach_to(self.window.wl_surface())
-                .expect("buffer attach");
-            self.window.commit();
-        }
-    }
+    //         // Attach and commit to present.
+    //         buffer
+    //             .attach_to(self.window.wl_surface())
+    //             .expect("buffer attach");
+    //         self.window.commit();
+    //     }
+    // }
 
-    /*
+    // /*
     impl UIElement {
         fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
             let mut pb = raqote::PathBuilder::new();
@@ -656,7 +657,7 @@ mod drawing_impls {
             self.window.commit();
         }
     }
-    */
+    // */
 }
 mod ui_display_wayland_impls {
     use super::{
