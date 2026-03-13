@@ -1,0 +1,875 @@
+//! An agnostic_backend to replace the wayland_backend.
+//!
+//! A bulk of this code originates from [Glyphon's hello world](https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs)
+//! as well as the old wayland_backend.
+
+use crate::{
+    ui_element::UIElement,
+    winit_backend::ui_event::{KeyModifiers, UIEvent},
+};
+use glyphon::{Attrs, Family, FontSystem, Metrics, Shaping, SwashCache, TextAtlas, TextRenderer};
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use wgpu::{
+    CompositeAlphaMode, DeviceDescriptor, Instance, InstanceDescriptor, MultisampleState,
+    PresentMode, RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
+};
+use winit::{
+    event_loop::{EventLoop, EventLoopBuilder},
+    platform::wayland::EventLoopBuilderExtWayland,
+    window::Window,
+};
+
+pub const FRAME_RATE: f32 = 30.;
+pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
+
+/// Data needed to connect to winit.
+/// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
+struct WinitData {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    surface: wgpu::Surface<'static>,
+    surface_config: SurfaceConfiguration,
+
+    font_system: FontSystem,
+    swash_cache: SwashCache,
+    viewport: glyphon::Viewport,
+    atlas: glyphon::TextAtlas,
+    text_renderer: glyphon::TextRenderer,
+    text_buffer: glyphon::Buffer,
+
+    // Make sure that the winit window is last in the struct so that
+    // it is dropped after the wgpu surface is dropped, otherwise the
+    // program may crash when closed. This is probably a bug in wgpu.
+    window: Arc<Window>,
+}
+impl WinitData {
+    async fn new(window: Arc<Window>) -> Self {
+        let physical_size = window.inner_size();
+        let scale_factor = window.scale_factor();
+
+        // Set up surface
+        let instance = Instance::new(&InstanceDescriptor::default());
+        let adapter = instance
+            .request_adapter(&RequestAdapterOptions::default())
+            .await
+            .unwrap();
+        let (device, queue) = adapter
+            .request_device(&DeviceDescriptor::default())
+            .await
+            .unwrap();
+
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("Create surface");
+        let swapchain_format = TextureFormat::Bgra8UnormSrgb;
+        let surface_config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: swapchain_format,
+            width: physical_size.width,
+            height: physical_size.height,
+            present_mode: PresentMode::Fifo,
+            alpha_mode: CompositeAlphaMode::Opaque,
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+        surface.configure(&device, &surface_config);
+
+        // Set up text renderer
+        let mut font_system = FontSystem::new();
+        let swash_cache = SwashCache::new();
+        let cache = glyphon::Cache::new(&device);
+        let viewport = glyphon::Viewport::new(&device, &cache);
+        let mut atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
+        let text_renderer =
+            TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
+        let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(30.0, 42.0));
+
+        let physical_width = (physical_size.width as f64 * scale_factor) as f32;
+        let physical_height = (physical_size.height as f64 * scale_factor) as f32;
+
+        text_buffer.set_size(
+            &mut font_system,
+            Some(physical_width),
+            Some(physical_height),
+        );
+        text_buffer.set_text(&mut font_system, "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", &Attrs::new().family(Family::SansSerif), Shaping::Advanced
+            ,None,);
+        text_buffer.shape_until_scroll(&mut font_system, false);
+
+        Self {
+            device,
+            queue,
+            surface,
+            surface_config,
+            font_system,
+            swash_cache,
+            viewport,
+            atlas,
+            text_renderer,
+            text_buffer,
+            window,
+        }
+    }
+}
+
+/// REVIEW: rename this
+pub struct UIDisplay {
+    /// TODO: use `EncapsulatedLock`?
+    root_element: Arc<Mutex<UIElement>>,
+
+    /// TODO: just use mpsc
+    ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+
+    /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
+    is_running: Arc<AtomicBool>,
+    width: u32,
+    height: u32,
+    key_modifiers: KeyModifiers,
+
+    winit_data: Option<WinitData>,
+}
+impl UIDisplay {
+    /// Returns when display is closed.
+    pub fn run_display(
+        root_element: Arc<Mutex<UIElement>>,
+        ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+        is_running: Arc<AtomicBool>,
+    ) {
+        let event_loop = EventLoop::builder()
+            .with_wayland()
+            .with_any_thread(true)
+            .build()
+            .unwrap();
+        event_loop
+            .run_app(&mut UIDisplay {
+                root_element,
+                ui_event_queue,
+                is_running,
+                width: 256,
+                height: 256,
+                key_modifiers: KeyModifiers::NONE,
+                winit_data: None,
+            })
+            .unwrap();
+
+        // // All Wayland apps start by connecting the compositor (server).
+        // let conn = Connection::connect_to_env().unwrap();
+
+        // // Enumerate the list of globals to get the protocols the server implements.
+        // let (globals, event_queue) = registry_queue_init(&conn).unwrap();
+        // let qh = event_queue.handle();
+        // let mut event_loop: EventLoop<UIDisplay> =
+        //     EventLoop::try_new().expect("Failed to initialize the event loop!");
+        // let loop_handle = event_loop.handle();
+        // WaylandSource::new(conn.clone(), event_queue)
+        //     .insert(loop_handle)
+        //     .unwrap();
+
+        // // The compositor (not to be confused with the server which is commonly called the compositor) allows
+        // // configuring surfaces to be presented.
+        // let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
+        // // For desktop platforms, the XDG shell is the standard protocol for creating desktop windows.
+        // let xdg_shell = XdgShell::bind(&globals, &qh).expect("xdg shell is not available");
+        // // Since we are not using the GPU in this example, we use wl_shm to allow software rendering to a buffer
+        // // we share with the compositor process.
+        // let shm = Shm::bind(&globals, &qh).expect("wl shm is not available.");
+        // // If the compositor supports xdg-activation it probably wants us to use it to get focus
+        // let xdg_activation = ActivationState::bind(&globals, &qh).ok();
+
+        // // A window is created from a surface.
+        // let surface = compositor.create_surface(&qh);
+        // // And then we can create the window.
+        // let window = xdg_shell.create_window(surface, WindowDecorations::RequestServer, &qh);
+        // // Configure the window, this may include hints to the compositor about the desired minimum size of the
+        // // window, app id for WM identification, the window title, etc.
+        // window.set_title("A wayland window");
+        // // GitHub does not let projects use the `org.github` domain but the `io.github` domain is fine.
+        // window.set_app_id("io.github.smithay.client-toolkit.SimpleWindow");
+        // window.set_min_size(Some((256, 256)));
+        // window.set_maximized();
+
+        // // In order for the window to be mapped, we need to perform an initial commit with no attached buffer.
+        // // For more info, see WaylandSurface::commit
+        // //
+        // // The compositor will respond with an initial configure that we can then use to present to the window with
+        // // the correct options.
+        // window.commit();
+
+        // // To request focus, we first need to request a token
+        // if let Some(activation) = xdg_activation.as_ref() {
+        //     activation.request_token(
+        //         &qh,
+        //         RequestData {
+        //             seat_and_serial: None,
+        //             surface: Some(window.wl_surface().clone()),
+        //             app_id: Some(String::from(
+        //                 "io.github.smithay.client-toolkit.SimpleWindow",
+        //             )),
+        //         },
+        //     )
+        // }
+
+        // // We don't know how large the window will be yet, so lets assume the minimum size we suggested for the
+        // // initial memory allocation.
+        // let pool = SlotPool::new(256 * 256 * 4, &shm).expect("Failed to create pool");
+
+        // let mut ui_display = UIDisplay {
+        //     root_element,
+        //     ui_event_queue,
+
+        //     // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
+        //     // listen for seats and outputs.
+        //     registry_state: RegistryState::new(&globals),
+        //     seat_state: SeatState::new(&globals, &qh),
+        //     output_state: OutputState::new(&globals, &qh),
+        //     shm,
+        //     xdg_activation,
+
+        //     is_running,
+        //     first_configure: true,
+        //     pool,
+        //     width: 256,
+        //     height: 256,
+        //     _shift: None,
+        //     buffer: None,
+        //     window,
+        //     keyboard: None,
+        //     key_modifiers: KeyModifiers::default(),
+        //     pointer: None,
+        //     loop_handle: event_loop.handle(),
+        //     font: SystemSource::new()
+        //         .select_best_match(
+        //             &[font_kit::family_name::FamilyName::Monospace],
+        //             font_kit::properties::Properties::new()
+        //                 .weight(font_kit::properties::Weight::MEDIUM),
+        //         )
+        //         .unwrap()
+        //         .load()
+        //         .unwrap(),
+        // };
+
+        // // We don't draw immediately, the configure will notify us when to first draw.
+        // while ui_display.is_running.load(Ordering::Relaxed) {
+        //     event_loop
+        //         .dispatch(
+        //             Duration::from_secs_f32(FRAME_DELTA_SECONDS),
+        //             &mut ui_display,
+        //         )
+        //         .unwrap();
+        // }
+        // println!("Graciously ending display loop.");
+    }
+}
+mod drawing_impls {
+    use super::UIDisplay;
+    use crate::{
+        color::Color,
+        display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+        ui_element::{CharCell, UIElement},
+    };
+
+    // impl UIElement {
+    //     fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
+    //         let mut pb = raqote::PathBuilder::new();
+    //         pb.rect(
+    //             area.0.x.pixels(dt.width()) as f32,
+    //             area.0.y.pixels(dt.height()) as f32,
+    //             area.size().width.pixels(dt.width()) as f32,
+    //             area.size().height.pixels(dt.height()) as f32,
+    //         );
+    //         let path = pb.finish();
+    //         dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
+    //     }
+
+    //     fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
+    //         /// think this is height in pixels
+    //         const FONT_SIZE: i32 = 12;
+
+    //         match self {
+    //             UIElement::Container(children) => {
+    //                 for ui_element in children {
+    //                     // draw the inner widget
+    //                     ui_element.draw(dt, container_area, font);
+    //                 }
+    //             }
+    //             UIElement::Contained(inner_element, area) => {
+    //                 inner_element.draw(dt, area.map_onto(container_area), font);
+    //             }
+    //             // FIXME: there are weird border lines
+    //             UIElement::Bordered(inner_element, border_color) => {
+    //                 // draw the border
+    //                 let border_path = {
+    //                     let mut pb = raqote::PathBuilder::new();
+    //                     // top
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32,
+    //                         container_area.0.y.pixels(dt.height()) as f32,
+    //                         container_area.size().width.pixels(dt.width()) as f32,
+    //                         1.,
+    //                     );
+    //                     // bot
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32 - 1.,
+    //                         container_area.1.y.pixels(dt.height()) as f32 - 1.,
+    //                         container_area.size().width.pixels(dt.width()) as f32 + 1.,
+    //                         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
+    //                         1.,
+    //                     );
+    //                     // left
+    //                     pb.rect(
+    //                         container_area.0.x.pixels(dt.width()) as f32,
+    //                         container_area.0.y.pixels(dt.height()) as f32,
+    //                         1.,
+    //                         container_area.size().height.pixels(dt.height()) as f32,
+    //                     );
+    //                     // right
+    //                     pb.rect(
+    //                         container_area.1.x.pixels(dt.width()) as f32 - 1.,
+    //                         container_area.0.y.pixels(dt.height()) as f32 - 1.,
+    //                         1.,
+    //                         container_area.size().height.pixels(dt.height()) as f32 + 1.,
+    //                         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
+    //                     );
+    //                     pb.finish()
+    //                 };
+    //                 dt.fill(
+    //                     &border_path,
+    //                     &Source::Solid((*border_color).into()),
+    //                     &DrawOptions::new(),
+    //                 );
+
+    //                 let inner_area = DisplayArea(
+    //                     DisplayCoord::new(1.into(), 1.into()),
+    //                     DisplayCoord::new(
+    //                         DisplayUnits::from_mixed(-1, 1.0),
+    //                         DisplayUnits::from_mixed(-1, 1.0),
+    //                     ),
+    //                 )
+    //                 .map_onto(container_area);
+
+    //                 // dbg!(&container_area);
+    //                 // dbg!(&container_area.size());
+    //                 // dbg!(&inner_area);
+
+    //                 // draw the inner widget
+    //                 inner_element.draw(dt, inner_area, font);
+    //             }
+    //             UIElement::Backgrounded(inner_element, bg_color) => {
+    //                 // clear the inside of the border
+    //                 Self::fill_rect(dt, container_area, *bg_color);
+
+    //                 // draw the inner widget
+    //                 inner_element.draw(dt, container_area, font);
+    //             }
+    //             UIElement::Text(text) => {
+    //                 // FIXME: doesn't work with space
+    //                 dt.draw_text(
+    //                     font,
+    //                     FONT_SIZE as f32,
+    //                     text,
+    //                     DisplayCoord::new(
+    //                         container_area.0.x,
+    //                         container_area.0.y + FONT_SIZE.into(),
+    //                     )
+    //                     .into_raqote_point(dt),
+    //                     &Source::Solid(SolidSource {
+    //                         r: 0,
+    //                         g: 0xFF,
+    //                         b: 0xFF,
+    //                         a: 0xFF,
+    //                     }),
+    //                     &DrawOptions::new(),
+    //                 );
+    //             }
+    //             UIElement::CharGrid(char_grid) => {
+    //                 for (line_index, line) in char_grid.content.iter().enumerate() {
+    //                     for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
+    //                         let top_left = DisplayCoord::new(
+    //                             container_area.0.x
+    //                                 + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+    //                             container_area.0.y
+    //                                 + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+    //                         );
+
+    //                         if !container_area.contains(top_left, [dt.width(), dt.height()]) {
+    //                             // FIXME: not completely foolproof -- main purpose is just optimization
+    //                             continue;
+    //                         }
+
+    //                         let bot_left = DisplayCoord::new(
+    //                             container_area.0.x
+    //                                 + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+    //                             container_area.0.y
+    //                                 + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+    //                         );
+
+    //                         Self::fill_rect(
+    //                             dt,
+    //                             DisplayArea::from_corner_size(
+    //                                 top_left,
+    //                                 DisplaySize::new(
+    //                                     (FONT_SIZE / 2 + 1).into(),
+    //                                     (FONT_SIZE + 2).into(),
+    //                                 ),
+    //                             ),
+    //                             *bg,
+    //                         );
+
+    //                         if character == &' ' {
+    //                             continue;
+    //                         }
+
+    //                         dt.draw_text(
+    //                             font,
+    //                             FONT_SIZE as f32,
+    //                             &character.to_string(),
+    //                             // `start` is actually bottom left corner
+    //                             bot_left.into_raqote_point(dt),
+    //                             &raqote::Source::Solid((*fg).into()),
+    //                             &DrawOptions::new(),
+    //                         );
+    //                     }
+    //                 }
+    //             }
+    //             UIElement::Nothing => {}
+    //         }
+    //     }
+    // }
+
+    // impl UIDisplay {
+    //     pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
+    //         let stride = self.width as i32 * 4;
+
+    //         let buffer = self.buffer.get_or_insert_with(|| {
+    //             self.pool
+    //                 .create_buffer(
+    //                     self.width as i32,
+    //                     self.height as i32,
+    //                     stride,
+    //                     wl_shm::Format::Argb8888,
+    //                 )
+    //                 .expect("create buffer")
+    //                 .0
+    //         });
+
+    //         let canvas = match self.pool.canvas(buffer) {
+    //             Some(canvas) => canvas,
+    //             None => {
+    //                 // This should be rare, but if the compositor has not released the previous
+    //                 // buffer, we need double-buffering.
+    //                 let (second_buffer, canvas) = self
+    //                     .pool
+    //                     .create_buffer(
+    //                         self.width as i32,
+    //                         self.height as i32,
+    //                         stride,
+    //                         wl_shm::Format::Argb8888,
+    //                     )
+    //                     .expect("create buffer");
+    //                 *buffer = second_buffer;
+    //                 canvas
+    //             }
+    //         };
+
+    //         // Draw to the window:
+    //         // FIXME find an actual fix to the height difference
+    //         if canvas.len() as u32 == 4 * self.width * self.height {
+    //             let mut dt = DrawTarget::new(self.width as i32, self.height as i32);
+    //             self.root_element
+    //                 .lock()
+    //                 .unwrap()
+    //                 .draw(&mut dt, DisplayArea::FULL, &self.font);
+    //             canvas.copy_from_slice(dt.get_data_u8());
+    //         }
+
+    //         // Damage the entire window
+    //         self.window
+    //             .wl_surface()
+    //             .damage_buffer(0, 0, self.width as i32, self.height as i32);
+
+    //         // Request our next frame
+    //         self.window
+    //             .wl_surface()
+    //             .frame(qh, self.window.wl_surface().clone());
+
+    //         // Attach and commit to present.
+    //         buffer
+    //             .attach_to(self.window.wl_surface())
+    //             .expect("buffer attach");
+    //         self.window.commit();
+    //     }
+    // }
+}
+mod winit_impls {
+    use std::sync::Arc;
+
+    use crate::{
+        ui_event::Key,
+        winit_backend::{UIDisplay, WinitData},
+    };
+    use glyphon::{Color, Resolution, TextArea, TextBounds};
+    use wgpu::{
+        CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+        RenderPassDescriptor, TextureViewDescriptor,
+    };
+    use winit::{dpi::LogicalSize, window::Window};
+
+    impl winit::application::ApplicationHandler for UIDisplay {
+        fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+            if self.winit_data.is_some() {
+                return;
+            }
+
+            // Set up window
+            let window_attributes = Window::default_attributes()
+                .with_inner_size(LogicalSize::new(256, 256))
+                .with_title("glyphon hello world");
+            let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+
+            self.winit_data = Some(pollster::block_on(WinitData::new(window)));
+        }
+
+        fn window_event(
+            &mut self,
+            event_loop: &winit::event_loop::ActiveEventLoop,
+            _window_id: winit::window::WindowId,
+            event: winit::event::WindowEvent,
+        ) {
+            if !self.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+                event_loop.exit();
+                return;
+            }
+
+            let Some(state) = &mut self.winit_data else {
+                return;
+            };
+
+            let WinitData {
+                window,
+                device,
+                queue,
+                surface,
+                surface_config,
+                font_system,
+                swash_cache,
+                viewport,
+                atlas,
+                text_renderer,
+                text_buffer,
+                ..
+            } = state;
+
+            match event {
+                winit::event::WindowEvent::Resized(size) => {
+                    surface_config.width = size.width;
+                    surface_config.height = size.height;
+                    surface.configure(device, surface_config);
+                    window.request_redraw();
+
+                    self.ui_event_queue.lock().unwrap().push(
+                        crate::ui_event::UIEvent::WindowResized([size.width, size.height]),
+                    );
+                }
+                winit::event::WindowEvent::CloseRequested => {
+                    self.is_running
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                    event_loop.exit()
+                }
+                // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
+                winit::event::WindowEvent::ModifiersChanged(modifiers) => {
+                    self.key_modifiers = modifiers.into();
+                }
+                winit::event::WindowEvent::KeyboardInput {
+                    device_id: _,
+                    event,
+                    is_synthetic: _,
+                } => {
+                    if let Ok(key) = Key::try_from(event) {
+                        self.ui_event_queue
+                            .lock()
+                            .unwrap()
+                            .push(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers));
+                    }
+                }
+                winit::event::WindowEvent::MouseInput {
+                    device_id,
+                    state,
+                    button,
+                } => {}
+                winit::event::WindowEvent::RedrawRequested => {
+                    viewport.update(
+                        queue,
+                        Resolution {
+                            width: surface_config.width,
+                            height: surface_config.height,
+                        },
+                    );
+
+                    text_renderer
+                        .prepare(
+                            device,
+                            queue,
+                            font_system,
+                            atlas,
+                            viewport,
+                            [TextArea {
+                                buffer: text_buffer,
+                                left: 10.0,
+                                top: 10.0,
+                                scale: 1.0,
+                                bounds: TextBounds {
+                                    left: 0,
+                                    top: 0,
+                                    right: 600,
+                                    bottom: 160,
+                                },
+                                default_color: Color::rgb(255, 255, 255),
+                                custom_glyphs: &[],
+                            }],
+                            swash_cache,
+                        )
+                        .unwrap();
+
+                    let frame = surface.get_current_texture().unwrap();
+                    let view = frame.texture.create_view(&TextureViewDescriptor::default());
+                    let mut encoder =
+                        device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+                    {
+                        let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                            label: None,
+                            color_attachments: &[Some(RenderPassColorAttachment {
+                                view: &view,
+                                depth_slice: None,
+                                resolve_target: None,
+                                ops: Operations {
+                                    load: LoadOp::Clear(wgpu::Color::BLACK),
+                                    store: wgpu::StoreOp::Store,
+                                },
+                            })],
+                            depth_stencil_attachment: None,
+                            timestamp_writes: None,
+                            occlusion_query_set: None,
+                            multiview_mask: None,
+                        });
+
+                        text_renderer.render(atlas, viewport, &mut pass).unwrap();
+                    }
+
+                    queue.submit(Some(encoder.finish()));
+                    frame.present();
+
+                    atlas.trim();
+                }
+                _ => {}
+            }
+        }
+    }
+}
+pub mod ui_event {
+    use crate::display_units::DisplayArea;
+
+    /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
+    /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
+    ///
+    /// TODO: also, figure out a way to easily match keypresses and shortcuts
+    ///
+    /// TODO: figure out a standard way of "forwarding" events to child
+    #[derive(Debug, Clone)]
+    pub enum UIEvent {
+        KeyPress(Key, KeyModifiers),
+        WindowResized([u32; 2]),
+        /// ([mouse location [x, y], window size [w h]], container)
+        ///
+        /// REVIEW: definitely redundant, but might be helpful?
+        ///
+        /// NOTE: container should always be FULL for the outermost, but is helpful when trying to forward it to children:
+        /// the forwarded area should be: `child_area.map_onto(parent_area)`
+        MousePress([[u32; 2]; 2], DisplayArea),
+    }
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+    pub struct KeyModifiers {
+        pub ctrl: bool,
+        pub alt: bool,
+        pub shift: bool,
+        pub caps_lock: bool,
+        pub logo: bool,
+        // pub num_lock: bool,
+    }
+    #[derive(Debug, Clone)]
+    pub enum Key {
+        ArrowKeyUp,
+        ArrowKeyDown,
+        ArrowKeyLeft,
+        ArrowKeyRight,
+        Enter,
+        Backspace,
+        Char(char),
+    }
+
+    /// TODO: Get rid of keytrait and just implement directly?
+    pub trait KeyTrait {
+        fn to_alphabet(&self) -> Option<char>;
+        fn to_digit(&self) -> Option<u8>;
+        fn to_char(&self) -> Option<char>;
+    }
+    impl KeyTrait for Key {
+        fn to_alphabet(&self) -> Option<char> {
+            let c = self.to_char()?;
+            if c.is_ascii() { Some(c) } else { None }
+        }
+
+        fn to_digit(&self) -> Option<u8> {
+            let c = self.to_char()?;
+            c.to_digit(10).map(|c| c as u8)
+        }
+
+        fn to_char(&self) -> Option<char> {
+            // if self.raw_code == 28 {
+            //     // FIXME: I added this bc I thought ENTER had no char, but it is actually `\r` already.
+            //     return Some('\n');
+            // }
+            // self.logical_key.to_text().and_then(|s| s.chars().nth(0))
+            match self {
+                Key::Enter => Some('\n'),
+                Key::Backspace => Some('\u{8}'),
+                Key::Char(c) => Some(*c),
+                _ => None,
+            }
+        }
+    }
+
+    impl KeyModifiers {
+        pub const NONE: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            // num_lock: false,
+        };
+
+        pub const CTRL: Self = KeyModifiers {
+            ctrl: true,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            // num_lock: false,
+        };
+
+        pub const ALT: Self = KeyModifiers {
+            ctrl: false,
+            alt: true,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            // num_lock: false,
+        };
+
+        pub const SHIFT: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: true,
+            caps_lock: false,
+            logo: false,
+            // num_lock: false,
+        };
+
+        pub const LOGO: Self = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: true,
+            // num_lock: false,
+        };
+
+        pub const CTRL_SHIFT: Self = KeyModifiers::both(Self::CTRL, Self::SHIFT);
+
+        /// For example, combine(CTRL, SHIFT) is CTRL_SHIFT
+        pub const fn both(self, rhs: Self) -> Self {
+            Self {
+                ctrl: self.ctrl | rhs.ctrl,
+                alt: self.alt | rhs.alt,
+                shift: self.shift | rhs.shift,
+                caps_lock: self.caps_lock | rhs.caps_lock,
+                logo: self.logo | rhs.logo,
+                // num_lock: self.num_lock | rhs.num_lock,
+            }
+        }
+    }
+    impl From<winit::event::Modifiers> for KeyModifiers {
+        fn from(value: winit::event::Modifiers) -> Self {
+            Self {
+                ctrl: value.state().control_key(),
+                alt: value.state().alt_key(),
+                shift: value.state().shift_key(),
+                // TODO
+                caps_lock: false,
+                logo: value.state().super_key(),
+                // num_lock,
+            }
+        }
+    }
+    impl std::ops::BitOr for KeyModifiers {
+        type Output = Self;
+
+        fn bitor(self, rhs: Self) -> Self::Output {
+            Self::both(self, rhs)
+        }
+    }
+    impl std::ops::BitAnd for KeyModifiers {
+        type Output = Self;
+
+        fn bitand(self, rhs: Self) -> Self::Output {
+            Self {
+                ctrl: self.ctrl & rhs.ctrl,
+                alt: self.alt & rhs.alt,
+                shift: self.shift & rhs.shift,
+                caps_lock: self.caps_lock & rhs.caps_lock,
+                logo: self.logo & rhs.logo,
+                // num_lock: self.num_lock & rhs.num_lock,
+            }
+        }
+    }
+
+    impl TryFrom<winit::event::KeyEvent> for Key {
+        type Error = ();
+
+        fn try_from(value: winit::event::KeyEvent) -> Result<Self, Self::Error> {
+            if value.state.is_pressed() {
+                match value.physical_key {
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                        Ok(Key::ArrowKeyLeft)
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                        Ok(Key::ArrowKeyRight)
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                        Ok(Key::ArrowKeyDown)
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                        Ok(Key::ArrowKeyUp)
+                    }
+
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => {
+                        Ok(Key::Enter)
+                    }
+
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
+                        Ok(Key::Backspace)
+                    }
+
+                    _ => value
+                        .logical_key
+                        .to_text()
+                        .and_then(|s| s.chars().next())
+                        .map(Key::Char)
+                        .ok_or(()),
+                }
+            } else {
+                Err(())
+            }
+        }
+    }
+}

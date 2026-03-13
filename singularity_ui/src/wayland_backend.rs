@@ -1,3 +1,5 @@
+//! A bulk of this file originates from [Smithay's Client Toolkit example](https://github.com/Smithay/client-toolkit/blob/master/examples/simple_layer.rs).
+
 use crate::ui_element::UIElement;
 use font_kit::{font::Font, source::SystemSource};
 use smithay_client_toolkit::{

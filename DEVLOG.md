@@ -5925,3 +5925,11 @@ it actually works.
 
 I don't know how liscenses work,
 so I'm just going to delete the example before I make this commit.
+
+...
+
+I cloned the wayland_backend into winit_backend and then used the snippets from the glyphon thing
+to make it use winit and glyphon and wgpu.
+Then I spent a bunch of time getting rid of compile time errors.
+
+But when I run it, it tells me: "Initializing the event loop outside of the main thread is a significant cross-platform compatibility hazard. If you absolutely need to create an EventLoop on a different thread, you can use the `EventLoopBuilderExtX11::any_thread` or `EventLoopBuilderExtWayland::any_thread` functions."

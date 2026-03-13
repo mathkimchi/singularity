@@ -18,15 +18,15 @@ pathfinder_geometry = { version = "^0.5.1", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-[dev-dependencies]
+# [dev-dependencies]
 # just to run the glyphon example
 glyphon = "^0.10"
 wgpu = "^28.0.0"
-winit = "^0.30.12"
+winit = "^0.30.13"
 pollster = "^0.4.0"
 
 [features]
-default = ["wayland_backend"]
+default = ["winit_backend"]
 wayland_backend = [
     "wayland-client",
     "wayland-protocols",
@@ -37,3 +37,4 @@ wayland_backend = [
     # "pathfinder_canvas",
     "pathfinder_geometry",
 ]
+winit_backend = []

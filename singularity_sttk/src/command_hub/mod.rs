@@ -12,7 +12,7 @@ use singularity_sar::applet::BasicApplet;
 use singularity_ui::{
     color::Color,
     ui_element::{CharGrid, UIElement},
-    ui_event::{KeyTrait, UIEvent},
+    ui_event::UIEvent,
 };
 use std::fmt::Write as _;
 
@@ -155,15 +155,16 @@ impl BasicApplet for CommandHubApplet {
             return;
         }
 
-        if let UIEvent::KeyPress(key, _) = &ui_event
-            && let Some(key_char) = key.to_char()
-        {
-            match key_char {
-                '\n' => self.handle_enter(),
-                '\u{8}' => {
+        if let UIEvent::KeyPress(key, _) = &ui_event {
+            match key {
+                singularity_ui::ui_event::Key::Enter => self.handle_enter(),
+                singularity_ui::ui_event::Key::Backspace => {
                     self.current_prompt.pop();
                 }
-                _ => self.current_prompt.push(key_char),
+                singularity_ui::ui_event::Key::Char(key_char) => {
+                    self.current_prompt.push(*key_char)
+                }
+                _ => {}
             }
         }
 

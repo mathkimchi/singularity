@@ -1,4 +1,7 @@
-use singularity_ui::{ui_element::CharGrid, ui_event::UIEvent};
+use singularity_ui::{
+    ui_element::CharGrid,
+    ui_event::{Key, UIEvent},
+};
 
 // use super::Component;
 
@@ -128,19 +131,47 @@ impl TextBox {
         use singularity_ui::ui_event::{KeyModifiers, KeyTrait};
 
         match ui_event {
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
+            //     // arrow down
+            //     self.cursor_logical_position.1 += 1;
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 103 => {
+            //     // arrow up
+            //     self.cursor_logical_position.1 = self.cursor_logical_position.1.saturating_sub(1);
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 106 => {
+            //     // arrow right
+            //     self.cursor_logical_position.0 += 1;
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 105 => {
+            //     // arrow left
+            //     if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
+            //         self.cursor_logical_position.0 = new_cursor_x;
+            //     } else {
+            //         // TODO wrap to prev line
+            //     }
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 14 => {
+            //     // backspace key
+            //     self.delete_character();
+            // }
+            // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 28 => {
+            //     // Enter key
+            //     self.write_new_line();
+            // }
+            UIEvent::KeyPress(Key::ArrowKeyDown, KeyModifiers::NONE) => {
                 // arrow down
                 self.cursor_logical_position.1 += 1;
             }
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 103 => {
+            UIEvent::KeyPress(Key::ArrowKeyUp, KeyModifiers::NONE) => {
                 // arrow up
                 self.cursor_logical_position.1 = self.cursor_logical_position.1.saturating_sub(1);
             }
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 106 => {
+            UIEvent::KeyPress(Key::ArrowKeyRight, KeyModifiers::NONE) => {
                 // arrow right
                 self.cursor_logical_position.0 += 1;
             }
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 105 => {
+            UIEvent::KeyPress(Key::ArrowKeyLeft, KeyModifiers::NONE) => {
                 // arrow left
                 if let Some(new_cursor_x) = self.cursor_logical_position.0.checked_sub(1) {
                     self.cursor_logical_position.0 = new_cursor_x;
@@ -148,11 +179,11 @@ impl TextBox {
                     // TODO wrap to prev line
                 }
             }
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 14 => {
+            UIEvent::KeyPress(Key::Backspace, KeyModifiers::NONE) => {
                 // backspace key
                 self.delete_character();
             }
-            UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 28 => {
+            UIEvent::KeyPress(Key::Enter, KeyModifiers::NONE) => {
                 // Enter key
                 self.write_new_line();
             }
