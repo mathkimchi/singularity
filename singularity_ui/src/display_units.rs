@@ -143,7 +143,7 @@ impl DisplayCoord {
     }
 
     #[cfg(feature = "wayland_backend")]
-    pub fn into_point(&self, dt: &raqote::DrawTarget) -> raqote::Point {
+    pub fn into_raqote_point(&self, dt: &raqote::DrawTarget) -> raqote::Point {
         raqote::Point::new(
             self.x.pixels(dt.width()) as f32,
             self.y.pixels(dt.height()) as f32,

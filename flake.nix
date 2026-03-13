@@ -54,9 +54,24 @@
 
             # # something python fails without this
             # python3Packages.pyyaml
+
+            # # technically this was for the glyphon demo, but I might need it later
+            # # https://github.com/iced-rs/iced/issues/2385
+            # xorg.libX11
+            # xorg.libXcursor
+            # xorg.libXrandr
+            # xorg.libXi
+            # xorg.libxcb
+            # # libxkbcommon
+            # vulkan-loader
           ];
-          # LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
+          LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
           # LIBCLANG_PATH = "${}";
+
+          # From https://github.com/iced-rs/iced/issues/2385
+          shellHook = ''
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${builtins.toString (pkgs.lib.makeLibraryPath buildInputs)}";
+          '';
         };
       }
     );

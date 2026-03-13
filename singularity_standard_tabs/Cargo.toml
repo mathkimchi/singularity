@@ -19,6 +19,8 @@ serde_json = { workspace = true }
 # alacritty_terminal = "0.25"
 # libservo = { git = "https://github.com/servo/servo", tag = "v0.0.5" }
 
+printpdf = "^0.9.1"
+
 # [[bin]]
 # name = "editor"
 # path = "editor.rs"

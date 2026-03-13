@@ -1,7 +1,6 @@
-use crate::{
-    color::Color,
-    display_units::{DisplayArea, DisplayUnits},
-};
+use std::sync::Arc;
+
+use crate::{color::Color, display_units::DisplayArea};
 
 /// TODO: rename most everything here
 #[derive(Debug, Clone, PartialEq)]

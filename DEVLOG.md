@@ -5832,3 +5832,71 @@ It is like really really slow and the fact that I messed up the saving shortcut
 (I was matching for a capital `S` even though the command had no shift).
 
 Next, I want to make a presentation viewer.
+
+...
+
+8:46PM
+
+Hmmm...
+
+~~I thought I would wait until the Linux MVP to port singularity to multiplatform.~~
+
+Scratch that, I'm going to follow the plan.
+I really need to keep myself focused if I actually want to see singularity finished.
+
+Okay, but the speed is really a problem, even for an MVP.
+I am going to try moving everything from `raqote` to `pathfinder`.
+I already use `fontkit`, which uses `pathfinder` since both are made by the Servo project.
+
+...
+
+2026-03-12 8:24PM
+
+I got not so favorable news from CMU and Caltech...
+I feel like just doing something fun,
+so I am going to play around with wgpu.
+
+Apparently I can use the `mktemp -d` command to make a temporary directory
+which I will delete later.
+I am going to clone [glyphon](https://github.com/grovesNL/glyphon)
+(which is a crate for writing text with wgpu)
+and try to run their hello world.
+
+I can then run `nix develop ~/Documents/GitHub/singularity`
+to use the settings from singularity in the temporary directory.
+
+Then, I can run their example with `cargo run --example hello-world`.
+I get the NoWaylandLib error,
+which I remember I had a long time ago.
+[This is the fix](https://github.com/iced-rs/iced/issues/2385) from the internet.
+I am technically bloating Singularity's flake.nix by doing this,
+but I'm going to add the dependencies here.
+
+...
+
+I actually needed the `LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";` line which I commented
+when I got destroyed trying to get servo to run.
+I now get the error: `Result::unwrap()` on an `Err` value: BadDisplay
+which seems to originate from wgpu.
+
+[This issue](https://github.com/gfx-rs/wgpu/issues/5505)
+is the same, I think,
+but the answer seemed to be to rewrite the code to avoid errors.
+
+I'm not going to rewrite the glyphon example code,
+because I don't even understand it.
+
+I'm going to try to see if the `learn-wgpu` example works and if it doesn't work either,
+then `wgpu` isn't for me.
+
+...
+
+12:39AM
+
+Haaaaa...
+
+Sometimes, I really ~~hate~~ am disappointed by NixOS lacking compatibility with many small projects.
+
+Before I got on this wgpu rabbit hole, I *was* writing actual code
+to use pathfinder or some other gpu-based alternative to raqote.
+I have like 30 errors, but I'm just going to commit.
