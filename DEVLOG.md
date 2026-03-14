@@ -5933,3 +5933,21 @@ to make it use winit and glyphon and wgpu.
 Then I spent a bunch of time getting rid of compile time errors.
 
 But when I run it, it tells me: "Initializing the event loop outside of the main thread is a significant cross-platform compatibility hazard. If you absolutely need to create an EventLoop on a different thread, you can use the `EventLoopBuilderExtX11::any_thread` or `EventLoopBuilderExtWayland::any_thread` functions."
+
+...
+
+Now I have to actually draw the UI.
+
+2026-03-14 4:31PM
+
+Bro...
+
+What kind of "pure-Rust graphics API" requires `wgsl`...?
+(This is giving Troy Barnes "Market price? What market are the shopping at?"
+from Community.)
+
+Well, I asked @glolichen if I should learn Wgsl just for this,
+and he said yes.
+So I guess I have to now.
+
+The only thing I really care about is how data can be sent.

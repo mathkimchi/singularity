@@ -13,11 +13,7 @@ use wgpu::{
     CompositeAlphaMode, DeviceDescriptor, Instance, InstanceDescriptor, MultisampleState,
     PresentMode, RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
 };
-use winit::{
-    event_loop::{EventLoop, EventLoopBuilder},
-    platform::wayland::EventLoopBuilderExtWayland,
-    window::Window,
-};
+use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
 pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
@@ -36,6 +32,8 @@ struct WinitData {
     atlas: glyphon::TextAtlas,
     text_renderer: glyphon::TextRenderer,
     text_buffer: glyphon::Buffer,
+
+    render_pipeline: wgpu::RenderPipeline,
 
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
@@ -82,7 +80,7 @@ impl WinitData {
         let mut atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
         let text_renderer =
             TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
-        let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(30.0, 42.0));
+        let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(12.0, 12.0));
 
         let physical_width = (physical_size.width as f64 * scale_factor) as f32;
         let physical_height = (physical_size.height as f64 * scale_factor) as f32;
@@ -92,9 +90,71 @@ impl WinitData {
             Some(physical_width),
             Some(physical_height),
         );
-        text_buffer.set_text(&mut font_system, "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", &Attrs::new().family(Family::SansSerif), Shaping::Advanced
-            ,None,);
+        text_buffer.set_text(&mut font_system, 
+            "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", 
+        &Attrs::new().family(Family::SansSerif), Shaping::Advanced,None,);
         text_buffer.shape_until_scroll(&mut font_system, false);
+
+        // Set up gpu pipeline
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+        });
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                immediate_size: 0,
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // tells wgpu to render to just specific texture layers.
+            multiview_mask: None,
+            // Useful for optimizing shader compilation on Android
+            cache: None,
+        });
 
         Self {
             device,
@@ -108,6 +168,7 @@ impl WinitData {
             text_renderer,
             text_buffer,
             window,
+            render_pipeline,
         }
     }
 }
@@ -257,16 +318,16 @@ impl UIDisplay {
         //         )
         //         .unwrap();
         // }
-        // println!("Graciously ending display loop.");
+        println!("Graciously ending display loop.");
     }
 }
 mod drawing_impls {
-    use super::UIDisplay;
-    use crate::{
-        color::Color,
-        display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
-        ui_element::{CharCell, UIElement},
-    };
+    // use super::UIDisplay;
+    // use crate::{
+    //     color::Color,
+    //     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
+    //     ui_element::{CharCell, UIElement},
+    // };
 
     // impl UIElement {
     //     fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
@@ -501,16 +562,10 @@ mod drawing_impls {
     // }
 }
 mod winit_impls {
-    use std::sync::Arc;
-
+    use std::{iter, sync::Arc};
     use crate::{
         ui_event::Key,
         winit_backend::{UIDisplay, WinitData},
-    };
-    use glyphon::{Color, Resolution, TextArea, TextBounds};
-    use wgpu::{
-        CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-        RenderPassDescriptor, TextureViewDescriptor,
     };
     use winit::{dpi::LogicalSize, window::Window};
 
@@ -523,7 +578,7 @@ mod winit_impls {
             // Set up window
             let window_attributes = Window::default_attributes()
                 .with_inner_size(LogicalSize::new(256, 256))
-                .with_title("glyphon hello world");
+                .with_title("Singularity");
             let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
             self.winit_data = Some(pollster::block_on(WinitData::new(window)));
@@ -556,6 +611,7 @@ mod winit_impls {
                 atlas,
                 text_renderer,
                 text_buffer,
+                render_pipeline,
                 ..
             } = state;
 
@@ -595,70 +651,110 @@ mod winit_impls {
                     device_id,
                     state,
                     button,
-                } => {}
+                } => {
+                    println!("TODO: mouse press");
+                }
                 winit::event::WindowEvent::RedrawRequested => {
-                    viewport.update(
-                        queue,
-                        Resolution {
-                            width: surface_config.width,
-                            height: surface_config.height,
-                        },
-                    );
+                    // viewport.update(
+                    //     queue,
+                    //     Resolution {
+                    //         width: surface_config.width,
+                    //         height: surface_config.height,
+                    //     },
+                    // );
+                    
+                    // // queue.write_buffer(, offset, data);
 
-                    text_renderer
-                        .prepare(
-                            device,
-                            queue,
-                            font_system,
-                            atlas,
-                            viewport,
-                            [TextArea {
-                                buffer: text_buffer,
-                                left: 10.0,
-                                top: 10.0,
-                                scale: 1.0,
-                                bounds: TextBounds {
-                                    left: 0,
-                                    top: 0,
-                                    right: 600,
-                                    bottom: 160,
-                                },
-                                default_color: Color::rgb(255, 255, 255),
-                                custom_glyphs: &[],
-                            }],
-                            swash_cache,
-                        )
-                        .unwrap();
+                    // text_renderer
+                    //     .prepare(
+                    //         device,
+                    //         queue,
+                    //         font_system,
+                    //         atlas,
+                    //         viewport,
+                    //         [TextArea {
+                    //             buffer: text_buffer,
+                    //             left: 10.0,
+                    //             top: 10.0,
+                    //             scale: 1.0,
+                    //             bounds: TextBounds {
+                    //                 left: 0,
+                    //                 top: 0,
+                    //                 right: 600,
+                    //                 bottom: 160,
+                    //             },
+                    //             default_color: Color::rgb(255, 255, 255),
+                    //             custom_glyphs: &[],
+                    //         }],
+                    //         swash_cache,
+                    //     )
+                    //     .unwrap();
 
-                    let frame = surface.get_current_texture().unwrap();
-                    let view = frame.texture.create_view(&TextureViewDescriptor::default());
-                    let mut encoder =
-                        device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+                    // let frame = surface.get_current_texture().unwrap();
+                    // let view = frame.texture.create_view(&TextureViewDescriptor::default());
+                    // let mut encoder =
+                    //     device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+                    // {
+                    //     let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                    //         label: None,
+                    //         color_attachments: &[Some(RenderPassColorAttachment {
+                    //             view: &view,
+                    //             depth_slice: None,
+                    //             resolve_target: None,
+                    //             ops: Operations {
+                    //                 load: LoadOp::Clear(wgpu::Color::BLACK),
+                    //                 store: wgpu::StoreOp::Store,
+                    //             },
+                    //         })],
+                    //         depth_stencil_attachment: None,
+                    //         timestamp_writes: None,
+                    //         occlusion_query_set: None,
+                    //         multiview_mask: None,
+                    //     });
+
+                    //     text_renderer.render(atlas, viewport, &mut pass).unwrap();
+                    // }
+
+                    // queue.submit(Some(encoder.finish()));
+                    // frame.present();
+
+                    // atlas.trim();
+
+                    let output = surface.get_current_texture().unwrap();
+                    let view = output
+                        .texture
+                        .create_view(&wgpu::TextureViewDescriptor::default());
+
+                    let mut encoder = device
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("Render Encoder"),
+                        });
+
                     {
-                        let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                            label: None,
-                            color_attachments: &[Some(RenderPassColorAttachment {
+                        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                            label: Some("Render Pass"),
+                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                                 view: &view,
-                                depth_slice: None,
                                 resolve_target: None,
-                                ops: Operations {
-                                    load: LoadOp::Clear(wgpu::Color::BLACK),
+                                ops: wgpu::Operations {
+                                    // background
+                                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                                     store: wgpu::StoreOp::Store,
                                 },
+                                depth_slice: None,
                             })],
                             depth_stencil_attachment: None,
-                            timestamp_writes: None,
                             occlusion_query_set: None,
+                            timestamp_writes: None,
                             multiview_mask: None,
                         });
 
-                        text_renderer.render(atlas, viewport, &mut pass).unwrap();
+                        render_pass.set_pipeline(render_pipeline);
+                        render_pass.draw(0..3, 0..1);
                     }
 
-                    queue.submit(Some(encoder.finish()));
-                    frame.present();
-
-                    atlas.trim();
+                    queue.submit(iter::once(encoder.finish()));
+                    output.present();
                 }
                 _ => {}
             }
