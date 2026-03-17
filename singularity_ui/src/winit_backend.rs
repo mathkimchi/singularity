@@ -10,13 +10,65 @@ use crate::{
 use glyphon::{Attrs, Family, FontSystem, Metrics, Shaping, SwashCache, TextAtlas, TextRenderer};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, DeviceDescriptor, Instance, InstanceDescriptor, MultisampleState,
-    PresentMode, RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
+    CompositeAlphaMode, Instance, InstanceDescriptor, MultisampleState, PresentMode,
+    SurfaceConfiguration, TextureFormat, TextureUsages, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
 pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+impl Vertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.0868241, 0.49240386, 0.0],
+        color: [0.0, 0.0, 0.5],
+    }, // A
+    Vertex {
+        position: [-0.49513406, 0.06958647, 0.0],
+        color: [0.5, 0.5, 0.5],
+    }, // B
+    Vertex {
+        position: [-0.21918549, -0.44939706, 0.0],
+        color: [0.5, 0.0, 1.0],
+    }, // C
+    Vertex {
+        position: [0.35966998, -0.3473291, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // D
+    Vertex {
+        position: [0.44147372, 0.2347359, 0.0],
+        color: [0.0, 0.5, 0.5],
+    }, // E
+];
+
+const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
 
 /// Data needed to connect to winit.
 /// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
@@ -26,6 +78,7 @@ struct WinitData {
     surface: wgpu::Surface<'static>,
     surface_config: SurfaceConfiguration,
 
+    // for glyphon font demo
     font_system: FontSystem,
     swash_cache: SwashCache,
     viewport: glyphon::Viewport,
@@ -33,7 +86,10 @@ struct WinitData {
     text_renderer: glyphon::TextRenderer,
     text_buffer: glyphon::Buffer,
 
+    // for wgpu
     render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
 
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
@@ -47,14 +103,6 @@ impl WinitData {
 
         // Set up surface
         let instance = Instance::new(&InstanceDescriptor::default());
-        let adapter = instance
-            .request_adapter(&RequestAdapterOptions::default())
-            .await
-            .unwrap();
-        let (device, queue) = adapter
-            .request_device(&DeviceDescriptor::default())
-            .await
-            .unwrap();
 
         let surface = instance
             .create_surface(window.clone())
@@ -70,6 +118,33 @@ impl WinitData {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
+
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                // WebGL doesn't support all of wgpu's features, so if
+                // we're building for the web we'll have to disable some.
+                required_limits: if cfg!(target_arch = "wasm32") {
+                    wgpu::Limits::downlevel_webgl2_defaults()
+                } else {
+                    wgpu::Limits::default()
+                },
+                memory_hints: Default::default(),
+                trace: wgpu::Trace::Off, // Trace path
+            })
+            .await
+            .unwrap();
+
         surface.configure(&device, &surface_config);
 
         // Set up text renderer
@@ -90,7 +165,7 @@ impl WinitData {
             Some(physical_width),
             Some(physical_height),
         );
-        text_buffer.set_text(&mut font_system, 
+        text_buffer.set_text(&mut font_system,
             "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", 
         &Attrs::new().family(Family::SansSerif), Shaping::Advanced,None,);
         text_buffer.shape_until_scroll(&mut font_system, false);
@@ -114,7 +189,7 @@ impl WinitData {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[],
+                buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -156,6 +231,17 @@ impl WinitData {
             cache: None,
         });
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         Self {
             device,
             queue,
@@ -169,6 +255,8 @@ impl WinitData {
             text_buffer,
             window,
             render_pipeline,
+            vertex_buffer,
+            index_buffer,
         }
     }
 }
@@ -321,6 +409,13 @@ impl UIDisplay {
         println!("Graciously ending display loop.");
     }
 }
+impl Drop for UIDisplay {
+    fn drop(&mut self) {
+        self.is_running
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 mod drawing_impls {
     // use super::UIDisplay;
     // use crate::{
@@ -562,11 +657,11 @@ mod drawing_impls {
     // }
 }
 mod winit_impls {
-    use std::{iter, sync::Arc};
     use crate::{
         ui_event::Key,
-        winit_backend::{UIDisplay, WinitData},
+        winit_backend::{INDICES, UIDisplay, WinitData},
     };
+    use std::{iter, sync::Arc};
     use winit::{dpi::LogicalSize, window::Window};
 
     impl winit::application::ApplicationHandler for UIDisplay {
@@ -612,6 +707,8 @@ mod winit_impls {
                 text_renderer,
                 text_buffer,
                 render_pipeline,
+                vertex_buffer,
+                index_buffer,
                 ..
             } = state;
 
@@ -662,7 +759,7 @@ mod winit_impls {
                     //         height: surface_config.height,
                     //     },
                     // );
-                    
+
                     // // queue.write_buffer(, offset, data);
 
                     // text_renderer
@@ -720,37 +817,50 @@ mod winit_impls {
 
                     // atlas.trim();
 
+                    // // We can't render unless the surface is configured
+                    // if !self.is_surface_configured {
+                    //     return Ok(());
+                    // }
+
                     let output = surface.get_current_texture().unwrap();
                     let view = output
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
 
-                    let mut encoder = device
-                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    let mut encoder =
+                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("Render Encoder"),
                         });
 
                     {
-                        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                            label: Some("Render Pass"),
-                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                view: &view,
-                                resolve_target: None,
-                                ops: wgpu::Operations {
-                                    // background
-                                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                                    store: wgpu::StoreOp::Store,
-                                },
-                                depth_slice: None,
-                            })],
-                            depth_stencil_attachment: None,
-                            occlusion_query_set: None,
-                            timestamp_writes: None,
-                            multiview_mask: None,
-                        });
+                        let mut render_pass =
+                            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                label: Some("Render Pass"),
+                                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                                    view: &view,
+                                    resolve_target: None,
+                                    ops: wgpu::Operations {
+                                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                                            r: 0.1,
+                                            g: 0.2,
+                                            b: 0.3,
+                                            a: 1.0,
+                                        }),
+                                        store: wgpu::StoreOp::Store,
+                                    },
+                                    depth_slice: None,
+                                })],
+                                depth_stencil_attachment: None,
+                                occlusion_query_set: None,
+                                timestamp_writes: None,
+                                multiview_mask: None,
+                            });
 
-                        render_pass.set_pipeline(render_pipeline);
-                        render_pass.draw(0..3, 0..1);
+                        render_pass.set_pipeline(&render_pipeline);
+                        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                        render_pass
+                            .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
                     }
 
                     queue.submit(iter::once(encoder.finish()));

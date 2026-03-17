@@ -18,12 +18,12 @@ pathfinder_geometry = { version = "^0.5.1", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-# [dev-dependencies]
-# just to run the glyphon example
+# just for winit backend
 glyphon = "^0.10"
 wgpu = "^28.0.0"
 winit = "^0.30.13"
 pollster = "^0.4.0"
+bytemuck = { version = "^1.25.0", features = ["derive"] }
 
 [features]
 default = ["winit_backend"]

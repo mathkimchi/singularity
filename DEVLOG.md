@@ -5951,3 +5951,99 @@ and he said yes.
 So I guess I have to now.
 
 The only thing I really care about is how data can be sent.
+
+...
+
+I reproduced [lesson 3](https://sotrh.github.io/learn-wgpu/beginner/tutorial3-pipeline/#writing-the-shaders)
+which is a pipeline that outputs a triangle.
+
+I'll start [Lesson 4: Buffers and Indices](https://sotrh.github.io/learn-wgpu/beginner/tutorial4-buffer/#so-what-do-i-do-with-it).
+Buffers seem to be the method of sending data to the gpu.
+
+2026-03-16 2:57PM
+
+The wgpu lesson 4 is working to draw a pentagon out of triangles.
+
+I am going to turn the logic from [Zed's sdf GPU blog](https://zed.dev/blog/videogame)
+into WGSL and WGPU.
+(They use metal in their examples, I think.)
+
+...
+
+As I wrote more and more WGSL, I thought I was going crazy because it is so similar to rust.
+I looked it up, and yes, their syntax is primarily based on rust.
+I don't feel so stupid for mistaking the WGSL code for rust now.
+(Before starting working with wgpu, I skimmed through the tutorials and thought their wgsl
+code was just rust with special macros/annotations.
+That's why I was so surprised when I saw they required a shader language.
+But I'm not as sad anymore, because it's actually pretty fun to learn new things
+and I want to be able to say I can code a shader language.)
+
+I've been just using the code from the tutorial and reading just enough to make things work,
+but maybe I should just sit down, take it slowly, because I'm still young
+(sorry, I've been listening to Father and Son a lot and I that line just played).
+As I was going to say, I am going to actually go back and read lesson 3 and 4.
+
+Those who look above with questions fail to see the answer in front.
+
+Here are my lesson 3 notes:
+
+Vertex shader manipulate points in 3d or 2d space to make shapes.
+I think vertex shader is run once per vertex.
+
+Fragment shader turns fragments (that somehow come from vertices)
+into color.
+Fragment shader is run at least once per pixel.
+
+The basic graphics pipeline is the vertex shader output going into fragment shader.
+(But idk how this works bc I thought vertex shader outputted a modified vertex and frag shader inputted a fragment.)
+Observationally, I am assuming they make triangles and use lerp?
+That's what happened when I used vertices of different colors.
+
+The `@builtin(position)` annotation on a field says that field is the clip position.
+I guess the cli position is the vertex's transformed position after applying perspective position,
+and before a vertex is passed to frag shader, it is used to see if it is in the camera's view.
+I'll only be working in 2d, so I wonder if there is a way to ignore this.
+I previously looked for a way to completely ignore vertex shaders
+(since they work with triangles which make sense in 3d but I'd prefer just directly working with AABBs),
+but I think I need to just have a trivial vertex shader and have two right triangles that span the whole screen.
+
+...the rest of lesson 3 was mostly just mentioning extra options
+but just saying it will be explained later.
+
+Lesson 4 notes:
+
+As I said earlier, buffers are how we pass data from the cpu to the vertex shader.
+
+The `VertexBufferLayout` is our description of the data that will be passed to the GPU.
+The `step_mode` of `wgpu::VertexStepMode::Vertex` or `wgpu::VertexStepMode::Instance`
+does actually seem important, because the Zed tutorial actually mentions
+using `instanced rendering to draw multiple rectangles to the screen in a single draw call`.
+(Tutorial 7 in instancing.)
+The attributes are like the fields of the vertex shader input.
+The `shader_location` of a vertex attribute should be the same as the corresponding
+`@location(x)` as the wgsl code.
+
+Then we actually set the buffer with `render_pass.set_vertex_buffer`.
+
+The index buffer lets us specify the index of some vertex's data instead of having to
+pass all its data each time.
+
+I diverged (slightly) from the tutorial to include
+`@builtin(vertex_index) index: u32,` in the vertex shader input.
+I don't actually use it, but since it compiles and runs,
+I think it works.
+The tutorial uses `u16` as the index format,
+but u16 actually isn't a wgsl primitive (idk how the u16 index works)
+so I just made the index `u32` on both the rust and wgsl sides.
+
+I also looked at [another tutorial](https://webgpufundamentals.org/)
+that a [redditor really liked](https://www.reddit.com/r/rust_gamedev/comments/18o5wa1/the_best_wgpu_tutorial_ive_found_its_relatively/).
+It is just wgsl in general though and not wgpu (it uses js to run it),
+so I am not going to read too much of it,
+but I found a [neat trick](https://webgpufundamentals.org/webgpu/lessons/webgpu-large-triangle-to-cover-clip-space.html)
+to use one big triangle instead of two triangles to render the whole screen rectangle.
+It is an extremely minor speed improvement, but it is pretty cool.
+
+I'm going to commit now and then look into
+[Tutorial 7: Instancing](https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer).
