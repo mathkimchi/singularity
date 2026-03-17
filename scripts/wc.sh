@@ -1,1 +1,2 @@
-find . -name "*.rs" -type f -not -path "./target/*" | xargs wc | sort -n
+# https://zendframework-bestpractices.blogspot.com/2011/08/unix-find-command-to-fine-multiple.html
+find . \( -name "*.rs" -o -name "*.sh" -o -name "*.wgsl" \) -type f -not -path "./target/*" | xargs wc | sort -n

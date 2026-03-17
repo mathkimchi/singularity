@@ -6001,12 +6001,14 @@ Observationally, I am assuming they make triangles and use lerp?
 That's what happened when I used vertices of different colors.
 
 The `@builtin(position)` annotation on a field says that field is the clip position.
-I guess the cli position is the vertex's transformed position after applying perspective position,
+I guess the clip position is the vertex's transformed position after applying perspective position,
 and before a vertex is passed to frag shader, it is used to see if it is in the camera's view.
 I'll only be working in 2d, so I wonder if there is a way to ignore this.
 I previously looked for a way to completely ignore vertex shaders
 (since they work with triangles which make sense in 3d but I'd prefer just directly working with AABBs),
 but I think I need to just have a trivial vertex shader and have two right triangles that span the whole screen.
+Since I'm just working in 2d, the important thing about the `@builtin(position)` is that the x and y
+are in pixel space.
 
 ...the rest of lesson 3 was mostly just mentioning extra options
 but just saying it will be explained later.
@@ -6047,3 +6049,18 @@ It is an extremely minor speed improvement, but it is pretty cool.
 
 I'm going to commit now and then look into
 [Tutorial 7: Instancing](https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer).
+
+2026-03-17 4:32PM
+
+Actually, I'm going to get my port of Zed's rounded rectangle sdf metal logic
+working for one rectangle instance first.
+
+Let me also just say that swizzling (being like v.xy or v.wwxz or ... to quickly transform it) is my goat.
+I actually do worry about type safety and stuff with it,
+but the name swizzling is so good I don't even care.
+It makes rearranging a vector's components sound like a cool skateboarding trick.
+
+Wow, it works.
+I did screw up the triangle order,
+but other than that, it works pretty well.
+Pretty proud of getting this to work (even though the logic wasn't mine).

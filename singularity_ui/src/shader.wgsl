@@ -10,14 +10,19 @@ struct VertexInput {
 
 // is also the input of the fragment shader
 struct VertexOutput {
+    // the x and y of the builtin(position) are in pixel space
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec3<f32>,
 };
 
+// @vertex
+// fn vs_main(
+//     model: VertexInput,
+//     @builtin(vertex_index) index: u32,
+// ) -> VertexOutput {
 @vertex
 fn vs_main(
     model: VertexInput,
-    @builtin(vertex_index) index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.color = model.color;
@@ -61,11 +66,16 @@ fn rect_sdf(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // let distance = rect_sdf(in);
+    let distance = rect_sdf(
+        in.clip_position.xy,
+        vec2<f32>(200.0, 200.0),
+        vec2<f32>(300.0, 150.0),
+        40.0
+    );
 
-    // if distance > 0.0 {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    // } else {
-    //     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
-    // }
+    if distance > 0.0 {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    } else {
+        return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    }
 }

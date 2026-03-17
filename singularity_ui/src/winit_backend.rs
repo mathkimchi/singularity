@@ -11,7 +11,7 @@ use glyphon::{Attrs, Family, FontSystem, Metrics, Shaping, SwashCache, TextAtlas
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
     CompositeAlphaMode, Instance, InstanceDescriptor, MultisampleState, PresentMode,
-    SurfaceConfiguration, TextureFormat, TextureUsages, util::DeviceExt as _,
+    SurfaceConfiguration, TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
@@ -46,29 +46,35 @@ impl Vertex {
 }
 
 const VERTICES: &[Vertex] = &[
+    // A
     Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
+        position: [3., -1., 0.0],
         color: [0.0, 0.0, 0.5],
-    }, // A
+    },
+    // B
     Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
+        position: [-1., 3., 0.0],
         color: [0.5, 0.5, 0.5],
-    }, // B
+    },
+    // C
     Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
+        position: [-1., -1., 0.0],
         color: [0.5, 0.0, 1.0],
-    }, // C
-    Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // D
-    Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        color: [0.0, 0.5, 0.5],
-    }, // E
+    },
+    // // D
+    // Vertex {
+    //     position: [0.35966998, -0.3473291, 0.0],
+    //     color: [0.5, 0.0, 0.5],
+    // },
+    // // E
+    // Vertex {
+    //     position: [0.44147372, 0.2347359, 0.0],
+    //     color: [0.0, 0.5, 0.5],
+    // },
 ];
 
-const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
+// const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
+// const INDICES: &[u32] = &[0, 1, 2];
 
 /// Data needed to connect to winit.
 /// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
@@ -89,7 +95,7 @@ struct WinitData {
     // for wgpu
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    // index_buffer: wgpu::Buffer,
 
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
@@ -171,10 +177,7 @@ impl WinitData {
         text_buffer.shape_until_scroll(&mut font_system, false);
 
         // Set up gpu pipeline
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-        });
+        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -236,11 +239,11 @@ impl WinitData {
             contents: bytemuck::cast_slice(VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        // let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //     label: Some("Index Buffer"),
+        //     contents: bytemuck::cast_slice(INDICES),
+        //     usage: wgpu::BufferUsages::INDEX,
+        // });
 
         Self {
             device,
@@ -256,7 +259,7 @@ impl WinitData {
             window,
             render_pipeline,
             vertex_buffer,
-            index_buffer,
+            // index_buffer,
         }
     }
 }
@@ -659,7 +662,7 @@ mod drawing_impls {
 mod winit_impls {
     use crate::{
         ui_event::Key,
-        winit_backend::{INDICES, UIDisplay, WinitData},
+        winit_backend::{UIDisplay, VERTICES, WinitData},
     };
     use std::{iter, sync::Arc};
     use winit::{dpi::LogicalSize, window::Window};
@@ -672,7 +675,7 @@ mod winit_impls {
 
             // Set up window
             let window_attributes = Window::default_attributes()
-                .with_inner_size(LogicalSize::new(256, 256))
+                .with_inner_size(LogicalSize::new(800, 600))
                 .with_title("Singularity");
             let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
@@ -708,7 +711,7 @@ mod winit_impls {
                 text_buffer,
                 render_pipeline,
                 vertex_buffer,
-                index_buffer,
+                // index_buffer,
                 ..
             } = state;
 
@@ -856,11 +859,12 @@ mod winit_impls {
                                 multiview_mask: None,
                             });
 
-                        render_pass.set_pipeline(&render_pipeline);
+                        render_pass.set_pipeline(render_pipeline);
                         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                        render_pass
-                            .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                        render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
+                        // render_pass
+                        //     .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        // render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
+                        render_pass.draw(0..(VERTICES.len() as u32), 0..1);
                     }
 
                     queue.submit(iter::once(encoder.finish()));
