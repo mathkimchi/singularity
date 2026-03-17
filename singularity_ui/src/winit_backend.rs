@@ -10,8 +10,8 @@ use crate::{
 use glyphon::{Attrs, Family, FontSystem, Metrics, Shaping, SwashCache, TextAtlas, TextRenderer};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, Instance, InstanceDescriptor, MultisampleState, PresentMode,
-    SurfaceConfiguration, TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
+    CompositeAlphaMode, InstanceDescriptor, MultisampleState, PresentMode, SurfaceConfiguration,
+    TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
@@ -22,25 +22,43 @@ pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    color: [f32; 3],
+    // color: [f32; 3],
 }
 impl Vertex {
+    // const ATTRIBS: [wgpu::VertexAttribute; 2] =
+    //     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
+
     fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct RoundRectInstance {
+    origin: [f32; 2],
+    size: [f32; 2],
+    corner_radius: f32,
+    color: [f32; 3],
+}
+impl RoundRectInstance {
+    const ATTRIBS: [wgpu::VertexAttribute; 4] =
+        wgpu::vertex_attr_array![1 => Float32x2, 2 => Float32x2, 3 => Float32, 4 => Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
         }
     }
 }
@@ -49,17 +67,17 @@ const VERTICES: &[Vertex] = &[
     // A
     Vertex {
         position: [3., -1., 0.0],
-        color: [0.0, 0.0, 0.5],
+        // color: [0.0, 0.0, 0.5],
     },
     // B
     Vertex {
         position: [-1., 3., 0.0],
-        color: [0.5, 0.5, 0.5],
+        // color: [0.5, 0.5, 0.5],
     },
     // C
     Vertex {
         position: [-1., -1., 0.0],
-        color: [0.5, 0.0, 1.0],
+        // color: [0.5, 0.0, 1.0],
     },
     // // D
     // Vertex {
@@ -96,6 +114,8 @@ struct WinitData {
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     // index_buffer: wgpu::Buffer,
+    instances: Vec<RoundRectInstance>,
+    instance_buffer: wgpu::Buffer,
 
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
@@ -108,7 +128,7 @@ impl WinitData {
         let scale_factor = window.scale_factor();
 
         // Set up surface
-        let instance = Instance::new(&InstanceDescriptor::default());
+        let instance = wgpu::Instance::new(&InstanceDescriptor::default());
 
         let surface = instance
             .create_surface(window.clone())
@@ -120,7 +140,8 @@ impl WinitData {
             width: physical_size.width,
             height: physical_size.height,
             present_mode: PresentMode::Fifo,
-            alpha_mode: CompositeAlphaMode::Opaque,
+            // is a simple way of dealing with transparency
+            alpha_mode: CompositeAlphaMode::PreMultiplied,
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
@@ -192,7 +213,7 @@ impl WinitData {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), RoundRectInstance::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -245,6 +266,27 @@ impl WinitData {
         //     usage: wgpu::BufferUsages::INDEX,
         // });
 
+        let instances = vec![
+            RoundRectInstance {
+                origin: [200.0, 200.0],
+                size: [300.0, 150.0],
+                corner_radius: 40.0,
+                color: [0.5, 0.5, 0.5],
+            },
+            RoundRectInstance {
+                origin: [400.0, 200.0],
+                size: [50.0, 150.0],
+                corner_radius: 20.0,
+                color: [0.5, 0.5, 0.5],
+            },
+        ];
+
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         Self {
             device,
             queue,
@@ -260,6 +302,8 @@ impl WinitData {
             render_pipeline,
             vertex_buffer,
             // index_buffer,
+            instances,
+            instance_buffer,
         }
     }
 }
@@ -712,6 +756,8 @@ mod winit_impls {
                 render_pipeline,
                 vertex_buffer,
                 // index_buffer,
+                instance_buffer,
+                instances,
                 ..
             } = state;
 
@@ -861,10 +907,11 @@ mod winit_impls {
 
                         render_pass.set_pipeline(render_pipeline);
                         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
                         // render_pass
                         //     .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                         // render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
-                        render_pass.draw(0..(VERTICES.len() as u32), 0..1);
+                        render_pass.draw(0..VERTICES.len() as _, 0..instances.len() as _);
                     }
 
                     queue.submit(iter::once(encoder.finish()));

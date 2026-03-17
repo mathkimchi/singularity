@@ -6064,3 +6064,36 @@ Wow, it works.
 I did screw up the triangle order,
 but other than that, it works pretty well.
 Pretty proud of getting this to work (even though the logic wasn't mine).
+
+...
+
+7:30PM
+
+Hmmm...
+
+I *am* able to pass the rectangle data through instance buffers,
+but the problem is that since I am drawing to the whole region each time,
+each rectangle erases the previous rectangle.
+
+I think that's because I was using an alpha mode of Opaque,
+meaning that alpha is simply ignored.
+
+I set my thing to pre-multiplied, and apparently there are other ways of doing transparency
+like post-multiplied,
+but since I'll only be using alpha of 1 or 0, I don't think they should matter.
+(I'm just using alpha as a way to say "ignore this".)
+
+...
+
+Erhm, I was kinda hoping it would work first try,
+but it is actually worse than I imagined.
+
+Firstly, it's still just rendering one rectangle.
+The transparency kinda shows what *was* behind, but there's an emphasis on *was*.
+If the thing behind updates, it doesn't show up through transparency.
+And if you move the window, it starts trying to draw what it was before,
+so you get this glitchy recursive mess.
+
+I'm going to commit just so people can see what I'm talking about.
+
+I think the fix might be with blending mode?

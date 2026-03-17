@@ -5,14 +5,23 @@
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) color: vec3<f32>,
+    // @location(1) color: vec3<f32>,
 };
+struct InstanceInput {
+    @location(1) origin: vec2<f32>,
+    @location(2) size: vec2<f32>,
+    @location(3) corner_radius: f32,
+    @location(4) color: vec3<f32>,
+}
 
 // is also the input of the fragment shader
 struct VertexOutput {
     // the x and y of the builtin(position) are in pixel space
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec3<f32>,
+    @location(1) origin: vec2<f32>,
+    @location(2) size: vec2<f32>,
+    @location(3) corner_radius: f32,
 };
 
 // @vertex
@@ -23,11 +32,15 @@ struct VertexOutput {
 @vertex
 fn vs_main(
     model: VertexInput,
+    instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.color = model.color;
     out.clip_position = vec4<f32>(model.position, 1.0);
-    // out.clip_position = 
+    // out.color = model.color;
+    out.color = instance.color;
+    out.origin = instance.origin;
+    out.size = instance.size;
+    out.corner_radius = instance.corner_radius;
     return out;
 }
 
@@ -39,7 +52,7 @@ fn rect_sdf(
     absolute_pixel_position: vec2<f32>,
     origin: vec2<f32>,
     size: vec2<f32>,
-    corner_radius: f32
+    corner_radius: f32,
 ) -> f32 {
     let half_size = size / 2.;
     let rect_center = origin + half_size;
@@ -68,14 +81,14 @@ fn rect_sdf(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let distance = rect_sdf(
         in.clip_position.xy,
-        vec2<f32>(200.0, 200.0),
-        vec2<f32>(300.0, 150.0),
-        40.0
+        in.origin,
+        in.size,
+        in.corner_radius,
     );
 
     if distance > 0.0 {
-        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
     } else {
-        return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+        return vec4<f32>(in.color, 1.0);
     }
 }
