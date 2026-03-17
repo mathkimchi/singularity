@@ -222,8 +222,8 @@ impl WinitData {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_config.format,
                     blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent::REPLACE,
-                        alpha: wgpu::BlendComponent::REPLACE,
+                        color: wgpu::BlendComponent::OVER,
+                        alpha: wgpu::BlendComponent::OVER,
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -274,7 +274,7 @@ impl WinitData {
                 color: [0.5, 0.5, 0.5],
             },
             RoundRectInstance {
-                origin: [400.0, 200.0],
+                origin: [400.0, 400.0],
                 size: [50.0, 150.0],
                 corner_radius: 20.0,
                 color: [0.5, 0.5, 0.5],

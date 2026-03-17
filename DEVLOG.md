@@ -6097,3 +6097,38 @@ so you get this glitchy recursive mess.
 I'm going to commit just so people can see what I'm talking about.
 
 I think the fix might be with blending mode?
+
+...
+
+7:42PM
+
+For each of color vs alpha, I can set their blend component to OVER or REPLACE.
+
+It was previously both set to replace.
+
+With Color: OVER and Alpha: REPLACE,
+I *do* get two rectangles and it shows a cyan background
+(I think the background was supposed to be half-transparent cyan but it didn't show up before
+bc bug),
+but when you drag, it actually becomes white (I think the transparent cyan keeps stacking until all channels are maxed).
+
+I'm pretty sure the correct setting is going to be
+setting both to OVER,
+but I'll try the other remaining option first for dramatic purposes:
+Color: REPLACE and Alpha: OVER.
+It just fully ignores transparency.
+Just one rectangle, black background.
+That's anti-climactic, I'm glad I saved the more hopeful one for last.
+
+Now with both OVER:
+
+This, is why I'm the goat, this is why we science our computers!
+
+I make it sound like something really cool,
+but it just works.
+I mean, its cool that it does but it's lowkey embarrassing how excited I got.
+
+The two rectangles show and the background is actually just cyan,
+not a half-transparent one.
+I think the background was always set to an opaque cyan.
+I'm gonna commit now and see where I define the default background.
