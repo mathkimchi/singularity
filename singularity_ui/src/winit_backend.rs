@@ -889,10 +889,13 @@ mod winit_impls {
                                     view: &view,
                                     resolve_target: None,
                                     ops: wgpu::Operations {
+                                        // I don't really understand the other junk here,
+                                        // but this is the background
                                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                                            r: 0.1,
-                                            g: 0.2,
-                                            b: 0.3,
+                                            r: 0.0,
+                                            g: 0.0,
+                                            b: 0.0,
+                                            // if this isn't opaque, weird artifacts appear
                                             a: 1.0,
                                         }),
                                         store: wgpu::StoreOp::Store,

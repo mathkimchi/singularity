@@ -6132,3 +6132,12 @@ The two rectangles show and the background is actually just cyan,
 not a half-transparent one.
 I think the background was always set to an opaque cyan.
 I'm gonna commit now and see where I define the default background.
+
+...
+
+7:59PM
+
+I tried making the background half transparent,
+and the artifacts came back.
+
+I'm just going to keep the background opaque (I never liked transparent terminals and stuff anyways).
