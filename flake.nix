@@ -70,7 +70,7 @@
             libxcb
             # libxkbcommon
             vulkan-loader
-            # nixgl.nixGLIntel
+            pkgs.nixgl.nixGLIntel
           ];
           LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
           # LIBCLANG_PATH = "${}";
