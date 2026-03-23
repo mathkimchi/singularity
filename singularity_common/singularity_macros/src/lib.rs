@@ -199,7 +199,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         let mut match_cases = quote! {};
         let mut search_clicked = quote! {};
         for (component_ident, component_size, focus_id) in components.iter() {
-            match_cases.extend(quote! { 
+            match_cases.extend(quote! {
                 #focus_id => if let Some(remapped_event) = singularity_common::components::remap_event(#component_size, event.clone()) {
                     self.#component_ident.handle_event(remapped_event);
                     return Ok(());
@@ -209,7 +209,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             search_clicked.extend(quote! {
                 if singularity_common::components::remap_event(#component_size, event.clone()).is_some() {
                     Err(Some(#focus_id))
-                } else 
+                } else
             });
         }
         for (component_ident, area_generator, _, event_handler, focus_id) in &tree_components {
@@ -343,7 +343,7 @@ fn packet_union_impls(
         let try_from_data_match_packets_cases: proc_macro2::TokenStream = packets.iter().map(|(ident, inner_type)|
             quote! {
                 <#inner_type as PacketTrait>::PACKET_TYPE_ID => Some(Self::#ident(#inner_type::try_from_data(packet_inner_data)?)),
-            }    
+            }
         ).collect();
         let try_from_data_try_packet_unions: proc_macro2::TokenStream = packet_unions.iter().map(|(variant_ident, inner_packet_union_type)|
             // REVIEW: look for ways to metacommunicate between `PacketUnion` derives
@@ -753,7 +753,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
             // extern crate singularity_sap as __singularity_sap;
             // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
             // FIXME: the imports
-            
+
             #[automatically_derived]
             impl PacketUnion for #identifier {
                 fn packet_to_data(&self) -> (PacketTypeId, Vec<u8>) {
