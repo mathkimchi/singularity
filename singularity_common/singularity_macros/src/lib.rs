@@ -1,15 +1,20 @@
-use std::{hash::{Hash, Hasher}, str::FromStr};
+use std::{
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{DeriveInput, Fields};
 
-
 /// REVIEW: I realize that this is actually very arbitrary and unflexible for most use-cases
 /// I mean, I am starting to feel that I don't even need a macro
 /// I could also make an attribute macro that can be applied to each component, which would increase redundancy but make it suitable for a wider variety of usage
-#[deprecated="look at DEVLOG 2024/11/30"]
-#[proc_macro_derive(ComposeComponents, attributes(component, tree_component, focused_component))]
+#[deprecated = "look at DEVLOG 2024/11/30"]
+#[proc_macro_derive(
+    ComposeComponents,
+    attributes(component, tree_component, focused_component)
+)]
 pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
@@ -26,16 +31,24 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         for attr in &ast.attrs {
             if attr.path().is_ident("focused_component") {
                 assert!(focused_component.is_none());
-                focused_component = match attr.to_token_stream().clone().into_iter().next().unwrap() {
-                    proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
-                        &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(node_renderer)] => {
+                focused_component = match attr.to_token_stream().clone().into_iter().next().unwrap()
+                {
+                    proc_macro2::TokenTree::Group(group) => match &group
+                        .stream()
+                        .into_iter()
+                        .collect::<Vec<proc_macro2::TokenTree>>()
+                        .as_slice()
+                    {
+                        &[
+                            proc_macro2::TokenTree::Group(area_generator),
+                            proc_macro2::TokenTree::Punct(seperator),
+                            proc_macro2::TokenTree::Group(node_renderer),
+                        ] => {
                             assert_eq!(seperator.as_char(), ',');
                             Some((area_generator.stream(), node_renderer.stream()))
                         }
-                        _ => {
-                            Some((group.stream(), quote! { usize }))
-                        }
-                    }
+                        _ => Some((group.stream(), quote! { usize })),
+                    },
                     _ => panic!(),
                 };
             }
@@ -52,16 +65,26 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             for attr in field.attrs.iter() {
                 if attr.path().is_ident("component") {
                     // just get the first thing from attr.tokens
-                    let (container_size, focus_id) = match attr.to_token_stream().clone().into_iter().next().unwrap() {
-                        proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
-                            &[proc_macro2::TokenTree::Group(container_size), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(focus_id)] => {
-                                assert_eq!(seperator.as_char(), ',');
-                                (container_size.stream(), focus_id.stream())
+                    let (container_size, focus_id) =
+                        match attr.to_token_stream().clone().into_iter().next().unwrap() {
+                            proc_macro2::TokenTree::Group(group) => match &group
+                                .stream()
+                                .into_iter()
+                                .collect::<Vec<proc_macro2::TokenTree>>()
+                                .as_slice()
+                            {
+                                &[
+                                    proc_macro2::TokenTree::Group(container_size),
+                                    proc_macro2::TokenTree::Punct(seperator),
+                                    proc_macro2::TokenTree::Group(focus_id),
+                                ] => {
+                                    assert_eq!(seperator.as_char(), ',');
+                                    (container_size.stream(), focus_id.stream())
+                                }
+                                _ => panic!("component attribute unparsable"),
                             },
-                            _ => panic!("component attribute unparsable"),
-                        }
-                        _ => panic!("component attribute unparsable (not a group)"),
-                    };
+                            _ => panic!("component attribute unparsable (not a group)"),
+                        };
                     components.push((field.ident.clone().unwrap(), container_size, focus_id));
                 }
 
@@ -86,20 +109,65 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         for field in struct_.fields.iter() {
             for attr in field.attrs.iter() {
                 if attr.path().is_ident("tree_component") {
-                    let (area_generator, renderer, event_handler, focus_id) = 
-                    match attr.to_token_stream().clone().into_iter().next().unwrap() {
-                        proc_macro2::TokenTree::Group(group) => match &group.stream().into_iter().collect::<Vec<proc_macro2::TokenTree>>().as_slice() {
-                            &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator0), proc_macro2::TokenTree::Group(node_renderer), proc_macro2::TokenTree::Punct(seperator1), proc_macro2::TokenTree::Group(event_handler), proc_macro2::TokenTree::Punct(seperator2), proc_macro2::TokenTree::Group(focus_id)] => {
-                                assert_eq!(seperator0.as_char(), ',', "Delimiter between area_generator and node_renderer of tree_component should be ','");
-                                assert_eq!(seperator1.as_char(), ',', "Delimiter between node_renderer and event handler of tree_component should be ','");
-                                assert_eq!(seperator2.as_char(), ',', "Delimiter between event handler and focus id of tree_component should be ','");
-                                (area_generator.stream(), node_renderer.stream(), event_handler.stream(), focus_id.stream())
-                            },
-                            e => panic!("tree_component attributes could not be parsed (hint: group: `{}` and e.len(): `{}`)", group, e.len()),
-                        }
+                    let (area_generator, renderer, event_handler, focus_id) = match attr
+                        .to_token_stream()
+                        .clone()
+                        .into_iter()
+                        .next()
+                        .unwrap()
+                    {
+                        proc_macro2::TokenTree::Group(group) => match &group
+                            .stream()
+                            .into_iter()
+                            .collect::<Vec<proc_macro2::TokenTree>>()
+                            .as_slice()
+                        {
+                            &[
+                                proc_macro2::TokenTree::Group(area_generator),
+                                proc_macro2::TokenTree::Punct(seperator0),
+                                proc_macro2::TokenTree::Group(node_renderer),
+                                proc_macro2::TokenTree::Punct(seperator1),
+                                proc_macro2::TokenTree::Group(event_handler),
+                                proc_macro2::TokenTree::Punct(seperator2),
+                                proc_macro2::TokenTree::Group(focus_id),
+                            ] => {
+                                assert_eq!(
+                                    seperator0.as_char(),
+                                    ',',
+                                    "Delimiter between area_generator and node_renderer of tree_component should be ','"
+                                );
+                                assert_eq!(
+                                    seperator1.as_char(),
+                                    ',',
+                                    "Delimiter between node_renderer and event handler of tree_component should be ','"
+                                );
+                                assert_eq!(
+                                    seperator2.as_char(),
+                                    ',',
+                                    "Delimiter between event handler and focus id of tree_component should be ','"
+                                );
+                                (
+                                    area_generator.stream(),
+                                    node_renderer.stream(),
+                                    event_handler.stream(),
+                                    focus_id.stream(),
+                                )
+                            }
+                            e => panic!(
+                                "tree_component attributes could not be parsed (hint: group: `{}` and e.len(): `{}`)",
+                                group,
+                                e.len()
+                            ),
+                        },
                         _ => panic!("expected group as attribute for tree_component"),
                     };
-                    tree_components.push((field.ident.clone().unwrap(), area_generator, renderer, event_handler, focus_id));
+                    tree_components.push((
+                        field.ident.clone().unwrap(),
+                        area_generator,
+                        renderer,
+                        event_handler,
+                        focus_id,
+                    ));
                 }
             }
         }
@@ -212,28 +280,38 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
 }
 
 /// (to_data_impl, try_from_data_impl)
-fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+fn packet_union_impls(
+    data_enum: syn::DataEnum,
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     // [(variant name, type), ...]
     let (packets, packet_unions) = {
         let mut packets = Vec::new();
         let mut packet_unions = Vec::new();
-        
+
         for variant in &data_enum.variants {
             let inner_packet_type = match &variant.fields {
                 Fields::Unnamed(fields_unnamed) => {
-                    assert_eq!(fields_unnamed.unnamed.len(), 1, "variants should have exactly 1 unnamed field");
+                    assert_eq!(
+                        fields_unnamed.unnamed.len(),
+                        1,
+                        "variants should have exactly 1 unnamed field"
+                    );
                     fields_unnamed.unnamed.first().unwrap().clone()
-                },
-                _=> panic!("Expected unnamed fields for all variants")
+                }
+                _ => panic!("Expected unnamed fields for all variants"),
             };
-            
-            if variant.attrs.iter().any(|attr| attr.path().is_ident("sub_union")) {
+
+            if variant
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("sub_union"))
+            {
                 packet_unions.push((variant.ident.clone(), inner_packet_type));
             } else {
                 packets.push((variant.ident.clone(), inner_packet_type));
             }
         }
-    
+
         (packets, packet_unions)
     };
 
@@ -243,11 +321,14 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
                 Self::#ident(inner_packet) => (<#inner_type as PacketTrait>::PACKET_TYPE_ID, inner_packet.to_data()),
             }
         ).collect();
-        let to_data_match_packet_unions_cases: proc_macro2::TokenStream = packet_unions.iter().map(|(ident, _)|
-            quote! {
-                Self::#ident(inner_packet_union) => inner_packet_union.packet_to_data(),
-            }
-        ).collect();
+        let to_data_match_packet_unions_cases: proc_macro2::TokenStream = packet_unions
+            .iter()
+            .map(|(ident, _)| {
+                quote! {
+                    Self::#ident(inner_packet_union) => inner_packet_union.packet_to_data(),
+                }
+            })
+            .collect();
 
         quote! {
             match self {
@@ -273,7 +354,7 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
             }
         ).collect();
 
-        quote!{
+        quote! {
             match packet_id {
                 // $($subevent::PACKET_TYPE_ID => Some(Self::$subevent($subevent::try_from_data(data)?)),)*
                 #try_from_data_match_packets_cases
@@ -289,19 +370,29 @@ fn packet_union_impls(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, pr
 }
 
 /// (to_data_impl, try_from_data_impl)
-fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+fn enum_datable_derive(
+    data_enum: syn::DataEnum,
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     // [(name, type), ...]
-    let variants: Vec<_> = data_enum.variants.iter().map(|variant| {
-        let inner_packet_type = match &variant.fields {
-            Fields::Unnamed(fields_unnamed) => {
-                assert_eq!(fields_unnamed.unnamed.len(), 1, "variants with more than 1 unnamed field not implemented");
-                fields_unnamed.unnamed.first().unwrap().clone()
-            },
-            _ => todo!()
-        };
-        
-        (variant.ident.clone(), inner_packet_type)
-    }).collect();
+    let variants: Vec<_> = data_enum
+        .variants
+        .iter()
+        .map(|variant| {
+            let inner_packet_type = match &variant.fields {
+                Fields::Unnamed(fields_unnamed) => {
+                    assert_eq!(
+                        fields_unnamed.unnamed.len(),
+                        1,
+                        "variants with more than 1 unnamed field not implemented"
+                    );
+                    fields_unnamed.unnamed.first().unwrap().clone()
+                }
+                _ => todo!(),
+            };
+
+            (variant.ident.clone(), inner_packet_type)
+        })
+        .collect();
 
     let try_from_data_match_cases: proc_macro2::TokenStream = variants.iter().enumerate().map(|(variant_num, (ident, inner_type))|
         quote! {
@@ -309,23 +400,27 @@ fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, p
         }
     ).collect();
 
-    let to_data_match_cases: proc_macro2::TokenStream = variants.iter().enumerate().map(|(variant_num, (ident, _inner_type))|
-        quote! {
-            Self::#ident(inner_packet) => (#variant_num, inner_packet.to_data()),
-        }
-    ).collect();
+    let to_data_match_cases: proc_macro2::TokenStream = variants
+        .iter()
+        .enumerate()
+        .map(|(variant_num, (ident, _inner_type))| {
+            quote! {
+                Self::#ident(inner_packet) => (#variant_num, inner_packet.to_data()),
+            }
+        })
+        .collect();
 
     let to_data_impl = quote! {
         let (id, inner_data) = match self {
             // $(Self::$subevent(subevent) => ($subevent::PACKET_TYPE_ID, subevent.to_data()),)*
             #to_data_match_cases
         };
-        
+
         let id_bytes: &[u8] = &id.to_be_bytes();
         [id_bytes, &inner_data].concat()
     };
 
-    let try_from_data_impl = quote!{
+    let try_from_data_impl = quote! {
         let (id_bytes, inner_data) = data.split_at((usize::BITS / 8) as usize);
         let id = usize::from_be_bytes(id_bytes.try_into().unwrap());
 
@@ -340,69 +435,92 @@ fn enum_datable_derive(data_enum: syn::DataEnum) -> (proc_macro2::TokenStream, p
 }
 
 /// (to_data_impl, try_from_data_impl)
-/// 
+///
 /// The number of fields is known and constant, and everything can just be ordered.
-/// 
+///
 /// Before each field data, we give the size of that field.
 /// This is kind of inefficient though if we have a lot of constant size fields.
 /// Figure that out later.
 /// REVIEW: could have try from data return how much of the data was used.
-fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+fn struct_datable_derive(
+    data_struct: syn::DataStruct,
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let mut is_tuple_struct = false;
 
     // [(name, type), ...]
-    let fields: Vec<_> = data_struct.fields.iter().enumerate().map(|(index, field)| { 
-        let identifier = match &field.ident {
-            Some(ident) => quote! { #ident },
-            None => {
-                is_tuple_struct = true;
-                proc_macro2::TokenStream::from_str(&index.to_string()).unwrap()
-            }
-        };
+    let fields: Vec<_> = data_struct
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(index, field)| {
+            let identifier = match &field.ident {
+                Some(ident) => quote! { #ident },
+                None => {
+                    is_tuple_struct = true;
+                    proc_macro2::TokenStream::from_str(&index.to_string()).unwrap()
+                }
+            };
 
-        (identifier, field.ty.clone())
-    }).collect();
+            (identifier, field.ty.clone())
+        })
+        .collect();
 
     if fields.is_empty() {
         let to_data_impl = quote! {
             Vec::new()
         };
-    
-        let try_from_data_impl = quote!{
+
+        let try_from_data_impl = quote! {
             if data.len() != 0 {
                 return None;
             }
 
             Some(Self)
         };
-    
+
         return (to_data_impl, try_from_data_impl);
     }
 
-    let define_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
+    let define_field_data: proc_macro2::TokenStream = fields
+        .iter()
+        .map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
-            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{field_ident}"), proc_macro2::Span::call_site());
-            let data_len_ident = proc_macro2::Ident::new(&format!("len_{field_ident}"), proc_macro2::Span::call_site());
+            let data_bytes_ident = proc_macro2::Ident::new(
+                &format!("bytes_{field_ident}"),
+                proc_macro2::Span::call_site(),
+            );
+            let data_len_ident = proc_macro2::Ident::new(
+                &format!("len_{field_ident}"),
+                proc_macro2::Span::call_site(),
+            );
             quote! {
                 let #data_bytes_ident = self.#field_ident.to_data();
                 // TODO: make this le bytes
                 let #data_len_ident = #data_bytes_ident.len().to_be_bytes();
             }
-        }
-    ).collect();
+        })
+        .collect();
 
-    let combine_field_data: proc_macro2::TokenStream = fields.iter().map(|(field_ident, _ty)| {
+    let combine_field_data: proc_macro2::TokenStream = fields
+        .iter()
+        .map(|(field_ident, _ty)| {
             // REVIEW: figure out what call site actually is
             // Having "bytes_..." is better than "..._bytes" because it also works with "bytes_0" for tuple structs
-            let data_bytes_ident = proc_macro2::Ident::new(&format!("bytes_{field_ident}"), proc_macro2::Span::call_site());
-            let data_len_ident = proc_macro2::Ident::new(&format!("len_{field_ident}"), proc_macro2::Span::call_site());
+            let data_bytes_ident = proc_macro2::Ident::new(
+                &format!("bytes_{field_ident}"),
+                proc_macro2::Span::call_site(),
+            );
+            let data_len_ident = proc_macro2::Ident::new(
+                &format!("len_{field_ident}"),
+                proc_macro2::Span::call_site(),
+            );
             quote! {
                 #data_len_ident.as_slice(),
                 #data_bytes_ident.as_slice(),
             }
-        }
-    ).collect();
+        })
+        .collect();
 
     let to_data_impl = quote! {
         #define_field_data
@@ -412,8 +530,9 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
         ].concat()
     };
 
-    let self_constructor = if is_tuple_struct {
-        let fields: proc_macro2::TokenStream = fields.iter().map(|(_ident, ty)| {
+    let self_constructor =
+        if is_tuple_struct {
+            let fields: proc_macro2::TokenStream = fields.iter().map(|(_ident, ty)| {
             quote! {
                 {
                     let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
@@ -426,11 +545,11 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
                 },
             }
         }).collect();
-        quote! {
-            Self(#fields)
-        }
-    } else {
-        let fields: proc_macro2::TokenStream = fields.iter().map(|(ident, ty)| {
+            quote! {
+                Self(#fields)
+            }
+        } else {
+            let fields: proc_macro2::TokenStream = fields.iter().map(|(ident, ty)| {
             quote! {
                 #ident: {
                     let len = usize::from_be_bytes(data[index..(index + 8)].try_into().ok()?);
@@ -444,14 +563,14 @@ fn struct_datable_derive(data_struct: syn::DataStruct) -> (proc_macro2::TokenStr
             }
         }).collect();
 
-        quote! {
-            Self {
-                #fields
+            quote! {
+                Self {
+                    #fields
+                }
             }
-        }
-    };
+        };
 
-    let try_from_data_impl = quote!{
+    let try_from_data_impl = quote! {
         let mut index = 0;
         let constructed_self = #self_constructor;
 
@@ -474,7 +593,7 @@ pub fn datable_derive(input: TokenStream) -> TokenStream {
     let (to_data_impl, try_from_data_impl) = match ast.data {
         syn::Data::Enum(data_enum) => enum_datable_derive(data_enum),
         syn::Data::Struct(data_struct) => struct_datable_derive(data_struct),
-        syn::Data::Union(_data_union) => unimplemented!()
+        syn::Data::Union(_data_union) => unimplemented!(),
     };
 
     quote! {
@@ -538,7 +657,7 @@ pub fn packet_derive(input: TokenStream) -> TokenStream {
 pub fn event_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
-    
+
     let identifier = ast.ident;
 
     quote! {
@@ -559,7 +678,7 @@ pub fn event_derive(input: TokenStream) -> TokenStream {
 pub fn request_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
-    
+
     let identifier = ast.ident;
 
     quote! {
@@ -580,7 +699,7 @@ pub fn request_derive(input: TokenStream) -> TokenStream {
 pub fn query_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
-    
+
     let identifier = ast.ident;
     let response_type = ast.attrs.iter().find_map(|attr| {
         if attr.path().is_ident("ResponseType") {
@@ -625,7 +744,7 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
     let (to_data_impl, try_from_data_impl) = match ast.data {
         syn::Data::Enum(data_enum) => packet_union_impls(data_enum),
         syn::Data::Struct(_data_struct) => panic!("PacketUnion must be used on an enum"),
-        syn::Data::Union(_data_union) => todo!() // TODO: I actually do want to see how Union type works
+        syn::Data::Union(_data_union) => todo!(), // TODO: I actually do want to see how Union type works
     };
 
     quote! {
@@ -650,13 +769,12 @@ pub fn packet_union_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-
 /// TODO: test for `EventPacketTrait`. Could have the packet union impls take in a packet prefix, so it would use cast the variants into `EventPacketTrait` instead of `PacketTrait`
 #[proc_macro_derive(EventPacketUnion, attributes(sub_union))]
 pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
-    
+
     let identifier = ast.ident;
 
     let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
@@ -667,7 +785,7 @@ pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
             // extern crate singularity_sap as __singularity_sap;
             // use crate as __singularity_sap; // FIXME: this only works for singularity sap itself
             // FIXME: the imports
-            
+
             #packet_union_derive
 
             #[automatically_derived]
@@ -682,7 +800,7 @@ pub fn event_packet_union_derive(input: TokenStream) -> TokenStream {
 pub fn request_packet_union_derive(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
     let ast = syn::parse_macro_input!(tokens as DeriveInput);
-    
+
     let identifier = ast.ident;
 
     let packet_union_derive = proc_macro2::TokenStream::from(packet_union_derive(input));
