@@ -6239,3 +6239,15 @@ what's the point of moving it to the GPU then letting the GPU copy it somewhere 
 I've got to be missing something.
 Maybe it uses something similar to textures.
 Idk, I didn't actually read the thing about textures.
+
+2026-03-24 11:51AM
+
+Yesternight, I got the singularity ui's borders and rectangles
+kinda working on GPU.
+
+I don't need to do SDF for hard square corners,
+so I'm just going to rewrite this to ignore the corner radius.
+
+...
+
+It works pretty good.

@@ -44,8 +44,11 @@ impl Vertex {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 struct RoundRectInstance {
     /// This is the top left, not the center
+    /// Currently includes the border
     origin: [f32; 2],
+    /// Currently includes the border
     size: [f32; 2],
+    /// NOTE: currently being ignored
     corner_radius: f32,
     border_dist: f32,
     main_color: [f32; 4],
