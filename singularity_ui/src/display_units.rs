@@ -113,6 +113,21 @@ impl std::ops::Sub for DisplayUnits {
         self + (-rhs)
     }
 }
+impl std::ops::Div<f32> for DisplayUnits {
+    type Output = Self;
+
+    /// Pixels will get lost/created from rounding integer.
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            DisplayUnits::Pixels(pixels) => Self::Pixels((pixels as f32 / rhs).round() as i32),
+            DisplayUnits::Proportional(prop) => Self::Proportional(prop / rhs),
+            DisplayUnits::MixedUnits { pixels, proportion } => Self::MixedUnits {
+                pixels: ((pixels as f32 / rhs).round() as i32),
+                proportion: proportion / rhs,
+            },
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplaySize {
@@ -211,6 +226,13 @@ impl DisplayArea {
             DisplayCoord::new(center.x - half_size.width, center.y - half_size.height),
             DisplayCoord::new(center.x + half_size.width, center.y + half_size.height),
         )
+    }
+
+    pub fn get_center(&self) -> DisplayCoord {
+        DisplayCoord {
+            x: (self.0.x + self.1.x) / 2.,
+            y: (self.0.y + self.1.y) / 2.,
+        }
     }
 
     /// Use: `child_area.map_onto(parent_area)`

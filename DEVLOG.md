@@ -6141,3 +6141,101 @@ I tried making the background half transparent,
 and the artifacts came back.
 
 I'm just going to keep the background opaque (I never liked transparent terminals and stuff anyways).
+
+...
+
+I need to now draw different shapes as well,
+meaning I probably need different types of instances.
+
+Google says that the simple way of dealing with multiple types of instances is with multiple passes,
+but I don't think that will work for me because
+the instances aren't ordered by type
+(if I do the rectangle pass then the text pass, then even text that's supposed to be hidden
+will end up above the rectangles).
+
+I mean, I could draw each shape one at a time,
+but there's gotta be a better way.
+
+One idea I have is to use uniform buffers
+(which I guess are like constants)
+to have a list of each shape and its data.
+
+Then, each instance data would just be the index indicating which shape type
+as well as the specific shape's index on the shape-type's list.
+
+...
+
+2026-03-18 5:50PM
+
+I might actually end up doing a draw pass for each UI element,
+since it will allow me to generalize.
+I don't know if I should just make generalization done through compositing
+or if I should let them directly make their own UI elements.
+Theoretically, allowing custom UI elements will have the faster best case scenario.
+But, compositing will be simpler and prevent one really slow draw from slowing everyone else down.
+
+2026-03-19 12:08PM
+
+As I start thinking about other element types,
+I'm going to take notes on how [Clay](https://github.com/nicbarker/clay),
+a UI library in C, does layout.
+
+...
+
+As I remember (I watched this video a year ago when it came out),
+it's a good video.
+
+But the text really seems to not be elegant.
+
+I am also tempted to just force apps to make do with whatever sizes their parents give them,
+because I'd eventually like to make a Zooming UI.
+
+I always imagined the GUI would be the difficult part and everything else would be simple about UI,
+but coming up with a good, not too restrictive abstraction for a UI element is hard.
+I have to consider layout (sizing), rendering, and updating.
+
+I am also curious about Vector graphics for UI:
+https://en.wikipedia.org/wiki/Vector-based_graphical_user_interface
+which I came across on Wikipedia while looking at ZUI.
+
+If performance wasn't a problem,
+I think my ideal abstraction for UI elements would be
+elements that take in a 2d size and a single point in that space,
+and return either a color or a None (meaning transparent).
+
+It would be a more mathematical/geometric way of doing UI,
+and it won't be fast and it probably won't even look that good.
+But it makes sense to me.
+
+I mean, I guess there's something neat about compositing as well.
+Compositing is pretty much what I described but not lazy.
+
+The thing about lazy evaluation (I am speaking in general but with the special context of UI)
+is that it is best for minimizing calls,
+so in theory it seems like it should be the most efficient.
+But in practice, we have techniques like multi-threading
+where even if we call a function more often than necessary,
+it can take less time than a single-threaded lazy implementation
+because we are calling the function while doing other stuff.
+
+...
+
+Hrngh...
+
+GPU is more underwhelming than I thought for UI.
+
+It seems like the main factor in an application being "GPU-accelerated"
+just means they draw rectangles and stuff on the GPU,
+but I feel like I could just use a rendering crate that uses GPU
+and say the exact same thing.
+
+Well, I'm already this far, so I'm just going to just replace the SingularityUI
+backend to use GPU and call Singularity "GPU accelerated".
+
+I wonder how compositing works with GPU.
+Because compositing is just copying over data from one screen to another,
+so if the data to be copied is on the CPU,
+what's the point of moving it to the GPU then letting the GPU copy it somewhere else?
+I've got to be missing something.
+Maybe it uses something similar to textures.
+Idk, I didn't actually read the thing about textures.
