@@ -489,7 +489,10 @@ mod drawing_impls {
         winit_backend::{RoundRectInstance, VERTICES, WinitData},
     };
     use std::iter;
-    use wgpu::{SurfaceConfiguration, util::DeviceExt as _};
+    use wgpu::{
+        CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+        RenderPassDescriptor, SurfaceConfiguration, TextureViewDescriptor, util::DeviceExt as _,
+    };
 
     /// Data needed for drawing
     struct DrawingSharedData<'a> {
@@ -799,42 +802,62 @@ mod drawing_impls {
                                 continue;
                             }
 
-                            // TODO: the next two pars I commented
-                            // drawing_shared_data.viewport.update(
-                            //     drawing_shared_data.queue,
-                            //     glyphon::Resolution {
-                            //         width: drawing_shared_data.surface_config.width,
-                            //         height: drawing_shared_data.surface_config.height,
-                            //     },
-                            // );
+                            drawing_shared_data.text_buffer.set_text(
+                                drawing_shared_data.font_system,
+                                &character.to_string(),
+                                &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+                                glyphon::Shaping::Advanced,
+                                None,
+                            );
 
-                            // drawing_shared_data
-                            //     .text_renderer
-                            //     .prepare(
-                            //         drawing_shared_data.device,
-                            //         drawing_shared_data.queue,
-                            //         drawing_shared_data.font_system,
-                            //         drawing_shared_data.atlas,
-                            //         drawing_shared_data.viewport,
-                            //         [glyphon::TextArea {
-                            //             buffer: drawing_shared_data.text_buffer,
-                            //             left: 10.0,
-                            //             top: 10.0,
-                            //             scale: 1.0,
-                            //             bounds: glyphon::TextBounds {
-                            //                 left: 0,
-                            //                 top: 0,
-                            //                 right: 600,
-                            //                 bottom: 160,
-                            //             },
-                            //             default_color: glyphon::Color::rgb(
-                            //                 fg.0[0], fg.0[1], fg.0[0],
-                            //             ),
-                            //             custom_glyphs: &[],
-                            //         }],
-                            //         drawing_shared_data.swash_cache,
-                            //     )
-                            //     .unwrap();
+                            drawing_shared_data
+                                .text_renderer
+                                .prepare(
+                                    drawing_shared_data.device,
+                                    drawing_shared_data.queue,
+                                    drawing_shared_data.font_system,
+                                    drawing_shared_data.atlas,
+                                    drawing_shared_data.viewport,
+                                    [glyphon::TextArea {
+                                        buffer: drawing_shared_data.text_buffer,
+                                        left: top_left
+                                            .x
+                                            .pixels(drawing_shared_data.surface_config.width as _)
+                                            as _,
+                                        top: top_left
+                                            .y
+                                            .pixels(drawing_shared_data.surface_config.height as _)
+                                            as _,
+                                        scale: 1.0,
+                                        bounds: glyphon::TextBounds {
+                                            left: 0,
+                                            top: 0,
+                                            // TODO
+                                            right: 600,
+                                            bottom: 160,
+                                        },
+                                        default_color: glyphon::Color::rgb(
+                                            fg.0[0], fg.0[1], fg.0[0],
+                                        ),
+                                        custom_glyphs: &[],
+                                    }],
+                                    drawing_shared_data.swash_cache,
+                                )
+                                .unwrap();
+
+                            drawing_shared_data
+                                .text_renderer
+                                .render(
+                                    drawing_shared_data.atlas,
+                                    drawing_shared_data.viewport,
+                                    &mut drawing_shared_data.render_pass,
+                                )
+                                .unwrap();
+
+                            // drawing_shared_data.queue.submit(Some(encoder.finish()));
+                            // drawing_shared_data.frame.present();
+
+                            // drawing_shared_data.atlas.trim();
 
                             // dt.draw_text(
                             //     font,
@@ -1082,6 +1105,15 @@ mod drawing_impls {
                     multiview_mask: None,
                 });
 
+                // tell it the resolution, which shouldn't change for the rest of the draw calls
+                viewport.update(
+                    queue,
+                    glyphon::Resolution {
+                        width: surface_config.width,
+                        height: surface_config.height,
+                    },
+                );
+
                 let mut drawing_shared_data = DrawingSharedData {
                     render_pass,
                     rectangle_render_pipeline: render_pipeline,
@@ -1258,6 +1290,8 @@ mod winit_impls {
                             .unwrap()
                             .push(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers));
                     }
+
+                    window.request_redraw();
                 }
                 winit::event::WindowEvent::MouseInput {
                     device_id,

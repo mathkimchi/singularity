@@ -6251,3 +6251,33 @@ so I'm just going to rewrite this to ignore the corner radius.
 ...
 
 It works pretty good.
+
+2026-03-24 9:33PM
+
+I am writing this note today just to remember that my next task is
+to set up text with glyphon.
+
+I want to work on it right now, but right now,
+my composition for my school choir is the passion project taking all my time,
+so I will save the working time for tommorow's computer science block,
+which should be 50 minutes.
+
+...
+
+11:15PM
+
+I ended up working on it.
+I think I'm almost there, but I think it is currently being lazily drawn,
+and the text is being replaced before it could be drawn,
+so only the last thing drawn will show up.
+
+That's annoying, but I'll commit now because I've been waking up at 6 every day
+to jog/gym with some buddies.
+
+Once I get this bug fixed,
+I think I will change how some of the UI primitives are represented
+(ie, combine the border and rectangle, as well as just using glyphon's rich text
+instead of doing each char manually).
+Then, I will be able to say Singularity is up and running on GPU.
+
+Speaking of, I can feel that Singularity is very fast now.
