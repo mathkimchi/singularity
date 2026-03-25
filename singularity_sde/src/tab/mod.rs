@@ -1,7 +1,5 @@
-use crate::packets::{SDEEvent, SDERequest};
-use singularity_sporg::applet_data::{AppletSpawnData, AppletSpawnMethod, AppletTypeId};
+use singularity_sporg::applet_data::{AppletSpawnMethod, AppletTypeId};
 use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
-use std::process::{Child, ChildStdin, Command, Stdio};
 
 /// Represents Applet on the server side.
 pub struct AppletHandler {

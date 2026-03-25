@@ -126,9 +126,9 @@ struct WinitData {
     // for wgpu
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    // index_buffer: wgpu::Buffer,
-    instances: Vec<RoundRectInstance>,
-    instance_buffer: wgpu::Buffer,
+    // // index_buffer: wgpu::Buffer,
+    // instances: Vec<RoundRectInstance>,
+    // instance_buffer: wgpu::Buffer,
 
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
@@ -279,30 +279,30 @@ impl WinitData {
         //     usage: wgpu::BufferUsages::INDEX,
         // });
 
-        let instances = vec![
-            RoundRectInstance {
-                origin: [200.0, 200.0],
-                size: [300.0, 150.0],
-                corner_radius: 40.0,
-                border_dist: 3.0,
-                main_color: [0.5, 0.7, 0.5, 1.0],
-                border_color: [0.2, 0.2, 0.2, 1.0],
-            },
-            // RoundRectInstance {
-            //     origin: [400.0, 400.0],
-            //     size: [50.0, 150.0],
-            //     corner_radius: 20.0,
-            //     border_dist: 3.0,
-            //     main_color: [0.5, 0.7, 0.5, 1.0],
-            //     border_color: [0.2, 0.2, 0.2, 1.0],
-            // },
-        ];
+        // let instances = vec![
+        //     RoundRectInstance {
+        //         origin: [200.0, 200.0],
+        //         size: [300.0, 150.0],
+        //         corner_radius: 40.0,
+        //         border_dist: 3.0,
+        //         main_color: [0.5, 0.7, 0.5, 1.0],
+        //         border_color: [0.2, 0.2, 0.2, 1.0],
+        //     },
+        //     // RoundRectInstance {
+        //     //     origin: [400.0, 400.0],
+        //     //     size: [50.0, 150.0],
+        //     //     corner_radius: 20.0,
+        //     //     border_dist: 3.0,
+        //     //     main_color: [0.5, 0.7, 0.5, 1.0],
+        //     //     border_color: [0.2, 0.2, 0.2, 1.0],
+        //     // },
+        // ];
 
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instances),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        // let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //     label: Some("Instance Buffer"),
+        //     contents: bytemuck::cast_slice(&instances),
+        //     usage: wgpu::BufferUsages::VERTEX,
+        // });
 
         Self {
             device,
@@ -318,9 +318,9 @@ impl WinitData {
             window,
             render_pipeline,
             vertex_buffer,
-            // index_buffer,
-            instances,
-            instance_buffer,
+            // // index_buffer,
+            // instances,
+            // instance_buffer,
         }
     }
 }
@@ -335,8 +335,8 @@ pub struct UIDisplay {
 
     /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
     is_running: Arc<AtomicBool>,
-    width: u32,
-    height: u32,
+    // width: u32,
+    // height: u32,
     key_modifiers: KeyModifiers,
 
     winit_data: Option<WinitData>,
@@ -358,8 +358,8 @@ impl UIDisplay {
                 root_element,
                 ui_event_queue,
                 is_running,
-                width: 256,
-                height: 256,
+                // width: 256,
+                // height: 256,
                 key_modifiers: KeyModifiers::NONE,
                 winit_data: None,
             })
@@ -489,10 +489,7 @@ mod drawing_impls {
         winit_backend::{RoundRectInstance, VERTICES, WinitData},
     };
     use std::iter;
-    use wgpu::{
-        CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-        RenderPassDescriptor, SurfaceConfiguration, TextureViewDescriptor, util::DeviceExt as _,
-    };
+    use wgpu::{SurfaceConfiguration, util::DeviceExt as _};
 
     /// Data needed for drawing
     struct DrawingSharedData<'a> {
@@ -512,7 +509,7 @@ mod drawing_impls {
 
         device: &'a wgpu::Device,
         queue: &'a wgpu::Queue,
-        surface: &'a wgpu::Surface<'static>,
+        // surface: &'a wgpu::Surface<'static>,
         surface_config: &'a SurfaceConfiguration,
     }
 
@@ -776,12 +773,12 @@ mod drawing_impls {
                                 continue;
                             }
 
-                            let bot_left = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                            );
+                            // let bot_left = DisplayCoord::new(
+                            //     container_area.0.x
+                            //         + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                            //     container_area.0.y
+                            //         + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                            // );
 
                             Self::fill_rect(
                                 drawing_shared_data,
@@ -1051,7 +1048,7 @@ mod drawing_impls {
             };
 
             let WinitData {
-                window,
+                // window,
                 device,
                 queue,
                 surface,
@@ -1065,8 +1062,8 @@ mod drawing_impls {
                 render_pipeline,
                 vertex_buffer,
                 // index_buffer,
-                instance_buffer,
-                instances,
+                // instance_buffer,
+                // instances,
                 ..
             } = state;
 
@@ -1120,7 +1117,7 @@ mod drawing_impls {
                     vertex_buffer,
                     device,
                     queue,
-                    surface,
+                    // surface,
                     surface_config,
                     font_system,
                     swash_cache,
@@ -1242,20 +1239,20 @@ mod winit_impls {
             let WinitData {
                 window,
                 device,
-                queue,
+                // queue,
                 surface,
                 surface_config,
-                font_system,
-                swash_cache,
-                viewport,
-                atlas,
-                text_renderer,
-                text_buffer,
-                render_pipeline,
-                vertex_buffer,
-                // index_buffer,
-                instance_buffer,
-                instances,
+                // font_system,
+                // swash_cache,
+                // viewport,
+                // atlas,
+                // text_renderer,
+                // text_buffer,
+                // render_pipeline,
+                // vertex_buffer,
+                // // index_buffer,
+                // instance_buffer,
+                // instances,
                 ..
             } = state;
 
@@ -1293,13 +1290,13 @@ mod winit_impls {
 
                     window.request_redraw();
                 }
-                winit::event::WindowEvent::MouseInput {
-                    device_id,
-                    state,
-                    button,
-                } => {
-                    println!("TODO: mouse press");
-                }
+                // winit::event::WindowEvent::MouseInput {
+                //     device_id,
+                //     state,
+                //     button,
+                // } => {
+                //     println!("TODO: mouse press");
+                // }
                 winit::event::WindowEvent::RedrawRequested => {
                     // viewport.update(
                     //     queue,

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{color::Color, display_units::DisplayArea};
 
 /// TODO: rename most everything here
