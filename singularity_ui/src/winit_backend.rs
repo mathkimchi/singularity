@@ -7,7 +7,7 @@ use crate::{
     ui_element::UIElement,
     winit_backend::ui_event::{KeyModifiers, UIEvent},
 };
-use glyphon::{Attrs, Family, FontSystem, Metrics, Shaping, SwashCache, TextAtlas, TextRenderer};
+use glyphon::{FontSystem, SwashCache, TextAtlas, TextRenderer};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, MultisampleState, PresentMode, SurfaceConfiguration,
@@ -121,7 +121,7 @@ struct WinitData {
     viewport: glyphon::Viewport,
     atlas: glyphon::TextAtlas,
     text_renderer: glyphon::TextRenderer,
-    text_buffer: glyphon::Buffer,
+    // text_buffer: glyphon::Buffer,
 
     // for wgpu
     render_pipeline: wgpu::RenderPipeline,
@@ -138,7 +138,7 @@ struct WinitData {
 impl WinitData {
     async fn new(window: Arc<Window>) -> Self {
         let physical_size = window.inner_size();
-        let scale_factor = window.scale_factor();
+        // let scale_factor = window.scale_factor();
 
         // Set up surface
         let instance = wgpu::Instance::new(&InstanceDescriptor::default());
@@ -188,27 +188,27 @@ impl WinitData {
         surface.configure(&device, &surface_config);
 
         // Set up text renderer
-        let mut font_system = FontSystem::new();
+        let font_system = FontSystem::new();
         let swash_cache = SwashCache::new();
         let cache = glyphon::Cache::new(&device);
         let viewport = glyphon::Viewport::new(&device, &cache);
         let mut atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
         let text_renderer =
             TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
-        let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(12.0, 12.0));
+        // let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(12.0, 12.0));
 
-        let physical_width = (physical_size.width as f64 * scale_factor) as f32;
-        let physical_height = (physical_size.height as f64 * scale_factor) as f32;
+        // let physical_width = (physical_size.width as f64 * scale_factor) as f32;
+        // let physical_height = (physical_size.height as f64 * scale_factor) as f32;
 
-        text_buffer.set_size(
-            &mut font_system,
-            Some(physical_width),
-            Some(physical_height),
-        );
-        text_buffer.set_text(&mut font_system,
-            "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", 
-        &Attrs::new().family(Family::Monospace), Shaping::Advanced,None,);
-        text_buffer.shape_until_scroll(&mut font_system, false);
+        // text_buffer.set_size(
+        //     &mut font_system,
+        //     Some(physical_width),
+        //     Some(physical_height),
+        // );
+        // text_buffer.set_text(&mut font_system,
+        //     "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z",
+        // &Attrs::new().family(Family::Monospace), Shaping::Advanced,None,);
+        // text_buffer.shape_until_scroll(&mut font_system, false);
 
         // Set up gpu pipeline
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
@@ -314,7 +314,7 @@ impl WinitData {
             viewport,
             atlas,
             text_renderer,
-            text_buffer,
+            // text_buffer,
             window,
             render_pipeline,
             vertex_buffer,
@@ -488,8 +488,9 @@ mod drawing_impls {
         ui_element::{CharCell, UIElement},
         winit_backend::{RoundRectInstance, VERTICES, WinitData},
     };
+    use glyphon::{Metrics, TextRenderer};
     use std::iter;
-    use wgpu::{SurfaceConfiguration, util::DeviceExt as _};
+    use wgpu::{MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
 
     /// Data needed for drawing
     struct DrawingSharedData<'a> {
@@ -505,8 +506,7 @@ mod drawing_impls {
         viewport: &'a mut glyphon::Viewport,
         atlas: &'a mut glyphon::TextAtlas,
         text_renderer: &'a mut glyphon::TextRenderer,
-        text_buffer: &'a mut glyphon::Buffer,
-
+        // text_buffer: &'a mut glyphon::Buffer,
         device: &'a wgpu::Device,
         queue: &'a wgpu::Queue,
         // surface: &'a wgpu::Surface<'static>,
@@ -695,7 +695,11 @@ mod drawing_impls {
                         },
                     );
 
-                    drawing_shared_data.text_buffer.set_text(
+                    let mut text_buffer = glyphon::Buffer::new(
+                        drawing_shared_data.font_system,
+                        Metrics::new(12.0, 12.0),
+                    );
+                    text_buffer.set_text(
                         drawing_shared_data.font_system,
                         text,
                         &glyphon::Attrs::new().family(glyphon::Family::Monospace),
@@ -703,9 +707,7 @@ mod drawing_impls {
                         None,
                     );
 
-                    drawing_shared_data
-                        .text_buffer
-                        .shape_until_scroll(drawing_shared_data.font_system, false);
+                    text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
 
                     drawing_shared_data
                         .text_renderer
@@ -716,7 +718,7 @@ mod drawing_impls {
                             drawing_shared_data.atlas,
                             drawing_shared_data.viewport,
                             [glyphon::TextArea {
-                                buffer: drawing_shared_data.text_buffer,
+                                buffer: &text_buffer,
                                 left: 10.0,
                                 top: 10.0,
                                 scale: 1.0,
@@ -790,25 +792,46 @@ mod drawing_impls {
                                     ),
                                 ),
                                 0.,
-                                0.,
+                                // Set to 1 for dbg purposes
+                                1.,
                                 *bg,
-                                Color::BLACK,
+                                Color::LIGHT_GREEN,
                             );
 
                             if character == &' ' {
                                 continue;
                             }
 
-                            drawing_shared_data.text_buffer.set_text(
+                            let mut text_buffer = glyphon::Buffer::new(
                                 drawing_shared_data.font_system,
-                                &character.to_string(),
+                                Metrics::new(12.0, 12.0),
+                            );
+
+                            // text_buffer.set_size(
+                            //     &mut drawing_shared_data.font_system,
+                            //     Some(physical_width),
+                            //     Some(physical_height),
+                            // );
+
+                            text_buffer.set_text(
+                                drawing_shared_data.font_system,
+                                character.to_string().as_str(),
                                 &glyphon::Attrs::new().family(glyphon::Family::Monospace),
                                 glyphon::Shaping::Advanced,
                                 None,
                             );
+                            text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
 
-                            drawing_shared_data
-                                .text_renderer
+                            let mut text_renderer = TextRenderer::new(
+                                drawing_shared_data.atlas,
+                                drawing_shared_data.device,
+                                MultisampleState::default(),
+                                None,
+                            );
+
+                            // drawing_shared_data
+                            //     .
+                            text_renderer
                                 .prepare(
                                     drawing_shared_data.device,
                                     drawing_shared_data.queue,
@@ -816,7 +839,7 @@ mod drawing_impls {
                                     drawing_shared_data.atlas,
                                     drawing_shared_data.viewport,
                                     [glyphon::TextArea {
-                                        buffer: drawing_shared_data.text_buffer,
+                                        buffer: &text_buffer,
                                         left: top_left
                                             .x
                                             .pixels(drawing_shared_data.surface_config.width as _)
@@ -842,8 +865,9 @@ mod drawing_impls {
                                 )
                                 .unwrap();
 
-                            drawing_shared_data
-                                .text_renderer
+                            // drawing_shared_data
+                            //     .
+                            text_renderer
                                 .render(
                                     drawing_shared_data.atlas,
                                     drawing_shared_data.viewport,
@@ -1058,7 +1082,7 @@ mod drawing_impls {
                 viewport,
                 atlas,
                 text_renderer,
-                text_buffer,
+                // text_buffer,
                 render_pipeline,
                 vertex_buffer,
                 // index_buffer,
@@ -1124,7 +1148,7 @@ mod drawing_impls {
                     viewport,
                     atlas,
                     text_renderer,
-                    text_buffer,
+                    // text_buffer,
                 };
 
                 self.root_element

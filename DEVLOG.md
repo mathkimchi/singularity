@@ -6281,3 +6281,25 @@ instead of doing each char manually).
 Then, I will be able to say Singularity is up and running on GPU.
 
 Speaking of, I can feel that Singularity is very fast now.
+
+2026-03-26 1:38PM
+
+This [github issue](https://github.com/grovesNL/glyphon/issues/113)
+talks about the same issue I had.
+
+Supposedly, as long as you call draw, you should be allowed to change the buffer,
+but the person who created the issue said you just need to make multiple renderers.
+
+It's not ideal, but it'll do.
+
+This [wiki link](https://github.com/gfx-rs/wgpu/wiki/Encapsulating-Graphics-Work)
+found in the issue goes over general advice on how to make custom renderers.
+
+...
+
+Okay, this is working now!
+
+I mean, I'm a little sad I need to create a new renderer each time, but this is fine.
+
+I'll commit with all the debug stuff
+then delete next commit.
