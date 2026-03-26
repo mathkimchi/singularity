@@ -6303,3 +6303,7 @@ I mean, I'm a little sad I need to create a new renderer each time, but this is 
 
 I'll commit with all the debug stuff
 then delete next commit.
+
+Wowie, it's so fast!!!
+
+Ok, I'll commit the ones that don't have the debug boxes and warnings squashed.

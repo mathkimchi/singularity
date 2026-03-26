@@ -7,11 +7,11 @@ use crate::{
     ui_element::UIElement,
     winit_backend::ui_event::{KeyModifiers, UIEvent},
 };
-use glyphon::{FontSystem, SwashCache, TextAtlas, TextRenderer};
+use glyphon::{FontSystem, SwashCache, TextAtlas};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, MultisampleState, PresentMode, SurfaceConfiguration,
-    TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
+    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, TextureFormat,
+    TextureUsages, include_wgsl, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
@@ -120,7 +120,7 @@ struct WinitData {
     swash_cache: SwashCache,
     viewport: glyphon::Viewport,
     atlas: glyphon::TextAtlas,
-    text_renderer: glyphon::TextRenderer,
+    // text_renderer: glyphon::TextRenderer,
     // text_buffer: glyphon::Buffer,
 
     // for wgpu
@@ -192,9 +192,9 @@ impl WinitData {
         let swash_cache = SwashCache::new();
         let cache = glyphon::Cache::new(&device);
         let viewport = glyphon::Viewport::new(&device, &cache);
-        let mut atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
-        let text_renderer =
-            TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
+        let atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
+        // let text_renderer =
+        //     TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
         // let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(12.0, 12.0));
 
         // let physical_width = (physical_size.width as f64 * scale_factor) as f32;
@@ -313,7 +313,7 @@ impl WinitData {
             swash_cache,
             viewport,
             atlas,
-            text_renderer,
+            // text_renderer,
             // text_buffer,
             window,
             render_pipeline,
@@ -505,7 +505,7 @@ mod drawing_impls {
         swash_cache: &'a mut glyphon::SwashCache,
         viewport: &'a mut glyphon::Viewport,
         atlas: &'a mut glyphon::TextAtlas,
-        text_renderer: &'a mut glyphon::TextRenderer,
+        // text_renderer: &'a mut glyphon::TextRenderer,
         // text_buffer: &'a mut glyphon::Buffer,
         device: &'a wgpu::Device,
         queue: &'a wgpu::Queue,
@@ -709,8 +709,14 @@ mod drawing_impls {
 
                     text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
 
-                    drawing_shared_data
-                        .text_renderer
+                    let mut text_renderer = TextRenderer::new(
+                        drawing_shared_data.atlas,
+                        drawing_shared_data.device,
+                        MultisampleState::default(),
+                        None,
+                    );
+
+                    text_renderer
                         .prepare(
                             drawing_shared_data.device,
                             drawing_shared_data.queue,
@@ -792,10 +798,10 @@ mod drawing_impls {
                                     ),
                                 ),
                                 0.,
-                                // Set to 1 for dbg purposes
-                                1.,
+                                // Set to 1 for dbg boxes
+                                0.,
                                 *bg,
-                                Color::LIGHT_GREEN,
+                                Color::TRANSPARENT,
                             );
 
                             if character == &' ' {
@@ -829,8 +835,6 @@ mod drawing_impls {
                                 None,
                             );
 
-                            // drawing_shared_data
-                            //     .
                             text_renderer
                                 .prepare(
                                     drawing_shared_data.device,
@@ -865,8 +869,6 @@ mod drawing_impls {
                                 )
                                 .unwrap();
 
-                            // drawing_shared_data
-                            //     .
                             text_renderer
                                 .render(
                                     drawing_shared_data.atlas,
@@ -1081,7 +1083,7 @@ mod drawing_impls {
                 swash_cache,
                 viewport,
                 atlas,
-                text_renderer,
+                // text_renderer,
                 // text_buffer,
                 render_pipeline,
                 vertex_buffer,
@@ -1147,7 +1149,7 @@ mod drawing_impls {
                     swash_cache,
                     viewport,
                     atlas,
-                    text_renderer,
+                    // text_renderer,
                     // text_buffer,
                 };
 
