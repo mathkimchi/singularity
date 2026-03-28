@@ -6307,3 +6307,19 @@ then delete next commit.
 Wowie, it's so fast!!!
 
 Ok, I'll commit the ones that don't have the debug boxes and warnings squashed.
+
+2026-03-27 8:32AM
+
+I lowkey was planning on making the previous commit be the one that closes
+[Gpu acceleration #28](https://github.com/mathkimchi/singularity/issues/28),
+but I forgot to do the GitHub thing,
+so I'm going to set up the actual text thing to work with glyphon (or rather cosmic text)'s
+rich text and get rid of char grid.
+This way, it looks like this was the plan from the beginning.
+
+2026-03-27 7:42PM
+
+Welp, I committed to Cornell!!!
+
+It isn't relevant to Singularity/Sonamu,
+but for some reason, it would feel cold not to mention it.

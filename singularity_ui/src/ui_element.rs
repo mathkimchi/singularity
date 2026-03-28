@@ -16,13 +16,12 @@ pub enum UIElement {
     /// TODO: better name
     Backgrounded(Box<UIElement>, Color),
 
-    /// FIXME: literally just doesn't work
-    #[deprecated]
-    Text(String),
+    Text(Vec<(String, glyphon::AttrsOwned)>),
 
     /// should display like a terminal
     ///
     /// most important feature is that each character is the same size
+    #[deprecated]
     CharGrid(CharGrid),
 
     Nothing,
@@ -65,6 +64,19 @@ impl From<Option<UIElement>> for UIElement {
         value.unwrap_or(UIElement::Nothing)
     }
 }
+impl From<String> for UIElement {
+    fn from(raw_content: String) -> Self {
+        UIElement::Text(vec![(
+            raw_content,
+            glyphon::AttrsOwned::new(
+                &glyphon::Attrs::new()
+                    .family(glyphon::Family::Monospace)
+                    // White
+                    .color(glyphon::Color(0xFF_FF_FF_FF)),
+            ),
+        )])
+    }
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharCell {
@@ -82,6 +94,7 @@ impl CharCell {
     }
 }
 
+#[deprecated]
 #[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharGrid {
     pub content: Vec<Vec<CharCell>>,

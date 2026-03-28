@@ -589,6 +589,20 @@ mod drawing_impls {
             // dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
         }
 
+        // Surface config used just for the width
+        fn display_area_to_text_bounds(
+            area: DisplayArea,
+            surface_config: &SurfaceConfiguration,
+        ) -> glyphon::TextBounds {
+            glyphon::TextBounds {
+                left: area.0.x.pixels(surface_config.width as _),
+                top: area.0.y.pixels(surface_config.height as _),
+                // TODO
+                right: area.1.x.pixels(surface_config.width as _),
+                bottom: area.1.y.pixels(surface_config.height as _),
+            }
+        }
+
         fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
             /// think this is height in pixels
             const FONT_SIZE: i32 = 24;
@@ -688,21 +702,13 @@ mod drawing_impls {
                     inner_element.draw(drawing_shared_data, container_area);
                 }
                 UIElement::Text(text) => {
-                    drawing_shared_data.viewport.update(
-                        drawing_shared_data.queue,
-                        glyphon::Resolution {
-                            width: drawing_shared_data.surface_config.width,
-                            height: drawing_shared_data.surface_config.height,
-                        },
-                    );
-
                     let mut text_buffer = glyphon::Buffer::new(
                         drawing_shared_data.font_system,
                         Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
                     );
-                    text_buffer.set_text(
+                    text_buffer.set_rich_text(
                         drawing_shared_data.font_system,
-                        text,
+                        text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
                         &glyphon::Attrs::new().family(glyphon::Family::Monospace),
                         glyphon::Shaping::Advanced,
                         None,
@@ -726,19 +732,33 @@ mod drawing_impls {
                             drawing_shared_data.viewport,
                             [glyphon::TextArea {
                                 buffer: &text_buffer,
-                                left: 10.0,
-                                top: 10.0,
+                                left: container_area
+                                    .0
+                                    .x
+                                    .pixels(drawing_shared_data.surface_config.width as _)
+                                    as _,
+                                top: container_area
+                                    .0
+                                    .y
+                                    .pixels(drawing_shared_data.surface_config.height as _)
+                                    as _,
                                 scale: 1.0,
-                                bounds: glyphon::TextBounds {
-                                    left: 0,
-                                    top: 0,
-                                    right: 600,
-                                    bottom: 160,
-                                },
+                                bounds: Self::display_area_to_text_bounds(
+                                    container_area,
+                                    drawing_shared_data.surface_config,
+                                ),
                                 default_color: glyphon::Color::rgb(255, 255, 255),
                                 custom_glyphs: &[],
                             }],
                             drawing_shared_data.swash_cache,
+                        )
+                        .unwrap();
+
+                    text_renderer
+                        .render(
+                            drawing_shared_data.atlas,
+                            drawing_shared_data.viewport,
+                            &mut drawing_shared_data.render_pass,
                         )
                         .unwrap();
 
@@ -782,14 +802,14 @@ mod drawing_impls {
                                 continue;
                             }
 
-                            let bot_right = DisplayCoord::new(
-                                container_area.0.x
-                                    + DisplayUnits::Pixels(
-                                        FONT_SIZE / 2 * ((col_index + 1) as i32),
-                                    ),
-                                container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                            );
+                            // let bot_right = DisplayCoord::new(
+                            //     container_area.0.x
+                            //         + DisplayUnits::Pixels(
+                            //             FONT_SIZE / 2 * ((col_index + 1) as i32),
+                            //         ),
+                            //     container_area.0.y
+                            //         + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                            // );
 
                             Self::fill_rect(
                                 drawing_shared_data,
@@ -856,21 +876,10 @@ mod drawing_impls {
                                             .pixels(drawing_shared_data.surface_config.height as _)
                                             as _,
                                         scale: 1.0,
-                                        bounds: glyphon::TextBounds {
-                                            left: top_left.x.pixels(
-                                                drawing_shared_data.surface_config.width as _,
-                                            ),
-                                            top: top_left.y.pixels(
-                                                drawing_shared_data.surface_config.height as _,
-                                            ),
-                                            // TODO
-                                            right: bot_right.x.pixels(
-                                                drawing_shared_data.surface_config.width as _,
-                                            ),
-                                            bottom: bot_right.y.pixels(
-                                                drawing_shared_data.surface_config.height as _,
-                                            ),
-                                        },
+                                        bounds: Self::display_area_to_text_bounds(
+                                            container_area,
+                                            drawing_shared_data.surface_config,
+                                        ),
                                         default_color: glyphon::Color::rgb(
                                             fg.0[0], fg.0[1], fg.0[0],
                                         ),

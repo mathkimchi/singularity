@@ -9,11 +9,7 @@ use crate::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::BasicApplet;
-use singularity_ui::{
-    color::Color,
-    ui_element::{CharGrid, UIElement},
-    ui_event::UIEvent,
-};
+use singularity_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
 use std::fmt::Write as _;
 
 /// Technically, this is a standard app, but it is so essential
@@ -182,9 +178,7 @@ impl BasicApplet for CommandHubApplet {
         }
         writeln!(&mut display_string, "> {}", self.current_prompt).unwrap();
 
-        CharGrid::from(display_string)
-            .element()
-            .fill_bg(Color::BLACK)
+        UIElement::from(display_string).fill_bg(Color::BLACK)
     }
 }
 impl NodularApplet for CommandHubApplet {

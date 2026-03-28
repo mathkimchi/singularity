@@ -3,11 +3,7 @@ use crate::nodular_applet::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{
-    color::Color,
-    display_units::DisplayArea,
-    ui_element::{CharGrid, UIElement},
-};
+use singularity_ui::{color::Color, display_units::DisplayArea, ui_element::UIElement};
 use std::{collections::BTreeMap, sync::RwLock};
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
@@ -118,13 +114,12 @@ impl RootNodeApplet {
                     .to_vec()
                     .into_boxed_slice(),
             );
-            CharGrid::from(
+            UIElement::from(
                 treeview
                     .safe_get(world_path)
                     .unwrap()
                     .outer_world_to_string(focused_path.0.get(world_level_index).cloned()),
             )
-            .element()
             .bordered(Color::LIGHT_GREEN)
         }))
         .fill_bg(Color::BLACK)
