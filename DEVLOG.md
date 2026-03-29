@@ -6323,3 +6323,46 @@ Welp, I committed to Cornell!!!
 
 It isn't relevant to Singularity/Sonamu,
 but for some reason, it would feel cold not to mention it.
+
+2026-03-29 8:38AM
+
+There remains one giant that looms over me.
+A Goliath to my Sonamu.
+
+I am talking about a compositor.
+
+I know, yes.
+I know, that I am sounding quite ambitious
+and that it seems I am just not trying to get an MVP working,
+but I'd rather manage this task sooner rather than later.
+I actually think making a wayland compositor is going to be easier
+than making a good app or even embedding existing Rust apps
+like Servo or Alacritty because Smithay has pretty good documentation
+(if my memory serves correctly).
+
+I was going to do my Topology homework
+(due at 5pm today and I haven't started it; yikes)
+but I suddenly just got really angry with the fact that
+I was not using singularity.
+
+So, that's what I'm doing now.
+
+I predict that this task will be monumental,
+so I am going to make a new crate just for it.
+
+...
+
+Uhh, getting smithay to compile was actually so easy
+that I am embarrassed to think I couldn't get it to compile in the past,
+lol.
+
+I mean, maybe its because I already had a lot of dependencies,
+but the error messages this time just said the dependencies I needed
+but didn't have (just `udev` (libudev) and `seatd` (libseat)).
+And then it just worked.
+
+By working, I just mean building.
+If I recall correctly, this is what
+I spent a few days on in the past and caused me to quit.
+
+Well, I guess I'll commit now.
