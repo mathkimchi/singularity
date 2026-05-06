@@ -6453,3 +6453,12 @@ The minimal doesn't use Event Loop, but I'd eventually like to.
 9:12AM
 
 Yooo, it is printing the pixels!
+
+2026-05-06 11:37AM
+
+Oh mah gyahh, it's literally saving to a picture!
+This is surreal.
+
+(You know it's bad when I am so surprised my code works)
+
+I'm going to commit this now.

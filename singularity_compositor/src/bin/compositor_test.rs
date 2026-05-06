@@ -1,7 +1,8 @@
+use image::{ColorType, save_buffer};
 use singularity_compositor::{ClientState, WaylandApplet};
 use smithay::{
     backend::renderer::{
-        Color32F, Frame as _, Renderer as _,
+        Bind, Color32F, Frame as _, Renderer as _,
         element::{
             Kind,
             surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
@@ -11,9 +12,10 @@ use smithay::{
     },
     reexports::{
         calloop::EventLoop,
+        pixman,
         wayland_server::{ListeningSocket, protocol::wl_surface},
     },
-    utils::{Size, Transform},
+    utils::{Rectangle, Size, Transform},
     wayland::compositor::{SurfaceAttributes, TraversalAction, with_surface_tree_downward},
 };
 use std::{env::set_var, sync::Arc};
@@ -37,7 +39,8 @@ fn main() {
     std::process::Command::new("kitty").spawn().ok();
 
     let mut renderer = PixmanRenderer::new().unwrap();
-    // let mut output = pixman::Image::new(pixman::FormatCode::A8R8G8B8, 100, 100, true).unwrap();
+    let mut image = pixman::Image::new(pixman::FormatCode::R8G8B8A8, 800, 600, false).unwrap();
+    // let mut target = renderer.bind(&mut image).unwrap();
 
     // event_loop
     //     .run(None, &mut state, |state| {
@@ -76,8 +79,12 @@ fn main() {
     //     .unwrap();
 
     loop {
-        // let size = backend.window_size();
+        let mut target = renderer.bind(&mut image).unwrap();
+
+        // // let size: Size<usize, smithay::utils::Physical> = Size::new(image.width(), image.height());
+        // let size = target.size();
         // let damage = Rectangle::from_size(size);
+        let damage = Rectangle::from_size(Size::new(800, 600));
         {
             let elements = state
                 .xdg_shell_state
@@ -95,15 +102,15 @@ fn main() {
                 })
                 .collect::<Vec<WaylandSurfaceRenderElement<PixmanRenderer>>>();
 
-            // let mut frame = renderer
-            //     .render(&mut framebuffer, Size::new(200, 200), Transform::Flipped180)
-            //     .unwrap();
-            // frame
-            //     .clear(Color32F::new(0.1, 0.0, 0.0, 1.0), &[damage])
-            //     .unwrap();
-            // draw_render_elements(&mut frame, 1.0, &elements, &[damage]).unwrap();
-            // // We rely on the nested compositor to do the sync for us
-            // let _ = frame.finish().unwrap();
+            let mut frame = renderer
+                .render(&mut target, Size::new(800, 600), Transform::Normal)
+                .unwrap();
+            frame
+                .clear(Color32F::new(0.1, 0.0, 0.0, 1.0), &[damage])
+                .unwrap();
+            draw_render_elements(&mut frame, 1.0, &elements, &[damage]).unwrap();
+            // We rely on the nested compositor to do the sync for us
+            let _ = frame.finish().unwrap();
 
             for surface in state.xdg_shell_state.toplevel_surfaces() {
                 send_frames_surface_tree(
@@ -124,6 +131,24 @@ fn main() {
 
             display.dispatch_clients(&mut state).unwrap();
             display.flush_clients().unwrap();
+
+            let raw_image_data: Vec<_> =
+                unsafe { std::slice::from_raw_parts(image.data(), image.width() * image.height()) }
+                    .iter()
+                    .flat_map(|pixel| pixel.to_be_bytes())
+                    .collect();
+
+            save_buffer(
+                "examples/smithay.png",
+                &raw_image_data,
+                800,
+                600,
+                ColorType::Rgba8,
+            )
+            .unwrap();
+
+            // I need this bc if I quit while rendering, it doesn't work
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
 
         // // It is important that all events on the display have been dispatched and flushed to clients before

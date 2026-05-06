@@ -3,7 +3,7 @@ use singularity_sttk::nodular_applet::NodularApplet;
 use smithay::{
     input::{Seat, SeatState},
     reexports::{
-        calloop::{EventLoop, Interest, LoopSignal, PostAction, generic::Generic},
+        calloop::{EventLoop, LoopSignal},
         wayland_server::{
             Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
         },
@@ -15,7 +15,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use std::{ffi::OsString, sync::Arc};
+use std::ffi::OsString;
 
 mod compositor;
 

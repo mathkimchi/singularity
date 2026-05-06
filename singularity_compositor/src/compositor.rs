@@ -153,7 +153,9 @@
 // // Xdg Shell
 // delegate_xdg_shell!(WaylandApplet);
 
+use crate::{ClientState, WaylandApplet};
 use smithay::{
+    backend::renderer::utils::on_commit_buffer_handler,
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
         Client,
@@ -161,18 +163,13 @@ use smithay::{
     },
     wayland::{
         buffer::BufferHandler,
-        compositor::{
-            BufferAssignment, CompositorClientState, CompositorHandler, CompositorState,
-            SurfaceAttributes, with_states,
-        },
+        compositor::{CompositorClientState, CompositorHandler, CompositorState},
         output::OutputHandler,
         shell::xdg::XdgShellHandler,
-        shm::{ShmHandler, ShmState, with_buffer_contents},
+        shm::{ShmHandler, ShmState},
     },
 };
 use wayland_protocols::xdg::shell::server::xdg_toplevel;
-
-use crate::{ClientState, WaylandApplet};
 
 impl SeatHandler for WaylandApplet {
     type KeyboardFocus = WlSurface;
@@ -190,7 +187,7 @@ impl SeatHandler for WaylandApplet {
     ) {
     }
 
-    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
+    fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {
         // let dh = &self.display_handle;
         // let client = focused.and_then(|s| dh.get_client(s.id()).ok());
         // set_data_device_focus(dh, seat, client);
@@ -199,13 +196,10 @@ impl SeatHandler for WaylandApplet {
 
 impl CompositorHandler for WaylandApplet {
     fn compositor_state(&mut self) -> &mut CompositorState {
-        println!("A");
-
         &mut self.compositor_state
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        println!("B");
         &client.get_data::<ClientState>().unwrap().compositor_state
     }
 
@@ -230,21 +224,33 @@ impl CompositorHandler for WaylandApplet {
 
         println!("Surface committed");
 
-        with_states(surface, |states| {
-            let mut binding = states.cached_state.get::<SurfaceAttributes>();
-            if let Some(BufferAssignment::NewBuffer(buffer)) = binding.current().buffer.as_ref() {
-                // renderer.import_shm_buffer(buffer, Some(surface.data().unwrap()), &[])
+        // with_states(surface, |states| {
+        //     let mut binding = states.cached_state.get::<SurfaceAttributes>();
+        //     if let Some(BufferAssignment::NewBuffer(buffer)) = binding.current().buffer.as_ref() {
+        //         // renderer.import_shm_buffer(buffer, Some(surface.data().unwrap()), &[])
 
-                with_buffer_contents(buffer, |ptr: *const u8, len, data| {
-                    let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
+        //         with_buffer_contents(buffer, |ptr: *const u8, len, data| {
+        //             let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
 
-                    print!("Slice: {:?}", slice);
-                })
-                .unwrap();
-            }
-        });
+        //             // print!("Slice: {:?}", slice);
+        //             println!("Len: {len}");
 
-        println!("TODO");
+        //             if len == 4 * 800 * 600 {
+        //                 image::save_buffer(
+        //                     "examples/smithay.png",
+        //                     slice,
+        //                     800,
+        //                     600,
+        //                     image::ColorType::Rgba8,
+        //                 )
+        //                 .unwrap();
+        //             }
+        //         })
+        //         .unwrap();
+        //     }
+        // });
+
+        on_commit_buffer_handler::<Self>(surface);
     }
 }
 
@@ -277,24 +283,24 @@ impl XdgShellHandler for WaylandApplet {
 
     fn new_popup(
         &mut self,
-        surface: smithay::wayland::shell::xdg::PopupSurface,
-        positioner: smithay::wayland::shell::xdg::PositionerState,
+        _surface: smithay::wayland::shell::xdg::PopupSurface,
+        _positioner: smithay::wayland::shell::xdg::PositionerState,
     ) {
     }
 
     fn grab(
         &mut self,
-        surface: smithay::wayland::shell::xdg::PopupSurface,
-        seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        serial: smithay::utils::Serial,
+        _surface: smithay::wayland::shell::xdg::PopupSurface,
+        _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
+        _serial: smithay::utils::Serial,
     ) {
     }
 
     fn reposition_request(
         &mut self,
-        surface: smithay::wayland::shell::xdg::PopupSurface,
-        positioner: smithay::wayland::shell::xdg::PositionerState,
-        token: u32,
+        _surface: smithay::wayland::shell::xdg::PopupSurface,
+        _positioner: smithay::wayland::shell::xdg::PositionerState,
+        _token: u32,
     ) {
     }
 }
