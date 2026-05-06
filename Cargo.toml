@@ -28,6 +28,8 @@ paste = { version = "1" }
 libloading = { version = "^0.8" }
 libc = { version = "^0.2" }
 
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+log = { version = "^0.4" }
 
 # [[members]]
 # singularity_ui = { features = ["iced_backend"] }

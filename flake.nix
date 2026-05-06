@@ -36,6 +36,9 @@
             # for smithay (compositor)
             udev
             seatd
+            libgbm
+            libinput
+            pixman
 
             # WINIT_UNIX_BACKEND=wayland
             wayland

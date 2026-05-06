@@ -6366,3 +6366,90 @@ If I recall correctly, this is what
 I spent a few days on in the past and caused me to quit.
 
 Well, I guess I'll commit now.
+
+9:16AM
+
+This might come as a big shocker, but I'm actually reading the documentation now.
+This is doubly useful because beyond just wanting to know what I'm writing,
+I also want to take inspiration from the Wayland protocol and
+the Smithay wrapper to improve the architecture of Sonamu.
+(Still procrastinating the name change.)
+
+I'll just write down things I learn from documentation,
+a readthrough of [Smallvil](https://github.com/Smithay/smithay/blob/master/smallvil),
+and just searching into this devlog.
+I think I'm going to start by reading through Smallvil
+and looking for new terms in an
+[introductory wayland book](https://wayland.freedesktop.org/docs/book/Protocol.html).
+
+Linux term:
+A seat is a collection of hardware devices,
+like keyboards, pointer (like mouse or touchpad), and monitor.
+If you had one big computer and multiple users at the same time,
+you'd assign a seat to each user.
+
+Smithay's `DisplayHandle` holds and manages all the clients.
+It also manages globals and events and objects.
+(Globals seem to be used to agree on what packets have what id.
+In the wayland side, they have a registry provided by the server,
+which is similar to what Sonamu is already doing.
+[Source.](https://git.sr.ht/~sircmpwn/wayland-book/tree/master/item/src/registry.md))
+
+2026-04-19 7:02AM
+
+Ugh...
+It feels definitely possible to do all this,
+but there is just so much that I don't know
+and not enough documentation.
+
+My teacher and friends have all told me to use
+an LLM to ask clarifying questions.
+To my great shame, I am doing that.
+So far, it gets some arguments for specific functions wrong
+(which is to be expected since I don't think it learned
+the specific types of this kinda niche library,
+and because there are also multiple versions of it)
+but the conceptual explanations seem to make sense.
+(I am mostly believing it because this task is
+one hard to do forwards but easy to verify backwards).
+
+For the "Image Primitive" (for as long as I am still doing the primitives),
+I am going to use Pixman.
+
+2026-05-04 3:07PM
+
+Smithay changed a lot of things in
+[this commit](https://github.com/Smithay/smithay/commit/0d14cd655f6e905ad5110ff0384400da223f2cab)
+and I just can't get the events to happen.
+(I can compile and run, but nothing happens and most of my debug prints aren't triggered.)
+
+So, I'm going to just completely clone Smithay
+and modify smallvil and run my debug prints there.
+
+2026-05-05 7:07AM
+
+I wasn't sure if Smallvil would even work, but it does.
+
+It was a little strange seeing it actually work,
+and the fact that it was actually a smooth experience
+(not just in performance, I also mean a lack of glitches and stuff).
+I ran Smallvil in Smallvil, and it worked, which was surprising for some reason.
+
+Well, this makes it clear that "my" code is to blame,
+not my system.
+
+But this is good, it means that my goal is achievable.
+
+2026-05-06 6:29AM
+
+The minimal example actually can run Kitty as well,
+I am going to use that.
+
+Even in minimal, there are things that aren't absolutely necessary
+to run this, ilke data device (which handles drag and drop).
+
+The minimal doesn't use Event Loop, but I'd eventually like to.
+
+9:12AM
+
+Yooo, it is printing the pixels!

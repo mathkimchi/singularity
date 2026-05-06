@@ -4,5 +4,25 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+singularity_common = { path = "../singularity_common" }
+singularity_macros = { path = "../singularity_common/singularity_macros" }
+singularity_ui = { path = "../singularity_ui" }
+# singularity_sap = { path = "../singularity_sap" }
+singularity_sporg = { path = "../singularity_sporg" }
+singularity_sar = { path = "../singularity_sar" }
+singularity_sttk = { path = "../singularity_sttk" }
 
-smithay = "^0.7.0"
+tracing-subscriber = { workspace = true }
+log = { workspace = true }
+
+# Smithay doesn't post the newest version to crates.io
+# smithay = { version = "^0.7.0", features = ["wayland_frontend"] }
+smithay = { git = "https://github.com/Smithay/smithay", branch = "master", features = [
+    "wayland_frontend",
+    # "wayland-protocols",
+] }
+wayland-protocols = { version = "0.32.12", features = [
+    "unstable",
+    "staging",
+    "server",
+] }
