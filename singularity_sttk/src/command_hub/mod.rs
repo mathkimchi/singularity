@@ -107,11 +107,21 @@ impl CommandHubApplet {
                 Ok("Done!".to_string())
             }
 
-            "help" => Ok("Currently working commands: `add`, `set_title`, `$`".to_string()),
+            "test" => match args.first() {
+                Some(&"image") => {
+                    self.execute_command("add_child image_viewer examples/smithay.png")
+                }
+                Some(test) => Err(format!(
+                    "`{test}` is an unknown test. Currently working tests: `image`"
+                )),
+                None => Err("Must specify test.".to_string()),
+            },
 
-            // TODO: help function
+            "help" => Ok(
+                "Currently working commands: `add_child`, `set_title`, `help`, `addition`, `$`"
+                    .to_string(),
+            ),
 
-            // FIXME: currently waits for command to finish.
             // This is stupid, figure out another way.
             "$" => {
                 let mut command = std::process::Command::new(args[0]);
@@ -121,7 +131,9 @@ impl CommandHubApplet {
                 String::from_utf8(command.output().map_err(|err| err.to_string())?.stdout)
                     .map_err(|err| err.to_string())
             }
-            verb => Err(format!("`{verb}` is an unknown command.")),
+            verb => Err(format!(
+                "`{verb}` is an unknown command. Currently working commands: `add_child`, `set_title`, `help`, `addition`, `$`"
+            )),
         }
     }
 
