@@ -6490,3 +6490,42 @@ but now they're gone.
 
 You know what, I'm just going to commit this point.
 
+...
+
+I am going to get the image working ASAP,
+I don't like working on this so I'd like to get it over with quick.
+
+I'm going to create an image viewer app.
+
+Okay, I wrote the image viewer, but it isn't yet displaying.
+I think I need to update the winit backend.
+
+But btw, I am using Helix now, and it's actually really nice.
+I didn't even realize it was written in Rust until someone said it in the forums.
+It uses `ropey` to store and modify large strings, which is cool.
+As I am using it, I thought of a kinda new idea for a workflow:
+We start with a file manager, as the user hovers over different files,
+there is a preview of the file on the right side.
+(So far, this is how Helix works, kinda.)
+But, unlike Helix, you are able to move your mouse to the preview
+and start scrolling the preview.
+(This is not yet implemented in Helix afaik,
+but there is a [PR](https://github.com/helix-editor/helix/pull/15854) for it,
+and thinking about extending this PR is where I got my idea from.)
+Furthermore, you can click on the preview and edit it,
+and you realize the preview box is just the full-on editor app embedded
+to the side of the file explorer.
+Well, that's neat for having all the tools you'd like for editing,
+but you can even detatch this editor from the file explorer,
+and just run it as a standalone app.
+
+I have not yet finalized how this would look in terms of the Tree view,
+but I think it won't be too hard.
+
+Another application of this I thought of while using Helix was for going through references
+of an object while coding.
+
+Well, I'll get my head out of the clouds now.
+You can test the image viewer app with `add_child image_viewer examples/smithay.png`.
+I'm actually goign to implement Pasting into the command hub as well as a test command,
+where `test image` would run `add_child image_viewer examples/smithay.png` and such.

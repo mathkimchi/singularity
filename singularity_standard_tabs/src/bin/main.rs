@@ -1,5 +1,5 @@
 use singularity_sar::runner::AppletRunner;
-use singularity_standard_tabs::editor::TextEditorApplet;
+use singularity_standard_tabs::{editor::TextEditorApplet, image_viewer::ImageViewerApplet};
 use singularity_sttk::{
     command_hub::CommandHubApplet,
     nodular_applet::{
@@ -19,6 +19,10 @@ fn main() {
             (
                 "text_editor".to_string(),
                 TextEditorApplet::get_applet_spawner(),
+            ),
+            (
+                "image_viewer".to_string(),
+                ImageViewerApplet::get_applet_spawner(),
             ),
         ]),
     ))

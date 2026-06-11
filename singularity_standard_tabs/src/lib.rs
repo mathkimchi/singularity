@@ -3,6 +3,7 @@ pub mod terminal;
 
 // pub mod demo;
 pub mod editor;
+pub mod image_viewer;
 pub mod pdf_viewer;
 // pub mod file_manager;
 // pub mod task_organizer;

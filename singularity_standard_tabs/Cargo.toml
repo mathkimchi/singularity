@@ -21,6 +21,8 @@ serde_json = { workspace = true }
 
 printpdf = "^0.9.1"
 
+image = { workspace = true }
+
 # [[bin]]
 # name = "editor"
 # path = "editor.rs"

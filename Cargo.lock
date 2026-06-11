@@ -3920,6 +3920,7 @@ dependencies = [
 name = "singularity_standard_tabs"
 version = "0.1.0"
 dependencies = [
+ "image",
  "printpdf",
  "serde",
  "serde_json",
