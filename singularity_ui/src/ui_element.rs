@@ -24,6 +24,8 @@ pub enum UIElement {
     #[deprecated]
     CharGrid(CharGrid),
 
+    Image(image::RgbaImage),
+
     Nothing,
 }
 impl UIElement {

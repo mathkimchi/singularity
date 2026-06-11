@@ -6462,3 +6462,31 @@ This is surreal.
 (You know it's bad when I am so surprised my code works)
 
 I'm going to commit this now.
+
+2026-05-06 12:29PM
+
+I guess I should step outside of Smithay land for a while and
+figure out how to do images.
+
+2026-05-13 12:02PM
+
+I could just use the `wgpu_canvas` crate,
+but it' feel better to do it all from scratch...
+
+Hmm... I think I should just use `wgpu_canvas`.
+Other than learning and fueling my ego, I don't see any benefits to writing this code from scratch.
+
+2026-05-30 4:00PM
+
+I think this is the first time I'm working on singularity since I graduated.
+I got it running easily on my fast new laptop,
+but since I have uncommitted changes here on my old laptop,
+I guess I'll work here until it's done.
+
+2026-06-11 2:30PM
+
+I updated stuff and had to fix some wgpu errors,
+but now they're gone.
+
+You know what, I'm just going to commit this point.
+

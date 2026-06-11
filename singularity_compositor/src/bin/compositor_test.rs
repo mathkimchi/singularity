@@ -1,4 +1,4 @@
-use image::{ColorType, save_buffer};
+use image::RgbaImage;
 use singularity_compositor::{ClientState, WaylandApplet};
 use smithay::{
     backend::renderer::{
@@ -122,7 +122,7 @@ fn main() {
             if let Some(stream) = listener.accept().unwrap() {
                 println!("Got a client: {:?}", stream);
 
-                let client = display
+                let _client = display
                     .handle()
                     .insert_client(stream, Arc::new(ClientState::default()))
                     .unwrap();
@@ -138,14 +138,18 @@ fn main() {
                     .flat_map(|pixel| pixel.to_be_bytes())
                     .collect();
 
-            save_buffer(
-                "examples/smithay.png",
-                &raw_image_data,
-                800,
-                600,
-                ColorType::Rgba8,
-            )
-            .unwrap();
+            let rgba_image = RgbaImage::from_vec(800, 600, raw_image_data).unwrap();
+
+            rgba_image.save("examples/smithay.png").unwrap();
+
+            // save_buffer(
+            //     "examples/smithay.png",
+            //     &raw_image_data,
+            //     800,
+            //     600,
+            //     ColorType::Rgba8,
+            // )
+            // .unwrap();
 
             // I need this bc if I quit while rendering, it doesn't work
             std::thread::sleep(std::time::Duration::from_millis(100));

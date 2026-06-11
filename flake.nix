@@ -26,6 +26,10 @@
       rec {
         devShell = mkShell rec {
           buildInputs = [
+            # Fix: linking with `cc` failed
+            # rustc # inconsistencies from only downloading rustc here while rustup, cargo, etc come from system
+            gcc
+
             libxkbcommon
             libGL
 
