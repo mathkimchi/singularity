@@ -6611,3 +6611,16 @@ start another wm.
 Ok, whatever.
 I desperately need to catch up on my (lack of) sleep now.
 Good night.
+
+2026-06-15 3:01PM
+
+So it seems that this is suboptimal (obviously)
+but I'll just try to implement it ASAP so as not to waste
+more time.
+
+Also, I think I should ask someone who actually knows GPU stuff
+to see what I'm doing unidiomatically.
+(Maybe I'll just ask an LLM.)
+
+Also, I might just start committing even failed attempts with WIP
+and use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).

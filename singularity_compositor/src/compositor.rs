@@ -155,7 +155,7 @@
 
 use crate::{ClientState, WaylandApplet};
 use smithay::{
-    backend::renderer::utils::on_commit_buffer_handler,
+    backend::renderer::utils::{on_commit_buffer_handler, with_renderer_surface_state},
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
         Client,
@@ -163,7 +163,7 @@ use smithay::{
     },
     wayland::{
         buffer::BufferHandler,
-        compositor::{CompositorClientState, CompositorHandler, CompositorState},
+        compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states},
         output::OutputHandler,
         shell::xdg::XdgShellHandler,
         shm::{ShmHandler, ShmState},
@@ -248,6 +248,12 @@ impl CompositorHandler for WaylandApplet {
         //         })
         //         .unwrap();
         //     }
+        // });
+
+        // with_renderer_surface_state(surface, |state| {
+        //     if let Some(buffer) = state.buffer() {
+        //         // buffer.
+        //     };
         // });
 
         on_commit_buffer_handler::<Self>(surface);

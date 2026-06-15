@@ -293,12 +293,34 @@ impl WinitData {
                 cache: None,
             });
 
+        let image_texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("image_texture_bind_group_layout"),
+            });
         let image_render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     // Difference
-                    Some(&texture_bind_group_layout),
+                    Some(&image_texture_bind_group_layout),
                 ],
                 immediate_size: 0,
             });
@@ -571,7 +593,7 @@ mod drawing_impls {
         color::Color,
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
         ui_element::{CharCell, UIElement},
-        winit_backend::{RoundRectInstance, Vertex, WinitData},
+        winit_backend::{ImageInstance, RoundRectInstance, Vertex, WinitData},
     };
     use glyphon::{Metrics, TextRenderer};
     use image::{ImageBuffer, Rgba};
@@ -681,6 +703,10 @@ mod drawing_impls {
             image_buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>,
             area: DisplayArea,
         ) {
+            drawing_shared_data
+                .render_pass
+                .set_pipeline(drawing_shared_data.image_render_pipeline);
+
             let width = image_buffer.width();
             let height = image_buffer.height();
 
@@ -734,6 +760,51 @@ mod drawing_impls {
                 },
                 texture_size,
             );
+
+            // these buffers are how we pass data to the gpu
+            drawing_shared_data
+                .render_pass
+                .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
+
+            let instances = vec![ImageInstance {
+                // this currently takes in top left
+                origin: [
+                    area.0
+                        .x
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
+                    area.0
+                        .y
+                        .pixels(drawing_shared_data.surface_config.height as _)
+                        as _,
+                ],
+                size: [
+                    area.size()
+                        .width
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
+                    area.size()
+                        .height
+                        .pixels(drawing_shared_data.surface_config.height as _)
+                        as _,
+                ],
+            }];
+
+            let instance_buffer =
+                drawing_shared_data
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Instance Buffer"),
+                        contents: bytemuck::cast_slice(&instances),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+
+            drawing_shared_data
+                .render_pass
+                .set_vertex_buffer(1, instance_buffer.slice(..));
+            drawing_shared_data
+                .render_pass
+                .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
         }
 
         // Surface config used just for the width
