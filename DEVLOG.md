@@ -6624,3 +6624,22 @@ to see what I'm doing unidiomatically.
 
 Also, I might just start committing even failed attempts with WIP
 and use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+...
+
+I get the error:
+
+
+```
+thread '<unnamed>' (786096) panicked at .../wgpu-29.0.3/src/backend/wgpu_core.rs:2653:18:
+wgpu error: Validation Error
+
+Caused by:
+  In a CommandEncoder, label = 'Render Encoder'
+    In a draw command, kind: Draw
+      The BindGroupLayout with 'glyphon atlas bind group layout' label of current set BindGroup with 'glyphon atlas bind group' label at index 0 is not compatible with the corresponding BindGroupLayout with 'image_texture_bind_group_layout' label of RenderPipeline with 'Image Render Pipeline' label
+        Entries with binding 0 differ in visibility: expected ShaderStages(FRAGMENT), got ShaderStages(VERTEX | FRAGMENT)
+        Entries with binding 1 differ in visibility: expected ShaderStages(FRAGMENT), got ShaderStages(VERTEX | FRAGMENT)
+        Entries with binding 1 differ in type: expected Sampler(Filtering), got Texture { sample_type: Float { filterable: true }, view_dimension: D2, multisampled: false }
+        Assigned entry with binding 2 not found in expected bind group layout
+```

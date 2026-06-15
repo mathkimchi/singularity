@@ -150,6 +150,7 @@ struct WinitData {
     // for wgpu
     rectangle_render_pipeline: wgpu::RenderPipeline,
     image_render_pipeline: wgpu::RenderPipeline,
+    image_texture_bind_group_layout: wgpu::BindGroupLayout,
     vertex_buffer: wgpu::Buffer,
     // // index_buffer: wgpu::Buffer,
     // instances: Vec<RoundRectInstance>,
@@ -424,6 +425,7 @@ impl WinitData {
             window,
             rectangle_render_pipeline,
             image_render_pipeline,
+            image_texture_bind_group_layout,
             vertex_buffer,
             // // index_buffer,
             // instances,
@@ -598,7 +600,7 @@ mod drawing_impls {
     use glyphon::{Metrics, TextRenderer};
     use image::{ImageBuffer, Rgba};
     use std::iter;
-    use wgpu::{MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
+    use wgpu::{BindGroupLayout, MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
 
     /// Data needed for drawing
     struct DrawingSharedData<'a> {
@@ -606,6 +608,7 @@ mod drawing_impls {
 
         rectangle_render_pipeline: &'a wgpu::RenderPipeline,
         image_render_pipeline: &'a wgpu::RenderPipeline,
+        image_texture_bind_group_layout: &'a BindGroupLayout,
 
         /// Just one large triangle
         vertex_buffer: &'a wgpu::Buffer,
@@ -707,101 +710,148 @@ mod drawing_impls {
                 .render_pass
                 .set_pipeline(drawing_shared_data.image_render_pipeline);
 
-            let width = image_buffer.width();
-            let height = image_buffer.height();
+            // set bind group (which holds the image texture)
+            {
+                let width = image_buffer.width();
+                let height = image_buffer.height();
 
-            let texture_size = wgpu::Extent3d {
-                width,
-                height,
-                // All textures are stored as 3D, we represent our 2D texture
-                // by setting depth to 1.
-                depth_or_array_layers: 1,
-            };
+                let texture_size = wgpu::Extent3d {
+                    width,
+                    height,
+                    // All textures are stored as 3D, we represent our 2D texture
+                    // by setting depth to 1.
+                    depth_or_array_layers: 1,
+                };
 
-            let diffuse_texture =
+                let diffuse_texture =
+                    drawing_shared_data
+                        .device
+                        .create_texture(&wgpu::TextureDescriptor {
+                            size: texture_size,
+                            mip_level_count: 1, // We'll talk about this a little later
+                            sample_count: 1,
+                            dimension: wgpu::TextureDimension::D2,
+                            // Most images are stored using sRGB, so we need to reflect that here.
+                            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                            // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
+                            // COPY_DST means that we want to copy data to this texture
+                            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                                | wgpu::TextureUsages::COPY_DST,
+                            label: Some("diffuse_texture"),
+                            // This is the same as with the SurfaceConfig. It
+                            // specifies what texture formats can be used to
+                            // create TextureViews for this texture. The base
+                            // texture format (Rgba8UnormSrgb in this case) is
+                            // always supported. Note that using a different
+                            // texture format is not supported on the WebGL2
+                            // backend.
+                            view_formats: &[],
+                        });
+
+                drawing_shared_data.queue.write_texture(
+                    // Tells wgpu where to copy the pixel data
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &diffuse_texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    // The actual pixel data
+                    image_buffer,
+                    // The layout of the texture
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(4 * width),
+                        rows_per_image: Some(height),
+                    },
+                    texture_size,
+                );
+
+                // We don't need to configure the texture view much, so let's
+                // let wgpu define it.
+                let diffuse_texture_view =
+                    diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let diffuse_sampler =
+                    drawing_shared_data
+                        .device
+                        .create_sampler(&wgpu::SamplerDescriptor {
+                            address_mode_u: wgpu::AddressMode::ClampToEdge,
+                            address_mode_v: wgpu::AddressMode::ClampToEdge,
+                            address_mode_w: wgpu::AddressMode::ClampToEdge,
+                            mag_filter: wgpu::FilterMode::Linear,
+                            min_filter: wgpu::FilterMode::Nearest,
+                            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                            ..Default::default()
+                        });
+
+                let diffuse_bind_group =
+                    drawing_shared_data
+                        .device
+                        .create_bind_group(&wgpu::BindGroupDescriptor {
+                            layout: &drawing_shared_data.image_texture_bind_group_layout,
+                            entries: &[
+                                wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: wgpu::BindingResource::TextureView(
+                                        &diffuse_texture_view,
+                                    ),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 1,
+                                    resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                                },
+                            ],
+                            label: Some("diffuse_bind_group"),
+                        });
                 drawing_shared_data
-                    .device
-                    .create_texture(&wgpu::TextureDescriptor {
-                        size: texture_size,
-                        mip_level_count: 1, // We'll talk about this a little later
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        // Most images are stored using sRGB, so we need to reflect that here.
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                        // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
-                        // COPY_DST means that we want to copy data to this texture
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                        label: Some("diffuse_texture"),
-                        // This is the same as with the SurfaceConfig. It
-                        // specifies what texture formats can be used to
-                        // create TextureViews for this texture. The base
-                        // texture format (Rgba8UnormSrgb in this case) is
-                        // always supported. Note that using a different
-                        // texture format is not supported on the WebGL2
-                        // backend.
-                        view_formats: &[],
-                    });
-
-            drawing_shared_data.queue.write_texture(
-                // Tells wgpu where to copy the pixel data
-                wgpu::TexelCopyTextureInfo {
-                    texture: &diffuse_texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                // The actual pixel data
-                image_buffer,
-                // The layout of the texture
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4 * width),
-                    rows_per_image: Some(height),
-                },
-                texture_size,
-            );
+                    .render_pass
+                    .set_bind_group(0, Some(&diffuse_bind_group), &[]);
+            }
 
             // these buffers are how we pass data to the gpu
             drawing_shared_data
                 .render_pass
                 .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
 
-            let instances = vec![ImageInstance {
-                // this currently takes in top left
-                origin: [
-                    area.0
-                        .x
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.0
-                        .y
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
-                ],
-                size: [
-                    area.size()
-                        .width
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.size()
-                        .height
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
-                ],
-            }];
+            // set instance buffer
+            {
+                let instances = vec![ImageInstance {
+                    // this currently takes in top left
+                    origin: [
+                        area.0
+                            .x
+                            .pixels(drawing_shared_data.surface_config.width as _)
+                            as _,
+                        area.0
+                            .y
+                            .pixels(drawing_shared_data.surface_config.height as _)
+                            as _,
+                    ],
+                    size: [
+                        area.size()
+                            .width
+                            .pixels(drawing_shared_data.surface_config.width as _)
+                            as _,
+                        area.size()
+                            .height
+                            .pixels(drawing_shared_data.surface_config.height as _)
+                            as _,
+                    ],
+                }];
 
-            let instance_buffer =
-                drawing_shared_data
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                let instance_buffer = drawing_shared_data.device.create_buffer_init(
+                    &wgpu::util::BufferInitDescriptor {
                         label: Some("Instance Buffer"),
                         contents: bytemuck::cast_slice(&instances),
                         usage: wgpu::BufferUsages::VERTEX,
-                    });
+                    },
+                );
 
-            drawing_shared_data
-                .render_pass
-                .set_vertex_buffer(1, instance_buffer.slice(..));
+                // vertex buffer slot 1 is actually the instance buffer
+                drawing_shared_data
+                    .render_pass
+                    .set_vertex_buffer(1, instance_buffer.slice(..));
+            }
             drawing_shared_data
                 .render_pass
                 .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
@@ -1328,6 +1378,7 @@ mod drawing_impls {
                 // text_buffer,
                 rectangle_render_pipeline,
                 image_render_pipeline,
+                image_texture_bind_group_layout,
                 vertex_buffer,
                 // index_buffer,
                 // instance_buffer,
@@ -1387,6 +1438,7 @@ mod drawing_impls {
                     render_pass,
                     rectangle_render_pipeline,
                     image_render_pipeline,
+                    image_texture_bind_group_layout,
                     vertex_buffer,
                     device,
                     queue,
