@@ -29,6 +29,36 @@ impl Vertex {
     //     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
     const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
+    /// Large triangle trick to cover the whole screen
+    /// https://webgpufundamentals.org/webgpu/lessons/webgpu-large-triangle-to-cover-clip-space.html
+    const VERTICES: &[Vertex] = &[
+        // A
+        Vertex {
+            position: [3., -1., 0.0],
+            // color: [0.0, 0.0, 0.5],
+        },
+        // B
+        Vertex {
+            position: [-1., 3., 0.0],
+            // color: [0.5, 0.5, 0.5],
+        },
+        // C
+        Vertex {
+            position: [-1., -1., 0.0],
+            // color: [0.5, 0.0, 1.0],
+        },
+        // // D
+        // Vertex {
+        //     position: [0.35966998, -0.3473291, 0.0],
+        //     color: [0.5, 0.0, 0.5],
+        // },
+        // // E
+        // Vertex {
+        //     position: [0.44147372, 0.2347359, 0.0],
+        //     color: [0.0, 0.5, 0.5],
+        // },
+    ];
+
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
 
@@ -75,37 +105,31 @@ impl RoundRectInstance {
     }
 }
 
-// Large triangle trick to cover the whole screen
-const VERTICES: &[Vertex] = &[
-    // A
-    Vertex {
-        position: [3., -1., 0.0],
-        // color: [0.0, 0.0, 0.5],
-    },
-    // B
-    Vertex {
-        position: [-1., 3., 0.0],
-        // color: [0.5, 0.5, 0.5],
-    },
-    // C
-    Vertex {
-        position: [-1., -1., 0.0],
-        // color: [0.5, 0.0, 1.0],
-    },
-    // // D
-    // Vertex {
-    //     position: [0.35966998, -0.3473291, 0.0],
-    //     color: [0.5, 0.0, 0.5],
-    // },
-    // // E
-    // Vertex {
-    //     position: [0.44147372, 0.2347359, 0.0],
-    //     color: [0.0, 0.5, 0.5],
-    // },
-];
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+struct ImageInstance {
+    /// This is the top left, not the center
+    /// Currently includes the border
+    origin: [f32; 2],
+    /// Currently includes the border
+    size: [f32; 2],
+}
+impl ImageInstance {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+        1 => Float32x2,
+        2 => Float32x2,
+    ];
 
-// const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
-// const INDICES: &[u32] = &[0, 1, 2];
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
 
 /// Data needed to connect to winit.
 /// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
@@ -124,8 +148,8 @@ struct WinitData {
     // text_buffer: glyphon::Buffer,
 
     // for wgpu
-    // image_render_pipeline: wgpu::RenderPipeline,
     rectangle_render_pipeline: wgpu::RenderPipeline,
+    image_render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     // // index_buffer: wgpu::Buffer,
     // instances: Vec<RoundRectInstance>,
@@ -212,27 +236,85 @@ impl WinitData {
         // text_buffer.shape_until_scroll(&mut font_system, false);
 
         // Set up gpu pipeline
-        let shader = device.create_shader_module(include_wgsl!("rectangle_shader.wgsl"));
 
-        let render_pipeline_layout =
+        let rectangle_render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[],
                 immediate_size: 0,
             });
-
+        let rectangle_shader = device.create_shader_module(include_wgsl!("rectangle_shader.wgsl"));
         let rectangle_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Rectangle Render Pipeline"),
-                layout: Some(&render_pipeline_layout),
+                layout: Some(&rectangle_render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader,
+                    module: &rectangle_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc(), RoundRectInstance::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &shader,
+                    module: &rectangle_shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: surface_config.format,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent::OVER,
+                            alpha: wgpu::BlendComponent::OVER,
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                    // or Features::POLYGON_MODE_POINT
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                // If the pipeline will be used with a multiview render pass, this
+                // tells wgpu to render to just specific texture layers.
+                multiview_mask: None,
+                // Useful for optimizing shader compilation on Android
+                cache: None,
+            });
+
+        let image_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    // Difference
+                    Some(&texture_bind_group_layout),
+                ],
+                immediate_size: 0,
+            });
+        let image_shader = device.create_shader_module(include_wgsl!("image_shader.wgsl"));
+        let image_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Image Render Pipeline"),
+                layout: Some(&image_render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &image_shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[Vertex::desc(), ImageInstance::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &image_shader,
                     entry_point: Some("fs_main"),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: surface_config.format,
@@ -272,7 +354,7 @@ impl WinitData {
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
+            contents: bytemuck::cast_slice(Vertex::VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
         // let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -318,8 +400,8 @@ impl WinitData {
             // text_renderer,
             // text_buffer,
             window,
-            // image_render_pipeline,
             rectangle_render_pipeline,
+            image_render_pipeline,
             vertex_buffer,
             // // index_buffer,
             // instances,
@@ -489,9 +571,10 @@ mod drawing_impls {
         color::Color,
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
         ui_element::{CharCell, UIElement},
-        winit_backend::{RoundRectInstance, VERTICES, WinitData},
+        winit_backend::{RoundRectInstance, Vertex, WinitData},
     };
     use glyphon::{Metrics, TextRenderer};
+    use image::{ImageBuffer, Rgba};
     use std::iter;
     use wgpu::{MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
 
@@ -499,8 +582,8 @@ mod drawing_impls {
     struct DrawingSharedData<'a> {
         render_pass: wgpu::RenderPass<'a>,
 
-        // image_render_pipeline: &'a wgpu::RenderPipeline,
         rectangle_render_pipeline: &'a wgpu::RenderPipeline,
+        image_render_pipeline: &'a wgpu::RenderPipeline,
 
         /// Just one large triangle
         vertex_buffer: &'a wgpu::Buffer,
@@ -580,7 +663,7 @@ mod drawing_impls {
             // render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
             drawing_shared_data
                 .render_pass
-                .draw(0..VERTICES.len() as _, 0..1); // 1 bc we only draw 1 rect at a time (which I am not happy about)
+                .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 rect at a time (which I am not happy about)
 
             // let mut pb = raqote::PathBuilder::new();
             // pb.rect(
@@ -591,6 +674,66 @@ mod drawing_impls {
             // );
             // let path = pb.finish();
             // dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
+        }
+
+        fn draw_image(
+            drawing_shared_data: &mut DrawingSharedData,
+            image_buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>,
+            area: DisplayArea,
+        ) {
+            let width = image_buffer.width();
+            let height = image_buffer.height();
+
+            let texture_size = wgpu::Extent3d {
+                width,
+                height,
+                // All textures are stored as 3D, we represent our 2D texture
+                // by setting depth to 1.
+                depth_or_array_layers: 1,
+            };
+
+            let diffuse_texture =
+                drawing_shared_data
+                    .device
+                    .create_texture(&wgpu::TextureDescriptor {
+                        size: texture_size,
+                        mip_level_count: 1, // We'll talk about this a little later
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        // Most images are stored using sRGB, so we need to reflect that here.
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
+                        // COPY_DST means that we want to copy data to this texture
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                        label: Some("diffuse_texture"),
+                        // This is the same as with the SurfaceConfig. It
+                        // specifies what texture formats can be used to
+                        // create TextureViews for this texture. The base
+                        // texture format (Rgba8UnormSrgb in this case) is
+                        // always supported. Note that using a different
+                        // texture format is not supported on the WebGL2
+                        // backend.
+                        view_formats: &[],
+                    });
+
+            drawing_shared_data.queue.write_texture(
+                // Tells wgpu where to copy the pixel data
+                wgpu::TexelCopyTextureInfo {
+                    texture: &diffuse_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                // The actual pixel data
+                image_buffer,
+                // The layout of the texture
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                texture_size,
+            );
         }
 
         // Surface config used just for the width
@@ -919,60 +1062,7 @@ mod drawing_impls {
                     }
                 }
                 UIElement::Image(image_buffer) => {
-                    let width = image_buffer.width();
-                    let height = image_buffer.height();
-
-                    let texture_size = wgpu::Extent3d {
-                        width,
-                        height,
-                        // All textures are stored as 3D, we represent our 2D texture
-                        // by setting depth to 1.
-                        depth_or_array_layers: 1,
-                    };
-
-                    let diffuse_texture =
-                        drawing_shared_data
-                            .device
-                            .create_texture(&wgpu::TextureDescriptor {
-                                size: texture_size,
-                                mip_level_count: 1, // We'll talk about this a little later
-                                sample_count: 1,
-                                dimension: wgpu::TextureDimension::D2,
-                                // Most images are stored using sRGB, so we need to reflect that here.
-                                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                                // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
-                                // COPY_DST means that we want to copy data to this texture
-                                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                                    | wgpu::TextureUsages::COPY_DST,
-                                label: Some("diffuse_texture"),
-                                // This is the same as with the SurfaceConfig. It
-                                // specifies what texture formats can be used to
-                                // create TextureViews for this texture. The base
-                                // texture format (Rgba8UnormSrgb in this case) is
-                                // always supported. Note that using a different
-                                // texture format is not supported on the WebGL2
-                                // backend.
-                                view_formats: &[],
-                            });
-
-                    drawing_shared_data.queue.write_texture(
-                        // Tells wgpu where to copy the pixel data
-                        wgpu::TexelCopyTextureInfo {
-                            texture: &diffuse_texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d::ZERO,
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        // The actual pixel data
-                        image_buffer,
-                        // The layout of the texture
-                        wgpu::TexelCopyBufferLayout {
-                            offset: 0,
-                            bytes_per_row: Some(4 * width),
-                            rows_per_image: Some(height),
-                        },
-                        texture_size,
-                    );
+                    Self::draw_image(drawing_shared_data, image_buffer, container_area);
                 }
                 UIElement::Nothing => {}
             }
@@ -1166,6 +1256,7 @@ mod drawing_impls {
                 // text_renderer,
                 // text_buffer,
                 rectangle_render_pipeline,
+                image_render_pipeline,
                 vertex_buffer,
                 // index_buffer,
                 // instance_buffer,
@@ -1224,6 +1315,7 @@ mod drawing_impls {
                 let mut drawing_shared_data = DrawingSharedData {
                     render_pass,
                     rectangle_render_pipeline,
+                    image_render_pipeline,
                     vertex_buffer,
                     device,
                     queue,

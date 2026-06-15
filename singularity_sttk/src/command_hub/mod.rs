@@ -109,7 +109,7 @@ impl CommandHubApplet {
 
             "test" => match args.first() {
                 Some(&"image") => {
-                    self.execute_command("add_child image_viewer examples/smithay.png")
+                    self.execute_command("add_child image_viewer examples/sonamu.jpg")
                 }
                 Some(test) => Err(format!(
                     "`{test}` is an unknown test. Currently working tests: `image`"

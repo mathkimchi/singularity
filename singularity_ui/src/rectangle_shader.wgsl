@@ -15,6 +15,7 @@ struct VertexInput {
 /// main_color: [f32; 4],
 /// border_color: [f32; 4],
 struct InstanceInput {
+    // Should be top left
     @location(1) origin: vec2<f32>,
     @location(2) size: vec2<f32>,
     // NOTE: I'm ignoring this for now

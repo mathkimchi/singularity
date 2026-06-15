@@ -6529,3 +6529,85 @@ Well, I'll get my head out of the clouds now.
 You can test the image viewer app with `add_child image_viewer examples/smithay.png`.
 I'm actually goign to implement Pasting into the command hub as well as a test command,
 where `test image` would run `add_child image_viewer examples/smithay.png` and such.
+
+...
+
+I am actually sad about this now, but I might need to just do the image rendering myself
+with my own simple shader.
+
+First of all, `wgpu_canvas` isn't documented, and secondly,
+I think it might be incompatable with the rest of my existing GPU code.
+
+2026-06-12 2:51PM
+
+I am going to read the
+[texture tutorial](https://sotrh.github.io/learn-wgpu/beginner/tutorial5-textures/#shader-time)
+from LearnWGPU.
+
+2026-06-15 12:48AM
+
+I am still relying on the old large triangle
+so for every single object I render,
+I need to do calculations on every single pixel.
+
+There are many things I could optimize.
+First, somehow calling the GPU to render multiple objects
+at a time, though that might not be possible for different
+types of objects at once.
+Though, I could try to think of an algorithm to flatten
+the hierarchical UI into a flat list,
+then every time a consecutive list of the same type appears,
+I could draw them together.
+Maybe instead of asking apps to return a hierarchical UI,
+I literally give it some `Canvas`
+which has context info like container size
+and has a mutable reference to the list of primitive elements.
+(Later, I could do something even fancier and reorder
+non-overlapping objects, but I'm getting ahead of myself.)
+I mean, I already wrote the GPU code to use instances,
+whose use-case is literally for drawing multiple of the
+same type of thing.
+
+Also, I wonder if there is a way to do a front-back approach,
+where I draw the fore-most elements and
+as I render the later elements,
+before anything it first checks if the pixel is already
+at full opacity.
+
+
+...
+
+1:31AM
+
+You know what, I literally have a syntax error
+because I haven't defined texture bind group layout yet,
+but I am just going to commit this right now
+so I can log incremental progress even if
+there are errors in these intermediate steps.
+
+Taking this snapshot is partially also motivated by the fact
+that GPU textures really seem to be a static thing or something that doesn't change too fast,
+and so it is seeming more and more likely
+that I will have to resort to some other method.
+Maybe I'll look into how Wayland compositors do this stuff.
+
+Also, with all the things I want to improve about UX,
+singularity_ui is either very low prio
+or just a purely instrumental goal
+(meaningless on its own but helps me get to other goals)
+at best.
+I am currently thinking that it is a valueless hinderance
+to the goals I actually have.
+
+I don't think I will implement Singularity/sonamu
+as just a window manager though.
+I think it serves better as an app,
+especially since an incomplete app will allow users
+to use other apps when the app doesn't work,
+but when a WM is buggy or incomplete,
+then it is a much larger hassle to either fix or
+start another wm.
+
+Ok, whatever.
+I desperately need to catch up on my (lack of) sleep now.
+Good night.
