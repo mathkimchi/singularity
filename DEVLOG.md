@@ -6693,3 +6693,10 @@ But for now I'm going to continue using my SDF based approach.
 4:55PM
 
 holy shot, my code works
+
+I wanted to talk about how majestic the 200x200 fuzzy tree looked,
+but I didn't in the previous commit to stay consistent with the GenZ all lowercase attitude
+I was trying to invoke.
+
+I'm going to just clean up my code, seperate the winit backend file
+to sub files.

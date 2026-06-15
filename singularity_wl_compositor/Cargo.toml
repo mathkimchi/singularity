@@ -1,5 +1,5 @@
 [package]
-name = "singularity_compositor"
+name = "singularity_wl_compositor"
 version = "0.1.0"
 edition = "2024"
 

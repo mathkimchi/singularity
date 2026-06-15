@@ -1,5 +1,5 @@
 use image::RgbaImage;
-use singularity_compositor::{ClientState, WaylandApplet};
+use singularity_wl_compositor::{ClientState, WaylandApplet};
 use smithay::{
     backend::renderer::{
         Bind, Color32F, Frame as _, Renderer as _,

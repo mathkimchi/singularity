@@ -13,7 +13,7 @@ members = [
     # "singularity_standard_tabs/*", # TODO: make the asterisk work
     "singularity_standard_tabs/dylib_math_game",
     "singularity_sar",
-    "singularity_compositor",
+    "singularity_wl_compositor",
 
     # "dynamic_plugin_sandbox/server",
     # "dynamic_plugin_sandbox/client",
