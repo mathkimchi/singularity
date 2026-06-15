@@ -82,6 +82,9 @@
             # libxkbcommon
             vulkan-loader
             pkgs.nixgl.nixGLIntel
+
+            # needed for cargo-update
+            openssl
           ];
           LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
           # LIBCLANG_PATH = "${}";

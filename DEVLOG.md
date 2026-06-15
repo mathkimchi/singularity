@@ -6700,3 +6700,85 @@ I was trying to invoke.
 
 I'm going to just clean up my code, seperate the winit backend file
 to sub files.
+
+5:22PM
+
+(Btw, I just want to say that I'm at the library rn,
+and I've been super locked in and productive.)
+
+Hmm, I pushed my 5 commits, and I got this:
+
+```
+remote: GitHub found 1 vulnerability on mathkimchi/singularity's default branch (1 low). To find out more, visit:
+remote:      https://github.com/mathkimchi/singularity/security/dependabot/1
+```
+
+This seems fun, let's see what it's about.
+
+Ok, it's just saying to update `rand`.
+
+I might be blind but none of my Cargo.toml's use rand.
+
+Running `grep -r "rand" **/Cargo.toml` returns nothing.
+
+Looking at my errors more, it appears to be in Cargo.lock,
+so I think it is from some other dependency.
+
+Running `cargo tree -i rand@0.7.3` (i to invert so I can see who needs rand as opposed to who rand needs)
+shows everything that is using rand 0.7.3.
+(Should be at least 0.8.6.)
+
+Well, printpdf was the one that needed it and I am already on its latest version,
+but luckily I am not using it rn, so I will just remove it.
+
+I'm going to check all the modules that I can upgrade.
+I'll do `cargo install cargo-update` to get it,
+`cargo install-update --list` to list outdated stuff (even though it seems to only list
+a small subset of outdated stuff),
+and finally `cargo install-update --all` to automatically update everything outdated.
+
+Bro never mind, this is just for cargo binaries, not for dependencies.
+That's why it listed so few things.
+
+Allegedly `cargo install cargo-edit` should do this when I run
+`cargo upgrade --dry-run --incompatible --verbose`.
+
+Okay, well both of these are taking a thousand years (I think cargo install cargo-edit
+is getting held up by install-update because they are both modifying trunk),
+so I guess I'll just talk while I wait.
+
+Generally, features are split into needed or wanted.
+I am going to go further, with features that make Singularity/Sonamu:
+usable, good, or special.
+
+Features that make Sonamu usable are the "needed" features.
+The bare minimum features I need before I can force myself to use sonamu for daily drive.
+Quite bluntly, I don't want to implement these, but these are non-negotiables.
+The good thing is that these features should be finite,
+and if the MVP is done properly, I shouldn't need to think about these afterwards.
+(But of course, I can add new features that will improve upon these necessary features.)
+
+Features that make Sonamu special are why I started working on this.
+These are the ideas that are the heart of Sonamu, like its thesis.
+These features should be what new users come for,
+and these features are what I want to work on.
+
+Features that make Sonamu good are going to be the features that keep users coming back.
+These should almost feel like the reward for the users.
+
+Without the special features, Sonamu is not Sonamu,
+but without the necessary features, Sonamu isn't anything.
+(To complete the pattern,
+without the good features, Sonamu isn't... good.
+Which doesn't sound as nice, and should've been first if included.)
+
+All this to say, that supporting Wayland apps is necessary to make Sonamu usable.
+(Or alternatively, I could port a terminal and browser to Sonamu,
+but that's pretty impossible in my opinion.)
+
+I was going to somehow twist this into saying
+"I'm not going to support Wayland just yet but that's fine because of _",
+but I think I have just talked myself into doing it.
+Like drinking medicine, I still don't want to do this
+but I now understand the importance of it.
+
