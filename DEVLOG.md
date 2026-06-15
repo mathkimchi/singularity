@@ -6643,3 +6643,53 @@ Caused by:
         Entries with binding 1 differ in type: expected Sampler(Filtering), got Texture { sample_type: Float { filterable: true }, view_dimension: D2, multisampled: false }
         Assigned entry with binding 2 not found in expected bind group layout
 ```
+
+...
+
+Well, I got it running without any errors but it is just black.
+I committed already, so look at the code before this commit.
+
+Anyways, changing the image shader wgsl to return blue on the outside of the image
+and red on the inside
+has the effect of being normal when there's only text and rectangles (which makes sense)
+but the moment an image is on screen, the whole screen is blue.
+When I switch out to a screen with only text and rectangles,
+the screen returns to normal.
+Just for fun, returning the image always returns this blue thing
+(different shade from when I manually return the blue)
+so idk what that means.
+It doesn't really feel like it is a color from my image.
+
+But I think this means that the error is in my math, not in my code.
+(Well the incorrect math is written in code, but you get what I mean.)
+
+...
+
+After reading my wgsl code again for both the image shader and rectangle shader,
+I am utterly buffled by whether or not the clip position is in pixel space or just from -1 to 1.
+The positions are just from -1 to 1 in the vertex input,
+and the clip position in vertex output is directly taken from position,
+so the clip position should be normalized from -1 to 1.
+But when looking at the rectangle shader,
+everything else in vertex output, like the origin, size, corner_radius, border_dist,
+should be in pixels,
+and the direct math in the fragment shader just uses the clip position with all of those.
+
+If anything, it seems miraculous to me right now that the rectangle shader even works.
+
+...
+
+Well, according to ChatGPT, the rasterizer turns the `@position`
+from clip space to pixel space.
+So when the vertex shader returns clip_position, it's in clip space (-1 to 1)
+but when the fragment shader takes it, it's in pixel space.
+
+So this makes a whole lot more sense now.
+Well, I *could* figure out the math to properly calculate the tex coords (coordinate of the image) in the vertex shader
+and have it linearly interporlate for the other points,
+which would save computations as well as memory.
+But for now I'm going to continue using my SDF based approach.
+
+4:55PM
+
+holy shot, my code works

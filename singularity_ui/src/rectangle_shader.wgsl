@@ -27,7 +27,8 @@ struct InstanceInput {
 
 // is also the input of the fragment shader
 struct VertexOutput {
-    // the x and y of the builtin(position) are in pixel space
+    // builtin(position) is in clip space (-1 to 1) when outputted by vertex shader,
+    // then the rasterizer transforms it to pixel space and gives it to frag shader
     @builtin(position) clip_position: vec4<f32>,
     @location(0) main_color: vec4<f32>,
     @location(1) origin: vec2<f32>,

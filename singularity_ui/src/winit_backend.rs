@@ -809,6 +809,7 @@ mod drawing_impls {
             }
 
             // these buffers are how we pass data to the gpu
+            // pass in the large triangle
             drawing_shared_data
                 .render_pass
                 .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));

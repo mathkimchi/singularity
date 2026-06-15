@@ -16,11 +16,15 @@ struct InstanceInput {
 
 // is also the input of the fragment shader
 struct VertexOutput {
-    // the x and y of the builtin(position) are in pixel space
+    // builtin(position) is in clip space (-1 to 1) when outputted by vertex shader,
+    // then the rasterizer transforms it to pixel space and gives it to frag shader
     @builtin(position) clip_position: vec4<f32>,
-    // the uv coordinates (in terms of the texture)
-    // goes from Top left (0, 0) to bottom right (1, 1)
-    @location(0) tex_coords: vec2<f32>,
+    // // the uv coordinates (in terms of the texture)
+    // // goes from Top left (0, 0) to bottom right (1, 1)
+    // @location(0) tex_coords: vec2<f32>,
+    // top left corner
+    @location(0) origin: vec2<f32>,
+    @location(1) size: vec2<f32>,
 };
 
 fn remap_range(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
@@ -34,10 +38,12 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = vec4<f32>(model.position, 1.0);
-    out.tex_coords = vec2<f32>(
-        remap_range(model.position.x, instance.origin.x, instance.origin.x + instance.size.x, 0., 1.),
-        remap_range(model.position.y, instance.origin.y, instance.origin.y + instance.size.y, 0., 1.),
-    );
+    // out.tex_coords = vec2<f32>(
+    //     remap_range(model.position.x, instance.origin.x, instance.origin.x + instance.size.x, 0., 1.),
+    //     remap_range(model.position.y, instance.origin.y, instance.origin.y + instance.size.y, 0., 1.),
+    // );
+    out.origin = instance.origin;
+    out.size = instance.size;
     return out;
 }
 
@@ -50,10 +56,15 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let tex_coords = vec2<f32>(
+        remap_range(in.clip_position.x, in.origin.x, in.origin.x + in.size.x, 0., 1.),
+        remap_range(in.clip_position.y, in.origin.y, in.origin.y + in.size.y, 0., 1.),
+    );
+
     // There's gotta be a way to check all at once
-    if (0. < in.tex_coords.x && in.tex_coords.x < 1.) &&
-        (0. < in.tex_coords.y && in.tex_coords.y < 1.) {
-        return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    if (0. <= tex_coords.x && tex_coords.x <= 1.) &&
+        (0. <= tex_coords.y && tex_coords.y <= 1.) {
+        return textureSample(t_diffuse, s_diffuse, tex_coords);
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
