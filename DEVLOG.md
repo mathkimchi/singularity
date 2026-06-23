@@ -6782,3 +6782,59 @@ but I think I have just talked myself into doing it.
 Like drinking medicine, I still don't want to do this
 but I now understand the importance of it.
 
+2026-06-22 10:08PM
+
+I've been busy moving into Cornell for summer classes.
+School's pretty sick.
+Dorm room is small but I got a tight fricking setup,
+only problem is that my monitor cracked.
+
+I've also been thinking a lot about doing a hardware project recently.
+I'm gonna try to get into an intro CAD class.
+Birdbath AR seems so easy to do, but it is often the case that
+those who are furthest from achieving a goal think it is easiest.
+(Holy fire bro, write that down, write that down!)
+
+I also am working in Helix, which doesn't have any features that
+really blow me out of the water, at least not features in a standard sense.
+(The noun-verb thing is nice, I like it but I don't really think
+it is too different from verb-noun, and I don't really have a preference.)
+The thing I love about Helix is that it just works.
+Well, it still requires way more set up and stuff compared to standard GUI
+editors, but geez, this is like a whole world compared to NVim and Emacs.
+
+In the long run, I think Helix is going to need a plugin system.
+(I think it is in the works?)
+Objectively, supporting plugins is a good feature.
+...but, I actually think that Helix not having plugins is one of those things
+where an objectively bad decision (according to whatever policy you know now)
+led to a better result than the principled decision that you would choose
+if it happened again now in hindsight.
+Like buying a winning lottery ticket or going to detention and meeting someone cool.
+(I've never been to detention, or won a lottery ticket,
+but these examples are easier to explain than specific ones from my life.)
+Oh, a better example is when you're bad at something,
+which motivates you to get better at it,
+and now you're really good at it.
+
+What I'm trying to say is that not having plugins made it so that Helix
+had to make a really good core, because their entire product is just the core.
+...I swear I just wanted to appreciate Helix,
+but I think I stumbled onto something very relevant for Sonamu, perhaps.
+
+Anyways, before I was so kindly distracted by none other than myself,
+I wanted to say that I kinda just shoved all the compositor logic
+into a thread.
+It is going to be super performance inefficient,
+but my promise to myself was that I'd get this working before I can move on to fun parts.
+I never said anything about it being good
+or having reasonable performance.
+
+Okay, I'm gonna commit now, and sleep.
+The next steps:
+- Add the Wayland Applet to the applet registry
+- Debug (lots of it probably) (but actually, all the components work, so it wouldn't be the craziest thing if this works without tweaks)
+- Allow input
+- Debug (way more, probably)
+- Celebrate because now I fulfilled my self-promise of actual work and can now "work" on less concrete goals like designing the optimal World Tree design. This has the benefit of allowing me to just day-dream and call it brainstorming. In other words, I am intentionally making it harder for me to actually write code, so I have an excuse for decreasing my coding to thinking ratio.
+

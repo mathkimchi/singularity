@@ -1,46 +1,227 @@
-use singularity_sar::applet::BasicApplet;
-use singularity_sttk::nodular_applet::NodularApplet;
+use image::RgbaImage;
+use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
 use smithay::{
+    backend::renderer::{
+        Bind, Color32F, Frame, Renderer,
+        element::{
+            Kind,
+            surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
+        },
+        pixman::PixmanRenderer,
+        utils::draw_render_elements,
+    },
     input::{Seat, SeatState},
     reexports::{
         calloop::{EventLoop, LoopSignal},
+        pixman,
         wayland_server::{
-            Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
+            Client, DisplayHandle, ListeningSocket,
+            backend::ClientData,
+            protocol::wl_surface::{self, WlSurface},
         },
     },
+    utils::{Rectangle, Size, Transform},
     wayland::{
-        compositor::{CompositorClientState, CompositorState},
+        compositor::{
+            CompositorClientState, CompositorState, SurfaceAttributes, TraversalAction,
+            with_surface_tree_downward,
+        },
         shell::xdg::XdgShellState,
         shm::ShmState,
         socket::ListeningSocketSource,
     },
 };
-use std::ffi::OsString;
+use std::{
+    env::set_var,
+    ffi::OsString,
+    sync::{Arc, Mutex},
+    thread::{self, JoinHandle},
+};
 
+mod applet_impls;
 mod compositor;
 
-pub struct WaylandApplet {
-    pub start_time: std::time::Instant,
-    pub display_handle: DisplayHandle,
+/// Currently responsible for running the wl server and client,
+/// and saving the output to a shared image
+struct WaylandCompositor {
+    start_time: std::time::Instant,
+    display_handle: DisplayHandle,
 
-    pub loop_signal: LoopSignal,
+    loop_signal: LoopSignal,
 
-    pub compositor_state: CompositorState,
-    pub xdg_shell_state: XdgShellState,
-    pub shm_state: ShmState,
-    pub seat_state: SeatState<Self>,
+    compositor_state: CompositorState,
+    xdg_shell_state: XdgShellState,
+    shm_state: ShmState,
+    seat_state: SeatState<Self>,
 
-    pub seat: Seat<Self>,
+    seat: Seat<Self>,
 
-    pub socket_name: OsString,
+    socket_name: OsString,
 
-    pub main_client: Option<Client>,
-    pub surface: Option<WlSurface>,
+    main_client: Option<Client>,
+    surface: Option<WlSurface>,
+
+    image: Arc<Mutex<Option<RgbaImage>>>,
+    // // Singularity stuff
+    // hook: Box<dyn NodularRunnerHook>,
 }
-impl WaylandApplet {
-    pub fn new(
+impl WaylandCompositor {
+    /// Creates and runs
+    /// NOTE: this should be run in a thread that isn't the main thread
+    /// REVIEW: I have new and create as two different functions bc it required the least change
+    /// REVIEW: make it one function?
+    fn new(image: Arc<Mutex<Option<RgbaImage>>>) -> Self {
+        let mut event_loop: EventLoop<WaylandCompositor> = EventLoop::try_new().unwrap();
+
+        let mut display: smithay::reexports::wayland_server::Display<WaylandCompositor> =
+            smithay::reexports::wayland_server::Display::new().unwrap();
+
+        let mut state = WaylandCompositor::create(&mut event_loop, &mut display, image);
+
+        let mut listener_count = 0;
+        let listener = loop {
+            if let Ok(listener) = ListeningSocket::bind(format!("wayland-{listener_count}")) {
+                break listener;
+            }
+            listener_count += 1;
+        };
+
+        unsafe {
+            // set_var("WAYLAND_DISPLAY", &state.socket_name);
+            set_var("WAYLAND_DISPLAY", format!("wayland-{listener_count}"));
+        }
+        // TODO
+        std::process::Command::new("kitty").spawn().ok();
+
+        let mut renderer = PixmanRenderer::new().unwrap();
+        let mut image = pixman::Image::new(pixman::FormatCode::R8G8B8A8, 800, 600, false).unwrap();
+        // let mut target = renderer.bind(&mut image).unwrap();
+
+        // event_loop
+        //     .run(None, &mut state, |state| {
+        //         dbg!(state.surface.is_none());
+
+        //         if let Some(surface) = &state.surface {
+        //             // main_client.get_data();
+        //             // state.display_handle.get_client(ObjectId:: main_client);
+        //             // let elements: Vec<WaylandSurfaceRenderElement<_>> =
+        //             //     render_elements_from_surface_tree(
+        //             //         &mut renderer,
+        //             //         surface,
+        //             //         (0, 0),
+        //             //         1.0,
+        //             //         1.0,
+        //             //         smithay::backend::renderer::element::Kind::Unspecified,
+        //             //     );
+
+        //             with_states(surface, |states| {
+        //                 let mut binding = states.cached_state.get::<SurfaceAttributes>();
+        //                 let buffer = binding.current().buffer.as_ref().unwrap();
+
+        //                 // renderer.import_shm_buffer(buffer, Some(surface.data().unwrap()), &[])
+
+        //                 if let BufferAssignment::NewBuffer(buffer) = buffer {
+        //                     with_buffer_contents(buffer, |ptr, len, data| {
+        //                         let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
+
+        //                         print!("Slice: {:?}", slice);
+        //                     })
+        //                     .unwrap();
+        //                 }
+        //             });
+        //         }
+        //     })
+        //     .unwrap();
+
+        loop {
+            let mut target = renderer.bind(&mut image).unwrap();
+
+            // // let size: Size<usize, smithay::utils::Physical> = Size::new(image.width(), image.height());
+            // let size = target.size();
+            // let damage = Rectangle::from_size(size);
+            let damage = Rectangle::from_size(Size::new(800, 600));
+            {
+                let elements = state
+                    .xdg_shell_state
+                    .toplevel_surfaces()
+                    .iter()
+                    .flat_map(|surface| {
+                        render_elements_from_surface_tree(
+                            &mut renderer,
+                            surface.wl_surface(),
+                            (0, 0),
+                            1.0,
+                            1.0,
+                            Kind::Unspecified,
+                        )
+                    })
+                    .collect::<Vec<WaylandSurfaceRenderElement<PixmanRenderer>>>();
+
+                let mut frame = renderer
+                    .render(&mut target, Size::new(800, 600), Transform::Normal)
+                    .unwrap();
+                frame
+                    .clear(Color32F::new(0.1, 0.0, 0.0, 1.0), &[damage])
+                    .unwrap();
+                draw_render_elements(&mut frame, 1.0, &elements, &[damage]).unwrap();
+                // We rely on the nested compositor to do the sync for us
+                let _ = frame.finish().unwrap();
+
+                for surface in state.xdg_shell_state.toplevel_surfaces() {
+                    send_frames_surface_tree(
+                        surface.wl_surface(),
+                        state.start_time.elapsed().as_millis() as u32,
+                    );
+                }
+
+                if let Some(stream) = listener.accept().unwrap() {
+                    println!("Got a client: {:?}", stream);
+
+                    let _client = display
+                        .handle()
+                        .insert_client(stream, Arc::new(ClientState::default()))
+                        .unwrap();
+                    // clients.push(client);
+                }
+
+                display.dispatch_clients(&mut state).unwrap();
+                display.flush_clients().unwrap();
+
+                let raw_image_data: Vec<_> = unsafe {
+                    std::slice::from_raw_parts(image.data(), image.width() * image.height())
+                }
+                .iter()
+                .flat_map(|pixel| pixel.to_be_bytes())
+                .collect();
+
+                let rgba_image = RgbaImage::from_vec(800, 600, raw_image_data).unwrap();
+
+                rgba_image.save("examples/smithay.png").unwrap();
+
+                // save_buffer(
+                //     "examples/smithay.png",
+                //     &raw_image_data,
+                //     800,
+                //     600,
+                //     ColorType::Rgba8,
+                // )
+                // .unwrap();
+
+                // I need this bc if I quit while rendering, it doesn't work
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+
+            // // It is important that all events on the display have been dispatched and flushed to clients before
+            // // swapping buffers because this operation may block.
+            // backend.submit(Some(&[damage])).unwrap();
+        }
+    }
+
+    /// Creates WaylandApplet but doesn't run it
+    fn create(
         event_loop: &mut EventLoop<Self>,
         display: &mut smithay::reexports::wayland_server::Display<Self>,
+        image: Arc<Mutex<Option<RgbaImage>>>,
     ) -> Self {
         let start_time = std::time::Instant::now();
 
@@ -62,11 +243,11 @@ impl WaylandApplet {
         seat.add_keyboard(Default::default(), 200, 25).unwrap();
         seat.add_pointer();
 
-        let socket_name = Self::init_wayland_listener(display, event_loop);
+        let socket_name = Self::init_wayland_listener();
 
         let loop_signal = event_loop.get_signal();
 
-        WaylandApplet {
+        WaylandCompositor {
             start_time,
             display_handle,
             loop_signal,
@@ -84,12 +265,13 @@ impl WaylandApplet {
 
             main_client: None,
             surface: None,
+
+            image,
         }
     }
 
-    fn init_wayland_listener(
-        display: &mut Display<Self>,
-        event_loop: &mut EventLoop<Self>,
+    fn init_wayland_listener(// display: &mut Display<Self>,
+        // event_loop: &mut EventLoop<Self>,
     ) -> OsString {
         // Creates a new listening socket, automatically choosing the next available `wayland` socket name.
         let listening_socket = ListeningSocketSource::new_auto().unwrap();
@@ -133,30 +315,75 @@ impl WaylandApplet {
         socket_name
     }
 }
-impl BasicApplet for WaylandApplet {
-    fn handle_ui_event(&mut self, _ui_event: singularity_ui::ui_event::UIEvent) {
-        todo!()
-    }
 
-    fn get_window(&self) -> singularity_ui::ui_element::UIElement {
-        todo!()
-    }
+fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
+    with_surface_tree_downward(
+        surface,
+        (),
+        |_, _, &()| TraversalAction::DoChildren(()),
+        |_surf, states, &()| {
+            // the surface may not have any user_data if it is a subsurface and has not
+            // yet been committed
+            for callback in states
+                .cached_state
+                .get::<SurfaceAttributes>()
+                .current()
+                .frame_callbacks
+                .drain(..)
+            {
+                callback.done(time);
+            }
+        },
+        |_, _, &()| true,
+    );
 }
-impl NodularApplet for WaylandApplet {
-    fn handle_nodular_event(
-        &mut self,
-        _nodular_event: singularity_sttk::nodular_applet::NodularEvent,
-    ) {
-        todo!()
+
+pub struct WaylandApplet {
+    image: Arc<Mutex<Option<RgbaImage>>>,
+    thread: JoinHandle<WaylandCompositor>,
+    hook: Box<dyn NodularRunnerHook>,
+}
+impl WaylandApplet {
+    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Self {
+        let image = Arc::new(Mutex::new(None));
+
+        let image_clone = image.clone();
+        let thread = thread::spawn(|| WaylandCompositor::new(image_clone));
+
+        Self {
+            image,
+            thread,
+            hook,
+        }
     }
 
-    fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
-        todo!()
+    /// REVIEW: cut down on this boilerplate?
+    /// Macros would work but might be unnecessary
+    /// Just do trait and impl?
+    pub fn get_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
+        |hook: Box<dyn NodularRunnerHook>| Self::new(hook)
     }
+    pub fn get_boxed_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
+    {
+        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
+    }
+    // pub fn get_applet_spawner() -> AppletSpawner {
+    //     struct WaylandSpawner;
+    //     impl AppletSpawnerTrait for WaylandSpawner {
+    //         fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
+    //             let file_path = args.first()?;
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
-        todo!()
-    }
+    //             Some(Box::new(TextEditorApplet::get_boxed_initiator(
+    //                 file_path.to_string(),
+    //             )))
+    //         }
+
+    //         fn duplicate(&self) -> AppletSpawner {
+    //             Box::new(Self)
+    //         }
+    //     }
+    //     Box::new(WaylandSpawner)
+    // }
 }
 
 #[derive(Default)]

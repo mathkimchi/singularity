@@ -1,4 +1,4 @@
-use image::{ImageBuffer, ImageReader, Rgba};
+use image::{ImageReader, RgbaImage};
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_sttk::nodular_applet::{
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 pub struct ImageViewerApplet {
     image_path: PathBuf,
-    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    image: RgbaImage,
 
     focused: bool,
 

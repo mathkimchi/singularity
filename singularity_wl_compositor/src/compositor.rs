@@ -153,9 +153,9 @@
 // // Xdg Shell
 // delegate_xdg_shell!(WaylandApplet);
 
-use crate::{ClientState, WaylandApplet};
+use crate::{ClientState, WaylandCompositor};
 use smithay::{
-    backend::renderer::utils::{on_commit_buffer_handler, with_renderer_surface_state},
+    backend::renderer::utils::on_commit_buffer_handler,
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
         Client,
@@ -163,7 +163,7 @@ use smithay::{
     },
     wayland::{
         buffer::BufferHandler,
-        compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states},
+        compositor::{CompositorClientState, CompositorHandler, CompositorState},
         output::OutputHandler,
         shell::xdg::XdgShellHandler,
         shm::{ShmHandler, ShmState},
@@ -171,12 +171,12 @@ use smithay::{
 };
 use wayland_protocols::xdg::shell::server::xdg_toplevel;
 
-impl SeatHandler for WaylandApplet {
+impl SeatHandler for WaylandCompositor {
     type KeyboardFocus = WlSurface;
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
-    fn seat_state(&mut self) -> &mut SeatState<WaylandApplet> {
+    fn seat_state(&mut self) -> &mut SeatState<WaylandCompositor> {
         &mut self.seat_state
     }
 
@@ -194,7 +194,7 @@ impl SeatHandler for WaylandApplet {
     }
 }
 
-impl CompositorHandler for WaylandApplet {
+impl CompositorHandler for WaylandCompositor {
     fn compositor_state(&mut self) -> &mut CompositorState {
         &mut self.compositor_state
     }
@@ -260,17 +260,17 @@ impl CompositorHandler for WaylandApplet {
     }
 }
 
-impl BufferHandler for WaylandApplet {
+impl BufferHandler for WaylandCompositor {
     fn buffer_destroyed(&mut self, _buffer: &wl_buffer::WlBuffer) {}
 }
 
-impl ShmHandler for WaylandApplet {
+impl ShmHandler for WaylandCompositor {
     fn shm_state(&self) -> &ShmState {
         &self.shm_state
     }
 }
 
-impl XdgShellHandler for WaylandApplet {
+impl XdgShellHandler for WaylandCompositor {
     fn xdg_shell_state(&mut self) -> &mut smithay::wayland::shell::xdg::XdgShellState {
         &mut self.xdg_shell_state
     }
@@ -311,6 +311,6 @@ impl XdgShellHandler for WaylandApplet {
     }
 }
 
-impl OutputHandler for WaylandApplet {}
+impl OutputHandler for WaylandCompositor {}
 
-smithay::delegate_dispatch2!(WaylandApplet);
+smithay::delegate_dispatch2!(WaylandCompositor);

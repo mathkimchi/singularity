@@ -601,7 +601,7 @@ mod drawing_impls {
         winit_backend::{ImageInstance, RoundRectInstance, Vertex, WinitData},
     };
     use glyphon::{Metrics, TextRenderer};
-    use image::{ImageBuffer, Rgba};
+    use image::RgbaImage;
     use std::iter;
     use wgpu::{BindGroupLayout, MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
 
@@ -706,7 +706,7 @@ mod drawing_impls {
 
         fn draw_image(
             drawing_shared_data: &mut DrawingSharedData,
-            image_buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>,
+            image_buffer: &RgbaImage,
             area: DisplayArea,
         ) {
             drawing_shared_data

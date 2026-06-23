@@ -1,5 +1,5 @@
 use image::RgbaImage;
-use singularity_wl_compositor::{ClientState, WaylandApplet};
+use singularity_wl_compositor::{ClientState, WaylandCompositor};
 use smithay::{
     backend::renderer::{
         Bind, Color32F, Frame as _, Renderer as _,
@@ -23,12 +23,12 @@ use std::{env::set_var, sync::Arc};
 fn main() {
     init_logging();
 
-    let mut event_loop: EventLoop<WaylandApplet> = EventLoop::try_new().unwrap();
+    let mut event_loop: EventLoop<WaylandCompositor> = EventLoop::try_new().unwrap();
 
-    let mut display: smithay::reexports::wayland_server::Display<WaylandApplet> =
+    let mut display: smithay::reexports::wayland_server::Display<WaylandCompositor> =
         smithay::reexports::wayland_server::Display::new().unwrap();
 
-    let mut state = WaylandApplet::new(&mut event_loop, &mut display);
+    let mut state = WaylandCompositor::new(&mut event_loop, &mut display);
 
     let listener = ListeningSocket::bind("wayland-5").unwrap();
 
@@ -161,7 +161,7 @@ fn main() {
     }
 }
 
-pub fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
+fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
     with_surface_tree_downward(
         surface,
         (),
