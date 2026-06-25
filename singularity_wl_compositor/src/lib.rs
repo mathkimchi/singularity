@@ -35,7 +35,7 @@ use smithay::{
 };
 use std::{
     env::set_var,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     sync::{Arc, Mutex},
     thread::{self, JoinHandle},
 };
@@ -72,7 +72,7 @@ impl WaylandCompositor {
     /// NOTE: this should be run in a thread that isn't the main thread
     /// REVIEW: I have new and create as two different functions bc it required the least change
     /// REVIEW: make it one function?
-    fn new(image: Arc<Mutex<Option<RgbaImage>>>) -> Self {
+    fn new<S: AsRef<OsStr>>(image: Arc<Mutex<Option<RgbaImage>>>, program: S) -> Self {
         let mut event_loop: EventLoop<WaylandCompositor> = EventLoop::try_new().unwrap();
 
         let mut display: smithay::reexports::wayland_server::Display<WaylandCompositor> =
@@ -93,7 +93,7 @@ impl WaylandCompositor {
             set_var("WAYLAND_DISPLAY", format!("wayland-{listener_count}"));
         }
         // TODO
-        std::process::Command::new("kitty").spawn().ok();
+        std::process::Command::new(program).spawn().ok();
 
         let mut renderer = PixmanRenderer::new().unwrap();
         let mut image = pixman::Image::new(pixman::FormatCode::R8G8B8A8, 800, 600, false).unwrap();
@@ -347,11 +347,11 @@ pub struct WaylandApplet {
     hook: Box<dyn NodularRunnerHook>,
 }
 impl WaylandApplet {
-    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Self {
+    pub fn new(hook: Box<dyn NodularRunnerHook>, program: String) -> Self {
         let image = Arc::new(Mutex::new(None));
 
         let image_clone = image.clone();
-        let thread = thread::spawn(|| WaylandCompositor::new(image_clone));
+        let thread = thread::spawn(|| WaylandCompositor::new(image_clone, program));
 
         Self {
             image,
@@ -363,21 +363,23 @@ impl WaylandApplet {
     /// REVIEW: cut down on this boilerplate?
     /// Macros would work but might be unnecessary
     /// Just do trait and impl?
-    pub fn get_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
-        |hook: Box<dyn NodularRunnerHook>| Self::new(hook)
+    pub fn get_initiator(program: String) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
+        |hook: Box<dyn NodularRunnerHook>| Self::new(hook, program)
     }
-    pub fn get_boxed_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
-    {
-        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
+    pub fn get_boxed_initiator(
+        program: String,
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook, program))
     }
     pub fn get_applet_spawner() -> AppletSpawner {
         struct WaylandSpawner;
         impl AppletSpawnerTrait for WaylandSpawner {
             fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
-                // let file_path = args.first()?;
+                let program = args.first().unwrap_or(&"kitty");
+                // TODO: args later
 
                 Some(Box::new(WaylandApplet::get_boxed_initiator(
-                    // file_path.to_string(),
+                    program.to_string(),
                 )))
             }
 

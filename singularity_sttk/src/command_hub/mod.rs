@@ -111,6 +111,7 @@ impl CommandHubApplet {
                 Some(&"image") => {
                     self.execute_command("add_child image_viewer examples/sonamu.jpg")
                 }
+                Some(&"wl") => self.execute_command("add_child wl_app"),
                 Some(test) => Err(format!(
                     "`{test}` is an unknown test. Currently working tests: `image`"
                 )),

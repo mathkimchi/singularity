@@ -6850,3 +6850,11 @@ Ok, I just decided to put it in SDE, but it just shows a black screen.
 
 Well of course it didn't display anything, I never set the image.
 It now shows a uniform shade of like beige (? idk im not a color theorist).
+
+...
+
+Oh wow, it actually did work, I just needed to press something after waiting a few seconds
+for everything to load to have the UI update.
+I also got different apps to load, so kitty, konsole, alacritty work right now.
+Complicated apps like Firefox and Musescore don't work.
+They just open on the normal wayland.
