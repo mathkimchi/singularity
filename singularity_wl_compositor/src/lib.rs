@@ -199,6 +199,7 @@ impl WaylandCompositor {
                 let rgba_image = RgbaImage::from_vec(800, 600, raw_image_data).unwrap();
 
                 rgba_image.save("examples/smithay.png").unwrap();
+                *state.image.lock().unwrap() = Some(rgba_image);
 
                 // save_buffer(
                 //     "examples/smithay.png",

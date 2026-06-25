@@ -6845,3 +6845,8 @@ I'm probably gonna need to rename crates, but I'll do that later.
 ...
 
 Ok, I just decided to put it in SDE, but it just shows a black screen.
+
+...
+
+Well of course it didn't display anything, I never set the image.
+It now shows a uniform shade of like beige (? idk im not a color theorist).
