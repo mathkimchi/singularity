@@ -3095,9 +3095,12 @@ dependencies = [
  "serde_json",
  "singularity_common",
  "singularity_macros",
+ "singularity_sar",
  "singularity_sporg",
  "singularity_standard_tabs",
+ "singularity_sttk",
  "singularity_ui",
+ "singularity_wl_compositor",
  "uuid",
 ]
 

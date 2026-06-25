@@ -12,6 +12,9 @@ singularity_ui = { path = "../singularity_ui" }
 #     "standard_packets",
 # ] }
 singularity_sporg = { path = "../singularity_sporg" }
+singularity_sar = { path = "../singularity_sar" }
+singularity_sttk = { path = "../singularity_sttk" }
+singularity_wl_compositor = { path = "../singularity_wl_compositor" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

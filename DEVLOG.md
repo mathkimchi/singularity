@@ -6838,3 +6838,10 @@ The next steps:
 - Debug (way more, probably)
 - Celebrate because now I fulfilled my self-promise of actual work and can now "work" on less concrete goals like designing the optimal World Tree design. This has the benefit of allowing me to just day-dream and call it brainstorming. In other words, I am intentionally making it harder for me to actually write code, so I have an excuse for decreasing my coding to thinking ratio.
 
+2026-06-25 11:28AM
+
+I'm probably gonna need to rename crates, but I'll do that later.
+
+...
+
+Ok, I just decided to put it in SDE, but it just shows a black screen.

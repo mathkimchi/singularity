@@ -1,5 +1,7 @@
 use image::RgbaImage;
-use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
+use singularity_sttk::nodular_applet::{
+    AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
+};
 use smithay::{
     backend::renderer::{
         Bind, Color32F, Frame, Renderer,
@@ -367,23 +369,23 @@ impl WaylandApplet {
     {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook))
     }
-    // pub fn get_applet_spawner() -> AppletSpawner {
-    //     struct WaylandSpawner;
-    //     impl AppletSpawnerTrait for WaylandSpawner {
-    //         fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
-    //             let file_path = args.first()?;
+    pub fn get_applet_spawner() -> AppletSpawner {
+        struct WaylandSpawner;
+        impl AppletSpawnerTrait for WaylandSpawner {
+            fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
+                // let file_path = args.first()?;
 
-    //             Some(Box::new(TextEditorApplet::get_boxed_initiator(
-    //                 file_path.to_string(),
-    //             )))
-    //         }
+                Some(Box::new(WaylandApplet::get_boxed_initiator(
+                    // file_path.to_string(),
+                )))
+            }
 
-    //         fn duplicate(&self) -> AppletSpawner {
-    //             Box::new(Self)
-    //         }
-    //     }
-    //     Box::new(WaylandSpawner)
-    // }
+            fn duplicate(&self) -> AppletSpawner {
+                Box::new(Self)
+            }
+        }
+        Box::new(WaylandSpawner)
+    }
 }
 
 #[derive(Default)]
