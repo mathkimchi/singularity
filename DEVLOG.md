@@ -6858,3 +6858,22 @@ for everything to load to have the UI update.
 I also got different apps to load, so kitty, konsole, alacritty work right now.
 Complicated apps like Firefox and Musescore don't work.
 They just open on the normal wayland.
+
+...
+
+Now for input.
+
+By the way, I am working on this rn at a cafe.
+My mom wants me to go to my instructor's office hours,
+but I am too awkward so I'm gonna procrastinate and tell her I was too busy coding.
+
+Well, it's 12:02 right now and office hours ends at 12:15.
+Maybe I *should* go.
+
+...
+
+Ok, I went and I talked to him for advice on what to do over summer,
+and he said it's never to late to contact professors.
+He also recommended chilling, but I don't like chilling.
+
+Okay, now time to do input.

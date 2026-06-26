@@ -2,17 +2,21 @@ use image::RgbaImage;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
 };
+use singularity_ui::ui_event::{Key, UIEvent};
 use smithay::{
-    backend::renderer::{
-        Bind, Color32F, Frame, Renderer,
-        element::{
-            Kind,
-            surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
+    backend::{
+        input::Keycode,
+        renderer::{
+            Bind, Color32F, Frame, Renderer,
+            element::{
+                Kind,
+                surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
+            },
+            pixman::PixmanRenderer,
+            utils::draw_render_elements,
         },
-        pixman::PixmanRenderer,
-        utils::draw_render_elements,
     },
-    input::{Seat, SeatState},
+    input::{Seat, SeatState, keyboard::FilterResult},
     reexports::{
         calloop::{EventLoop, LoopSignal},
         pixman,
@@ -22,7 +26,7 @@ use smithay::{
             protocol::wl_surface::{self, WlSurface},
         },
     },
-    utils::{Rectangle, Size, Transform},
+    utils::{Rectangle, Serial, Size, Transform},
     wayland::{
         compositor::{
             CompositorClientState, CompositorState, SurfaceAttributes, TraversalAction,
@@ -36,7 +40,7 @@ use smithay::{
 use std::{
     env::set_var,
     ffi::{OsStr, OsString},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread::{self, JoinHandle},
 };
 
@@ -64,6 +68,9 @@ struct WaylandCompositor {
     surface: Option<WlSurface>,
 
     image: Arc<Mutex<Option<RgbaImage>>>,
+    // I think it might be more efficient to share the seat
+    // but this is easier for me to implement
+    input_queue: mpsc::Receiver<UIEvent>,
     // // Singularity stuff
     // hook: Box<dyn NodularRunnerHook>,
 }
@@ -72,13 +79,18 @@ impl WaylandCompositor {
     /// NOTE: this should be run in a thread that isn't the main thread
     /// REVIEW: I have new and create as two different functions bc it required the least change
     /// REVIEW: make it one function?
-    fn new<S: AsRef<OsStr>>(image: Arc<Mutex<Option<RgbaImage>>>, program: S) -> Self {
+    fn new<S: AsRef<OsStr>>(
+        image: Arc<Mutex<Option<RgbaImage>>>,
+        program: S,
+        input_queue: mpsc::Receiver<UIEvent>,
+    ) -> Self {
         let mut event_loop: EventLoop<WaylandCompositor> = EventLoop::try_new().unwrap();
 
         let mut display: smithay::reexports::wayland_server::Display<WaylandCompositor> =
             smithay::reexports::wayland_server::Display::new().unwrap();
 
-        let mut state = WaylandCompositor::create(&mut event_loop, &mut display, image);
+        let mut state =
+            WaylandCompositor::create(&mut event_loop, &mut display, image, input_queue);
 
         let mut listener_count = 0;
         let listener = loop {
@@ -136,6 +148,44 @@ impl WaylandCompositor {
         //     .unwrap();
 
         loop {
+            for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
+                match ui_event {
+                    singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
+                        dbg!("lalala keypress");
+                        state.seat.get_keyboard().unwrap().input::<(), _>(
+                            &mut state,
+                            // Hard-code enter as the only input for now
+                            Keycode::new(28),
+                            smithay::backend::input::KeyState::Pressed,
+                            // dk bro
+                            Serial::from(42),
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u32,
+                            |_, _, _| FilterResult::Forward,
+                        );
+                        state.seat.get_keyboard().unwrap().input::<(), _>(
+                            &mut state,
+                            // Hard-code enter as the only input for now
+                            Keycode::new(28),
+                            smithay::backend::input::KeyState::Released,
+                            // dk bro
+                            Serial::from(43),
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u32,
+                            |_, _, _| FilterResult::Forward,
+                        );
+                    }
+                    singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
+                    singularity_ui::ui_event::UIEvent::MousePress(_, display_area) => {
+                        log::debug!("TODO: handle keypress in wayland applet");
+                    }
+                }
+            }
+
             let mut target = renderer.bind(&mut image).unwrap();
 
             // // let size: Size<usize, smithay::utils::Physical> = Size::new(image.width(), image.height());
@@ -225,6 +275,7 @@ impl WaylandCompositor {
         event_loop: &mut EventLoop<Self>,
         display: &mut smithay::reexports::wayland_server::Display<Self>,
         image: Arc<Mutex<Option<RgbaImage>>>,
+        input_queue: mpsc::Receiver<UIEvent>,
     ) -> Self {
         let start_time = std::time::Instant::now();
 
@@ -270,6 +321,7 @@ impl WaylandCompositor {
             surface: None,
 
             image,
+            input_queue,
         }
     }
 
@@ -344,18 +396,22 @@ fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
 pub struct WaylandApplet {
     image: Arc<Mutex<Option<RgbaImage>>>,
     thread: JoinHandle<WaylandCompositor>,
+    input_sender: mpsc::Sender<UIEvent>,
     hook: Box<dyn NodularRunnerHook>,
 }
 impl WaylandApplet {
     pub fn new(hook: Box<dyn NodularRunnerHook>, program: String) -> Self {
         let image = Arc::new(Mutex::new(None));
 
+        let (tx, rx) = mpsc::channel();
+
         let image_clone = image.clone();
-        let thread = thread::spawn(|| WaylandCompositor::new(image_clone, program));
+        let thread = thread::spawn(|| WaylandCompositor::new(image_clone, program, rx));
 
         Self {
             image,
             thread,
+            input_sender: tx,
             hook,
         }
     }

@@ -11,7 +11,7 @@ impl BasicApplet for WaylandApplet {
             return;
         }
 
-        // TODO: massive TODO
+        self.input_sender.send(ui_event).unwrap();
 
         self.hook.damage_window();
         // self.hook.damage_treeview();
@@ -23,7 +23,7 @@ impl BasicApplet for WaylandApplet {
         {
             singularity_ui::ui_element::UIElement::Image(image.clone())
         } else {
-            singularity_ui::ui_element::UIElement::Nothing
+            singularity_ui::ui_element::UIElement::from("Wayland app loading...".to_string())
         }
     }
 }
