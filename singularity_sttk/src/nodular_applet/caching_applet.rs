@@ -1,17 +1,14 @@
-use crate::nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook};
-use singularity_common::{
-    sync::EncapsulatedLock,
-    utils::tree::world_tree::{WorldTree, WorldTreePath},
-};
+use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
+use singularity_common::{sync::EncapsulatedLock, utils::tree::world_tree::WorldTree};
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::ui_element::UIElement;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
 pub struct CachingApplet {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
-    window_damaged: Arc<AtomicBool>,
+    is_window_dirty: Arc<AtomicBool>,
     treeview: EncapsulatedLock<WorldTree<String>>,
     treeview_damaged: Arc<AtomicBool>,
 }
@@ -23,7 +20,7 @@ impl CachingApplet {
         // window_damaged: Arc<AtomicBool>,
         treeview: EncapsulatedLock<WorldTree<String>>,
     ) -> Self {
-        let window_damaged = Arc::new(AtomicBool::new(true));
+        let is_window_dirty = Arc::new(AtomicBool::new(true));
         let treeview_damaged = Arc::new(AtomicBool::new(true));
 
         struct InnerHook {
@@ -89,7 +86,7 @@ impl CachingApplet {
         }
 
         let inner_hook = InnerHook {
-            window_damaged: window_damaged.clone(),
+            window_damaged: is_window_dirty.clone(),
             treeview_damaged: treeview_damaged.clone(),
             outer_hook,
         };
@@ -97,7 +94,7 @@ impl CachingApplet {
         Self {
             applet: Mutex::new(inner_initiator(Box::new(inner_hook))),
             window,
-            window_damaged,
+            is_window_dirty,
             treeview,
             treeview_damaged,
         }
@@ -114,7 +111,7 @@ impl CachingApplet {
             .handle_nodular_event(nodular_event);
     }
 
-    #[deprecated]
+    /* #[deprecated]
     pub fn placeholder() -> Self {
         /// Since I need an applet to make multi-applet holder
         /// and the actual applet needs a hook to the multi-applet holder,
@@ -151,15 +148,21 @@ impl CachingApplet {
             treeview: EncapsulatedLock::new(WorldTree::Base("Placeholder".to_string())),
             treeview_damaged: Arc::new(AtomicBool::new(false)),
         }
-    }
+    } */
 }
 impl BasicApplet for CachingApplet {
     fn get_window(&self) -> UIElement {
         if self
-            .window_damaged
+            .is_window_dirty
             .swap(false, std::sync::atomic::Ordering::Relaxed)
         {
             self.window.set(self.applet.lock().unwrap().get_window());
+        }
+
+        // if the child is still dirty
+        if self.applet.lock().unwrap().is_window_dirty() {
+            self.is_window_dirty
+                .store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
         self.window.get()
@@ -167,6 +170,11 @@ impl BasicApplet for CachingApplet {
 
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
         self.immut_handle_ui_event(ui_event);
+    }
+
+    fn is_window_dirty(&self) -> bool {
+        self.is_window_dirty
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 impl NodularApplet for CachingApplet {

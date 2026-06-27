@@ -56,6 +56,10 @@ impl BasicApplet for Box<dyn NodularApplet> {
     fn get_window(&self) -> UIElement {
         (**self).get_window()
     }
+
+    fn is_window_dirty(&self) -> bool {
+        (**self).is_window_dirty()
+    }
 }
 impl NodularApplet for Box<dyn NodularApplet> {
     fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {

@@ -29,6 +29,9 @@ pub trait BasicApplet {
 
     /// This should resolve damaged state
     fn get_window(&self) -> UIElement;
+
+    /// Was initially going to use a shared boolean for this but never mind
+    fn is_window_dirty(&self) -> bool;
 }
 impl BasicApplet for Box<dyn BasicApplet> {
     fn handle_ui_event(&mut self, ui_event: UIEvent) {
@@ -38,6 +41,10 @@ impl BasicApplet for Box<dyn BasicApplet> {
 
     fn get_window(&self) -> UIElement {
         (**self).get_window()
+    }
+
+    fn is_window_dirty(&self) -> bool {
+        (**self).is_window_dirty()
     }
 }
 

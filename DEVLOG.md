@@ -7115,3 +7115,20 @@ and even worse, might prevent me from implementing certain features.
 This really struck me for tree-modifying operations,
 like pluck/place and somehow popping an embedded app out.
 Idk tho.
+
+...
+
+5:46PM
+
+Okay, that was a whole day's worth of yap.
+Time to code.
+
+Since the parent doesn't ever have to change the child's `dirty` status,
+I'll just make it so that instead of having a mutex for dirty between parent and child,
+the parent just calls the child's `is_window_dirty` method, which is way simpler to implement.
+(Just adding a method to a trait as opposed to worrying about who-makes-what and when to pass it.)
+
+Okay, after all that talk, I think I'm not going to do this...
+Yeah, I realized this isn't really a feature and now it stopped being exciting.
+Also, I think this is just going to introdudce a bunch of boilerplate
+without any real gains, especially since a lot of this logic is already in caching app.

@@ -140,6 +140,10 @@ impl BasicApplet for RootNodeApplet {
                 .contain(DisplayArea::new((0.2, 0.0), (1.0, 1.0))),
         ])
     }
+
+    fn is_window_dirty(&self) -> bool {
+        self.applet.is_window_dirty()
+    }
 }
 
 /*
