@@ -506,14 +506,14 @@ impl RecursiveNodeApplet {
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(),
             FocusIndex::Child(child_index) => {
-                log::debug!(
-                    "This title: {}, returning {}th child named {}'s window",
-                    self.get_treeview().get_root_value(),
-                    child_index,
-                    self.shared_resource.children.read().unwrap()[child_index]
-                        .get_treeview()
-                        .get_root_value()
-                );
+                // log::debug!(
+                //     "This title: {}, returning {}th child named {}'s window",
+                //     self.get_treeview().get_root_value(),
+                //     child_index,
+                //     self.shared_resource.children.read().unwrap()[child_index]
+                //         .get_treeview()
+                //         .get_root_value()
+                // );
                 self.shared_resource.children.read().unwrap()[child_index].get_window()
             }
         }
@@ -656,11 +656,11 @@ impl NodularApplet for RecursiveNodeApplet {
     }
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
-        log::debug!(
-            "My title is {} and my focus is {:?}",
-            self.get_treeview().get_root_value(),
-            self.shared_resource.focus_index.get(),
-        );
+        // log::debug!(
+        //     "My title is {} and my focus is {:?}",
+        //     self.get_treeview().get_root_value(),
+        //     self.shared_resource.focus_index.get(),
+        // );
 
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing => WorldTreePath::new_into(),
@@ -681,7 +681,7 @@ impl NodularApplet for RecursiveNodeApplet {
                     .to_vec();
 
                 if path_tail.is_empty() {
-                    println!("Warning: this shouldn't happen");
+                    log::warn!("Warning: this shouldn't happen");
                     path_tail.push(TreeNodePath::new_root());
                 }
 

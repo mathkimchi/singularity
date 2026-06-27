@@ -7157,3 +7157,5 @@ while using it for debugging:
 - if I'm on the focusing state and press something that isn't captured, I should just focus on inner and forward that keypress
 - the indent is too large (especially with the current fontsize and on my laptop screen) (I think it is 4 per depth rn but it also varies depending on if its focued or not)
 - finally implement a custom display for world tree?
+
+BTW, I don't know why the old code didn't update on subsequent keypresses, but wtv.
