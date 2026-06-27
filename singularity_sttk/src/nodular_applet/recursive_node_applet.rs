@@ -525,8 +525,6 @@ impl BasicApplet for RecursiveNodeApplet {
             FocusIndex::Focusing => {
                 // We can intercept
 
-                // TODO: if not a traversal, then just set focus to inner and forward input
-
                 if let UIEvent::KeyPress(
                     key,
                     KeyModifiers {
@@ -541,6 +539,11 @@ impl BasicApplet for RecursiveNodeApplet {
                     && let Some(operation) = WorldTreeTraversalOperation::from_char(key_char)
                 {
                     self.shared_resource.change_focus(operation);
+                } else {
+                    // if not a traversal, then just set focus to inner and forward input
+                    self.shared_resource
+                        .change_focus(WorldTreeTraversalOperation::NextLayer);
+                    self.handle_ui_event(ui_event);
                 }
 
                 // match key.to_char() {
