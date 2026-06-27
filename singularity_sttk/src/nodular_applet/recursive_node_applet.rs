@@ -505,6 +505,7 @@ impl RecursiveNodeApplet {
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(),
             FocusIndex::Child(child_index) => {
+                dbg!("Erhm");
                 self.shared_resource.children.read().unwrap()[child_index].get_window()
             }
         }

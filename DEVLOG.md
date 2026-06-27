@@ -6993,3 +6993,125 @@ I probably forgot to make the applets recursive.
 ...
 
 Okay, so I made them spawn recursively and it mostly works.
+
+A problem now is that when focused on the child of a child,
+it doesn't show the grand child, it shows it as the outer child.
+(Eg: root -> child -> grand child, when focused on grand child the main view shows child.)
+
+The treeview and input handling work for nested children though
+(ex I can keep calling the children and on set_title treeview behaves expectedly).
+I think this may be a caching problem.
+
+But speaking of caching, I am taking an OS class and I want to redo
+the caching/display updating system that is vaguely inspired by how interrupts work.
+I actually had two ideas on how to do the display update system
+and the idea I want to do now is the idea I ended up not doing.
+
+For each app and its child, there is a shared boolean representing if the child has
+a new update.
+For some reason, I don't want to use `updated` or `has_update` or something like that.
+I feel like calling this boolean `damaged` or `child_damaged` or `is_damaged` or etc.
+Idk why.
+
+The procedure is that when the child app has an update for it's display,
+it sets `damaged` to true and calls the `notify_damage` callback.
+In the callback, the parent will see if it needs to update it's parent about this
+(first, checks if the child is even displayed, and second, checks is the parent already damaged).
+(If `damaged` is true, then you don't need to call `notify_damage`.)
+It is crucial that rendering logic isn't actually directly called by this,
+only queued, since this is how I avoid deadlocks.
+(IE, the update display callback should only go up the parent hierarchy.)
+
+Then, when the root decides to process the damage
+(again, this should be after the `notify_damage` is finished, not called by it),
+it is going to call the `get_display` of the root,
+which is going to recursively call the children's `get_display`.
+~~In `get_display`, you should get the display (`display = ...`)
+then set `damaged = false` then return the display.
+This order (of getting the display then setting damage to false)
+is because of the case that something changes in between those operations.~~
+I had it the other way around.
+You need to set `damaged = false` then pull the display.
+If you are a parent then you set `damaged = false`
+then the child updates again then you pull the display,
+then you will return the most recent display and `damaged` will be true,
+so you just double render.
+But if you are a parent then you pull the display,
+then the child updates then you set `damaged = false`,
+you will return an outdated display but say it is most recent by saying there
+is no further damage.
+In general, I guess setting `damaged = false` is the promise that you will
+pull the display at that moment or more advanced.
+(If you say your laptop has OS 9, you can give the people who bought back then
+OS 10, but you shouldn't give them OS 8.
+Shaky example but whatev.)
+If you're really worried about this, you can just lock the `damaged` variable
+for the entire rest of the operation, but that might cause deadlocks
+(it shouldn't, but "I have only proved it correct, not tried it" as Knuth said).
+
+If continuous updating is desired, then leaving `damaged` as true is fine.
+Because of this, there is actually a final step after pulling the display.
+If the child damage is still true, then your damage should be re-set to true.
+(I don't think lock is necessary.
+Also, I don't actually care too much about continuous updating bc I don't think
+they're too important anyhow.)
+
+Well, that was the explanation.
+I'm gonna go on small side-tangents now,
+just little tid-bits and ideas.
+
+In the old model (with just the updates but no shared boolean;
+well, for caching applets the holder kept track of the child),
+the plan for continuously updating displays was to call
+update at the end of every return,
+but I think this is inefficient.
+
+Now that I learned what's going on under the hood,
+I want to further change the system,
+replacing the entire main loop with a fully event driven
+architecture, similar to the Kernel.
+But, I kind of don't want to open that entire can of worms right now.
+(I learned how to implement these things, but more crucially,
+I learned that I would do want to implement them.)
+(Actually, that's a joke. I do really want to implement context switches
+and interrupt handling and multithreading and scheduling.)
+
+Another aspect of my architecture I might want to change based on OS design
+is the recursion.
+Processes do have a hierarchy of parents and children,
+but actually, they are more or less unstructured in their implementation.
+The OS stores the relevant parts of every process in a PCB (process control block),
+and a PCB can either be on the run queue (scheduled to be run),
+waiting queue (is waiting on a blocking call),
+actively running on a core, or on the finished queue (waiting to be deleted).
+
+So, processes, while from the user perspective might seem to have hierarchy,
+are all managed more or less equally by the OS directly,
+and the hierarchy is symbolic not how it's implemented.
+(Technically, the hierarchy *does* matter for spawning, waiting, and cleaning up,
+but I mean for the bulk of things.)
+This is good for efficiency since it just lets the OS take care of the OS duties
+of scheduling and context switching and stuff.
+It doesn't require each parent to act as its mini-OS to run its children.
+
+Threads also give good insight, since they kinda have two different implementations
+where one is closer to hierarchy (though not recursive) and the other is flat.
+The hierarchy-ish approach is user-level threads,
+where the OS doesn't actually know the threads that are running.
+So, the program kinda has to implement the context switching and scheduling and everything itself,
+so the program re-implements for threads what OS already implemented for programs.
+This means that the context switching happens entirely in user-space so it's faster.
+Also, there's a nice modularity to it.
+But, the alternative kernel-level threading, where the OS almost treats each thread
+as a process but using TCB instead of PCBs,
+requires less redundant code, and is simpler for the OS to schedule.
+(In user-level threading, if one thread blocks then the OS thinks the whole process is blocking.)
+So, modern OS pretty much just do kernel-level threading
+with some hybrid approaches as well apparently (idk what that looks like).
+
+I might need to take a page out of this.
+Though hierarchy is elegant conceptually, it unfortunately might not be very efficient
+and even worse, might prevent me from implementing certain features.
+This really struck me for tree-modifying operations,
+like pluck/place and somehow popping an embedded app out.
+Idk tho.
