@@ -159,53 +159,7 @@ impl WaylandCompositor {
 
         loop {
             for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
-                match ui_event {
-                    singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                        let keysym = Keysym::from_char('e');
-                        if let Some(keycode) = state.seat.get_keyboard().unwrap().with_xkb_state(
-                            &mut state,
-                            |xkb_state| unsafe {
-                                xkb_state
-                                    .xkb()
-                                    .lock()
-                                    .ok()?
-                                    .keymap()
-                                    .key_by_name(keysym.name()?)
-                            },
-                        ) {
-                            log::debug!("{}", keysym.raw());
-                            log::debug!("lalala keypress");
-                            state.seat.get_keyboard().unwrap().input::<(), _>(
-                                &mut state,
-                                keycode,
-                                smithay::backend::input::KeyState::Pressed,
-                                // dk bro
-                                Serial::from(42),
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u32,
-                                |_, _, _| FilterResult::Forward,
-                            );
-                            state.seat.get_keyboard().unwrap().input::<(), _>(
-                                &mut state,
-                                keycode,
-                                smithay::backend::input::KeyState::Released,
-                                // dk bro
-                                Serial::from(43),
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u32,
-                                |_, _, _| FilterResult::Forward,
-                            );
-                        }
-                    }
-                    singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
-                    singularity_ui::ui_event::UIEvent::MousePress(_, display_area) => {
-                        log::debug!("TODO: handle keypress in wayland applet");
-                    }
-                }
+                state.process_ui_event(ui_event);
             }
 
             let mut target = renderer.bind(&mut image).unwrap();
@@ -390,6 +344,52 @@ impl WaylandCompositor {
         //     .unwrap();
 
         socket_name
+    }
+
+    /// NOTE: ignores modifiers
+    /// I'm too tired for ts
+    /// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+    fn key_to_keycode(key: Key) -> Option<Keycode> {
+        Some(Keycode::new(
+            include!(concat!(env!("OUT_DIR"), "/keycode_matches.rs")) + 8,
+        ))
+    }
+
+    fn process_ui_event(&mut self, ui_event: UIEvent) {
+        match ui_event {
+            singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
+                if let Some(keycode) = Self::key_to_keycode(key) {
+                    self.seat.get_keyboard().unwrap().input::<(), _>(
+                        self,
+                        keycode,
+                        smithay::backend::input::KeyState::Pressed,
+                        // dk bro
+                        Serial::from(42),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u32,
+                        |_, _, _| FilterResult::Forward,
+                    );
+                    self.seat.get_keyboard().unwrap().input::<(), _>(
+                        self,
+                        keycode,
+                        smithay::backend::input::KeyState::Released,
+                        // dk bro
+                        Serial::from(43),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u32,
+                        |_, _, _| FilterResult::Forward,
+                    );
+                }
+            }
+            singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
+            singularity_ui::ui_event::UIEvent::MousePress(_, display_area) => {
+                log::debug!("TODO: handle keypress in wayland applet");
+            }
+        }
     }
 }
 

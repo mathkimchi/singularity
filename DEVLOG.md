@@ -6935,3 +6935,42 @@ which I'm not going to do.
 I'm just going to try doing it by name.
 
 Not too surprised, it doesn't work.
+
+...
+
+Ok, I looked up Rust char to evdev code as well as Winit keypress to evdev keycode,
+and google AI says to hardcode both of them.
+
+Honestly, this is going to be easier than trying to
+figure out all this barely documented code.
+(Not happy about it though.)
+
+But I'll calm myself down by reminding myself that I will just do the lowercase letters,
+numbers, and like enter and space, and arrows,
+then I'm going to call it good enough with Wayland.
+I'm not going to do mouse, I'm not going to even do modifiers.
+I won't figure out how to get firefox to work.
+I'll just mark this as done/moving on and work on the world tree system
+as well as maybe project management.
+
+...
+
+Okay, I spent like 30 minutes learning how to parse Regex and made a build function
+just so I could automate going from the
+`#define KEY_Q			16` in the C file
+to match arms,
+for just specifically key chars.
+And the build works but I'm not allowed to put a macro as just match arms.
+
+Okay, it works.
+I would do three exclamation points, but I'm too burnt out right now.
+It's 11:39PM alone in this library, almost midnight, and I'm 20 minutes from my dormroom
+in a campus I scarecely know, probably an hour drive from anyone I knew before this week.
+
+Yeah, I'm gonna commit this then walk back.
+
+I kinda don't want to though.
+What's stopping me from just sleeping in this library?
+
+That's lowkey hardcore (in the lamest sense of the word),
+but I'll save up that manuvre for when I actually need it.
