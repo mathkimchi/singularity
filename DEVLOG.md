@@ -7159,3 +7159,18 @@ while using it for debugging:
 - finally implement a custom display for world tree?
 
 BTW, I don't know why the old code didn't update on subsequent keypresses, but wtv.
+
+I made the standard indent just one character, but its weird bc focused and parents of focused have extra an char.
+It might be a little extreme.
+
+By the way, I am considering if it would be better to jsut copy HTML
+or even entirely use HTML/some UI library, but idk.
+I really need to figure out how sizing is going to work.
+Maybe I really will just do a ZUI but a question is
+what dimension proportional text is going to be proportional to.
+Whatever the case, if I want to do anything more than just blind text-based UI
+(that doesn't even do things like wrap),
+ie if I want Sonamu to be anything more than a laughingstock,
+then I really need to redo the UI system.
+
+Ok, I'll commit the current changes before I start getting lost in the brainstorm sauce.
