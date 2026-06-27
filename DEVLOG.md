@@ -6877,3 +6877,22 @@ and he said it's never to late to contact professors.
 He also recommended chilling, but I don't like chilling.
 
 Okay, now time to do input.
+
+2026-06-26 8:51PM
+
+My grandma convinced me to get off my ass and so I'm at the Engineering library now.
+
+I wrote hard-coded code to send a keyboard event via the keyboard seat but it's always the Enter key,
+no matter what the actual keypress was.
+
+It's getting triggered, but nothing is getting changed.
+
+I think the problem is on the compositor side, and I probably need to set the focus.
+
+Okay, well, I made it set the focus whenever a new top surface is registered to that surface.
+It does do stuff on keypress, but it types the letter t for some reason.
+
+Also, it says Client connected then immediately Client disconnected,
+which I just noticed and is a little worrying,
+but I don't know if that's always been there.
+It doesn't seem to be causing direct errors tho, so I'll opt to ignore that.

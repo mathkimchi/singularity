@@ -103,9 +103,16 @@ impl WaylandCompositor {
         unsafe {
             // set_var("WAYLAND_DISPLAY", &state.socket_name);
             set_var("WAYLAND_DISPLAY", format!("wayland-{listener_count}"));
+            // // Firefox just spawns in normal compositor with this unset
+            // // Whoop dee doo, it still doesn't work
+            // set_var("MOZ_ENABLE_WAYLAND", "1");
         }
         // TODO
-        std::process::Command::new(program).spawn().ok();
+        std::process::Command::new(program)
+            .env("WAYLAND_DISPLAY", format!("wayland-{listener_count}"))
+            .env("MOZ_ENABLE_WAYLAND", "1")
+            .spawn()
+            .ok();
 
         let mut renderer = PixmanRenderer::new().unwrap();
         let mut image = pixman::Image::new(pixman::FormatCode::R8G8B8A8, 800, 600, false).unwrap();
@@ -248,7 +255,7 @@ impl WaylandCompositor {
 
                 let rgba_image = RgbaImage::from_vec(800, 600, raw_image_data).unwrap();
 
-                rgba_image.save("examples/smithay.png").unwrap();
+                // rgba_image.save("examples/smithay.png").unwrap();
                 *state.image.lock().unwrap() = Some(rgba_image);
 
                 // save_buffer(

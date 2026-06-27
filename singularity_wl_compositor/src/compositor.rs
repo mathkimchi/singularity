@@ -161,6 +161,7 @@ use smithay::{
         Client,
         protocol::{wl_buffer, wl_surface::WlSurface},
     },
+    utils::Serial,
     wayland::{
         buffer::BufferHandler,
         compositor::{CompositorClientState, CompositorHandler, CompositorState},
@@ -222,7 +223,7 @@ impl CompositorHandler for WaylandCompositor {
         // xdg_shell::handle_commit(&mut self.popups, &self.space, surface);
         // resize_grab::handle_commit(&mut self.space, surface);
 
-        println!("Surface committed");
+        // log::debug!("Surface committed");
 
         // with_states(surface, |states| {
         //     let mut binding = states.cached_state.get::<SurfaceAttributes>();
@@ -283,6 +284,13 @@ impl XdgShellHandler for WaylandCompositor {
             state.states.set(xdg_toplevel::State::Activated);
         });
         surface.send_configure();
+
+        self.seat.get_keyboard().unwrap().set_focus(
+            self,
+            Some(surface.wl_surface().clone()),
+            // Idk what serial should be
+            Serial::from(42),
+        );
 
         println!("New toplevel surface registered");
     }
