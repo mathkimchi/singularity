@@ -12,3 +12,5 @@ singularity_sar = { path = "../singularity_sar" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+log = { workspace = true }

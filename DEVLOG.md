@@ -7132,3 +7132,28 @@ Okay, after all that talk, I think I'm not going to do this...
 Yeah, I realized this isn't really a feature and now it stopped being exciting.
 Also, I think this is just going to introdudce a bunch of boilerplate
 without any real gains, especially since a lot of this logic is already in caching app.
+
+...
+
+6:32PM
+
+What a waste, I'm just going to work on fixing the nested bug now.
+I'm sad.
+
+I made every recursive node applet print title and focusing state,
+and that seems normal.
+(Testing with set_title helps.)
+
+I'm printing when recursive node applet returns display,
+and it seems like the second layer just isn't being called.
+
+Oh mah lord, it was just a caching problem.
+I damage treeview but forgot to damage display on focus change.
+
+That was a simple fix.
+I'm going to commit then disable (comment out) the debug logs
+and then I have some UX improvements I realized the tree system needed
+while using it for debugging:
+- if I'm on the focusing state and press something that isn't captured, I should just focus on inner and forward that keypress
+- the indent is too large (especially with the current fontsize and on my laptop screen) (I think it is 4 per depth rn but it also varies depending on if its focued or not)
+- finally implement a custom display for world tree?

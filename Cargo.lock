@@ -3147,6 +3147,7 @@ dependencies = [
 name = "singularity_sttk"
 version = "0.1.0"
 dependencies = [
+ "log",
  "serde",
  "serde_json",
  "singularity_common",

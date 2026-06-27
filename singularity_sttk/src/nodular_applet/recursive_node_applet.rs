@@ -314,6 +314,7 @@ impl SharedResource {
             self.hook.change_focus(parent_call);
         }
 
+        self.hook.damage_window();
         self.hook.damage_treeview();
     }
 }
@@ -505,7 +506,14 @@ impl RecursiveNodeApplet {
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(),
             FocusIndex::Child(child_index) => {
-                dbg!("Erhm");
+                log::debug!(
+                    "This title: {}, returning {}th child named {}'s window",
+                    self.get_treeview().get_root_value(),
+                    child_index,
+                    self.shared_resource.children.read().unwrap()[child_index]
+                        .get_treeview()
+                        .get_root_value()
+                );
                 self.shared_resource.children.read().unwrap()[child_index].get_window()
             }
         }
@@ -516,6 +524,8 @@ impl BasicApplet for RecursiveNodeApplet {
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing => {
                 // We can intercept
+
+                // TODO: if not a traversal, then just set focus to inner and forward input
 
                 if let UIEvent::KeyPress(
                     key,
@@ -646,6 +656,12 @@ impl NodularApplet for RecursiveNodeApplet {
     }
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+        log::debug!(
+            "My title is {} and my focus is {:?}",
+            self.get_treeview().get_root_value(),
+            self.shared_resource.focus_index.get(),
+        );
+
         match self.shared_resource.focus_index.get() {
             FocusIndex::Focusing => WorldTreePath::new_into(),
             FocusIndex::Inner => {
