@@ -32,7 +32,7 @@ struct SharedResource {
     focus_index: EncapsulatedLock<FocusIndex>,
     hook: Box<dyn NodularRunnerHook>,
 
-    is_window_dirty: AtomicBool,
+    window_damaged: AtomicBool,
     treeview_damaged: AtomicBool,
 }
 impl SharedResource {
@@ -47,7 +47,7 @@ impl SharedResource {
             children,
             focus_index,
             hook,
-            is_window_dirty: window_damaged,
+            window_damaged,
             treeview_damaged,
         })
     }
@@ -98,7 +98,7 @@ impl SharedResource {
                         .shared_resource
                         .upgrade()
                         .unwrap()
-                        .is_window_dirty
+                        .window_damaged
                         .swap(true, std::sync::atomic::Ordering::Relaxed)
                     {
                         self.shared_resource.upgrade().unwrap().hook.damage_window();
@@ -201,7 +201,7 @@ impl SharedResource {
             shared_resource.hook.damage_treeview();
         }
         if !shared_resource
-            .is_window_dirty
+            .window_damaged
             .swap(true, std::sync::atomic::Ordering::Relaxed)
         {
             shared_resource.hook.damage_window();
@@ -362,7 +362,7 @@ impl RecursiveNodeApplet {
                         .shared_resource
                         .upgrade()
                         .unwrap()
-                        .is_window_dirty
+                        .window_damaged
                         .swap(true, std::sync::atomic::Ordering::Relaxed)
                     {
                         self.shared_resource.upgrade().unwrap().hook.damage_window();
@@ -501,36 +501,12 @@ impl RecursiveNodeApplet {
 
         // NOTE: above was implementation for equally divided
 
-        // TODO: return cached if damaged is already false?
-        self.shared_resource
-            .is_window_dirty
-            .store(false, std::sync::atomic::Ordering::Relaxed);
-
         // get_focused_applet!(self, |f| f.get_window())
         match self.shared_resource.focus_index.get() {
-            FocusIndex::Focusing | FocusIndex::Inner => {
-                let display = self.main_applet.get_window();
-
-                if self.main_applet.is_window_dirty() {
-                    self.shared_resource
-                        .is_window_dirty
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-
-                display
-            }
+            FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(),
             FocusIndex::Child(child_index) => {
                 dbg!("Erhm");
-                let display =
-                    self.shared_resource.children.read().unwrap()[child_index].get_window();
-
-                if self.shared_resource.children.read().unwrap()[child_index].is_window_dirty() {
-                    self.shared_resource
-                        .is_window_dirty
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-
-                display
+                self.shared_resource.children.read().unwrap()[child_index].get_window()
             }
         }
     }
@@ -606,13 +582,12 @@ impl BasicApplet for RecursiveNodeApplet {
     }
 
     fn get_window(&self) -> UIElement {
-        self.get_display()
-    }
-
-    fn is_window_dirty(&self) -> bool {
+        // TODO: return cached if damaged is already false?
         self.shared_resource
-            .is_window_dirty
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .window_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+
+        self.get_display()
     }
 }
 impl NodularApplet for RecursiveNodeApplet {
