@@ -474,6 +474,13 @@ impl RecursiveNodeApplet {
         move |hook| Box::new(Self::new(inner_initializer, hook))
     }
 
+    /// Ik, horrible name
+    pub fn boxed_get_boxed_initializer(
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+    ) -> Box<impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>> {
+        Box::new(Self::get_boxed_initializer(inner_initializer))
+    }
+
     // fn get_focused_applet(&self) -> Arc<&SubAppletHolder> {
     //     match self.shared_resource.focus_index.get() {
     //         FocusIndex::Focusing | FocusIndex::Inner => Arc::new(&self.main_applet),

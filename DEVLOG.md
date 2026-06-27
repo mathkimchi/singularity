@@ -6974,3 +6974,22 @@ What's stopping me from just sleeping in this library?
 
 That's lowkey hardcore (in the lamest sense of the word),
 but I'll save up that manuvre for when I actually need it.
+
+2026-06-27 12:12PM
+
+Right now, the traversal just doesn't work.
+
+For example, make two children and you can't do Alt W and S to go between the siblings.
+
+Huh, I was just looking through `handle_standard_keybinds`
+inside of [`standard_keybinds`](./singularity_sttk/src/standard_keybinds.rs),
+and I guess I made Ctrl Shift Plus map to adding a child command hub.
+
+And the thing about the command hubs spawned in this fashion is that the keybinds actually work.
+I think it's because I spawn them as `RecursiveNodeApplet` of the command hub applet
+and when I spawned them before (via command hub prompts),
+I probably forgot to make the applets recursive.
+
+...
+
+Okay, so I made them spawn recursively and it mostly works.

@@ -3,7 +3,7 @@
 use crate::{
     nodular_applet::{
         AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularEvent,
-        NodularRunnerHook,
+        NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -53,7 +53,9 @@ impl CommandHubApplet {
                     println!("Warning: command hub doesn't use spawn args.");
                 }
 
-                Some(CommandHubApplet::get_boxed_initiator())
+                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
+                    CommandHubApplet::get_boxed_initiator(),
+                ))
             }
 
             fn duplicate(&self) -> AppletSpawner {
@@ -78,7 +80,10 @@ impl CommandHubApplet {
                 .to_string()),
             "add_child" => match args.first() {
                 None => {
-                    self.hook.add_child(CommandHubApplet::get_boxed_initiator());
+                    self.hook
+                        .add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
+                            CommandHubApplet::get_boxed_initiator(),
+                        ));
                     Ok("Unspecified child defaulting to command_hub.".to_string())
                 }
                 Some(app_name) => match self.hook.find_applet_spawner(app_name.to_string()) {

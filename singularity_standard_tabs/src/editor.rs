@@ -1,5 +1,6 @@
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
+use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,
 };
@@ -76,9 +77,9 @@ impl TextEditorApplet {
             fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
                 let file_path = args.first()?;
 
-                Some(Box::new(TextEditorApplet::get_boxed_initiator(
-                    file_path.to_string(),
-                )))
+                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
+                    TextEditorApplet::get_boxed_initiator(file_path.to_string()),
+                ))
             }
 
             fn duplicate(&self) -> AppletSpawner {

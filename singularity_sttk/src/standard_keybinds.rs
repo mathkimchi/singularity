@@ -30,9 +30,9 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         && key.to_char() == Some('+')
     {
         // Ctrl+Shift+Plus -> spawn CommandHub as child
-        hook.add_child(Box::new(RecursiveNodeApplet::get_boxed_initializer(
+        hook.add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
             CommandHubApplet::get_boxed_initiator(),
-        )));
+        ));
 
         true
     } else if let UIEvent::KeyPress(key, KeyModifiers::ALT) = &ui_event

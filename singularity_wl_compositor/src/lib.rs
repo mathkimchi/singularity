@@ -1,6 +1,7 @@
 use image::RgbaImage;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
+    recursive_node_applet::RecursiveNodeApplet,
 };
 use singularity_ui::ui_event::{Key, UIEvent};
 use smithay::{
@@ -456,9 +457,9 @@ impl WaylandApplet {
                 let program = args.first().unwrap_or(&"kitty");
                 // TODO: args later
 
-                Some(Box::new(WaylandApplet::get_boxed_initiator(
-                    program.to_string(),
-                )))
+                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
+                    WaylandApplet::get_boxed_initiator(program.to_string()),
+                ))
             }
 
             fn duplicate(&self) -> AppletSpawner {

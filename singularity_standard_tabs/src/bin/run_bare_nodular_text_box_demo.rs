@@ -89,9 +89,9 @@ impl BasicApplet for TextBoxApplet {
             // self.hook
             //     .add_child(Box::new(TextBoxApplet::get_boxed_initiator(String::new())));
             self.hook
-                .add_child(Box::new(RecursiveNodeApplet::get_boxed_initializer(
+                .add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
                     TextBoxApplet::get_boxed_initiator(String::new()),
-                )));
+                ));
             return;
         }
 
