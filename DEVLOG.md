@@ -6896,3 +6896,42 @@ Also, it says Client connected then immediately Client disconnected,
 which I just noticed and is a little worrying,
 but I don't know if that's always been there.
 It doesn't seem to be causing direct errors tho, so I'll opt to ignore that.
+
+...
+
+Well Smithay has a Keysym struct that allows me to go
+from char to Keysym to u32 (the raw code) to the Keycode struct.
+But, doing this with just the letter `e` says it should be the code 101
+according to Keysym,
+but key press does not make the letter `e` show up.
+
+Also, the [Linux key code map](https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h)
+says `e` is 18 and `t` is 20 (28 was what made `t` appear, but 28 is supposed to be enter)
+so Keysim, Keycode, and the key map all do not match with each other.
+
+But wait, ok so apparently sometimes shiz is offset by 8,
+which explains why 28 was actually `t` which is 20.
+So I just have to add 8 from the Linux key code map.
+(I don't understand why though,
+because allegedly it is supposed to be X11 that requires the +8 offset
+and allegedly Wayland and evdev are supposed to have no offset.)
+
+But that still doesn't explain why Keysym is so doo doo.
+
+There's also [this](https://smithay.github.io/smithay/smithay/input/keyboard/keysyms/constant.KEY_e.html)
+which says `e` is 101.
+Oh, I just realized that this is the ascii value for `e`.
+
+I think I need to get the Keyboard layout and then use the layout to convert the Keysym to Keycode.
+
+[This doc page](https://smithay.github.io/smithay/smithay/input/keyboard/xkb/struct.Keymap.html#method.key_get_mods_for_level)
+literally says
+"This API is useful for inverse key transformation; i.e. finding out which modifiers need to be active in order to be able to type the keysym(s) corresponding to the specific key code, layout and level."
+so I'm optimistic.
+Plus, it verifies you have to add 8 from the evdev codes.
+
+Okay, I think it wants me to iterate through all the codes until I find it,
+which I'm not going to do.
+I'm just going to try doing it by name.
+
+Not too surprised, it doesn't work.

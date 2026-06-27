@@ -3091,6 +3091,7 @@ dependencies = [
 name = "singularity_sde"
 version = "0.1.0"
 dependencies = [
+ "log",
  "serde",
  "serde_json",
  "singularity_common",
@@ -3101,6 +3102,7 @@ dependencies = [
  "singularity_sttk",
  "singularity_ui",
  "singularity_wl_compositor",
+ "tracing-subscriber",
  "uuid",
 ]
 

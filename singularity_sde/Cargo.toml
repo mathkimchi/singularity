@@ -19,3 +19,6 @@ singularity_wl_compositor = { path = "../singularity_wl_compositor" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
+
+tracing-subscriber = { workspace = true }
+log = { workspace = true }

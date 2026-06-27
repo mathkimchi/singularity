@@ -29,6 +29,8 @@ use singularity_wl_compositor::WaylandApplet;
 use std::collections::BTreeMap;
 
 fn main() {
+    init_logging();
+
     AppletRunner::run(RootNodeApplet::get_initializer(
         RecursiveNodeApplet::get_initializer(CommandHubApplet::get_boxed_initiator()),
         BTreeMap::from_iter(vec![
@@ -47,4 +49,15 @@ fn main() {
             ("wl_app".to_string(), WaylandApplet::get_applet_spawner()),
         ]),
     ))
+}
+
+fn init_logging() {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing_subscriber::filter::LevelFilter::DEBUG)
+        .init();
+    // if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
+    //     tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    // } else {
+    //     tracing_subscriber::fmt().init();
+    // }
 }

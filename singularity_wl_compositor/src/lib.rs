@@ -16,7 +16,10 @@ use smithay::{
             utils::draw_render_elements,
         },
     },
-    input::{Seat, SeatState, keyboard::FilterResult},
+    input::{
+        Seat, SeatState,
+        keyboard::{FilterResult, Keysym},
+    },
     reexports::{
         calloop::{EventLoop, LoopSignal},
         pixman,
@@ -158,33 +161,45 @@ impl WaylandCompositor {
             for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
                 match ui_event {
                     singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                        dbg!("lalala keypress");
-                        state.seat.get_keyboard().unwrap().input::<(), _>(
+                        let keysym = Keysym::from_char('e');
+                        if let Some(keycode) = state.seat.get_keyboard().unwrap().with_xkb_state(
                             &mut state,
-                            // Hard-code enter as the only input for now
-                            Keycode::new(28),
-                            smithay::backend::input::KeyState::Pressed,
-                            // dk bro
-                            Serial::from(42),
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u32,
-                            |_, _, _| FilterResult::Forward,
-                        );
-                        state.seat.get_keyboard().unwrap().input::<(), _>(
-                            &mut state,
-                            // Hard-code enter as the only input for now
-                            Keycode::new(28),
-                            smithay::backend::input::KeyState::Released,
-                            // dk bro
-                            Serial::from(43),
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u32,
-                            |_, _, _| FilterResult::Forward,
-                        );
+                            |xkb_state| unsafe {
+                                xkb_state
+                                    .xkb()
+                                    .lock()
+                                    .ok()?
+                                    .keymap()
+                                    .key_by_name(keysym.name()?)
+                            },
+                        ) {
+                            log::debug!("{}", keysym.raw());
+                            log::debug!("lalala keypress");
+                            state.seat.get_keyboard().unwrap().input::<(), _>(
+                                &mut state,
+                                keycode,
+                                smithay::backend::input::KeyState::Pressed,
+                                // dk bro
+                                Serial::from(42),
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u32,
+                                |_, _, _| FilterResult::Forward,
+                            );
+                            state.seat.get_keyboard().unwrap().input::<(), _>(
+                                &mut state,
+                                keycode,
+                                smithay::backend::input::KeyState::Released,
+                                // dk bro
+                                Serial::from(43),
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u32,
+                                |_, _, _| FilterResult::Forward,
+                            );
+                        }
                     }
                     singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
                     singularity_ui::ui_event::UIEvent::MousePress(_, display_area) => {
