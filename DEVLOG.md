@@ -7174,3 +7174,57 @@ ie if I want Sonamu to be anything more than a laughingstock,
 then I really need to redo the UI system.
 
 Ok, I'll commit the current changes before I start getting lost in the brainstorm sauce.
+
+...
+
+The good thing (or maybe bad) now is that I get to (or have to)
+just think.
+This is what I so often end up doing,
+sometimes it feels like thought paralysis,
+and overall, I wish I could just get things done and accept
+a suboptimal architecture for the sake of getting shiz done.
+But in this case, I am telling myself to think.
+
+Interface Studies is a good channel, but it (and most other conceptual UI videos)
+doesn't dive into the implementation.
+In some ways, it is straightforward to just get UI done for specific cases,
+but I want to make a general framework.
+
+The Wikipedia page for ZUI (which I've read before)
+gives examples of apps that have implemented it.
+It also mentions WIMP (window, icon, menu, pointing) interface
+and the idea of a post-WIMP paradigm.
+
+I think it *is* absolutely helpful to go over existing UI frameworks.
+Even if I don't know the actual implementation, just knowing how it is used is plenty of insight.
+- Clay (the goat), I haven't used it but this one I actually know how it works bc it has a YT video explaining how the dev (Nick Barker?) made it
+ - I am kinda envisioning something more complex for Sonamu, but this is a good starting point and backup
+ - Similar paradigm to my current system, where you just have functions that return the UI tree and idk how input works
+- Vanilla HTML+CSS
+ - More complex than my current system, ex: you can put arbitrary logic inside the UI elements (like you can attatch arbitrary events to UI)
+ - I mean, if it wasn't so related to JS, I think I might actually like it. Also, it is verbose but that doesn't really matter if we are generating the UI instead of hardcoding it
+
+2026-06-30 3:37PM
+
+Okay bro, wrap it up.
+
+I'm just going to do dynamic sizing for now,
+I'm not rehauling the whole UI system.
+
+I know I should probably make a new branch for this since I'm rewriting an interface,
+but I'm so confident this will go smoothly that I'm just not going to do that.
+(Marker for future hindsight.)
+
+Oh, I guess I forgot to mention how specifically I'm planning on doing dynamic sizing.
+I'm simply going to pass the container size (in pixels, which isn't the most robust generalization
+bc maybe the app wants something to be relative to the entire screen size or in physical units,
+but they can cry about it)
+when I ask to get the UI element.
+
+Right now, since its summer with no friends or a j*b,
+I actually want to implement stuff over brainstorming.
+Usually, the brainstorming is the fun part and I feel like I never have the time to do it,
+but having too much of something makes me want it less I guess.
+
+Btw this is the github issue I created:
+[#36](https://github.com/mathkimchi/singularity/issues/36).
