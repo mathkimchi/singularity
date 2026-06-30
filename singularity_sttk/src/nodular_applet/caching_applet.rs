@@ -4,7 +4,9 @@ use singularity_common::{
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::{
+    display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
@@ -12,6 +14,7 @@ pub struct CachingApplet {
     applet: Mutex<Box<dyn NodularApplet>>,
     window: EncapsulatedLock<UIElement>,
     window_damaged: Arc<AtomicBool>,
+    window_size: EncapsulatedLock<DisplayContainerSize>,
     treeview: EncapsulatedLock<WorldTree<String>>,
     treeview_damaged: Arc<AtomicBool>,
 }
@@ -98,6 +101,9 @@ impl CachingApplet {
             applet: Mutex::new(inner_initiator(Box::new(inner_hook))),
             window,
             window_damaged,
+            // REVIEW: make this an argument like with window?
+            // I mean, doing it allows for more flexible use but I just don't want to
+            window_size: EncapsulatedLock::new(DisplayContainerSize::new(0, 0)),
             treeview,
             treeview_damaged,
         }
@@ -126,7 +132,7 @@ impl CachingApplet {
                 panic!("Placeholder app's functions should not be called")
             }
 
-            fn get_window(&self) -> UIElement {
+            fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
                 panic!("Placeholder app's functions should not be called")
             }
         }
@@ -148,18 +154,22 @@ impl CachingApplet {
             applet: Mutex::new(Box::new(PlaceholderApp)),
             window: EncapsulatedLock::new(UIElement::Nothing),
             window_damaged: Arc::new(AtomicBool::new(false)),
+            window_size: EncapsulatedLock::new(DisplayContainerSize::new(0, 0)),
             treeview: EncapsulatedLock::new(WorldTree::Base("Placeholder".to_string())),
             treeview_damaged: Arc::new(AtomicBool::new(false)),
         }
     }
 }
 impl BasicApplet for CachingApplet {
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
         if self
             .window_damaged
             .swap(false, std::sync::atomic::Ordering::Relaxed)
+            || self.window_size.get() != container_size
         {
-            self.window.set(self.applet.lock().unwrap().get_window());
+            self.window
+                .set(self.applet.lock().unwrap().get_window(container_size));
+            self.window_size.set(container_size)
         }
 
         self.window.get()

@@ -9,6 +9,7 @@ use singularity_sttk::{
     components::text_box::TextBox,
     nodular_applet::{NodularApplet, NodularRunnerHook},
 };
+use singularity_ui::display_units::DisplayContainerSize;
 use singularity_ui::{
     color::Color,
     ui_element::UIElement,
@@ -118,7 +119,7 @@ impl BasicApplet for TextBoxApplet {
         self.hook.damage_treeview();
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
         let cursor_color = if self.focused {
             Color::LIGHT_YELLOW
         } else {

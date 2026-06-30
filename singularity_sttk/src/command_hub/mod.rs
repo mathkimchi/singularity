@@ -9,7 +9,9 @@ use crate::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::BasicApplet;
-use singularity_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::{
+    color::Color, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
 use std::fmt::Write as _;
 
 /// Technically, this is a standard app, but it is so essential
@@ -186,7 +188,7 @@ impl BasicApplet for CommandHubApplet {
         self.hook.damage_treeview();
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, _: DisplayContainerSize) -> UIElement {
         let mut display_string = String::new();
 
         // print the last 10 from history

@@ -6,7 +6,7 @@ use singularity_common::utils::tree::world_tree::{
     WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::ui_element::UIElement;
+use singularity_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
 
 pub mod caching_applet;
 pub mod recursive_node_applet;
@@ -53,8 +53,8 @@ impl BasicApplet for Box<dyn NodularApplet> {
         (**self).handle_ui_event(ui_event);
     }
 
-    fn get_window(&self) -> UIElement {
-        (**self).get_window()
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
+        (**self).get_window(container_size)
     }
 }
 impl NodularApplet for Box<dyn NodularApplet> {

@@ -9,6 +9,7 @@ use singularity_sttk::{
     components::text_box::TextBox,
     nodular_applet::{NodularApplet, NodularRunnerHook},
 };
+use singularity_ui::display_units::DisplayContainerSize;
 use singularity_ui::ui_event::{KeyModifiers, KeyTrait as _};
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
 use std::path::PathBuf;
@@ -138,7 +139,7 @@ impl BasicApplet for TextEditorApplet {
         // self.hook.damage_treeview();
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
         let cursor_color = if self.focused {
             Color::LIGHT_YELLOW
         } else {

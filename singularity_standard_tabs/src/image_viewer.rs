@@ -7,6 +7,7 @@ use singularity_sttk::nodular_applet::{
 };
 use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
+use singularity_ui::display_units::DisplayContainerSize;
 use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
 use std::path::PathBuf;
 
@@ -90,7 +91,7 @@ impl BasicApplet for ImageViewerApplet {
         // self.hook.damage_treeview();
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
         UIElement::Image(self.image.clone())
     }
 }

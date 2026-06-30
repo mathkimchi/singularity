@@ -3,7 +3,11 @@ use crate::nodular_applet::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{color::Color, display_units::DisplayArea, ui_element::UIElement};
+use singularity_ui::{
+    color::Color,
+    display_units::{DisplayArea, DisplayContainerSize},
+    ui_element::UIElement,
+};
 use std::{collections::BTreeMap, sync::RwLock};
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
@@ -130,12 +134,12 @@ impl BasicApplet for RootNodeApplet {
         self.applet.handle_ui_event(ui_event);
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
         UIElement::Container(vec![
             self.get_treeview_display()
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
             self.applet
-                .get_window()
+                .get_window(container_size)
                 .bordered(Color::LIGHT_GREEN)
                 .contain(DisplayArea::new((0.2, 0.0), (1.0, 1.0))),
         ])

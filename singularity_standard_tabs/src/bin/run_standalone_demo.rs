@@ -8,6 +8,7 @@ use singularity_sar::{
 use singularity_sttk::components::text_box::TextBox;
 use singularity_ui::{
     color::Color,
+    display_units::DisplayContainerSize,
     ui_element::UIElement,
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
@@ -60,7 +61,7 @@ impl BasicApplet for TextBoxApplet {
         // ));
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
         self.textbox.render().fill_bg(Color::BLACK)
     }
 }

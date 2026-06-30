@@ -1,4 +1,6 @@
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::{
+    display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
 
 /// The runner gives this to the Applet
 pub trait BasicRunnerHook {
@@ -28,7 +30,7 @@ pub trait BasicApplet {
     fn handle_ui_event(&mut self, ui_event: UIEvent);
 
     /// This should resolve damaged state
-    fn get_window(&self) -> UIElement;
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement;
 }
 impl BasicApplet for Box<dyn BasicApplet> {
     fn handle_ui_event(&mut self, ui_event: UIEvent) {
@@ -36,8 +38,8 @@ impl BasicApplet for Box<dyn BasicApplet> {
         (**self).handle_ui_event(ui_event);
     }
 
-    fn get_window(&self) -> UIElement {
-        (**self).get_window()
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
+        (**self).get_window(container_size)
     }
 }
 

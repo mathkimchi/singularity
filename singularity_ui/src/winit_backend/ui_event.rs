@@ -1,4 +1,4 @@
-use crate::display_units::DisplayArea;
+use crate::display_units::{DisplayArea, DisplayContainerSize};
 
 /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
 /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
@@ -9,7 +9,7 @@ use crate::display_units::DisplayArea;
 #[derive(Debug, Clone)]
 pub enum UIEvent {
     KeyPress(Key, KeyModifiers),
-    WindowResized([u32; 2]),
+    WindowResized(DisplayContainerSize),
     /// ([mouse location [x, y], window size [w h]], container)
     ///
     /// REVIEW: definitely redundant, but might be helpful?

@@ -4,6 +4,7 @@ use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
     nodular_applet::NodularApplet, standard_keybinds::handle_standard_keybinds,
 };
+use singularity_ui::display_units::DisplayContainerSize;
 
 impl BasicApplet for WaylandApplet {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
@@ -17,7 +18,10 @@ impl BasicApplet for WaylandApplet {
         // self.hook.damage_treeview();
     }
 
-    fn get_window(&self) -> singularity_ui::ui_element::UIElement {
+    fn get_window(
+        &self,
+        _container_size: DisplayContainerSize,
+    ) -> singularity_ui::ui_element::UIElement {
         if let Ok(image) = self.image.lock()
             && let Some(ref image) = *image
         {

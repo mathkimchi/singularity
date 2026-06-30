@@ -1,4 +1,5 @@
 use crate::{
+    display_units::DisplayContainerSize,
     ui_event::Key,
     winit_backend::{UIDisplay, WinitData},
 };
@@ -65,10 +66,9 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 self.ui_event_queue
                     .lock()
                     .unwrap()
-                    .push(crate::ui_event::UIEvent::WindowResized([
-                        size.width,
-                        size.height,
-                    ]));
+                    .push(crate::ui_event::UIEvent::WindowResized(
+                        DisplayContainerSize::new(size.width, size.height),
+                    ));
             }
             winit::event::WindowEvent::CloseRequested => {
                 self.is_running

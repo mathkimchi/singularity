@@ -1,5 +1,7 @@
 use crate::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{UIDisplay, ui_element::UIElement, ui_event::UIEvent};
+use singularity_ui::{
+    UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 // /// Wrap this around an Arc
@@ -21,8 +23,11 @@ pub struct AppletRunner<Applet: BasicApplet> {
     root_window: Arc<Mutex<UIElement>>,
     root_window_damaged: Arc<AtomicBool>,
 
+    /// TODO: use mpsc
     ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
     is_running: Arc<AtomicBool>,
+
+    window_size: DisplayContainerSize,
 }
 impl<Applet: BasicApplet> AppletRunner<Applet> {
     /// Returns after the applet is closed.
@@ -82,10 +87,16 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             root_window_damaged,
             ui_event_queue,
             is_running,
+            // REVIEW
+            window_size: DisplayContainerSize::new(0, 0),
         };
 
         while runner.is_running.load(std::sync::atomic::Ordering::Relaxed) {
             for ui_event in std::mem::take(&mut *(runner.ui_event_queue.lock().unwrap())) {
+                if let UIEvent::WindowResized(window_size) = ui_event {
+                    runner.window_size = window_size;
+                }
+
                 runner.applet.handle_ui_event(ui_event);
             }
 
@@ -93,7 +104,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 .root_window_damaged
                 .swap(false, std::sync::atomic::Ordering::Relaxed)
             {
-                *runner.root_window.lock().unwrap() = runner.applet.get_window();
+                *runner.root_window.lock().unwrap() = runner.applet.get_window(runner.window_size);
             }
         }
     }

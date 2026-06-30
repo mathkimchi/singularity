@@ -140,6 +140,19 @@ impl DisplaySize {
     }
 }
 
+/// Used for the container's size when asking child for UI.
+/// In exclusively pixels.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+pub struct DisplayContainerSize {
+    pub width: u32,
+    pub height: u32,
+}
+impl DisplayContainerSize {
+    pub const fn new(width: u32, height: u32) -> Self {
+        DisplayContainerSize { width, height }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayCoord {
     pub x: DisplayUnits,

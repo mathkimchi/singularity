@@ -12,6 +12,7 @@ use singularity_common::{
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
+    display_units::DisplayContainerSize,
     ui_element::UIElement,
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
@@ -491,7 +492,7 @@ impl RecursiveNodeApplet {
     //     }
     // }
 
-    fn get_display(&self) -> UIElement {
+    fn get_display(&self, container_size: DisplayContainerSize) -> UIElement {
         // let mut applet_displays = Vec::new();
 
         // for applet in self.shared_resource.applets.read().unwrap().iter() {
@@ -504,7 +505,7 @@ impl RecursiveNodeApplet {
 
         // get_focused_applet!(self, |f| f.get_window())
         match self.shared_resource.focus_index.get() {
-            FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(),
+            FocusIndex::Focusing | FocusIndex::Inner => self.main_applet.get_window(container_size),
             FocusIndex::Child(child_index) => {
                 // log::debug!(
                 //     "This title: {}, returning {}th child named {}'s window",
@@ -514,7 +515,8 @@ impl RecursiveNodeApplet {
                 //         .get_treeview()
                 //         .get_root_value()
                 // );
-                self.shared_resource.children.read().unwrap()[child_index].get_window()
+                self.shared_resource.children.read().unwrap()[child_index]
+                    .get_window(container_size)
             }
         }
     }
@@ -594,13 +596,14 @@ impl BasicApplet for RecursiveNodeApplet {
         }
     }
 
-    fn get_window(&self) -> UIElement {
+    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
         // TODO: return cached if damaged is already false?
+        // REVIEW: idk why this is necessary if I already have caching browser; I'm not touching it rn
         self.shared_resource
             .window_damaged
             .store(false, std::sync::atomic::Ordering::Relaxed);
 
-        self.get_display()
+        self.get_display(container_size)
     }
 }
 impl NodularApplet for RecursiveNodeApplet {
