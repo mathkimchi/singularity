@@ -2,6 +2,7 @@ pub mod browser;
 pub mod terminal;
 
 // pub mod demo;
+pub mod code_editor;
 pub mod editor;
 pub mod image_viewer;
 pub mod pdf_viewer;

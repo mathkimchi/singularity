@@ -1,5 +1,6 @@
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
+use singularity_sttk::creatable_applet::CreatableNodularApplet;
 use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,
@@ -40,12 +41,12 @@ pub struct TextEditorApplet {
 
     hook: Box<dyn NodularRunnerHook>,
 }
-impl TextEditorApplet {
-    pub fn new<P>(file_path: P, hook: Box<dyn NodularRunnerHook>) -> Self
-    where
-        P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
-    {
+impl<P> CreatableNodularApplet<P> for TextEditorApplet
+where
+    P: AsRef<std::path::Path>,
+    PathBuf: std::convert::From<P>,
+{
+    fn new(file_path: P, hook: Box<dyn NodularRunnerHook + 'static>) -> Self {
         let textbox = TextBox::new(Self::get_content(&file_path));
         let file_path = PathBuf::from(file_path);
 
@@ -56,22 +57,8 @@ impl TextEditorApplet {
             hook,
         }
     }
-    pub fn get_initiator<P>(file_path: P) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self
-    where
-        P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
-    {
-        |hook: Box<dyn NodularRunnerHook>| Self::new(file_path, hook)
-    }
-    pub fn get_boxed_initiator<P>(
-        file_path: P,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
-    where
-        P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
-    {
-        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(file_path, hook))
-    }
+}
+impl TextEditorApplet {
     pub fn get_applet_spawner() -> AppletSpawner {
         struct EditorSpawner;
         impl AppletSpawnerTrait for EditorSpawner {

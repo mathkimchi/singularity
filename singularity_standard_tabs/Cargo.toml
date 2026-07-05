@@ -12,6 +12,8 @@ singularity_sporg = { path = "../singularity_sporg" }
 singularity_sar = { path = "../singularity_sar" }
 singularity_sttk = { path = "../singularity_sttk" }
 
+log = { workspace = true }
+
 serde = { workspace = true }
 serde_json = { workspace = true }
 
@@ -22,6 +24,9 @@ serde_json = { workspace = true }
 # printpdf = "^0.9.1"
 
 image = { workspace = true }
+
+# things needed for editor
+ropey = { version = "1.6.1" } # TODO:  checkout version 2 whiich is in beta rn
 
 # [[bin]]
 # name = "editor"

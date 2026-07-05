@@ -60,6 +60,16 @@ impl UIElement {
                 .collect(),
         )
     }
+
+    /// For background, you must draw a rectangle
+    pub fn glyphon_attr(fg: Color) -> glyphon::AttrsOwned {
+        glyphon::AttrsOwned::new(
+            &glyphon::Attrs::new()
+                .family(glyphon::Family::Monospace)
+                // White
+                .color(glyphon::Color(fg.to_argb_u32())),
+        )
+    }
 }
 impl From<Option<UIElement>> for UIElement {
     fn from(value: Option<UIElement>) -> Self {
@@ -68,15 +78,7 @@ impl From<Option<UIElement>> for UIElement {
 }
 impl From<String> for UIElement {
     fn from(raw_content: String) -> Self {
-        UIElement::Text(vec![(
-            raw_content,
-            glyphon::AttrsOwned::new(
-                &glyphon::Attrs::new()
-                    .family(glyphon::Family::Monospace)
-                    // White
-                    .color(glyphon::Color(0xFF_FF_FF_FF)),
-            ),
-        )])
+        UIElement::Text(vec![(raw_content, Self::glyphon_attr(Color::WHITE))])
     }
 }
 

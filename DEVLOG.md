@@ -7228,3 +7228,52 @@ but having too much of something makes me want it less I guess.
 
 Btw this is the github issue I created:
 [#36](https://github.com/mathkimchi/singularity/issues/36).
+
+2026-07-01 10:28AM
+
+Bro, week 2 of OS, we've just been doing concurrency.
+Ts is too easy with Rust bruh,
+just wrap everything in `Mutex` or `RwLock` gang.
+Or `mpsc`, but I would actually be interested in how that's implemented.
+
+I'm going to just work on a code editor instead of making the tree interface look good
+(wow this is kind character growth but also like a disillusionment,
+but also not really bc I actually want to implement the editor).
+
+I already have an editor, but I'm just going to make a new one.
+I *could* make a new crate like I did for the wl compositor,
+and that would be consistent behavior, but I'm just going to put it in `singularity_standard_apps`.
+
+...
+
+Uh, I just got a question wrong (I could've gotten the answer but I didn't think through it thoroughly enough).
+Maybe I should pay attention.
+
+2026-97-03 5:29PM
+
+TODO: I should figure out how to use Condvar to redo the whole system
+(I don't like how jank it is, I want it to be even less inheritance-y and use dependency injection/composition instead)
+
+Also, I've been looking at Rust GUI frameworks for inspiration,
+and I think I like `iced`'s system over `egui`'s immediate mode
+(where you just have a state, the state changes, and you redraw the whole UI each time).
+Egui is conceptually very elegant and I would probably use it in whatever project where additional features/constraints are not needed.
+
+But, I'm doing the code editor now, so I'll lock in on that.
+
+If I just wanted a text editor that worked, it'd be trivial,
+I already have one.
+The problem is that there are many ways of implementing even the simplest things
+like cursor position (store line and column or index?) that I'm going to do research
+on what other editors do.
+
+Resources:
+- Helix's [`Document`](https://github.com/helix-editor/helix/blob/master/helix-view/src/document.rs#L141) seems to correspond to the text editor portion of it.
+ - They really do store the text as just a rope
+- Cursor location seems to be [`Selection`](https://github.com/helix-editor/helix/blob/master/helix-core/src/selection.rs#L417)
+ - The main takaway for me (for no selection or multi cursor magic) is just that `primary_index: usize`
+ - But in the good lord's name, what is `ranges: SmallVec<[Range; 1]>`? Specifically, wth is `[_; 1]`? They don't even explain it in the docs. Maybe it's just to make it an iterator or something
+- [Zed's Rope/Sumtree blog](https://zed.dev/blog/zed-decoded-rope-sumtree) just talks about rope and sumtree's implementation which I don't need because I'm just using ropey
+
+I'll continue citing specific sources I find,
+but knowing it really boils down to Rope and usize is encouraging.
