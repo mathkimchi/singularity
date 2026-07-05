@@ -7301,3 +7301,23 @@ Whatever.
 
 There is a new weird bug where going left works as expected,
 but going forward sometimes just skips a bunch.
+
+2026-07-05 1:29AM
+
+I am on GitHub mobile as I walk from the library to my dorm.
+
+I am writing because I remembered that my gread grandfather died.
+
+I thought I was supposed to cry. But I don't even feel guilty that the only strain in my eyes are caused by fatigue. I am just too tired to care about how I'm supposed to react.
+
+But even I, who feels so little right now, find it a necessity to talk to someone about this. Yet, I have no one I'd like to tell this too.
+
+My family is too different from me and worse, their understanding of who I am is too different from who I have become.
+
+I can't approach any of my friends with this. I don't know why, I just can't. It's just that I don't want to throw a pity party for myself. This is my life to deal with, and I am worried that if I show I am vulnerable like this in front of someone else, they will have too much control over me. I am not worried they will take advantage of their power, but... I don't know. It's like, whoever I talk to this about, I would want them to also come to me when they're going through stuff, and I don't really have that relationship with anyone in my life right now. I had friends kind of like that during school, but I guess I am doomed to grow distant from everyone I don't have an environmental bonding to.
+
+Anyways, I don't want to write this in my diary because I don't want to be completely talking to myself. I am putting this entry in a public Dev log because I am not bringing this to anyone but there's a theoretical possibility someone comes across this. I am hoping that this is just lost in all the documentation that no one's going to ever find this. But there is a difference between sealing something and concealing it.
+
+In certain subjects, Singularity or Sonamu or whatever I call it is a closer confidant than anyone in my life, and for some, everyone in my life combined. This might seem weirdly parasocial or flatly dystopian to an external observer, but I have long noticed that I am constantly disappointed by people's lack of reliability in contrast to my code and music. In conjunction to my apathetic grieving, I must be seeming inhuman. But let me assure you, hypothetical reader, and really myself, that I am still a social creature. My projects will always be here for me, but they will never fill my need for social interactions.
+
+In fact, it may be that my current state of social deprivation is the greatest factor in my inability to feel grief.
