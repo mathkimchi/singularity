@@ -2,7 +2,10 @@ use ropey::Rope;
 use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
     creatable_applet::CreatableNodularApplet,
-    nodular_applet::{NodularApplet, NodularRunnerHook},
+    nodular_applet::{
+        AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer,
+        NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+    },
     standard_keybinds::handle_standard_keybinds,
 };
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::Key};
@@ -40,6 +43,24 @@ where
     }
 }
 impl CodeEditorApplet {
+    pub fn get_applet_spawner() -> AppletSpawner {
+        struct EditorSpawner;
+        impl AppletSpawnerTrait for EditorSpawner {
+            fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
+                let file_path = args.first()?;
+
+                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
+                    CodeEditorApplet::get_boxed_initiator(file_path.to_string()),
+                ))
+            }
+
+            fn duplicate(&self) -> AppletSpawner {
+                Box::new(Self)
+            }
+        }
+        Box::new(EditorSpawner)
+    }
+
     fn get_title(&self) -> String {
         self.file_path
             .file_name()

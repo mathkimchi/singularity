@@ -7277,3 +7277,27 @@ Resources:
 
 I'll continue citing specific sources I find,
 but knowing it really boils down to Rope and usize is encouraging.
+
+...
+
+I added the editor to the applet spawner registry and made it a test shortcut and it ran,
+and I probably should've committed there,
+but I wanted to fix the cursor not showing up by changing the foreground color.
+But then I got distracted and made a GitHub issue (#39) to do a custom glyph renderer
+because Glyphon can't handle backgrounds.
+While making that issue, I decided to check if I was using Glyphon in CharGrid
+jsut to make sure I wasn't saying something wrong in the body of it.
+And as I did it, I saw an error with CharGrid doing:
+`default_color: glyphon::Color::rgb(fg.0[0], fg.0[1], fg.0[0],),`
+even though it should clearly have been indexing 0, 1, then 2,
+so I decided to just do a singularity_ui::Color to glyphon Color function,
+and in doing so I realized that the other code that was converting
+from singularity_ui::Color to glyphon was giving argb to glyphon when it actually took rgba.
+So I committed just the UI bugfix.
+Then, I ran the example again and now it does show the cursor.
+
+I don't know why I wrote all that down.
+Whatever.
+
+There is a new weird bug where going left works as expected,
+but going forward sometimes just skips a bunch.

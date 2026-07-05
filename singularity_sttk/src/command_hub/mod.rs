@@ -119,6 +119,12 @@ impl CommandHubApplet {
                     self.execute_command("add_child image_viewer examples/sonamu.jpg")
                 }
                 Some(&"wl") => self.execute_command("add_child wl_app"),
+                Some(&"editor") => self.execute_command(
+                    "add_child code_editor examples/root-project/file_to_edit.txt",
+                ),
+                Some(&"text_editor") => self.execute_command(
+                    "add_child text_editor examples/root-project/file_to_edit.txt",
+                ),
                 Some(test) => Err(format!(
                     "`{test}` is an unknown test. Currently working tests: `image`"
                 )),
