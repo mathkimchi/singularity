@@ -1152,9 +1152,7 @@ mod drawing_impls {
                                             container_area,
                                             drawing_shared_data.surface_config,
                                         ),
-                                        default_color: glyphon::Color::rgb(
-                                            fg.0[0], fg.0[1], fg.0[0],
-                                        ),
+                                        default_color: fg.into(),
                                         custom_glyphs: &[],
                                     }],
                                     drawing_shared_data.swash_cache,

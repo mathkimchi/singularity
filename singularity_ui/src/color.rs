@@ -18,9 +18,13 @@ impl Color {
     pub const CYAN: Self = Color([0, 0xFF, 0xFF, 0xFF]);
     pub const RED: Self = Color([0xFF, 0x00, 0x00, 0xFF]);
 
-    pub const fn to_argb_u32(self) -> u32 {
-        let Self([r, g, b, a]) = self;
-        u32::from_be_bytes([a, r, g, b])
+    // pub const fn to_argb_u32(self) -> u32 {
+    //     let Self([r, g, b, a]) = self;
+    //     u32::from_be_bytes([a, r, g, b])
+    // }
+
+    pub const fn to_rgba_u32(self) -> u32 {
+        u32::from_be_bytes(self.0)
     }
 }
 #[cfg(feature = "wayland_backend")]
@@ -39,5 +43,11 @@ impl From<Color> for raqote::SolidSource {
             b: value.0[2],
             a: value.0[3],
         }
+    }
+}
+#[cfg(feature = "winit_backend")]
+impl From<&Color> for glyphon::Color {
+    fn from(value: &Color) -> Self {
+        glyphon::Color(value.to_rgba_u32())
     }
 }

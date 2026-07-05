@@ -66,8 +66,7 @@ impl UIElement {
         glyphon::AttrsOwned::new(
             &glyphon::Attrs::new()
                 .family(glyphon::Family::Monospace)
-                // White
-                .color(glyphon::Color(fg.to_argb_u32())),
+                .color((&fg).into()),
         )
     }
 }
