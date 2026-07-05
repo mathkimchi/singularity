@@ -9,7 +9,7 @@ use singularity_sttk::{
     standard_keybinds::handle_standard_keybinds,
 };
 use singularity_ui::{color::Color, ui_element::UIElement, ui_event::Key};
-use std::{collections::hash_map::Keys, fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 pub struct CodeEditorApplet {
     file_path: PathBuf,
@@ -83,7 +83,7 @@ impl BasicApplet for CodeEditorApplet {
                         self.cursor = self.cursor.saturating_sub(1);
                     }
                     (Key::ArrowKeyRight, _) => {
-                        self.cursor += (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                        self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
                     }
                     _ => {}
                 }
@@ -108,6 +108,8 @@ impl BasicApplet for CodeEditorApplet {
         };
 
         // let line_idx = self.buffer.char_to_line(self.cursor);
+
+        log::info!("Cursor position: {}", self.cursor);
 
         UIElement::Text(vec![
             (
