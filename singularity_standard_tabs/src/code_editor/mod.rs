@@ -8,7 +8,11 @@ use singularity_sttk::{
     },
     standard_keybinds::handle_standard_keybinds,
 };
-use singularity_ui::{color::Color, ui_element::UIElement, ui_event::Key};
+use singularity_ui::{
+    color::Color,
+    ui_element::UIElement,
+    ui_event::{Key, KeyModifiers},
+};
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 pub struct CodeEditorApplet {
@@ -79,11 +83,39 @@ impl BasicApplet for CodeEditorApplet {
         match ui_event {
             singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
                 match (key, key_modifiers) {
-                    (Key::ArrowKeyLeft, _) => {
+                    (Key::ArrowKeyLeft, KeyModifiers::NONE) => {
                         self.cursor = self.cursor.saturating_sub(1);
                     }
-                    (Key::ArrowKeyRight, _) => {
+                    (Key::ArrowKeyRight, KeyModifiers::NONE) => {
                         self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                    }
+                    (Key::ArrowKeyUp, KeyModifiers::NONE) => {
+                        let line = self.buffer.char_to_line(self.cursor);
+                        let column = self.cursor - self.buffer.line_to_char(line);
+
+                        let new_line = line.saturating_sub(1);
+                        let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
+
+                        self.cursor = unclamped_new_cursor_pos.min(
+                            self.buffer
+                                .try_line_to_char(new_line + 1)
+                                .unwrap_or_else(|_| self.buffer.len_chars())
+                                - 1,
+                        );
+                    }
+                    (Key::ArrowKeyDown, KeyModifiers::NONE) => {
+                        let line = self.buffer.char_to_line(self.cursor);
+                        let column = self.cursor - self.buffer.line_to_char(line);
+
+                        let new_line = (line + 1).min(self.buffer.len_lines() - 1);
+                        let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
+
+                        self.cursor = unclamped_new_cursor_pos.min(
+                            self.buffer
+                                .try_line_to_char(new_line + 1)
+                                .unwrap_or_else(|_| self.buffer.len_chars())
+                                - 1,
+                        );
                     }
                     _ => {}
                 }

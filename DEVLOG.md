@@ -7355,3 +7355,7 @@ First, I should fix the cursor moving bug on the right arrow.
 
 The issue was that I was more or less doing `cursor += cursor + 1;`.
 Oof.
+
+...
+
+Next, up and down arrows.
