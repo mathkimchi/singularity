@@ -17,10 +17,7 @@ use smithay::{
             utils::draw_render_elements,
         },
     },
-    input::{
-        Seat, SeatState,
-        keyboard::{FilterResult, Keysym},
-    },
+    input::{Seat, SeatState, keyboard::FilterResult},
     reexports::{
         calloop::{EventLoop, LoopSignal},
         pixman,

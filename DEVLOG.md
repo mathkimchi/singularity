@@ -7371,3 +7371,36 @@ AI coding a shot.
 But, I don't want to ruin singularity, so I want to try it on a new project.
 
 Anyways, insertion took me a minute to write.
+
+I'm lowkey distracted texting and just doing beuraucratic setup for college.
+
+Before I display lines or do scrolling (they are pretty related features),
+I think I should figure out how to actually display the cursor properly.
+
+This is [issue #39](https://github.com/mathkimchi/singularity/issues/39)
+by the way.
+
+I thought about it, and yeah, I'm just going to just use CharGrid.
+I previously deprecated it once I started using glyphon and got the ability to
+render a whole string at once.
+I probably thought rendering a whole string at once would be much better in terms of performance,
+but looking at it now, the difference will probably be negligable if not worse.
+The benefit with a more hands-on approach to CharGrid is that I know each character will be a fixed size.
+
+Previously, CharGrid was a `Vec<Vec<Cell>>`,
+but I am going to make it store the width, height, and just one layer of `Vec<Cell>`
+with the invariant assumption that its length is width * height.
+(Probably won't directly assert this at runtime, but if this invariant is violated,
+I can't gurantee what will happen next.)
+
+...
+
+Okay, I changed CharGrid and the biggest effect was that TextBox had to be temporarily removed,
+and becaue of that I also had to remove Text Editor (this one is likely for good though).
+
+I'll remake the textbox widget after I get the CharGrid to work,
+but I don't think I can use it in CodeEditor so there'll be a lot of repeated code.
+
+I'll commit now though.
+I'm also goign to close issue 39 not because it's really finished-I didn't really change anything-but because
+it vague and really just a reminder for myself to think of ways of improving this rather than a specific fix.

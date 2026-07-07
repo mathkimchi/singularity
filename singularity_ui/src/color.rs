@@ -46,8 +46,9 @@ impl From<Color> for raqote::SolidSource {
     }
 }
 #[cfg(feature = "winit_backend")]
-impl From<&Color> for glyphon::Color {
-    fn from(value: &Color) -> Self {
+impl From<Color> for glyphon::Color {
+    /// TODO: figure out most idiomatic way of dealing with these references for copy-able types.
+    fn from(value: Color) -> Self {
         glyphon::Color(value.to_rgba_u32())
     }
 }

@@ -22,6 +22,7 @@ impl TextBox {
         }
     }
 
+    /// TODO: TS will not work anymore; store text as rope not as the UI bro...
     pub fn get_text_as_string(&self) -> String {
         self.text.get_text_as_string()
     }

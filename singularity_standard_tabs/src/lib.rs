@@ -2,8 +2,9 @@ pub mod browser;
 pub mod terminal;
 
 // pub mod demo;
+// TODO: rename code_editor to just editor now that normal editor is not used anymore?
 pub mod code_editor;
-pub mod editor;
+// pub mod editor;
 pub mod image_viewer;
 pub mod pdf_viewer;
 // pub mod file_manager;

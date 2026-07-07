@@ -1,11 +1,5 @@
-use std::{
-    env,
-    fs::{File, write},
-    io::Write,
-    path::Path,
-};
-
 use regex::Regex;
+use std::{env, fs::write, path::Path};
 
 // This is so jank...
 // Keycodes from: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h

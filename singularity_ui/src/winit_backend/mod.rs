@@ -1054,13 +1054,15 @@ mod drawing_impls {
                     // );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    for (line_index, line) in char_grid.content.iter().enumerate() {
-                        for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
+                    for row in 0..char_grid.width() {
+                        for col in 0..char_grid.height() {
+                            let CharCell { character, fg, bg } = char_grid.get_char(row, col);
+
                             let top_left = DisplayCoord::new(
                                 container_area.0.x
-                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
+                                    + DisplayUnits::Pixels(FONT_SIZE / 2 * (col as i32)),
                                 container_area.0.y
-                                    + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
+                                    + DisplayUnits::Pixels(FONT_SIZE * (row as i32) + 1),
                             );
 
                             if !container_area.contains(
@@ -1095,11 +1097,11 @@ mod drawing_impls {
                                 0.,
                                 // Set to 1 for dbg boxes
                                 0.,
-                                *bg,
+                                bg,
                                 Color::TRANSPARENT,
                             );
 
-                            if character == &' ' {
+                            if character == ' ' {
                                 continue;
                             }
 
@@ -1152,7 +1154,7 @@ mod drawing_impls {
                                             container_area,
                                             drawing_shared_data.surface_config,
                                         ),
-                                        default_color: fg.into(),
+                                        default_color: (fg).into(),
                                         custom_glyphs: &[],
                                     }],
                                     drawing_shared_data.swash_cache,

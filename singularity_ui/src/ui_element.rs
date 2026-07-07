@@ -21,7 +21,6 @@ pub enum UIElement {
     /// should display like a terminal
     ///
     /// most important feature is that each character is the same size
-    #[deprecated]
     CharGrid(CharGrid),
 
     Image(image::RgbaImage),
@@ -66,7 +65,7 @@ impl UIElement {
         glyphon::AttrsOwned::new(
             &glyphon::Attrs::new()
                 .family(glyphon::Family::Monospace)
-                .color((&fg).into()),
+                .color(fg.into()),
         )
     }
 }
@@ -86,6 +85,7 @@ pub struct CharCell {
     pub character: char,
     pub fg: Color,
     pub bg: Color,
+    // TODO: just store glyphon::AttrsOwned?
 }
 impl CharCell {
     pub fn new(character: char) -> Self {
@@ -97,53 +97,110 @@ impl CharCell {
     }
 }
 
-#[deprecated]
+/// #[deprecated]
+/// Idk why I deprecated this. If anything, CharGrid should be better than Glyphon Richtext
+/// bc Glyphon doesn't support background colors.
+/// Assumed invariant: `len(content)==width*height`
+///
+/// Immutable
 #[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharGrid {
-    pub content: Vec<Vec<CharCell>>,
+    width: usize,
+    height: usize,
+    content: Vec<CharCell>,
 }
 impl From<String> for CharGrid {
+    /// Makes width and height the smallest necessary to fit everything.
     fn from(raw_content: String) -> Self {
+        let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
+            width
+        } else {
+            return CharGrid {
+                width: 0,
+                height: 0,
+                content: Vec::new(),
+            };
+        };
+        let height = raw_content.lines().count();
+
         let mut content = Vec::new();
         for line_str in raw_content.split('\n') {
-            let mut line = Vec::new();
-            for c in line_str.chars() {
-                line.push(CharCell::new(c));
+            let chars = line_str.chars().collect::<Vec<_>>();
+            for i in 0..width {
+                content.push(CharCell::new(chars.get(i).cloned().unwrap_or(' ')));
             }
-            content.push(line);
         }
 
-        CharGrid { content }
+        CharGrid {
+            width,
+            height,
+            content,
+        }
     }
 }
 impl CharGrid {
     pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
+        let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
+            width
+        } else {
+            return CharGrid {
+                width: 0,
+                height: 0,
+                content: Vec::new(),
+            };
+        };
+        let height = raw_content.lines().count();
+
         let mut content = Vec::new();
         for line_str in raw_content.split('\n') {
-            let mut line = Vec::new();
-            for character in line_str.chars() {
-                line.push(CharCell { character, fg, bg });
+            let chars = line_str.chars().collect::<Vec<_>>();
+            for i in 0..width {
+                content.push(CharCell {
+                    fg,
+                    bg,
+                    character: chars.get(i).cloned().unwrap_or(' '),
+                });
             }
-            content.push(line);
         }
 
-        Self { content }
+        CharGrid {
+            width,
+            height,
+            content,
+        }
     }
 
-    pub fn get_text_as_string(&self) -> String {
-        self.content
-            .iter()
-            .map(|line| {
-                line.iter()
-                    .map(|c| c.character.to_string())
-                    .collect::<Vec<_>>()
-                    .join("")
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
+    // pub fn get_text_as_string(&self) -> String {
+    //     self.content
+    //         .iter()
+    //         .map(|line| {
+    //             line.iter()
+    //                 .map(|c| c.character.to_string())
+    //                 .collect::<Vec<_>>()
+    //                 .join("")
+    //         })
+    //         .collect::<Vec<_>>()
+    //         .join("\n")
+    // }
 
     pub fn element(self) -> UIElement {
         UIElement::CharGrid(self)
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    /// Returns char cell at index `row * self.width + col`
+    pub fn get_char(&self, row: usize, col: usize) -> CharCell {
+        self.content[row * self.width + col]
+    }
+
+    pub fn content(&self) -> &[CharCell] {
+        &self.content
     }
 }

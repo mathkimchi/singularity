@@ -3,7 +3,8 @@
 // use singularity_ui::ui_element::UIElement;
 
 // pub mod button;
-pub mod text_box;
+// TODO: do re-implement textbox with ropey; actually, just copy over most of code editor into text_box
+// pub mod text_box;
 // pub mod timer_widget;
 // pub mod tree_viewer;
 
