@@ -117,6 +117,10 @@ impl BasicApplet for CodeEditorApplet {
                                 - 1,
                         );
                     }
+                    (Key::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                        self.buffer.insert_char(self.cursor, c);
+                        self.cursor += 1;
+                    }
                     _ => {}
                 }
             }

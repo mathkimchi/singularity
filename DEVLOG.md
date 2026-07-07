@@ -7359,3 +7359,15 @@ Oof.
 ...
 
 Next, up and down arrows.
+
+2026-07-07 11:15AM
+
+I might start a new project soon for independent AI research
+or making a social media platform if I end up not being able to find a lab.
+
+Honestly, the reason why I want to do a new project is because
+I've been watching documentaries and interviews and it seems maybe it's worth giving
+AI coding a shot.
+But, I don't want to ruin singularity, so I want to try it on a new project.
+
+Anyways, insertion took me a minute to write.
