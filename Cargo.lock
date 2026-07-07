@@ -3176,6 +3176,7 @@ dependencies = [
  "font-kit",
  "glyphon",
  "image",
+ "log",
  "pathfinder_geometry",
  "pollster",
  "raqote",

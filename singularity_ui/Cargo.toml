@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 wayland-client = { version = "^0.31", optional = true }
 wayland-protocols = { version = "^0.32", features = [
-    "client",
+  "client",
 ], optional = true }
 smithay-client-toolkit = { version = "^0.20", optional = true }
 
@@ -28,16 +28,18 @@ pollster = "^0.4.0"
 bytemuck = { version = "^1.25.0", features = ["derive"] }
 wgpu_canvas = { version = "^5.0.8" }
 
+log = { workspace = true }
+
 [features]
 default = ["winit_backend"]
 wayland_backend = [
-    "wayland-client",
-    "wayland-protocols",
-    "smithay-client-toolkit",
+  "wayland-client",
+  "wayland-protocols",
+  "smithay-client-toolkit",
 
-    "raqote",
-    "font-kit",
-    # "pathfinder_canvas",
-    "pathfinder_geometry",
+  "raqote",
+  "font-kit",
+  # "pathfinder_canvas",
+  "pathfinder_geometry",
 ]
 winit_backend = []

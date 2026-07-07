@@ -10,7 +10,7 @@ use singularity_sttk::{
 };
 use singularity_ui::{
     color::Color,
-    ui_element::UIElement,
+    ui_element::{CharCell, CharGrid, UIElement},
     ui_event::{Key, KeyModifiers},
 };
 use std::{
@@ -82,6 +82,11 @@ impl CodeEditorApplet {
         let mut dest = BufWriter::new(File::create(&self.file_path).unwrap());
         self.buffer.write_to(&mut dest).unwrap();
         dest.flush().unwrap();
+    }
+
+    // TODO: make something that iterates the line_idx's?
+    fn disp_row_to_line_idx(&self, display_row: usize) -> usize {
+        display_row
     }
 }
 impl BasicApplet for CodeEditorApplet {
@@ -161,33 +166,56 @@ impl BasicApplet for CodeEditorApplet {
         &self,
         container_size: singularity_ui::display_units::DisplayContainerSize,
     ) -> singularity_ui::ui_element::UIElement {
-        let cursor_color = if self.focused {
-            Color::LIGHT_YELLOW
-        } else {
-            Color::MEDIUM_GRAY
-        };
+        let (width, height) = CharGrid::largest_fittable_size(container_size);
 
         // let line_idx = self.buffer.char_to_line(self.cursor);
+        // log::info!("Cursor position: {}", self.cursor);
 
-        log::info!("Cursor position: {}", self.cursor);
+        let mut content = CharGrid::new_empty(width, height);
+        for row in 0..height {
+            let line_idx = self.disp_row_to_line_idx(row);
 
-        UIElement::Text(vec![
-            (
-                self.buffer.slice(..self.cursor).to_string(),
-                UIElement::glyphon_attr(Color::WHITE),
-            ),
-            (
-                self.buffer.char(self.cursor).to_string(),
-                // TODO: right now, this changes fg color,
-                // glyphon doesn't do bg so I'll have to deal w that manually later
-                // might even need to do glyph rendering manually bruh (i'm cryng)
-                UIElement::glyphon_attr(cursor_color),
-            ),
-            (
-                self.buffer.slice((self.cursor + 1)..).to_string(),
-                UIElement::glyphon_attr(Color::WHITE),
-            ),
-        ])
+            let line = if let Some(line) = self.buffer.get_line(line_idx) {
+                line
+            } else {
+                break;
+            };
+
+            for (col, c) in line.chars().take(width).enumerate() {
+                content.get_char_mut(row, col).character = c;
+
+                // currently scroll is only horizontal
+                let content_idx = self.buffer.line_to_char(line_idx) + col;
+                if content_idx == self.cursor {
+                    let cursor_color = if self.focused {
+                        Color::LIGHT_YELLOW
+                    } else {
+                        Color::MEDIUM_GRAY
+                    };
+                    content.get_char_mut(row, col).bg = cursor_color;
+                }
+            }
+        }
+
+        content.element()
+
+        // UIElement::Text(vec![
+        //     (
+        //         self.buffer.slice(..self.cursor).to_string(),
+        //         UIElement::glyphon_attr(Color::WHITE),
+        //     ),
+        //     (
+        //         self.buffer.char(self.cursor).to_string(),
+        //         // TODO: right now, this changes fg color,
+        //         // glyphon doesn't do bg so I'll have to deal w that manually later
+        //         // might even need to do glyph rendering manually bruh (i'm cryng)
+        //         UIElement::glyphon_attr(cursor_color),
+        //     ),
+        //     (
+        //         self.buffer.slice((self.cursor + 1)..).to_string(),
+        //         UIElement::glyphon_attr(Color::WHITE),
+        //     ),
+        // ])
     }
 }
 impl NodularApplet for CodeEditorApplet {

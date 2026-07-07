@@ -1,4 +1,7 @@
-use crate::{color::Color, display_units::DisplayArea};
+use crate::{
+    color::Color,
+    display_units::{DisplayArea, DisplayContainerSize},
+};
 
 /// TODO: rename most everything here
 #[derive(Debug, Clone, PartialEq)]
@@ -96,6 +99,17 @@ impl CharCell {
         }
     }
 }
+impl Default for CharCell {
+    fn default() -> Self {
+        Self::new(' ')
+    }
+}
+
+/// think this is height in pixels
+/// TODO: make this not-so-hardcoded...
+pub const FONT_SIZE_U: u32 = 24;
+pub const FONT_SIZE: i32 = FONT_SIZE_U as i32;
+pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
 
 /// #[deprecated]
 /// Idk why I deprecated this. If anything, CharGrid should be better than Glyphon Richtext
@@ -103,7 +117,7 @@ impl CharCell {
 /// Assumed invariant: `len(content)==width*height`
 ///
 /// Immutable
-#[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharGrid {
     width: usize,
     height: usize,
@@ -139,6 +153,21 @@ impl From<String> for CharGrid {
     }
 }
 impl CharGrid {
+    pub fn new(width: usize, height: usize, content: Vec<CharCell>) -> Self {
+        debug_assert_eq!(width * height, content.len());
+
+        Self {
+            width,
+            height,
+            content,
+        }
+    }
+
+    /// TODO: make a CharGridSize struct?
+    pub fn new_empty(width: usize, height: usize) -> Self {
+        Self::new(width, height, vec![CharCell::default(); width * height])
+    }
+
     pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
         let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
             width
@@ -170,6 +199,16 @@ impl CharGrid {
         }
     }
 
+    /// Returns (width, height)
+    pub fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+        (
+            // Font size is height, width is twice the height
+            // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer
+            ((container_size.width / FONT_SIZE_U) * 2) as usize,
+            (container_size.height / FONT_SIZE_U) as usize,
+        )
+    }
+
     // pub fn get_text_as_string(&self) -> String {
     //     self.content
     //         .iter()
@@ -198,6 +237,11 @@ impl CharGrid {
     /// Returns char cell at index `row * self.width + col`
     pub fn get_char(&self, row: usize, col: usize) -> CharCell {
         self.content[row * self.width + col]
+    }
+
+    /// Returns char cell at index `row * self.width + col`
+    pub fn get_char_mut(&mut self, row: usize, col: usize) -> &mut CharCell {
+        &mut self.content[row * self.width + col]
     }
 
     pub fn content(&self) -> &[CharCell] {

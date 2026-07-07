@@ -597,7 +597,7 @@ mod drawing_impls {
     use crate::{
         color::Color,
         display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
-        ui_element::{CharCell, UIElement},
+        ui_element::{CharCell, FONT_SIZE, FONT_SIZE_F, UIElement},
         winit_backend::{ImageInstance, RoundRectInstance, Vertex, WinitData},
     };
     use glyphon::{Metrics, TextRenderer};
@@ -876,10 +876,6 @@ mod drawing_impls {
         }
 
         fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
-            /// think this is height in pixels
-            const FONT_SIZE: i32 = 24;
-            const FONT_SIZE_F: f32 = FONT_SIZE as f32;
-
             match self {
                 UIElement::Container(children) => {
                     for ui_element in children {
@@ -1054,8 +1050,13 @@ mod drawing_impls {
                     // );
                 }
                 UIElement::CharGrid(char_grid) => {
-                    for row in 0..char_grid.width() {
-                        for col in 0..char_grid.height() {
+                    for row in 0..char_grid.height() {
+                        for col in 0..char_grid.width() {
+                            // log::debug!(
+                            //     "Row: {row}, col: {col}, w: {}, h: {}",
+                            //     char_grid.width(),
+                            //     char_grid.height()
+                            // );
                             let CharCell { character, fg, bg } = char_grid.get_char(row, col);
 
                             let top_left = DisplayCoord::new(
@@ -1085,21 +1086,23 @@ mod drawing_impls {
                             //         + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
                             // );
 
-                            Self::fill_rect(
-                                drawing_shared_data,
-                                DisplayArea::from_corner_size(
-                                    top_left,
-                                    DisplaySize::new(
-                                        (FONT_SIZE / 2 + 1).into(),
-                                        (FONT_SIZE + 2).into(),
+                            if bg != Color::TRANSPARENT {
+                                Self::fill_rect(
+                                    drawing_shared_data,
+                                    DisplayArea::from_corner_size(
+                                        top_left,
+                                        DisplaySize::new(
+                                            (FONT_SIZE / 2 + 1).into(),
+                                            (FONT_SIZE + 2).into(),
+                                        ),
                                     ),
-                                ),
-                                0.,
-                                // Set to 1 for dbg boxes
-                                0.,
-                                bg,
-                                Color::TRANSPARENT,
-                            );
+                                    0.,
+                                    // Set to 1 for dbg boxes
+                                    0.,
+                                    bg,
+                                    Color::TRANSPARENT,
+                                );
+                            }
 
                             if character == ' ' {
                                 continue;

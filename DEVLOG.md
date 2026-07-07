@@ -7404,3 +7404,11 @@ but I don't think I can use it in CodeEditor so there'll be a lot of repeated co
 I'll commit now though.
 I'm also goign to close issue 39 not because it's really finished-I didn't really change anything-but because
 it vague and really just a reminder for myself to think of ways of improving this rather than a specific fix.
+
+...
+
+Now for using CharGrid in CodeEditor.
+
+...
+
+Okay, so it works, but it *is* really slow so I guess my old fears were right.
