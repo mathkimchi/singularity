@@ -18,10 +18,10 @@ impl Color {
     pub const CYAN: Self = Color([0, 0xFF, 0xFF, 0xFF]);
     pub const RED: Self = Color([0xFF, 0x00, 0x00, 0xFF]);
 
-    // pub const fn to_argb_u32(self) -> u32 {
-    //     let Self([r, g, b, a]) = self;
-    //     u32::from_be_bytes([a, r, g, b])
-    // }
+    pub const fn to_argb_u32(self) -> u32 {
+        let Self([r, g, b, a]) = self;
+        u32::from_be_bytes([a, r, g, b])
+    }
 
     pub const fn to_rgba_u32(self) -> u32 {
         u32::from_be_bytes(self.0)
@@ -49,6 +49,6 @@ impl From<Color> for raqote::SolidSource {
 impl From<Color> for glyphon::Color {
     /// TODO: figure out most idiomatic way of dealing with these references for copy-able types.
     fn from(value: Color) -> Self {
-        glyphon::Color(value.to_rgba_u32())
+        glyphon::Color(value.to_argb_u32())
     }
 }

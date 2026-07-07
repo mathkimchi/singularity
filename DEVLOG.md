@@ -7412,3 +7412,8 @@ Now for using CharGrid in CodeEditor.
 ...
 
 Okay, so it works, but it *is* really slow so I guess my old fears were right.
+
+I don't know why that's happening, but first I'll fix the fact it shows magenta when I print light yellow.
+... it was argb not rgba.
+(I literally had that then changed it and I swear on @glolichen's hygine it was in the documentation that glyphon uses rgba but wtv
+I guess @glolichen can go a few more years without wiping.)

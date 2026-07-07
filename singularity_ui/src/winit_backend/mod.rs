@@ -1157,7 +1157,7 @@ mod drawing_impls {
                                             container_area,
                                             drawing_shared_data.surface_config,
                                         ),
-                                        default_color: (fg).into(),
+                                        default_color: fg.into(),
                                         custom_glyphs: &[],
                                     }],
                                     drawing_shared_data.swash_cache,
