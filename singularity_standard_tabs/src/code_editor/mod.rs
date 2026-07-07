@@ -125,6 +125,12 @@ impl BasicApplet for CodeEditorApplet {
                         self.buffer.insert_char(self.cursor, '\n');
                         self.cursor += 1;
                     }
+                    (Key::Backspace, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                        if let Some(prev_idx) = self.cursor.checked_sub(1) {
+                            self.buffer.remove(prev_idx..self.cursor);
+                            self.cursor = prev_idx;
+                        }
+                    }
                     _ => {}
                 }
             }
