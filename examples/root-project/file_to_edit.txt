@@ -1,3 +1,14 @@
+2026-07-07 12:33PM
+
+Ok, try 4 or something.
+I checked the save is being recognized,
+I'm flushing,
+and I am using `File::create` instead of `open`
+for write permissions.
+
+Well, I'm not getting an error on save,
+...and noice, the changes show up!
+
 2026-03-11 6:35PM
 
 Ok, so the first time I ran this command,

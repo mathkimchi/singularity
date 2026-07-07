@@ -13,7 +13,11 @@ use singularity_ui::{
     ui_element::UIElement,
     ui_event::{Key, KeyModifiers},
 };
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter, Write},
+    path::PathBuf,
+};
 
 pub struct CodeEditorApplet {
     file_path: PathBuf,
@@ -73,6 +77,12 @@ impl CodeEditorApplet {
             .unwrap()
             .to_string()
     }
+
+    fn save_buffer(&self) {
+        let mut dest = BufWriter::new(File::create(&self.file_path).unwrap());
+        self.buffer.write_to(&mut dest).unwrap();
+        dest.flush().unwrap();
+    }
 }
 impl BasicApplet for CodeEditorApplet {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
@@ -83,6 +93,10 @@ impl BasicApplet for CodeEditorApplet {
         match ui_event {
             singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
                 match (key, key_modifiers) {
+                    (Key::Char('s'), KeyModifiers::CTRL) => {
+                        // log::info!("Saving!");
+                        self.save_buffer();
+                    }
                     (Key::ArrowKeyLeft, KeyModifiers::NONE) => {
                         self.cursor = self.cursor.saturating_sub(1);
                     }
