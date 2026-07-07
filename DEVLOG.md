@@ -7417,3 +7417,13 @@ I don't know why that's happening, but first I'll fix the fact it shows magenta 
 ... it was argb not rgba.
 (I literally had that then changed it and I swear on @glolichen's hygine it was in the documentation that glyphon uses rgba but wtv
 I guess @glolichen can go a few more years without wiping.)
+
+...grrr the problem could be in the Ropey logic (ropey buffer -> Char Grid) or the rendering logic.
+
+I'm going to bet that the problem is the rendering logic.
+Hopefully, the problem lies in the fact I am re-making some config thing each time
+and I can speed everything up by just reusing it.
+
+Ok, so I have to use a unique `text_render` each time,
+but I can reuse `text_buffer`.
+There's not much speedup though.

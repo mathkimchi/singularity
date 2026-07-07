@@ -1050,6 +1050,33 @@ mod drawing_impls {
                     // );
                 }
                 UIElement::CharGrid(char_grid) => {
+                    let mut text_buffer = glyphon::Buffer::new(
+                        drawing_shared_data.font_system,
+                        Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
+                    );
+
+                    // // text_buffer.set_size(
+                    // //     &mut drawing_shared_data.font_system,
+                    // //     Some(physical_width),
+                    // //     Some(physical_height),
+                    // // );
+
+                    // // text_buffer.set_text(
+                    // //     drawing_shared_data.font_system,
+                    // //     character.to_string().as_str(),
+                    // //     &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+                    // //     glyphon::Shaping::Advanced,
+                    // //     None,
+                    // // );
+                    // text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
+
+                    // let mut text_renderer = TextRenderer::new(
+                    //     drawing_shared_data.atlas,
+                    //     drawing_shared_data.device,
+                    //     MultisampleState::default(),
+                    //     None,
+                    // );
+
                     for row in 0..char_grid.height() {
                         for col in 0..char_grid.width() {
                             // log::debug!(
@@ -1108,10 +1135,10 @@ mod drawing_impls {
                                 continue;
                             }
 
-                            let mut text_buffer = glyphon::Buffer::new(
-                                drawing_shared_data.font_system,
-                                Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
-                            );
+                            // let mut text_buffer = glyphon::Buffer::new(
+                            //     drawing_shared_data.font_system,
+                            //     Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
+                            // );
 
                             // text_buffer.set_size(
                             //     &mut drawing_shared_data.font_system,
