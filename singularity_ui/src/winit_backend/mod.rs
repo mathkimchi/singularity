@@ -1055,6 +1055,9 @@ mod drawing_impls {
                         Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
                     );
 
+                    let attrs = &glyphon::Attrs::new().family(glyphon::Family::Monospace);
+                    let shaping = glyphon::Shaping::Advanced;
+
                     // // text_buffer.set_size(
                     // //     &mut drawing_shared_data.font_system,
                     // //     Some(physical_width),
@@ -1149,8 +1152,10 @@ mod drawing_impls {
                             text_buffer.set_text(
                                 drawing_shared_data.font_system,
                                 character.to_string().as_str(),
-                                &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-                                glyphon::Shaping::Advanced,
+                                // &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+                                attrs,
+                                // glyphon::Shaping::Advanced,
+                                shaping,
                                 None,
                             );
                             text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);

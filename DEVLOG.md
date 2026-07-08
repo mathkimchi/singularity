@@ -7427,3 +7427,33 @@ and I can speed everything up by just reusing it.
 Ok, so I have to use a unique `text_render` each time,
 but I can reuse `text_buffer`.
 There's not much speedup though.
+
+...
+
+Grr... fuck, believe me when I say I didn't want to do this.
+Well, I did think it would be cool, but this is going to be a fucking nightmare...
+
+I am writing a monospace renderer that takes advantage of DMA.
+
+Fuck, why do I do this to myself?
+
+...
+
+Ok, well, I wanted to use something like DMA so zero-copy rendering.
+
+...
+
+I got lost in a rabbit hole of Googling and asking Google AI about what techniques are commonly used.
+Eventually, I was talking about the general architecture.
+
+I talked about some general ideas in #34, but I spent over an hour on ts.
+I think in the future, I'll have one GeneralPrimitive which is like a poor man's enum,
+so I can pass all the instances at once and only need one draw call.
+
+Anyways, I'm going to implement the glyph renderer myself.
+And I'll do it starting tomorrow.
+
+I swear I'm not procrastinating because I don't want to implement this.
+In fact, I am currently at the stage of over confidently assuming this will be simple.
+The reason I can't implement this *now* is because I have to make a presentation tomorrow and it is 8:43 right now.
+I think I was supposed to have shared it as well, but can't share what I don't have.
