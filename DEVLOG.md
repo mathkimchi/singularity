@@ -7457,3 +7457,53 @@ I swear I'm not procrastinating because I don't want to implement this.
 In fact, I am currently at the stage of over confidently assuming this will be simple.
 The reason I can't implement this *now* is because I have to make a presentation tomorrow and it is 8:43 right now.
 I think I was supposed to have shared it as well, but can't share what I don't have.
+
+2026-07-08 11:44PM
+
+Yes, fine, I asked Claude for advice.
+Specifically, asked:
+
+> I have to render a CharGrid which has width height and a flattened vec of chars with very high performance.
+Each character is monospace, so it is extremely simple to know what character some pixel is pointing to.
+For this reason, I am considering putting all the rendering logic in the vertex shader and use an SDF.
+The rest of my codebase is currently in WGPU, but I hear Vulkan supports direct memory access and am willing to switch to Vulkan if it will 2x  performance.
+How do you recommend I deal with the data transfer? Performance is the bottom line.
+
+First thing it said is that Vulkan won't do 2x even if it unlocks DMA,
+because the bottleneck probably isn't transfering text.
+
+It actually says the first thing I should do is profile before I even try to fix the issue.
+...no.
+I'm allergic to profiling for some reason.
+I'd love to have it if someone else set it up for me,
+and I'm sure I'd make good use out of it,
+but I just... idk bro, it's not for me.
+
+I actually was thinking to myself if this was possible, and Claude says
+I can't use custom texels (texel is like pixel type),
+but I can jank the system with `Rgba32Uint` which gives me 4x32 bit,
+which I think should be enough.
+(First 32 bits for glyph index, then fg color, then bg color, then any styling in binary.)
+
+Ok, I'm going to close Claude and try to do the rest myself.
+
+I'm first just going to get to the point before actually dealing with drawing glyphs.
+Specifically, I'll have it fill the character's entire cell with the fg color usually,
+but if the character is a space then make it the bg color.
+
+Resource on storage textures: https://webgpufundamentals.org/webgpu/lessons/webgpu-storage-textures.html
+
+...
+
+Ok, it's 1:06AM and I wrote the wgsl code.
+I'll commit then sleep.
+
+By the way, I am making the CPU specify the pixel bounds of the char grid
+and so if the ratio is off, then the text will look stretched in one axis.
+This is actually something I was already planning on having,
+and not just for simplicity to implement on the GPU side.
+This will help me fulfill the vision of a ZUI.
+(Which I don't know will end up good or bad, but at least I'll be able to try it.)
+
+Tomorrow, I'm going to try to organize the 3 renderers I have somehow.
+But the "how" is something I'll figure out tomorrow.

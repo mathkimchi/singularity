@@ -83,6 +83,9 @@
             vulkan-loader
             pkgs.nixgl.nixGLIntel
 
+            # for helix
+            wgsl-analyzer
+
             # needed for cargo-update
             openssl
           ];
