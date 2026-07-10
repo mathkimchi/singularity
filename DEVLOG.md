@@ -7605,3 +7605,15 @@ Right now, red seems completely gone, and green shows one large gradient downwar
 I manually made the char cell size 10, so we should see 100 cells showing a repeating gradient,
 but clearly it's not working.
 I will commit here.
+
+2026-07-10 06:02PM
+
+...I might be a goofball, I was doing:
+`let char_idx = vec2<u32>(tex_coords / vec2<f32>(in.grid_size));`
+instead of
+`let char_idx = vec2<u32>(tex_coords * vec2<f32>(in.grid_size));`.
+Ok, well, now it is doing almost expected behavior,
+but horizontally, it's only 2 boxes wide when it should be 10.
+I'm gonna commit now though and go play soccer with random people
+(that's a good thing bc I'll meet new ppl).
+I'm also 7% battery so it's good I'm ending now.

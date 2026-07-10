@@ -73,9 +73,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         (0. <= tex_coords.y && tex_coords.y < 1.) {
         // TODO: find tex_coords relative to character
         // integer index of character
-        let char_idx = vec2<u32>(tex_coords / vec2<f32>(in.grid_size));
+        let char_idx = vec2<u32>(tex_coords * vec2<f32>(in.grid_size));
         // where in the glyph this pixel is, from 0 to 1
-        let glyph_pos_uv = (tex_coords / vec2<f32>(in.grid_size)) % 1.;
+        let glyph_pos_uv = (tex_coords * vec2<f32>(in.grid_size)) % 1.;
         // // row * width + col
         // let char_idx = char_coord.y * grid_size.x + char_coord.x;
         // // 0 is mipLevel, which lets you render more roughly at higher levels
