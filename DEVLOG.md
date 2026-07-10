@@ -7567,3 +7567,16 @@ Or should I?
 
 The first error was that the bind group descriptor and bind group layout doesn't match.
 Simple fix, I was passing in the image bind group layout instead of char grid bind group layout.
+
+Next:
+`Usage flags TextureUsages(COPY_DST | TEXTURE_BINDING) of TextureView with '' label do not contain required usage flags TextureUsages(STORAGE_BINDING)`
+I think I just replace the `TEXTURE_BINDING` flag with `STORAGE_BINDING` flag.
+(It pretty much tells me what to do lol.)
+
+...(do the fix and run again)
+
+Wait what?
+It doesn't error?
+That was way sooner than I thought!
+I mean, it just shows a blank white screen, but still, this is progress.
+

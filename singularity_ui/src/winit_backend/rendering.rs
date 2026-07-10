@@ -440,9 +440,9 @@ impl UIElement {
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Rgba32Uint,
-                    // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
+                    // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
                     // COPY_DST means that we want to copy data to this texture
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
                     label: Some("diffuse_texture"),
                     // This is the same as with the SurfaceConfig. It
                     // specifies what texture formats can be used to
