@@ -4,6 +4,7 @@ use crate::{
 };
 
 /// TODO: rename most everything here
+/// TODO: have a UI Element vs UI Primitive (to allow for easier chunking in GPU) (Or just have a private UI Primitives and do a conversion in Winit drawing impls?)
 #[derive(Debug, Clone, PartialEq)]
 pub enum UIElement {
     /// Contains a list of inner elements.

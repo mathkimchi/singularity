@@ -16,41 +16,26 @@ use wgpu::{BindGroupLayout, MultisampleState, SurfaceConfiguration, util::Device
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub(super) struct Vertex {
     position: [f32; 3],
-    // color: [f32; 3],
 }
 impl Vertex {
-    // const ATTRIBS: [wgpu::VertexAttribute; 2] =
-    //     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
     const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
     /// Large triangle trick to cover the whole screen
-    /// https://webgpufundamentals.org/webgpu/lessons/webgpu-large-triangle-to-cover-clip-space.html
+    /// https://webgpufundamentals.org/webgpu/lessons/webgpu-large-triangle-to-cover-clip-space.html (allegedly 5%)
+    /// TODO: Doing two triangles for tight rectangles will probably boost speed much more, but I might end up only needing one render call so idk...
     pub(super) const VERTICES: &[Vertex] = &[
         // A
         Vertex {
             position: [3., -1., 0.0],
-            // color: [0.0, 0.0, 0.5],
         },
         // B
         Vertex {
             position: [-1., 3., 0.0],
-            // color: [0.5, 0.5, 0.5],
         },
         // C
         Vertex {
             position: [-1., -1., 0.0],
-            // color: [0.5, 0.0, 1.0],
         },
-        // // D
-        // Vertex {
-        //     position: [0.35966998, -0.3473291, 0.0],
-        //     color: [0.5, 0.0, 0.5],
-        // },
-        // // E
-        // Vertex {
-        //     position: [0.44147372, 0.2347359, 0.0],
-        //     color: [0.0, 0.5, 0.5],
-        // },
     ];
 
     pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -125,13 +110,45 @@ impl ImageInstance {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+pub(super) struct CharGridInstance {
+    /// This is the top left, not the center
+    /// Currently includes the border
+    origin: [f32; 2],
+    /// Currently includes the border
+    size: [f32; 2],
+    /// In terms of characters
+    grid_size: [u32; 2],
+}
+impl CharGridInstance {
+    const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
+        1 => Float32x2,
+        2 => Float32x2,
+        3 => Uint32x2,
+    ];
+
+    pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
 /// Data needed for drawing
 pub(super) struct DrawingSharedData<'a> {
     render_pass: wgpu::RenderPass<'a>,
 
     rectangle_render_pipeline: &'a wgpu::RenderPipeline,
+
     image_render_pipeline: &'a wgpu::RenderPipeline,
     image_texture_bind_group_layout: &'a BindGroupLayout,
+
+    char_grid_render_pipeline: &'a wgpu::RenderPipeline,
 
     /// Just one large triangle
     vertex_buffer: &'a wgpu::Buffer,
@@ -930,6 +947,7 @@ impl UIDisplay {
             rectangle_render_pipeline,
             image_render_pipeline,
             image_texture_bind_group_layout,
+            char_grid_render_pipeline,
             vertex_buffer,
             // index_buffer,
             // instance_buffer,
@@ -990,6 +1008,7 @@ impl UIDisplay {
                 rectangle_render_pipeline,
                 image_render_pipeline,
                 image_texture_bind_group_layout,
+                char_grid_render_pipeline,
                 vertex_buffer,
                 device,
                 queue,

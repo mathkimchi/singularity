@@ -73,11 +73,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         (0. <= tex_coords.y && tex_coords.y < 1.) {
         // TODO: find tex_coords relative to character
         // integer coord of character
-        let char_coord = vec2<u32>(tex_coords / vec2<f32>(grid_size));
+        let char_coord = vec2<u32>(tex_coords / vec2<f32>(in.grid_size));
         // // row * width + col
         // let char_idx = char_coord.y * grid_size.x + char_coord.x;
-        // 0 is mipLevel, which lets you render more roughly at higher levels
-        let char = textureLoad(characters, char_coord, 0);
+        // // 0 is mipLevel, which lets you render more roughly at higher levels
+        // let char = textureLoad(characters, char_coord, 0);
+        // ^-- never mind, https://www.w3.org/TR/WGSL/#textureload for texture_storage_2d, you don't specify mip level.
+        let char = textureLoad(characters, char_coord);
         let char_type= char.x;
         let fg = unpack4x8unorm(char.y);
         let bg = unpack4x8unorm(char.z);

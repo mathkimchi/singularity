@@ -7507,3 +7507,26 @@ This will help me fulfill the vision of a ZUI.
 
 Tomorrow, I'm going to try to organize the 3 renderers I have somehow.
 But the "how" is something I'll figure out tomorrow.
+
+2026-07-10 01:38AM
+
+As you might be able to infer from the time,
+I should really go to sleep now.
+(Btw, I have a shortcut to auto-type the date and time for me.)
+
+I did some commits without logging in devlog.
+This is my goodnight commit.
+
+For this commit, I added the char grid render pipeline,
+and when I run, it checks if the types match.
+Crucially, I had to change the bind group.
+There was no documentation on `StorageTextures` specifically in `wgpu` so I thought it'd be another nightmare,
+but it was actually quite easy.
+The options were just enums, and I could just look through the enum branches until I found the one that made sense.
+The one iffy part was the `TextureViewDimension::D2` because the rust doc says it's for just texture_2d
+but I'm using `texture_storage_2d` (which is more like a normal 2d array and often used for things other than images I think)
+which is different, but I don't get any errors right now, so it's probably the right one.
+I'm not going to hope it's the right one, bc I'm saving up my karma rn.
+
+Ok, gtg sleep.
+Goodbyeeeeeee

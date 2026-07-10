@@ -6,7 +6,7 @@
 use crate::{
     ui_element::UIElement,
     winit_backend::{
-        rendering::{ImageInstance, RoundRectInstance, Vertex},
+        rendering::{CharGridInstance, ImageInstance, RoundRectInstance, Vertex},
         ui_event::{KeyModifiers, UIEvent},
     },
 };
@@ -45,6 +45,8 @@ struct WinitData {
     rectangle_render_pipeline: wgpu::RenderPipeline,
     image_render_pipeline: wgpu::RenderPipeline,
     image_texture_bind_group_layout: wgpu::BindGroupLayout,
+    char_grid_render_pipeline: wgpu::RenderPipeline,
+
     vertex_buffer: wgpu::Buffer,
     // // index_buffer: wgpu::Buffer,
     // instances: Vec<RoundRectInstance>,
@@ -269,6 +271,80 @@ impl WinitData {
                 cache: None,
             });
 
+        let char_grid_texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::ReadOnly,
+                        format: wgpu::TextureFormat::Rgba32Uint,
+                        // Hmm... no option for `texture_storage_2d`, hopefully this works
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                }],
+                label: Some("char_grid_texture_bind_group_layout"),
+            });
+        let char_grid_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    // Difference
+                    Some(&char_grid_texture_bind_group_layout),
+                ],
+                immediate_size: 0,
+            });
+        let char_grid_shader = device.create_shader_module(include_wgsl!("char_grid_shader.wgsl"));
+        let char_grid_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Char Grid Render Pipeline"),
+                layout: Some(&char_grid_render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &char_grid_shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[Vertex::desc(), CharGridInstance::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &char_grid_shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: surface_config.format,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent::OVER,
+                            alpha: wgpu::BlendComponent::OVER,
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                    // or Features::POLYGON_MODE_POINT
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                // If the pipeline will be used with a multiview render pass, this
+                // tells wgpu to render to just specific texture layers.
+                multiview_mask: None,
+                // Useful for optimizing shader compilation on Android
+                cache: None,
+            });
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(Vertex::VERTICES),
@@ -320,6 +396,7 @@ impl WinitData {
             rectangle_render_pipeline,
             image_render_pipeline,
             image_texture_bind_group_layout,
+            char_grid_render_pipeline,
             vertex_buffer,
             // // index_buffer,
             // instances,
