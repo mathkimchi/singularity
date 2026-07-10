@@ -46,6 +46,7 @@ struct WinitData {
     image_render_pipeline: wgpu::RenderPipeline,
     image_texture_bind_group_layout: wgpu::BindGroupLayout,
     char_grid_render_pipeline: wgpu::RenderPipeline,
+    char_grid_texture_bind_group_layout: wgpu::BindGroupLayout,
 
     vertex_buffer: wgpu::Buffer,
     // // index_buffer: wgpu::Buffer,
@@ -397,6 +398,7 @@ impl WinitData {
             image_render_pipeline,
             image_texture_bind_group_layout,
             char_grid_render_pipeline,
+            char_grid_texture_bind_group_layout,
             vertex_buffer,
             // // index_buffer,
             // instances,

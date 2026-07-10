@@ -7557,3 +7557,13 @@ it crashes.
 I'm not sad about that, it is to be expected.
 
 Also, char cell is a mess rn bc I have an internal vs pretty version.
+
+...
+
+Ok, time to read the run-time bugs and squash 'em.
+
+I'm not going to do a new commit per bug squashed.
+Or should I?
+
+The first error was that the bind group descriptor and bind group layout doesn't match.
+Simple fix, I was passing in the image bind group layout instead of char grid bind group layout.

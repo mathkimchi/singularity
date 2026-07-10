@@ -3,8 +3,8 @@
 use super::UIDisplay;
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
-    ui_element::{CharCell, CharGrid, FONT_SIZE, FONT_SIZE_F, InternalCharCell, UIElement},
+    display_units::{DisplayArea, DisplayCoord, DisplayUnits},
+    ui_element::{CharGrid, FONT_SIZE_F, InternalCharCell, UIElement},
     winit_backend::WinitData,
 };
 use glyphon::{Metrics, TextRenderer};
@@ -149,6 +149,7 @@ pub(super) struct DrawingSharedData<'a> {
     image_texture_bind_group_layout: &'a BindGroupLayout,
 
     char_grid_render_pipeline: &'a wgpu::RenderPipeline,
+    char_grid_texture_bind_group_layout: &'a BindGroupLayout,
 
     /// Just one large triangle
     vertex_buffer: &'a wgpu::Buffer,
@@ -466,7 +467,7 @@ impl UIElement {
                 // The layout of the texture
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(16 * width),
+                    bytes_per_row: Some(InternalCharCell::BYTES as u32 * width),
                     rows_per_image: Some(height),
                 },
                 texture_size,
@@ -480,7 +481,7 @@ impl UIElement {
                 drawing_shared_data
                     .device
                     .create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: drawing_shared_data.image_texture_bind_group_layout,
+                        layout: drawing_shared_data.char_grid_texture_bind_group_layout,
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
                             resource: wgpu::BindingResource::TextureView(&texture_view),
@@ -1098,6 +1099,7 @@ impl UIDisplay {
             image_render_pipeline,
             image_texture_bind_group_layout,
             char_grid_render_pipeline,
+            char_grid_texture_bind_group_layout,
             vertex_buffer,
             // index_buffer,
             // instance_buffer,
@@ -1159,6 +1161,7 @@ impl UIDisplay {
                 image_render_pipeline,
                 image_texture_bind_group_layout,
                 char_grid_render_pipeline,
+                char_grid_texture_bind_group_layout,
                 vertex_buffer,
                 device,
                 queue,
