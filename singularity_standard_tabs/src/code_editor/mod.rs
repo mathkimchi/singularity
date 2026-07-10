@@ -182,17 +182,17 @@ impl BasicApplet for CodeEditorApplet {
             };
 
             for (col, c) in line.chars().take(width).enumerate() {
-                content.get_char_mut(row, col).character = c;
+                content.set_char(c, row, col);
 
                 // currently scroll is only horizontal
                 let content_idx = self.buffer.line_to_char(line_idx) + col;
                 if content_idx == self.cursor {
-                    let cursor_color = if self.focused {
+                    let cursor_bg = if self.focused {
                         Color::LIGHT_YELLOW
                     } else {
                         Color::MEDIUM_GRAY
                     };
-                    content.get_char_mut(row, col).bg = cursor_color;
+                    content.set_bg(cursor_bg, row, col);
                 }
             }
         }

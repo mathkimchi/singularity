@@ -1,3 +1,5 @@
+use std::panic::PanicHookInfo;
+
 use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
@@ -84,6 +86,57 @@ impl From<String> for UIElement {
     }
 }
 
+/// Made so this can instantly be turned to bytes
+#[repr(C)]
+#[derive(
+    Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug, Hash, PartialEq, Eq, PartialOrd, Ord,
+)]
+pub(crate) struct InternalCharCell {
+    pub character: u32,
+    /// RGBA
+    pub fg: Color,
+    /// RGBA
+    pub bg: Color,
+    /// NOTE: currently unused
+    pub style: u32,
+}
+impl InternalCharCell {
+    pub const BYTES: usize = 16;
+}
+impl From<CharCell> for InternalCharCell {
+    fn from(CharCell { character, fg, bg }: CharCell) -> Self {
+        Self {
+            character: character as u32,
+            fg,
+            bg,
+            // currently unused
+            style: 0,
+        }
+    }
+}
+impl From<InternalCharCell> for CharCell {
+    fn from(
+        InternalCharCell {
+            character,
+            fg,
+            bg,
+            style: _,
+        }: InternalCharCell,
+    ) -> Self {
+        Self {
+            character: character as u8 as char,
+            fg,
+            bg,
+        }
+    }
+}
+impl Default for InternalCharCell {
+    fn default() -> Self {
+        CharCell::default().into()
+    }
+}
+
+/// TODO: Replace this entirely with internal char cell?
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharCell {
     pub character: char,
@@ -122,7 +175,7 @@ pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
 pub struct CharGrid {
     width: usize,
     height: usize,
-    content: Vec<CharCell>,
+    content: Vec<InternalCharCell>,
 }
 impl From<String> for CharGrid {
     /// Makes width and height the smallest necessary to fit everything.
@@ -142,7 +195,7 @@ impl From<String> for CharGrid {
         for line_str in raw_content.split('\n') {
             let chars = line_str.chars().collect::<Vec<_>>();
             for i in 0..width {
-                content.push(CharCell::new(chars.get(i).cloned().unwrap_or(' ')));
+                content.push(CharCell::new(chars.get(i).cloned().unwrap_or(' ')).into());
             }
         }
 
@@ -154,7 +207,7 @@ impl From<String> for CharGrid {
     }
 }
 impl CharGrid {
-    pub fn new(width: usize, height: usize, content: Vec<CharCell>) -> Self {
+    pub fn new(width: usize, height: usize, content: Vec<InternalCharCell>) -> Self {
         debug_assert_eq!(width * height, content.len());
 
         Self {
@@ -166,7 +219,11 @@ impl CharGrid {
 
     /// TODO: make a CharGridSize struct?
     pub fn new_empty(width: usize, height: usize) -> Self {
-        Self::new(width, height, vec![CharCell::default(); width * height])
+        Self::new(
+            width,
+            height,
+            vec![InternalCharCell::default(); width * height],
+        )
     }
 
     pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
@@ -185,19 +242,18 @@ impl CharGrid {
         for line_str in raw_content.split('\n') {
             let chars = line_str.chars().collect::<Vec<_>>();
             for i in 0..width {
-                content.push(CharCell {
-                    fg,
-                    bg,
-                    character: chars.get(i).cloned().unwrap_or(' '),
-                });
+                content.push(
+                    CharCell {
+                        fg,
+                        bg,
+                        character: chars.get(i).cloned().unwrap_or(' '),
+                    }
+                    .into(),
+                );
             }
         }
 
-        CharGrid {
-            width,
-            height,
-            content,
-        }
+        CharGrid::new(width, height, content)
     }
 
     /// Returns (width, height)
@@ -208,6 +264,13 @@ impl CharGrid {
             ((container_size.width / FONT_SIZE_U) * 2) as usize,
             (container_size.height / FONT_SIZE_U) as usize,
         )
+    }
+
+    pub fn display_size(&self) -> DisplayContainerSize {
+        DisplayContainerSize {
+            width: (self.width as u32) * FONT_SIZE_U * 2,
+            height: (self.height as u32) * FONT_SIZE_U,
+        }
     }
 
     // pub fn get_text_as_string(&self) -> String {
@@ -237,15 +300,28 @@ impl CharGrid {
 
     /// Returns char cell at index `row * self.width + col`
     pub fn get_char(&self, row: usize, col: usize) -> CharCell {
-        self.content[row * self.width + col]
+        self.content[row * self.width + col].into()
     }
 
-    /// Returns char cell at index `row * self.width + col`
-    pub fn get_char_mut(&mut self, row: usize, col: usize) -> &mut CharCell {
-        &mut self.content[row * self.width + col]
+    // /// Returns char cell at index `row * self.width + col`
+    // pub fn get_char_mut(&mut self, row: usize, col: usize) -> &mut CharCell {
+    //     &mut self.content[row * self.width + col]
+    // }
+
+    /// at index `row * self.width + col`
+    pub fn set_char(&mut self, c: char, row: usize, col: usize) {
+        self.content[row * self.width + col].character = c as u32;
+    }
+    /// at index `row * self.width + col`
+    pub fn set_fg(&mut self, fg: Color, row: usize, col: usize) {
+        self.content[row * self.width + col].fg = fg;
+    }
+    /// at index `row * self.width + col`
+    pub fn set_bg(&mut self, bg: Color, row: usize, col: usize) {
+        self.content[row * self.width + col].fg = bg;
     }
 
-    pub fn content(&self) -> &[CharCell] {
+    pub fn content(&self) -> &[InternalCharCell] {
         &self.content
     }
 }

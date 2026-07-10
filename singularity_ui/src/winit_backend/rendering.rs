@@ -4,7 +4,7 @@ use super::UIDisplay;
 use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize, DisplayUnits},
-    ui_element::{CharCell, FONT_SIZE, FONT_SIZE_F, UIElement},
+    ui_element::{CharCell, CharGrid, FONT_SIZE, FONT_SIZE_F, InternalCharCell, UIElement},
     winit_backend::WinitData,
 };
 use glyphon::{Metrics, TextRenderer};
@@ -406,6 +406,145 @@ impl UIElement {
         }
     }
 
+    fn draw_char_grid(
+        drawing_shared_data: &mut DrawingSharedData,
+        char_grid: &CharGrid,
+        area: DisplayArea,
+    ) {
+        // NOTE: rn, the area is just auto-computed from the bounds,
+        // TODO: let apps customize bounds
+
+        drawing_shared_data
+            .render_pass
+            .set_pipeline(drawing_shared_data.char_grid_render_pipeline);
+
+        let width = char_grid.width() as u32;
+        let height = char_grid.height() as u32;
+
+        // load the actual char grid info as if it was a texture where each pixel is a char
+        {
+            let texture_size = wgpu::Extent3d {
+                width,
+                height,
+                // All textures are stored as 3D, we represent our 2D texture
+                // by setting depth to 1.
+                depth_or_array_layers: 1,
+            };
+
+            let texture = drawing_shared_data
+                .device
+                .create_texture(&wgpu::TextureDescriptor {
+                    size: texture_size,
+                    mip_level_count: 1, // We'll talk about this a little later
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba32Uint,
+                    // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
+                    // COPY_DST means that we want to copy data to this texture
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    label: Some("diffuse_texture"),
+                    // This is the same as with the SurfaceConfig. It
+                    // specifies what texture formats can be used to
+                    // create TextureViews for this texture. The base
+                    // texture format (Rgba8UnormSrgb in this case) is
+                    // always supported. Note that using a different
+                    // texture format is not supported on the WebGL2
+                    // backend.
+                    view_formats: &[],
+                });
+
+            drawing_shared_data.queue.write_texture(
+                // Tells wgpu where to copy the pixel data
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                // The actual pixel data
+                bytemuck::cast_slice(char_grid.content()),
+                // The layout of the texture
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(16 * width),
+                    rows_per_image: Some(height),
+                },
+                texture_size,
+            );
+
+            // We don't need to configure the texture view much, so let's
+            // let wgpu define it.
+            let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+            let bind_group =
+                drawing_shared_data
+                    .device
+                    .create_bind_group(&wgpu::BindGroupDescriptor {
+                        layout: drawing_shared_data.image_texture_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&texture_view),
+                        }],
+                        label: Some("bind_group"),
+                    });
+            drawing_shared_data
+                .render_pass
+                .set_bind_group(0, Some(&bind_group), &[]);
+        }
+
+        // these buffers are how we pass data to the gpu
+        // pass in the large triangle
+        drawing_shared_data
+            .render_pass
+            .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
+
+        // set instance buffer
+        {
+            let instances = vec![CharGridInstance {
+                // this currently takes in top left
+                origin: [
+                    area.0
+                        .x
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
+                    area.0
+                        .y
+                        .pixels(drawing_shared_data.surface_config.height as _)
+                        as _,
+                ],
+                size: [
+                    area.size()
+                        .width
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
+                    area.size()
+                        .height
+                        .pixels(drawing_shared_data.surface_config.height as _)
+                        as _,
+                ],
+                grid_size: [width, height],
+            }];
+
+            let instance_buffer =
+                drawing_shared_data
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Instance Buffer"),
+                        contents: bytemuck::cast_slice(&instances),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+
+            // vertex buffer slot 1 is actually the instance buffer
+            drawing_shared_data
+                .render_pass
+                .set_vertex_buffer(1, instance_buffer.slice(..));
+        }
+
+        drawing_shared_data
+            .render_pass
+            .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+    }
+
     fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
         match self {
             UIElement::Container(children) => {
@@ -581,6 +720,16 @@ impl UIElement {
                 // );
             }
             UIElement::CharGrid(char_grid) => {
+                Self::draw_char_grid(
+                    drawing_shared_data,
+                    char_grid,
+                    DisplayArea::from_corner_size(
+                        container_area.0,
+                        char_grid.display_size().into(),
+                    ),
+                );
+
+                /*
                 let mut text_buffer = glyphon::Buffer::new(
                     drawing_shared_data.font_system,
                     Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
@@ -749,6 +898,7 @@ impl UIElement {
                         // );
                     }
                 }
+                */
             }
             UIElement::Image(image_buffer) => {
                 Self::draw_image(drawing_shared_data, image_buffer, container_area);

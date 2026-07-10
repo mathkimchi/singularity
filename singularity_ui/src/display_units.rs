@@ -152,6 +152,11 @@ impl DisplayContainerSize {
         DisplayContainerSize { width, height }
     }
 }
+impl From<DisplayContainerSize> for DisplaySize {
+    fn from(value: DisplayContainerSize) -> Self {
+        Self::new((value.width as i32).into(), (value.height as i32).into())
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct DisplayCoord {

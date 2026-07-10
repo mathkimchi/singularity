@@ -7530,3 +7530,30 @@ I'm not going to hope it's the right one, bc I'm saving up my karma rn.
 
 Ok, gtg sleep.
 Goodbyeeeeeee
+
+2026-07-10 10:18AM
+
+As I am writing my third shader, I am beginning to understand the WGpu code
+(the tutorial probably explains everything well, but I just don't like reading).
+
+For a single draw call:
+- Set the pipeline
+- Set the buffers in any order
+ - Vertex always, instance usually
+ - Do textures with bind groups (idk what they are though)
+- Do the draw call
+
+Hmm... I was thinking about it, and I might later consider using `texture_storage_3d`
+for less-jankedness instead of `texture_storage_2d`,
+or I might go entirely the opposite direction and use an array or something 1d,
+but idk if those actually improve performance.
+
+...
+
+I wrote all the code to theoretically render Char Grid
+and I squashed all the compile-time bugs,
+but of course, when I spin it up and open an editor,
+it crashes.
+I'm not sad about that, it is to be expected.
+
+Also, char cell is a mess rn bc I have an internal vs pretty version.

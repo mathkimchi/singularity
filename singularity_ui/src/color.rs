@@ -2,7 +2,10 @@
 
 /// RGBA
 /// NOTE: NOT ARGB!
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(C)]
+#[derive(
+    Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, bytemuck::Pod, bytemuck::Zeroable,
+)]
 pub struct Color(pub [u8; 4]);
 impl Color {
     pub const TRANSPARENT: Self = Color([0, 0, 0, 0]);
