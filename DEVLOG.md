@@ -7580,3 +7580,28 @@ It doesn't error?
 That was way sooner than I thought!
 I mean, it just shows a blank white screen, but still, this is progress.
 
+...
+
+By the way, it displayed all yellow. I had my blue light glasses so I couldn't tell.
+If anything, the really tragic part of this story is that it is still super slow.
+I mean, once it loads, it seems to be going pretty fast,
+but on the first run, you notice a lag that is at least a second long.
+
+Also, my laptop fan starts running, which wasn't happening before, I don't think.
+
+Ok, I'm going to eat lunch now though, it's 12:43.
+
+Since the spaces aren't showing anything, I'll check if they are really the value 32.
+
+I made it output a random color generated from the char_type,
+and it's uniform, so I think maybe that's the problem.
+
+Let me also just try making it always return bg.
+...yeah, with this, at least the cursor should have something different, but no...
+
+...I made it print the pixel's position relative to the glyph,
+so for each cell, the top left should be black and the bottom right should have full red and green values.
+Right now, red seems completely gone, and green shows one large gradient downwards.
+I manually made the char cell size 10, so we should see 100 cells showing a repeating gradient,
+but clearly it's not working.
+I will commit here.

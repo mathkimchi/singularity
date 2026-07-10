@@ -72,18 +72,27 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (0. <= tex_coords.x && tex_coords.x < 1.) &&
         (0. <= tex_coords.y && tex_coords.y < 1.) {
         // TODO: find tex_coords relative to character
-        // integer coord of character
-        let char_coord = vec2<u32>(tex_coords / vec2<f32>(in.grid_size));
+        // integer index of character
+        let char_idx = vec2<u32>(tex_coords / vec2<f32>(in.grid_size));
+        // where in the glyph this pixel is, from 0 to 1
+        let glyph_pos_uv = (tex_coords / vec2<f32>(in.grid_size)) % 1.;
         // // row * width + col
         // let char_idx = char_coord.y * grid_size.x + char_coord.x;
         // // 0 is mipLevel, which lets you render more roughly at higher levels
         // let char = textureLoad(characters, char_coord, 0);
         // ^-- never mind, https://www.w3.org/TR/WGSL/#textureload for texture_storage_2d, you don't specify mip level.
-        let char = textureLoad(characters, char_coord);
+        let char = textureLoad(characters, char_idx);
         let char_type= char.x;
         let fg = unpack4x8unorm(char.y);
         let bg = unpack4x8unorm(char.z);
         let style = char.w;
+
+        // // just make sure characters change
+        // return vec4<f32>((f32(char_type) * 1.618033 * 1000000.) % 1., 0., 0., 1.);
+
+        // return bg;
+
+        return vec4<f32>(glyph_pos_uv, 0., 1.);
 
         if char_type == 32 {
             // space

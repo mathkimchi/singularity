@@ -91,7 +91,7 @@ impl From<String> for UIElement {
 #[derive(
     Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug, Hash, PartialEq, Eq, PartialOrd, Ord,
 )]
-pub(crate) struct InternalCharCell {
+pub struct InternalCharCell {
     pub character: u32,
     /// RGBA
     pub fg: Color,

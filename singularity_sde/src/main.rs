@@ -27,6 +27,7 @@ use singularity_sttk::{
 };
 use singularity_wl_compositor::WaylandApplet;
 use std::collections::BTreeMap;
+use tracing_subscriber::EnvFilter;
 
 fn main() {
     init_logging();
@@ -57,8 +58,10 @@ fn main() {
 
 fn init_logging() {
     tracing_subscriber::fmt()
-        .with_max_level(tracing_subscriber::filter::LevelFilter::DEBUG)
+        // .with_max_level(tracing_subscriber::filter::LevelFilter::DEBUG)
+        .with_env_filter(EnvFilter::new("warn,singularity=trace"))
         .init();
+
     // if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
     //     tracing_subscriber::fmt().with_env_filter(env_filter).init();
     // } else {
