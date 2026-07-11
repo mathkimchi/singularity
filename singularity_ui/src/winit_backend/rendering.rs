@@ -1081,10 +1081,6 @@ impl UIElement {
 
 impl UIDisplay {
     pub fn draw(&mut self) {
-        // TODO: use this pattern elsewhere; idk why clippy doesn't auto recommend redoing
-        // let v = if let Some(v) = ... { v } else { return };
-        // as let Some(v) = ... else { return };
-        // maybe I should try to submit a PR for clippy doing this
         let Some(state) = &mut self.winit_data else {
             return;
         };

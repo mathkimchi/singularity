@@ -4,7 +4,7 @@ use std::{env, fs::write, path::Path};
 // This is so jank...
 // Keycodes from: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
 
-const KEYCODE_DEFINITIONS: &'static str = "
+const KEYCODE_DEFINITIONS: &str = "
 #define KEY_Q			16
 #define KEY_W			17
 #define KEY_E			18

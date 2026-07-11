@@ -2,6 +2,7 @@
 name = "singularity_sporg"
 version = "0.1.0"
 edition = "2024"
+lint.workspace = true
 
 [dependencies]
 serde = { workspace = true }

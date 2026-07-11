@@ -35,3 +35,9 @@ image = { version = "^0.25" }
 
 # [[members]]
 # singularity_ui = { features = ["iced_backend"] }
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+cargo = "warn"

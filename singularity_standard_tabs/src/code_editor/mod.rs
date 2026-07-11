@@ -10,7 +10,7 @@ use singularity_sttk::{
 };
 use singularity_ui::{
     color::Color,
-    ui_element::{CharCell, CharGrid, UIElement},
+    ui_element::CharGrid,
     ui_event::{Key, KeyModifiers},
 };
 use std::{

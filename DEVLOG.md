@@ -7636,3 +7636,46 @@ First, I'm just going to get rid of the demos rn because it is error-ing.
 They are honestly liabilities.
 
 Making a tester is actually going to force me to organize my code better.
+
+2026-07-11 04:14PM
+
+As I was looking at a part of my code,
+I noticed:
+
+```rust
+let Some(state) = &mut self.winit_data else {
+    return;
+};
+```
+
+and I guess this is syntax I knew then forgot,
+because if I wrote that now (before being reminded),
+I would've written:
+
+```rust
+let state = if let Some(state) = &mut self.winit_data {
+    state
+} else {
+    return;
+};
+```
+
+so in my comments I wrote that I should maybe submit a clippy to auto change
+`let v = if let Some(v) = ... { v } else { return };`
+to
+`let Some(v) = ... else { return };`
+
+But to my disappointment this is already a thing,
+and I just had to enable `clippy::pedantic`.
+So, I'm going to enable clippy::pedantic and try to fix all the lints.
+
+...it's not showing up on Helix's diagnostics picker,
+but a bunch of stuff is showing up on `cargo clippy`.
+
+Oh, I can change my helix config with a check command.
+By the way, I have always wanted a faster way to cd to directories I use a lot,
+and yes, Sonamu will fix this, but I also realized I can simply make a shortcuts directory with symlinks.
+
+...
+
+The specific lint wasn't showing up, and I needed to enable the lint in every workspace.

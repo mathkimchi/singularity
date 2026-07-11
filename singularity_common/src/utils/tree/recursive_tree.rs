@@ -184,10 +184,10 @@ impl<T> RecursiveTreeNode<T> {
         s.push_str(prefix);
 
         let child_prefix = if last_child {
-            s.push_str("└");
+            s.push('└');
             prefix.to_string() + " "
         } else {
-            s.push_str("├");
+            s.push('├');
             prefix.to_string() + "│"
         };
 
@@ -203,7 +203,7 @@ impl<T> RecursiveTreeNode<T> {
     ) {
         if let Some(focus_path) = &focus_path {
             if focus_path.is_root() {
-                s.push_str(">");
+                s.push('>');
             } else {
                 s.push('→');
             }
