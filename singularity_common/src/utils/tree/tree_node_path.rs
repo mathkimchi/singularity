@@ -175,6 +175,7 @@ mod tree_node_path_traversal_impls {
         }
 
         /// No wrapping
+        #[must_use]
         pub fn traverse_to_previous_sibling(&self) -> Option<Self> {
             let mut sibling_path_vec = self.0.clone();
             let last_child_number = sibling_path_vec.pop()?.checked_sub(1)?;
@@ -211,7 +212,8 @@ mod tree_node_path_traversal_impls {
             let sibling_path = {
                 let mut sibling_path_vec = self.0.clone();
                 let last_child_number =
-                    usize::try_from((sibling_path_vec.pop()? as isize).checked_add(shift)?).ok()?;
+                    usize::try_from(sibling_path_vec.pop()?.cast_signed().checked_add(shift)?)
+                        .ok()?;
                 sibling_path_vec.push(last_child_number);
                 Self(sibling_path_vec)
             };
@@ -225,43 +227,45 @@ mod tree_node_path_traversal_impls {
         }
 
         pub fn traverse_dfs_next(&self, tree_to_traverse: &impl TraversableTree) -> Option<Self> {
-            if let Some(first_child_path) = self.traverse_to_first_child(tree_to_traverse) {
-                // has child
-                Some(first_child_path)
-            } else {
-                // current is leaf
-                // climb up (traverse to parents) until there is a next sibling or until at root
-                let mut intermediate_path = self.clone();
+            self.traverse_to_first_child(tree_to_traverse).map_or_else(
+                || {
+                    // current is leaf
+                    // climb up (traverse to parents) until there is a next sibling or until at root
+                    let mut intermediate_path = self.clone();
 
-                loop {
-                    if let Some(next_path) =
-                        intermediate_path.traverse_to_next_sibling(tree_to_traverse)
-                    {
-                        break Some(next_path);
-                    }
+                    loop {
+                        if let Some(next_path) =
+                            intermediate_path.traverse_to_next_sibling(tree_to_traverse)
+                        {
+                            break Some(next_path);
+                        }
 
-                    if let Some(intermediate_path_parent) = intermediate_path.traverse_to_parent() {
-                        intermediate_path = intermediate_path_parent
-                    } else {
-                        // intermediate path is root
-                        break None;
+                        if let Some(intermediate_path_parent) =
+                            intermediate_path.traverse_to_parent()
+                        {
+                            intermediate_path = intermediate_path_parent;
+                        } else {
+                            // intermediate path is root
+                            break None;
+                        }
                     }
-                }
-            }
+                },
+                Some,
+            )
         }
 
         pub fn traverse_dfs_prev(&self, tree_to_traverse: &impl TraversableTree) -> Option<Self> {
-            if let Some(previous_sibling) = self.traverse_to_previous_sibling() {
-                // traverse to previous sibling's last child's last child...
-                let mut path = previous_sibling;
-                while let Some(last_child) = path.traverse_to_last_child(tree_to_traverse) {
-                    path = last_child;
-                }
-                Some(path)
-            } else {
-                // current is oldest sibling, traverse up to parent
-                self.traverse_to_parent()
-            }
+            self.traverse_to_previous_sibling().map_or_else(
+                || self.traverse_to_parent(),
+                |previous_sibling| {
+                    // traverse to previous sibling's last child's last child...
+                    let mut path = previous_sibling;
+                    while let Some(last_child) = path.traverse_to_last_child(tree_to_traverse) {
+                        path = last_child;
+                    }
+                    Some(path)
+                },
+            )
         }
 
         /// returns [`None`] if the traversal can not be done

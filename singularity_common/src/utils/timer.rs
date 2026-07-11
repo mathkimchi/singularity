@@ -11,7 +11,8 @@ pub struct Timer {
     pub elapsed: Duration,
 }
 impl Timer {
-    pub fn new_clean(total: Duration) -> Self {
+    #[must_use]
+    pub const fn new_clean(total: Duration) -> Self {
         Self {
             total,
             elapsed: Duration::ZERO,

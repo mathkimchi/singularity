@@ -651,7 +651,7 @@ impl NodularApplet for RecursiveNodeApplet {
                 }
                 _ => {
                     // REVIEW: should this ever even happen?
-                    raw_treeview.push_child_node(RecursiveTreeNode::from_value(child_treeview))
+                    raw_treeview.push_child_node(RecursiveTreeNode::from_value(child_treeview));
                 }
             }
 

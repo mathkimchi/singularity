@@ -30,6 +30,7 @@ pub struct CommandHubApplet {
     hook: Box<dyn NodularRunnerHook>,
 }
 impl CommandHubApplet {
+    #[must_use]
     pub fn new(hook: Box<dyn NodularRunnerHook>) -> Self {
         Self {
             title: "Command Hub".to_string(),
@@ -41,9 +42,11 @@ impl CommandHubApplet {
     pub fn get_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
         |hook: Box<dyn NodularRunnerHook>| Self::new(hook)
     }
+    #[must_use]
     pub fn get_boxed_initiator() -> NodularAppletInitializer {
         Box::new(|hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook)))
     }
+    #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
         struct CommandHubSpawner;
         impl AppletSpawnerTrait for CommandHubSpawner {
@@ -72,7 +75,7 @@ impl CommandHubApplet {
 
         let (verb, args) = tokens
             .split_first()
-            .ok_or("Couldn't split commands.".to_string())?;
+            .ok_or_else(|| "Couldn't split commands.".to_string())?;
 
         match *verb {
             "addition" => Ok(args
@@ -108,7 +111,7 @@ impl CommandHubApplet {
             "set_title" => {
                 self.title = command
                     .split_once(' ')
-                    .ok_or("Couldn't get title from \"{command}\".")?
+                    .ok_or_else(|| format!("Couldn't get title from \"{command}\"."))?
                     .1
                     .to_string();
                 Ok("Done!".to_string())
@@ -184,7 +187,7 @@ impl BasicApplet for CommandHubApplet {
                     self.current_prompt.pop();
                 }
                 singularity_ui::ui_event::Key::Char(key_char) => {
-                    self.current_prompt.push(*key_char)
+                    self.current_prompt.push(*key_char);
                 }
                 _ => {}
             }

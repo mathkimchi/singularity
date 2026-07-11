@@ -169,7 +169,7 @@ impl BasicApplet for CachingApplet {
         {
             self.window
                 .set(self.applet.lock().unwrap().get_window(container_size));
-            self.window_size.set(container_size)
+            self.window_size.set(container_size);
         }
 
         self.window.get()

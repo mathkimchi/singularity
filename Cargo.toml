@@ -50,5 +50,8 @@ cargo_common_metadata = { level = "allow", priority = 1 }
 # I think this technically bloats the system but might be inevitable?
 # I also just don't have wifi rn so I can't do anything about it rn...
 multiple_crate_versions = { level = "allow", priority = 1 }
-# Markdown suggestions that are too pedantic, especially since it's just me developing rn
+
+# Doc suggestions that are too pedantic, especially since it's just me developing rn
 doc_markdown = { level = "allow", priority = 1 }
+too_long_first_doc_paragraph = { level = "allow", priority = 1 } # more like too_long_lint_name (bam roasted)
+missing_panics_doc = { level = "allow", priority = 1 }

@@ -9,6 +9,7 @@ struct Node<T> {
 }
 
 /// Only stores hierarchy, no items.
+/// TODO: Look into `slotmap`?
 pub struct IdTree<T> {
     root_id: Id<T>,
     nodes: BTreeMap<Id<T>, Node<T>>,
@@ -298,6 +299,7 @@ impl<T> TraversableTree for IdTree<T> {
 }
 
 /// for some of the derive impls, I just took the type restrictions out of the derive macros
+#[allow(clippy::pedantic, clippy::nursery)]
 mod derive_macro_impls {
     use super::*;
 

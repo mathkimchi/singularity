@@ -65,7 +65,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             winit::event::WindowEvent::CloseRequested => {
                 self.is_running
                     .store(false, std::sync::atomic::Ordering::Relaxed);
-                event_loop.exit()
+                event_loop.exit();
             }
             // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {

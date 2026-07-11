@@ -7749,3 +7749,36 @@ and there were probably some lines with multiple changes like `let middle: Self 
 (made up example).
 
 Welp (trying to avoid `Okay`), I'll commit.
+
+Bro, lmao, I wrote:
+`#[allow(pedantic)]` for the module where I copied all the macro impls,
+and I got another warning because I didn't say `#[allow(clippy::pedantic)]`.
+I mean, it makes sense, but I still find that funny.
+
+`semicolon_if_nothing_returned` is making me ponder.
+In general, I think it is right,
+but sometimes, it is actually more logical to not have a semicolon.
+For example, when I'm implementing a trait for a box of dyn trait,
+then I actually do want to not have a semicolon to indicate that the inner function called is
+the same as the outer function being defined,
+saying that if the inner function *did* return something, the outer function would return it as well.
+I am just going to leave this warning right now for those cases.
+
+With things like `if_let_else`, I don't see why they would prefer `map_or_else` over
+a simple if let else.
+I think both ways are probably equally performant and clear,
+and they just chose this to set one thing as a standard.
+I mean, I had a phase of using closures and maps whenever possible, so I understand.
+
+Hmm, I think it's because it lets me not have to define a variable,
+which is easier to code.
+I think there's an argument it might be harder to read,
+but that is negated with as single comment.
+
+There's also all the must_use suggestions.
+I mean, I'll do them as I go and I might just automatically apply all of them at this point.
+
+The `const` when possible is definitely appreciated.
+You know what, I'm going to make a shell script for all these little things.
+
+Ok, (damn, I did it again) I'm at 447 errors, I am going to commit then run the auto fixer.
