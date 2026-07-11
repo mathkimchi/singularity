@@ -7723,3 +7723,29 @@ I trust clippy to autofix.
 So, I'm going to commit now (I think clippy fix wants a clean repo,
 which could be overrided, but it's a good idea) and autofix use_self.
 I'll try the command `cargo clippy --fix -- -A clippy::all -A clippy::pedantic -A clippy::nursery -A clippy::cargo -W clippy::use_self`.
+
+...
+
+Okay, that took 7 seconds (starship auto times everything),
+and I didn't see any errors.
+It *did* notify me of extra warnings like dead code, unused, and deprecated.
+I mean, I *do* think adding an underscored before all the unused is a simple fix,
+but I only want to do `use_self` right now.
+I've been avoiding GitHub Desktop, but I'll use it just to check what it changed.
+
+...
+
+Okay, (bruh why am I so formulaic with my Okay's) so even though it warned me of extra stuff,
+it only changed `use_self`, and it did it how I expected it to do it.
+Cargo still builds normally, tests seem normal (I never rly did anything with them in the first place),
+and running runs normally.
+I'm at 544 warnings now, not bad.
+That means 194 things resolved, and I think each thing had one warning and one hint,
+so that should be 97 changes.
+That sounds like a lot, but it makes sense.
+Looking at `git diff --stat`, it seems that there are 91 deletions
+(additions also includes changing the DEVLOG),
+and there were probably some lines with multiple changes like `let middle: Self = Self::avg(Self::MIN, Self::MAX);`
+(made up example).
+
+Welp (trying to avoid `Okay`), I'll commit.

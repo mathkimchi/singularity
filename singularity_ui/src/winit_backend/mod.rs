@@ -453,7 +453,7 @@ impl UIDisplay {
             .build()
             .unwrap();
         event_loop
-            .run_app(&mut UIDisplay {
+            .run_app(&mut Self {
                 root_element,
                 ui_event_queue,
                 is_running,

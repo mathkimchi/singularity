@@ -62,16 +62,16 @@ impl KeyTrait for Key {
         // }
         // self.logical_key.to_text().and_then(|s| s.chars().nth(0))
         match self {
-            Key::Enter => Some('\n'),
-            Key::Backspace => Some('\u{8}'),
-            Key::Char(c) => Some(*c),
+            Self::Enter => Some('\n'),
+            Self::Backspace => Some('\u{8}'),
+            Self::Char(c) => Some(*c),
             _ => None,
         }
     }
 }
 
 impl KeyModifiers {
-    pub const NONE: Self = KeyModifiers {
+    pub const NONE: Self = Self {
         ctrl: false,
         alt: false,
         shift: false,
@@ -80,7 +80,7 @@ impl KeyModifiers {
         // num_lock: false,
     };
 
-    pub const CTRL: Self = KeyModifiers {
+    pub const CTRL: Self = Self {
         ctrl: true,
         alt: false,
         shift: false,
@@ -89,7 +89,7 @@ impl KeyModifiers {
         // num_lock: false,
     };
 
-    pub const ALT: Self = KeyModifiers {
+    pub const ALT: Self = Self {
         ctrl: false,
         alt: true,
         shift: false,
@@ -98,7 +98,7 @@ impl KeyModifiers {
         // num_lock: false,
     };
 
-    pub const SHIFT: Self = KeyModifiers {
+    pub const SHIFT: Self = Self {
         ctrl: false,
         alt: false,
         shift: true,
@@ -107,7 +107,7 @@ impl KeyModifiers {
         // num_lock: false,
     };
 
-    pub const LOGO: Self = KeyModifiers {
+    pub const LOGO: Self = Self {
         ctrl: false,
         alt: false,
         shift: false,
@@ -116,7 +116,7 @@ impl KeyModifiers {
         // num_lock: false,
     };
 
-    pub const CTRL_SHIFT: Self = KeyModifiers::both(Self::CTRL, Self::SHIFT);
+    pub const CTRL_SHIFT: Self = Self::both(Self::CTRL, Self::SHIFT);
 
     /// For example, combine(CTRL, SHIFT) is CTRL_SHIFT
     pub const fn both(self, rhs: Self) -> Self {
@@ -172,24 +172,24 @@ impl TryFrom<winit::event::KeyEvent> for Key {
         if value.state.is_pressed() {
             match value.physical_key {
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                    Ok(Key::ArrowKeyLeft)
+                    Ok(Self::ArrowKeyLeft)
                 }
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                    Ok(Key::ArrowKeyRight)
+                    Ok(Self::ArrowKeyRight)
                 }
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                    Ok(Key::ArrowKeyDown)
+                    Ok(Self::ArrowKeyDown)
                 }
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                    Ok(Key::ArrowKeyUp)
+                    Ok(Self::ArrowKeyUp)
                 }
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => {
-                    Ok(Key::Enter)
+                    Ok(Self::Enter)
                 }
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
-                    Ok(Key::Backspace)
+                    Ok(Self::Backspace)
                 }
 
                 _ => value

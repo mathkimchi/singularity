@@ -31,10 +31,10 @@ use std::ops::{Index, IndexMut};
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RecursiveTreeNode<T> {
     value: T,
-    children: Vec<RecursiveTreeNode<T>>,
+    children: Vec<Self>,
 }
 impl<T> RecursiveTreeNode<T> {
-    pub fn new(value: T, children: Vec<RecursiveTreeNode<T>>) -> Self {
+    pub fn new(value: T, children: Vec<Self>) -> Self {
         Self { value, children }
     }
 
@@ -261,7 +261,7 @@ impl<T> RecursiveTreeNode<T> {
 }
 impl<T> From<RecursiveTreeNode<T>> for RootedTree<T> {
     fn from(recursive_tree_node: RecursiveTreeNode<T>) -> Self {
-        let mut rooted_tree = RootedTree::from_root(recursive_tree_node.value);
+        let mut rooted_tree = Self::from_root(recursive_tree_node.value);
 
         let mut unvisited_children = vec![(TreeNodePath::new_root(), recursive_tree_node.children)];
 

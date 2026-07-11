@@ -13,8 +13,8 @@ pub enum Orientation {
 impl Orientation {
     fn get_transpose(&self) -> Self {
         match self {
-            Orientation::Horizontal => Orientation::Vertical,
-            Orientation::Vertical => Orientation::Horizontal,
+            Self::Horizontal => Self::Vertical,
+            Self::Vertical => Self::Horizontal,
         }
     }
 }
@@ -45,7 +45,7 @@ impl<Tab> core::clone::Clone for Tile<Tab> {
 impl<Tab> core::marker::Copy for Tile<Tab> {}
 impl<Tab> Tile<Tab> {
     pub fn try_as_container(&self) -> Option<([Id<Self>; 2], Orientation, f32)> {
-        if let Tile::Container {
+        if let Self::Container {
             children,
             orientation,
             split,
@@ -58,7 +58,7 @@ impl<Tab> Tile<Tab> {
     }
 
     pub fn try_as_tab(&self) -> Option<Id<Tab>> {
-        if let Tile::Tab { tab_id } = *self {
+        if let Self::Tab { tab_id } = *self {
             Some(tab_id)
         } else {
             None
@@ -221,7 +221,7 @@ mod tile_derive_impls {
 
     impl<Tab> core::clone::Clone for Tiles<Tab> {
         fn clone(&self) -> Self {
-            Tiles {
+            Self {
                 root_id: self.root_id,
                 tiles: self.tiles.clone(),
                 leaf_registry: self.leaf_registry.clone(),

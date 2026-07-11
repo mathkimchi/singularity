@@ -84,7 +84,7 @@ impl CommandHubApplet {
                 None => {
                     self.hook
                         .add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
-                            CommandHubApplet::get_boxed_initiator(),
+                            Self::get_boxed_initiator(),
                         ));
                     Ok("Unspecified child defaulting to command_hub.".to_string())
                 }

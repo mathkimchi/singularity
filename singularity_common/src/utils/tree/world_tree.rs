@@ -25,7 +25,7 @@ impl WorldTreePath {
 #[derive(PartialEq, Eq, Clone)]
 pub enum WorldTree<T> {
     Base(T),
-    World(Box<RecursiveTreeNode<WorldTree<T>>>),
+    World(Box<RecursiveTreeNode<Self>>),
 }
 impl<T> WorldTree<T> {
     pub fn new_base(val: T) -> Self {
@@ -40,8 +40,8 @@ impl<T> WorldTree<T> {
     /// Returns the value if base, otherwise, gets the root's value
     pub fn get_root_value(&self) -> &T {
         match self {
-            WorldTree::Base(value) => value,
-            WorldTree::World(recursive_tree_node) => {
+            Self::Base(value) => value,
+            Self::World(recursive_tree_node) => {
                 recursive_tree_node.get_value().get_root_value()
             }
         }
@@ -55,8 +55,8 @@ impl<T> WorldTree<T> {
             }
             Some(tree_path) => match self {
                 // If we are at the base, then we can't further index a tree path
-                WorldTree::Base(_) => None,
-                WorldTree::World(recursive_tree_node) => recursive_tree_node
+                Self::Base(_) => None,
+                Self::World(recursive_tree_node) => recursive_tree_node
                     .safe_get(tree_path)?
                     .get_value()
                     .safe_get(WorldTreePath(path.0[1..].into())),
@@ -67,14 +67,14 @@ impl<T> WorldTree<T> {
 impl WorldTree<String> {
     pub fn outer_world_to_string(&self, focus_path: Option<TreeNodePath>) -> String {
         match self {
-            WorldTree::Base(inner) => {
+            Self::Base(inner) => {
                 if focus_path.is_some() {
                     format!(">{}", inner)
                 } else {
                     inner.clone()
                 }
             }
-            WorldTree::World(recursive_tree_node) => recursive_tree_node
+            Self::World(recursive_tree_node) => recursive_tree_node
                 .simple_to_string(&|node| node.get_root_value().clone(), focus_path),
         }
     }

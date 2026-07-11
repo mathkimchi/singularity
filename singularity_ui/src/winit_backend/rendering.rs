@@ -23,17 +23,17 @@ impl Vertex {
     /// Large triangle trick to cover the whole screen
     /// https://webgpufundamentals.org/webgpu/lessons/webgpu-large-triangle-to-cover-clip-space.html (allegedly 5%)
     /// TODO: Doing two triangles for tight rectangles will probably boost speed much more, but I might end up only needing one render call so idk...
-    pub(super) const VERTICES: &[Vertex] = &[
+    pub(super) const VERTICES: &[Self] = &[
         // A
-        Vertex {
+        Self {
             position: [3., -1., 0.0],
         },
         // B
-        Vertex {
+        Self {
             position: [-1., 3., 0.0],
         },
         // C
-        Vertex {
+        Self {
             position: [-1., -1., 0.0],
         },
     ];
@@ -550,17 +550,17 @@ impl UIElement {
 
     fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
         match self {
-            UIElement::Container(children) => {
+            Self::Container(children) => {
                 for ui_element in children {
                     // draw the inner widget
                     ui_element.draw(drawing_shared_data, container_area);
                 }
             }
-            UIElement::Contained(inner_element, area) => {
+            Self::Contained(inner_element, area) => {
                 inner_element.draw(drawing_shared_data, area.map_onto(container_area));
             }
             // FIXME: there are weird border lines
-            UIElement::Bordered(inner_element, border_color) => {
+            Self::Bordered(inner_element, border_color) => {
                 // // draw the border
                 // let border_path = {
                 //     let mut pb = raqote::PathBuilder::new();
@@ -602,7 +602,7 @@ impl UIElement {
                 //     &DrawOptions::new(),
                 // );
 
-                UIElement::fill_rect(
+                Self::fill_rect(
                     drawing_shared_data,
                     container_area,
                     1.0,
@@ -627,7 +627,7 @@ impl UIElement {
                 // draw the inner widget
                 inner_element.draw(drawing_shared_data, inner_area);
             }
-            UIElement::Backgrounded(inner_element, bg_color) => {
+            Self::Backgrounded(inner_element, bg_color) => {
                 // clear the inside of the border
                 Self::fill_rect(
                     drawing_shared_data,
@@ -642,7 +642,7 @@ impl UIElement {
                 // draw the inner widget
                 inner_element.draw(drawing_shared_data, container_area);
             }
-            UIElement::Text(text) => {
+            Self::Text(text) => {
                 let mut text_buffer = glyphon::Buffer::new(
                     drawing_shared_data.font_system,
                     Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
@@ -722,7 +722,7 @@ impl UIElement {
                 //     &DrawOptions::new(),
                 // );
             }
-            UIElement::CharGrid(char_grid) => {
+            Self::CharGrid(char_grid) => {
                 Self::draw_char_grid(
                     drawing_shared_data,
                     char_grid,
@@ -903,10 +903,10 @@ impl UIElement {
                 }
                 */
             }
-            UIElement::Image(image_buffer) => {
+            Self::Image(image_buffer) => {
                 Self::draw_image(drawing_shared_data, image_buffer, container_area);
             }
-            UIElement::Nothing => {}
+            Self::Nothing => {}
         }
     }
 

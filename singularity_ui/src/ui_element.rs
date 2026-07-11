@@ -9,16 +9,16 @@ use crate::{
 pub enum UIElement {
     /// Contains a list of inner elements.
     /// Overlapping is allowed.
-    Container(Vec<UIElement>),
+    Container(Vec<Self>),
 
     /// contains inner element within a certain area
     ///
     /// elements that aren't contained should be assumed to take the entire space
-    Contained(Box<UIElement>, DisplayArea),
+    Contained(Box<Self>, DisplayArea),
     /// TODO: Fix the right and bottom borders.
-    Bordered(Box<UIElement>, Color),
+    Bordered(Box<Self>, Color),
     /// TODO: better name
-    Backgrounded(Box<UIElement>, Color),
+    Backgrounded(Box<Self>, Color),
 
     Text(Vec<(String, glyphon::AttrsOwned)>),
 
@@ -45,10 +45,10 @@ impl UIElement {
     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
     /// across the horizontal axis and take full height.
     /// TODO: take in horizontal vs vertical as input or make this into two functions
-    pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = UIElement>) -> UIElement {
+    pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = Self>) -> Self {
         // proportional units so widths out of 1
         let widths = 1. / subdisplays.len() as f32;
-        UIElement::Container(
+        Self::Container(
             subdisplays
                 .into_iter()
                 .enumerate()
@@ -73,14 +73,14 @@ impl UIElement {
         )
     }
 }
-impl From<Option<UIElement>> for UIElement {
-    fn from(value: Option<UIElement>) -> Self {
-        value.unwrap_or(UIElement::Nothing)
+impl From<Option<Self>> for UIElement {
+    fn from(value: Option<Self>) -> Self {
+        value.unwrap_or(Self::Nothing)
     }
 }
 impl From<String> for UIElement {
     fn from(raw_content: String) -> Self {
-        UIElement::Text(vec![(raw_content, Self::glyphon_attr(Color::WHITE))])
+        Self::Text(vec![(raw_content, Self::glyphon_attr(Color::WHITE))])
     }
 }
 
@@ -144,7 +144,7 @@ pub struct CharCell {
 }
 impl CharCell {
     pub fn new(character: char) -> Self {
-        CharCell {
+        Self {
             character,
             fg: Color::LIGHT_YELLOW,
             bg: Color::TRANSPARENT,
@@ -181,7 +181,7 @@ impl From<String> for CharGrid {
         let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
             width
         } else {
-            return CharGrid {
+            return Self {
                 width: 0,
                 height: 0,
                 content: Vec::new(),
@@ -197,7 +197,7 @@ impl From<String> for CharGrid {
             }
         }
 
-        CharGrid {
+        Self {
             width,
             height,
             content,
@@ -228,7 +228,7 @@ impl CharGrid {
         let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
             width
         } else {
-            return CharGrid {
+            return Self {
                 width: 0,
                 height: 0,
                 content: Vec::new(),
@@ -251,7 +251,7 @@ impl CharGrid {
             }
         }
 
-        CharGrid::new(width, height, content)
+        Self::new(width, height, content)
     }
 
     /// Returns (width, height)

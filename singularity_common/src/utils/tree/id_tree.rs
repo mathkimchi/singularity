@@ -45,7 +45,7 @@ impl<T> IdTree<T> {
     /// recursively removes id and all its posterity, and creates a new id tree with the id being root
     ///
     /// If this is root, then don't change anything
-    pub fn pluck(&mut self, new_root_id: &Id<T>) -> Option<IdTree<T>> {
+    pub fn pluck(&mut self, new_root_id: &Id<T>) -> Option<Self> {
         // disconnect from parent
         let root_parent_id = self.nodes.get(new_root_id).unwrap().parent?;
         self.nodes
@@ -77,7 +77,7 @@ impl<T> IdTree<T> {
             nodes
         };
 
-        Some(IdTree::<T> {
+        Some(Self {
             root_id: *new_root_id,
             nodes,
         })
@@ -337,7 +337,7 @@ mod derive_macro_impls {
                 Parent,
             }
             impl<'de> serde::Deserialize<'de> for Field {
-                fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
                 where
                     D: serde::Deserializer<'de>,
                 {
@@ -420,7 +420,7 @@ mod derive_macro_impls {
     }
     impl<T> core::fmt::Debug for Node<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            let Node { children, parent } = self;
+            let Self { children, parent } = self;
             f.debug_struct("Node")
                 .field("children", &children)
                 .field("parent", &parent)
@@ -642,7 +642,7 @@ mod derive_macro_impls {
                 "IdTree",
                 FIELDS,
                 __Visitor {
-                    marker: serde::__private228::PhantomData::<IdTree<T>>,
+                    marker: serde::__private228::PhantomData::<Self>,
                     lifetime: serde::__private228::PhantomData,
                 },
             )
@@ -650,8 +650,8 @@ mod derive_macro_impls {
     }
     impl<T> core::clone::Clone for IdTree<T> {
         fn clone(&self) -> Self {
-            let IdTree { root_id, nodes } = self;
-            IdTree {
+            let Self { root_id, nodes } = self;
+            Self {
                 root_id: *root_id,
                 nodes: nodes.clone(),
             }
@@ -659,7 +659,7 @@ mod derive_macro_impls {
     }
     impl<T> core::fmt::Debug for IdTree<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            let IdTree { root_id, nodes } = self;
+            let Self { root_id, nodes } = self;
             f.debug_struct("IdTree")
                 .field("root_id", &root_id)
                 .field("nodes", &nodes)

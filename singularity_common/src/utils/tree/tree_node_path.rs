@@ -21,7 +21,7 @@ impl TreeNodePath {
 }
 impl<T: Into<Vec<usize>>> From<T> for TreeNodePath {
     fn from(val: T) -> Self {
-        TreeNodePath(val.into())
+        Self(val.into())
     }
 }
 

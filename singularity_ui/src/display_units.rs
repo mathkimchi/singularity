@@ -11,9 +11,9 @@ pub enum DisplayUnits {
 }
 
 impl DisplayUnits {
-    pub const ZERO: DisplayUnits = DisplayUnits::Pixels(0);
-    pub const HALF: DisplayUnits = DisplayUnits::Proportional(0.5);
-    pub const FULL: DisplayUnits = DisplayUnits::Proportional(1.0);
+    pub const ZERO: Self = Self::Pixels(0);
+    pub const HALF: Self = Self::Proportional(0.5);
+    pub const FULL: Self = Self::Proportional(1.0);
 
     pub const fn from_mixed(pixels: i32, proportion: f32) -> Self {
         match (pixels, proportion) {
@@ -119,9 +119,9 @@ impl std::ops::Div<f32> for DisplayUnits {
     /// Pixels will get lost/created from rounding integer.
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            DisplayUnits::Pixels(pixels) => Self::Pixels((pixels as f32 / rhs).round() as i32),
-            DisplayUnits::Proportional(prop) => Self::Proportional(prop / rhs),
-            DisplayUnits::MixedUnits { pixels, proportion } => Self::MixedUnits {
+            Self::Pixels(pixels) => Self::Pixels((pixels as f32 / rhs).round() as i32),
+            Self::Proportional(prop) => Self::Proportional(prop / rhs),
+            Self::MixedUnits { pixels, proportion } => Self::MixedUnits {
                 pixels: ((pixels as f32 / rhs).round() as i32),
                 proportion: proportion / rhs,
             },
@@ -136,7 +136,7 @@ pub struct DisplaySize {
 }
 impl DisplaySize {
     pub const fn new(width: DisplayUnits, height: DisplayUnits) -> Self {
-        DisplaySize { width, height }
+        Self { width, height }
     }
 }
 
@@ -149,7 +149,7 @@ pub struct DisplayContainerSize {
 }
 impl DisplayContainerSize {
     pub const fn new(width: u32, height: u32) -> Self {
-        DisplayContainerSize { width, height }
+        Self { width, height }
     }
 }
 impl From<DisplayContainerSize> for DisplaySize {
@@ -165,7 +165,7 @@ pub struct DisplayCoord {
 }
 impl DisplayCoord {
     pub const fn new(x: DisplayUnits, y: DisplayUnits) -> Self {
-        DisplayCoord { x, y }
+        Self { x, y }
     }
 
     pub fn map_onto(&self, container_area: DisplayArea) -> Self {
