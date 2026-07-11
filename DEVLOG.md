@@ -7617,3 +7617,11 @@ but horizontally, it's only 2 boxes wide when it should be 10.
 I'm gonna commit now though and go play soccer with random people
 (that's a good thing bc I'll meet new ppl).
 I'm also 7% battery so it's good I'm ending now.
+
+2026-07-11 12:13PM
+
+Hmm, the right side actually is showing a tiny portion of a third column.
+I might be telling it to draw on a wider area than it should be.
+
+...yeah, I think that's it, if I hardcode a width of 100 px,
+everything seems to be expected behavior.

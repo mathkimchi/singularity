@@ -514,10 +514,11 @@ impl UIElement {
                         as _,
                 ],
                 size: [
-                    area.size()
-                        .width
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
+                    // area.size()
+                    //     .width
+                    //     .pixels(drawing_shared_data.surface_config.width as _)
+                    //     as _,
+                    100.,
                     area.size()
                         .height
                         .pixels(drawing_shared_data.surface_config.height as _)
