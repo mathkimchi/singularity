@@ -5,7 +5,7 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplayUnits},
     ui_element::{CharGrid, FONT_SIZE_F, InternalCharCell, UIElement},
-    winit_backend::WinitData,
+    winit_backend::WgpuData,
 };
 use glyphon::{Metrics, TextRenderer};
 use image::RgbaImage;
@@ -1081,11 +1081,15 @@ impl UIElement {
 
 impl UIDisplay {
     pub fn draw(&mut self) {
+        // TODO: use this pattern elsewhere; idk why clippy doesn't auto recommend redoing
+        // let v = if let Some(v) = ... { v } else { return };
+        // as let Some(v) = ... else { return };
+        // maybe I should try to submit a PR for clippy doing this
         let Some(state) = &mut self.winit_data else {
             return;
         };
 
-        let WinitData {
+        let WgpuData {
             // window,
             device,
             queue,
@@ -1107,7 +1111,7 @@ impl UIDisplay {
             // instance_buffer,
             // instances,
             ..
-        } = state;
+        } = &mut state.wgpu_data;
 
         let output = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
@@ -1246,4 +1250,10 @@ impl UIDisplay {
         //     .expect("buffer attach");
         // self.window.commit();
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn draw_char_grid() {}
 }

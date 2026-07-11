@@ -4,6 +4,7 @@
 //! as well as the old wayland_backend.
 
 use crate::{
+    display_units::DisplayContainerSize,
     ui_element::UIElement,
     winit_backend::{
         rendering::{CharGridInstance, ImageInstance, RoundRectInstance, Vertex},
@@ -13,8 +14,8 @@ use crate::{
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, TextureFormat,
-    TextureUsages, include_wgsl, util::DeviceExt as _,
+    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
+    TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
@@ -25,9 +26,7 @@ mod winit_impls;
 pub const FRAME_RATE: f32 = 30.;
 pub const FRAME_DELTA_SECONDS: f32 = 1. / FRAME_RATE;
 
-/// Data needed to connect to winit.
-/// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
-struct WinitData {
+struct WgpuData {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
@@ -52,23 +51,16 @@ struct WinitData {
     // // index_buffer: wgpu::Buffer,
     // instances: Vec<RoundRectInstance>,
     // instance_buffer: wgpu::Buffer,
-
-    // Make sure that the winit window is last in the struct so that
-    // it is dropped after the wgpu surface is dropped, otherwise the
-    // program may crash when closed. This is probably a bug in wgpu.
-    window: Arc<Window>,
 }
-impl WinitData {
-    async fn new(window: Arc<Window>) -> Self {
-        let physical_size = window.inner_size();
-        // let scale_factor = window.scale_factor();
-
+impl WgpuData {
+    async fn new(
+        target: impl Into<SurfaceTarget<'static>>,
+        physical_size: DisplayContainerSize,
+    ) -> Self {
         // Set up surface
         let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
 
-        let surface = instance
-            .create_surface(window.clone())
-            .expect("Create surface");
+        let surface = instance.create_surface(target).expect("Create surface");
         let swapchain_format = TextureFormat::Bgra8UnormSrgb;
         let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
@@ -393,7 +385,6 @@ impl WinitData {
             atlas,
             // text_renderer,
             // text_buffer,
-            window,
             rectangle_render_pipeline,
             image_render_pipeline,
             image_texture_bind_group_layout,
@@ -403,6 +394,32 @@ impl WinitData {
             // // index_buffer,
             // instances,
             // instance_buffer,
+        }
+    }
+}
+
+/// Data needed to connect to winit.
+/// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
+struct WinitData {
+    wgpu_data: WgpuData,
+
+    // Make sure that the winit window is last in the struct so that
+    // it is dropped after the wgpu surface is dropped, otherwise the
+    // program may crash when closed. This is probably a bug in wgpu.
+    window: Arc<Window>,
+}
+impl WinitData {
+    async fn new(window: Arc<Window>) -> Self {
+        let physical_size = window.inner_size();
+        // let scale_factor = window.scale_factor();
+
+        Self {
+            wgpu_data: WgpuData::new(
+                window.clone(),
+                DisplayContainerSize::new(physical_size.width, physical_size.height),
+            )
+            .await,
+            window,
         }
     }
 }

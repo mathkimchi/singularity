@@ -1,5 +1,3 @@
-use std::panic::PanicHookInfo;
-
 use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},

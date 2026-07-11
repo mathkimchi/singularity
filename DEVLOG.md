@@ -7634,3 +7634,5 @@ and you have to visually confirm it.
 
 First, I'm just going to get rid of the demos rn because it is error-ing.
 They are honestly liabilities.
+
+Making a tester is actually going to force me to organize my code better.

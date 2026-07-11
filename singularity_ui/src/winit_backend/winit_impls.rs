@@ -1,7 +1,7 @@
 use crate::{
     display_units::DisplayContainerSize,
     ui_event::Key,
-    winit_backend::{UIDisplay, WinitData},
+    winit_backend::{UIDisplay, WgpuData, WinitData},
 };
 use std::sync::Arc;
 use winit::{dpi::LogicalSize, window::Window};
@@ -38,22 +38,14 @@ impl winit::application::ApplicationHandler for UIDisplay {
 
         let WinitData {
             window,
-            device,
-            // queue,
-            surface,
-            surface_config,
-            // font_system,
-            // swash_cache,
-            // viewport,
-            // atlas,
-            // text_renderer,
-            // text_buffer,
-            // render_pipeline,
-            // vertex_buffer,
-            // // index_buffer,
-            // instance_buffer,
-            // instances,
-            ..
+            wgpu_data:
+                WgpuData {
+                    device,
+                    // queue,
+                    surface,
+                    surface_config,
+                    ..
+                },
         } = state;
 
         match event {
