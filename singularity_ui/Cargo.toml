@@ -2,7 +2,9 @@
 name = "singularity_ui"
 version = "0.1.0"
 edition = "2024"
-lint.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 wayland-client = { version = "^0.31", optional = true }

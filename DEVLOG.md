@@ -7679,3 +7679,22 @@ and yes, Sonamu will fix this, but I also realized I can simply make a shortcuts
 ...
 
 The specific lint wasn't showing up, and I needed to enable the lint in every workspace.
+
+As I was updating the Cargo.toml's, I noticed that I'm on rust edition 2024.
+I should make it 2026 eventually, if that changes anything.
+
+Fuhh, I typed `lint.workspace = true` instead of `lints.workspace = true`
+for all the crate Cargo.toml's.
+I'm going to do a search and replace:
+`find */Cargo.toml -type f -exec sed -i 's/lint\.workspace/lints\.workspace/g' {} +`
+
+Fuh, I put it under `[packages]` (I hate toml).
+Let's see if this is the fix:
+`find */Cargo.toml -type f -exec sed -i 's/lints\.workspace/\n[lints]\nworkspace/g' {} +`
+
+... oh dear lord, 2208 warnings and suggestions.
+
+I am going to go over all of them.
+Yes, you heard me right.
+But, I'm not going to go over all of them individually, for the sake of sanity.
+For each suggestion that I think is mid, I'm going to disable the entire warning type.
