@@ -7625,3 +7625,12 @@ I might be telling it to draw on a wider area than it should be.
 
 ...yeah, I think that's it, if I hardcode a width of 100 px,
 everything seems to be expected behavior.
+
+2026-07-11 01:15PM
+
+You know what, I'm going to make a testing script.
+This won't be a fully automated unit test bc it's just going to output an image
+and you have to visually confirm it.
+
+First, I'm just going to get rid of the demos rn because it is error-ing.
+They are honestly liabilities.
