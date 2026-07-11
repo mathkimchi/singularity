@@ -177,7 +177,7 @@ impl SeatHandler for WaylandCompositor {
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
-    fn seat_state(&mut self) -> &mut SeatState<WaylandCompositor> {
+    fn seat_state(&mut self) -> &mut SeatState<Self> {
         &mut self.seat_state
     }
 

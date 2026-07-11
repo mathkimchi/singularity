@@ -41,3 +41,14 @@ all = "warn"
 pedantic = "warn"
 nursery = "warn"
 cargo = "warn"
+
+# all the pedantic stuff I'm not going to listen to:
+
+# something with common things to put in a Crate like liscence and stuff
+# TODO: enable; I'll do these if I ever put this on crates.io
+cargo_common_metadata = { level = "allow", priority = 1 }
+# I think this technically bloats the system but might be inevitable?
+# I also just don't have wifi rn so I can't do anything about it rn...
+multiple_crate_versions = { level = "allow", priority = 1 }
+# Markdown suggestions that are too pedantic, especially since it's just me developing rn
+doc_markdown = { level = "allow", priority = 1 }

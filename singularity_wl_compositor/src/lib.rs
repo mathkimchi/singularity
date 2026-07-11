@@ -85,13 +85,12 @@ impl WaylandCompositor {
         program: S,
         input_queue: mpsc::Receiver<UIEvent>,
     ) -> Self {
-        let mut event_loop: EventLoop<WaylandCompositor> = EventLoop::try_new().unwrap();
+        let event_loop: EventLoop<Self> = EventLoop::try_new().unwrap();
 
-        let mut display: smithay::reexports::wayland_server::Display<WaylandCompositor> =
+        let mut display: smithay::reexports::wayland_server::Display<Self> =
             smithay::reexports::wayland_server::Display::new().unwrap();
 
-        let mut state =
-            WaylandCompositor::create(&mut event_loop, &mut display, image, input_queue);
+        let mut state = Self::create(&event_loop, &display, image, input_queue);
 
         let mut listener_count = 0;
         let listener = loop {
@@ -201,7 +200,7 @@ impl WaylandCompositor {
                 }
 
                 if let Some(stream) = listener.accept().unwrap() {
-                    println!("Got a client: {:?}", stream);
+                    println!("Got a client: {stream:?}");
 
                     let _client = display
                         .handle()
@@ -246,8 +245,8 @@ impl WaylandCompositor {
 
     /// Creates WaylandApplet but doesn't run it
     fn create(
-        event_loop: &mut EventLoop<Self>,
-        display: &mut smithay::reexports::wayland_server::Display<Self>,
+        event_loop: &EventLoop<Self>,
+        display: &smithay::reexports::wayland_server::Display<Self>,
         image: Arc<Mutex<Option<RgbaImage>>>,
         input_queue: mpsc::Receiver<UIEvent>,
     ) -> Self {
@@ -268,14 +267,15 @@ impl WaylandCompositor {
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&display_handle, "hello");
 
-        seat.add_keyboard(Default::default(), 200, 25).unwrap();
+        seat.add_keyboard(smithay::input::keyboard::XkbConfig::default(), 200, 25)
+            .unwrap();
         seat.add_pointer();
 
         let socket_name = Self::init_wayland_listener();
 
         let loop_signal = event_loop.get_signal();
 
-        WaylandCompositor {
+        Self {
             start_time,
             display_handle,
             loop_signal,
@@ -355,7 +355,7 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
+            singularity_ui::ui_event::UIEvent::KeyPress(key, _key_modifiers) => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,
@@ -384,7 +384,7 @@ impl WaylandCompositor {
                 }
             }
             singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
-            singularity_ui::ui_event::UIEvent::MousePress(_, display_area) => {
+            singularity_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO: handle keypress in wayland applet");
             }
         }
@@ -420,6 +420,7 @@ pub struct WaylandApplet {
     hook: Box<dyn NodularRunnerHook>,
 }
 impl WaylandApplet {
+    #[must_use]
     pub fn new(hook: Box<dyn NodularRunnerHook>, program: String) -> Self {
         let image = Arc::new(Mutex::new(None));
 
@@ -447,6 +448,7 @@ impl WaylandApplet {
     ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook, program))
     }
+    #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
         struct WaylandSpawner;
         impl AppletSpawnerTrait for WaylandSpawner {

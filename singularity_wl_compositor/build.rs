@@ -55,7 +55,7 @@ fn main() {
         .join(",\n");
 
     let content = format!(
-        r#"
+        r"
             match key {{
                 Key::ArrowKeyUp => 103,
                 Key::ArrowKeyDown => 108,
@@ -70,7 +70,7 @@ fn main() {
                 {match_arms},
                 _ => None?,
             }}
-        "#
+        "
     );
     write(dest_path, content).unwrap();
 

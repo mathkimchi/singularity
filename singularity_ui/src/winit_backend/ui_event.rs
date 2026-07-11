@@ -6,7 +6,7 @@ use crate::display_units::{DisplayArea, DisplayContainerSize};
 /// TODO: also, figure out a way to easily match keypresses and shortcuts
 ///
 /// TODO: figure out a standard way of "forwarding" events to child
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum UIEvent {
     KeyPress(Key, KeyModifiers),
     WindowResized(DisplayContainerSize),
@@ -27,7 +27,7 @@ pub struct KeyModifiers {
     pub logo: bool,
     // pub num_lock: bool,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Key {
     ArrowKeyUp,
     ArrowKeyDown,

@@ -7698,3 +7698,28 @@ I am going to go over all of them.
 Yes, you heard me right.
 But, I'm not going to go over all of them individually, for the sake of sanity.
 For each suggestion that I think is mid, I'm going to disable the entire warning type.
+
+I'm not going to run clippy's batch fixing thing,
+because that might have unintended consequences.
+
+`cargo_common_metadata` actually was behind most of these,
+allowing it put me from 2206 to 628 errors.
+It is for things that are nice to have/recommended for crates,
+like License and stuff.
+I'll do them later.
+
+628 seems small compared to before, but it's still a crazy number.
+Never mind, I made a mistake when allowing that.
+Because clippy ignores order, there was a contradiction and I had to manually set the priorities
+of the rules.
+Now I'm at 1175, so `cargo_common_metadata` was still responsible for over a 1000.
+
+2026-07-11 05:55PM
+
+Ok I'm at 738 right now,
+but I realized that for some things like `use_self` (that uses `Self` whenever applicable),
+I trust clippy to autofix.
+
+So, I'm going to commit now (I think clippy fix wants a clean repo,
+which could be overrided, but it's a good idea) and autofix use_self.
+I'll try the command `cargo clippy --fix -- -A clippy::all -A clippy::pedantic -A clippy::nursery -A clippy::cargo -W clippy::use_self`.

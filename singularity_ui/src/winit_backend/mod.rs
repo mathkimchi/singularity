@@ -94,7 +94,7 @@ impl WgpuData {
                 } else {
                     wgpu::Limits::default()
                 },
-                memory_hints: Default::default(),
+                memory_hints: wgpu::MemoryHints::default(),
                 trace: wgpu::Trace::Off, // Trace path
             })
             .await
