@@ -7955,3 +7955,11 @@ you call the elements outside-in, so you start with creating a contained size,
 then you create a border inside that region, then you finally draw the widget inside the borders.
 
 Okay, I'm going to get started on actually implementing LayoutBuilder now after this commit.
+
+...
+
+I made implemented it and I use it in the root node applet now.
+Now the horizontal axis is working as I expect but the vertical axis is too short.
+It looks like the char grid has the same aspect ratio as the overall window,
+but since there are no blockers above or below, the extra vertical space isn't being utilized.
+I will commit now though.

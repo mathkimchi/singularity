@@ -6,6 +6,7 @@ use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
+    layout_builder::LayoutBuilder,
     ui_element::UIElement,
 };
 use std::{collections::BTreeMap, sync::RwLock};
@@ -139,9 +140,10 @@ impl BasicApplet for RootNodeApplet {
             self.get_treeview_display()
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
             self.applet
-                .get_window(container_size)
+                .layout_builder()
                 .bordered(Color::LIGHT_GREEN)
-                .contain(DisplayArea::new((0.2, 0.0), (1.0, 1.0))),
+                .contained(DisplayArea::new((0.2, 0.0), (1.0, 1.0)))
+                .get_ui_element(container_size),
         ])
     }
 }

@@ -82,8 +82,9 @@ impl UIElement {
     #[must_use]
     pub fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
         DisplayContainerSize {
-            width: container_size.width - 2,
-            height: container_size.height - 2,
+            // TODO: figure out all the edge cases like this
+            width: container_size.width.saturating_sub(2),
+            height: container_size.height.saturating_sub(2),
         }
     }
 }
