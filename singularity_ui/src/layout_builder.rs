@@ -37,12 +37,18 @@ impl<'a> LayoutBuilder<'a> {
     }
 
     #[must_use]
-    pub fn contained(self, container_area: DisplayArea) -> Self {
+    pub fn contained(self, contained_area: DisplayArea) -> Self {
         Self::from_fn(move |container_size| {
-            let inner_container_size = container_size.find_subsize(container_area.size());
+            let inner_container_size = container_size.find_subsize(contained_area.size());
+
+            // log::debug!("Contained Layout Builder called");
+            // log::debug!("- Container size: {container_size:?}");
+            // log::debug!("- Contained area: {contained_area:?}");
+            // log::debug!("- Inner size: {inner_container_size:?}");
+
             UIElement::Contained(
                 Box::new(self.get_ui_element(inner_container_size)),
-                container_area,
+                contained_area,
             )
         })
     }

@@ -251,7 +251,8 @@ impl CharGrid {
 
     /// Returns (width, height)
     #[must_use]
-    pub const fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+    pub fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+        // log::debug!("Largest fittable size called, container size: {container_size:?}");
         (
             // Font size is height, width is twice the height
             // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer

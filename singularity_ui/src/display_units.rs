@@ -163,7 +163,7 @@ impl DisplayContainerSize {
     pub fn find_subsize(&self, inner_size: DisplaySize) -> Self {
         Self {
             width: inner_size.width.pixels(self.width as i32).cast_unsigned(),
-            height: inner_size.width.pixels(self.height as i32).cast_unsigned(),
+            height: inner_size.height.pixels(self.height as i32).cast_unsigned(),
         }
     }
 }

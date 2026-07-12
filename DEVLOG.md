@@ -7963,3 +7963,14 @@ Now the horizontal axis is working as I expect but the vertical axis is too shor
 It looks like the char grid has the same aspect ratio as the overall window,
 but since there are no blockers above or below, the extra vertical space isn't being utilized.
 I will commit now though.
+
+...Largest fittable size is being called with the window proportions and not the actual
+applet size.
+That means `get_window` is being called with the wrong size.
+
+... Ok, I found the culprit, in the find_subsize calculation,
+I copied the width logic to height and changed variables as necessary
+but forgot to change one of the widths to height.
+
+Nice! It works now.
+

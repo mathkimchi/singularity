@@ -501,15 +501,15 @@ impl UIElement {
 
         // set instance buffer
         {
-            log::debug!(
-                "Char Grid Area: {} {} px",
-                area.size()
-                    .width
-                    .pixels(drawing_shared_data.surface_config.width as _),
-                area.size()
-                    .height
-                    .pixels(drawing_shared_data.surface_config.height as _),
-            );
+            // log::debug!(
+            //     "Char Grid Area: {} {} px",
+            //     area.size()
+            //         .width
+            //         .pixels(drawing_shared_data.surface_config.width as _),
+            //     area.size()
+            //         .height
+            //         .pixels(drawing_shared_data.surface_config.height as _),
+            // );
             let instances = vec![CharGridInstance {
                 // this currently takes in top left
                 origin: [
