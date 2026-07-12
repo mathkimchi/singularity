@@ -14,8 +14,9 @@ use crate::{
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
-    TextureFormat, TextureUsages, include_wgsl, util::DeviceExt as _,
+    CompositeAlphaMode, InstanceDescriptor, PipelineCompilationOptions, PresentMode,
+    SurfaceConfiguration, SurfaceTarget, TextureFormat, TextureUsages, include_wgsl,
+    util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
@@ -142,7 +143,7 @@ impl WgpuData {
                     module: &rectangle_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc(), RoundRectInstance::desc()],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &rectangle_shader,
@@ -155,7 +156,7 @@ impl WgpuData {
                         }),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
@@ -223,7 +224,7 @@ impl WgpuData {
                     module: &image_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc(), ImageInstance::desc()],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &image_shader,
@@ -236,7 +237,7 @@ impl WgpuData {
                         }),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
@@ -297,7 +298,7 @@ impl WgpuData {
                     module: &char_grid_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc(), CharGridInstance::desc()],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &char_grid_shader,
@@ -310,7 +311,7 @@ impl WgpuData {
                         }),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
-                    compilation_options: Default::default(),
+                    compilation_options: PipelineCompilationOptions::default(),
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,

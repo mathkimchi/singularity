@@ -52,9 +52,9 @@ mod compositor;
 /// and saving the output to a shared image
 struct WaylandCompositor {
     start_time: std::time::Instant,
-    display_handle: DisplayHandle,
+    _display_handle: DisplayHandle,
 
-    loop_signal: LoopSignal,
+    _loop_signal: LoopSignal,
 
     compositor_state: CompositorState,
     xdg_shell_state: XdgShellState,
@@ -63,9 +63,9 @@ struct WaylandCompositor {
 
     seat: Seat<Self>,
 
-    socket_name: OsString,
+    _socket_name: OsString,
 
-    main_client: Option<Client>,
+    _main_client: Option<Client>,
     surface: Option<WlSurface>,
 
     image: Arc<Mutex<Option<RgbaImage>>>,
@@ -277,8 +277,8 @@ impl WaylandCompositor {
 
         Self {
             start_time,
-            display_handle,
-            loop_signal,
+            _display_handle: display_handle,
+            _loop_signal: loop_signal,
 
             compositor_state,
             xdg_shell_state,
@@ -289,9 +289,9 @@ impl WaylandCompositor {
             // popups,
             seat,
 
-            socket_name,
+            _socket_name: socket_name,
 
-            main_client: None,
+            _main_client: None,
             surface: None,
 
             image,
@@ -415,7 +415,7 @@ fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
 
 pub struct WaylandApplet {
     image: Arc<Mutex<Option<RgbaImage>>>,
-    thread: JoinHandle<WaylandCompositor>,
+    _thread: JoinHandle<WaylandCompositor>,
     input_sender: mpsc::Sender<UIEvent>,
     hook: Box<dyn NodularRunnerHook>,
 }
@@ -431,7 +431,7 @@ impl WaylandApplet {
 
         Self {
             image,
-            thread,
+            _thread: thread,
             input_sender: tx,
             hook,
         }

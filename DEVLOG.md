@@ -7792,3 +7792,6 @@ It puts me at 208 diagnostics, so it didn't really do much.
 
 Some of these lints like `match_same_arms` are just opinionated stuff,
 I'm going to be more skeptical of these warnings starting now.
+
+Ok, I'm kinda done now.
+There's 16 diagnostics.
