@@ -90,10 +90,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // // just make sure characters change
         // return vec4<f32>((f32(char_type) * 1.618033 * 1000000.) % 1., 0., 0., 1.);
 
-        // return bg;
-
-        return vec4<f32>(glyph_pos_uv, 0., 1.);
-
         if char_type == 32 {
             // space
             return bg;

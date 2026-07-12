@@ -7983,3 +7983,18 @@ Now, the boxes should be constant size and there should be more or less to fit t
 Ok, that's a commit bc it works splendidly (I mean, it can either work or not work and it works, so that's good).
 By the way, I'm also noticing that after the initial lag,
 when I resize, it updates very very fast and smooth.
+
+...
+
+Next, I'll change the shader code to do the fg on most char and bg on space.
+This was the first added simplification and last that I can easily comment out
+(the next thing I need to do is to go from just solid fg and bg to doing actual characters,
+which is probably going to be the actual hard part.
+Fuhh, everythiing from the past few days was the relatively easy stuff, I'm cooked).
+
+...
+
+Holy crocodidledoo!
+It is doing expected behavior!
+
+And Jesus wept, for there were no more worlds to conquer!!!
