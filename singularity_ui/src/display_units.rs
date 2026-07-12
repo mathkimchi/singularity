@@ -15,6 +15,7 @@ impl DisplayUnits {
     pub const HALF: Self = Self::Proportional(0.5);
     pub const FULL: Self = Self::Proportional(1.0);
 
+    #[must_use]
     pub const fn from_mixed(pixels: i32, proportion: f32) -> Self {
         match (pixels, proportion) {
             // (pixels, 0.) => Self::Pixels(pixels), // can not use non-const ops in const fn
@@ -23,6 +24,7 @@ impl DisplayUnits {
         }
     }
 
+    #[must_use]
     pub fn pixels(&self, container_pixels: i32) -> i32 {
         match self {
             Self::Pixels(pixels) => *pixels,
@@ -35,6 +37,7 @@ impl DisplayUnits {
         }
     }
 
+    #[must_use]
     pub const fn components(&self) -> (i32, f32) {
         match self {
             Self::Pixels(pixels) => (*pixels, 0.),
@@ -44,6 +47,7 @@ impl DisplayUnits {
     }
 
     /// REVIEW
+    #[must_use]
     pub fn map_onto(&self, container_min: Self, container_max: Self) -> Self {
         if let Self::Pixels(_) = self {
             return container_min + *self;
@@ -135,6 +139,7 @@ pub struct DisplaySize {
     pub height: DisplayUnits,
 }
 impl DisplaySize {
+    #[must_use]
     pub const fn new(width: DisplayUnits, height: DisplayUnits) -> Self {
         Self { width, height }
     }
@@ -148,6 +153,7 @@ pub struct DisplayContainerSize {
     pub height: u32,
 }
 impl DisplayContainerSize {
+    #[must_use]
     pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
@@ -164,10 +170,12 @@ pub struct DisplayCoord {
     pub y: DisplayUnits,
 }
 impl DisplayCoord {
+    #[must_use]
     pub const fn new(x: DisplayUnits, y: DisplayUnits) -> Self {
         Self { x, y }
     }
 
+    #[must_use]
     pub fn map_onto(&self, container_area: DisplayArea) -> Self {
         Self::new(
             self.x.map_onto(container_area.0.x, container_area.1.x),
@@ -215,6 +223,7 @@ impl DisplayArea {
         )
     }
 
+    #[must_use]
     pub const fn new_proportional(corners: [[f32; 2]; 2]) -> Self {
         Self(
             DisplayCoord {
@@ -228,10 +237,12 @@ impl DisplayArea {
         )
     }
 
+    #[must_use]
     pub fn size(&self) -> DisplaySize {
         DisplaySize::new(self.1.x - self.0.x, self.1.y - self.0.y)
     }
 
+    #[must_use]
     pub fn from_corner_size(corner: DisplayCoord, size: DisplaySize) -> Self {
         Self(
             corner,
@@ -239,6 +250,7 @@ impl DisplayArea {
         )
     }
 
+    #[must_use]
     pub fn from_center_half_size(center: DisplayCoord, half_size: DisplaySize) -> Self {
         Self(
             DisplayCoord::new(center.x - half_size.width, center.y - half_size.height),
@@ -246,6 +258,7 @@ impl DisplayArea {
         )
     }
 
+    #[must_use]
     pub fn get_center(&self) -> DisplayCoord {
         DisplayCoord {
             x: (self.0.x + self.1.x) / 2.,
@@ -254,6 +267,7 @@ impl DisplayArea {
     }
 
     /// Use: `child_area.map_onto(parent_area)`
+    #[must_use]
     pub fn map_onto(&self, container_area: Self) -> Self {
         Self(
             self.0.map_onto(container_area),
@@ -261,6 +275,7 @@ impl DisplayArea {
         )
     }
 
+    #[must_use]
     pub fn contains(&self, coord: DisplayCoord, container_pixels: [i32; 2]) -> bool {
         let coord_x = coord.x.pixels(container_pixels[0]);
         let coord_y = coord.y.pixels(container_pixels[1]);

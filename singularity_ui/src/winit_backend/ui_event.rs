@@ -119,6 +119,7 @@ impl KeyModifiers {
     pub const CTRL_SHIFT: Self = Self::both(Self::CTRL, Self::SHIFT);
 
     /// For example, combine(CTRL, SHIFT) is CTRL_SHIFT
+    #[must_use]
     pub const fn both(self, rhs: Self) -> Self {
         Self {
             ctrl: self.ctrl | rhs.ctrl,

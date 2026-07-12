@@ -19,6 +19,7 @@ impl Timer {
         }
     }
 
+    #[must_use]
     pub fn is_done(&self) -> bool {
         self.elapsed >= self.total
     }

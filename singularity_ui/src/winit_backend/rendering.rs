@@ -38,7 +38,7 @@ impl Vertex {
         },
     ];
 
-    pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
+    pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
 
         wgpu::VertexBufferLayout {
@@ -73,7 +73,7 @@ impl RoundRectInstance {
         6 => Float32x4
     ];
 
-    pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
+    pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
 
         wgpu::VertexBufferLayout {
@@ -99,7 +99,7 @@ impl ImageInstance {
         2 => Float32x2,
     ];
 
-    pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
+    pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
 
         wgpu::VertexBufferLayout {
@@ -128,7 +128,7 @@ impl CharGridInstance {
         3 => Uint32x2,
     ];
 
-    pub(super) fn desc() -> wgpu::VertexBufferLayout<'static> {
+    pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
 
         wgpu::VertexBufferLayout {

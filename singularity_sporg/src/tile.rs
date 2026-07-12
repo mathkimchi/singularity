@@ -11,7 +11,7 @@ pub enum Orientation {
     Vertical,
 }
 impl Orientation {
-    fn get_transpose(&self) -> Self {
+    const fn get_transpose(&self) -> Self {
         match self {
             Self::Horizontal => Self::Vertical,
             Self::Vertical => Self::Horizontal,
@@ -44,7 +44,8 @@ impl<Tab> core::clone::Clone for Tile<Tab> {
 }
 impl<Tab> core::marker::Copy for Tile<Tab> {}
 impl<Tab> Tile<Tab> {
-    pub fn try_as_container(&self) -> Option<([Id<Self>; 2], Orientation, f32)> {
+    #[must_use]
+    pub const fn try_as_container(&self) -> Option<([Id<Self>; 2], Orientation, f32)> {
         if let Self::Container {
             children,
             orientation,
@@ -57,7 +58,8 @@ impl<Tab> Tile<Tab> {
         }
     }
 
-    pub fn try_as_tab(&self) -> Option<Id<Tab>> {
+    #[must_use]
+    pub const fn try_as_tab(&self) -> Option<Id<Tab>> {
         if let Self::Tab { tab_id } = *self {
             Some(tab_id)
         } else {
@@ -65,6 +67,7 @@ impl<Tab> Tile<Tab> {
         }
     }
 
+    #[must_use]
     pub fn transmute<NewTab>(self) -> Tile<NewTab> {
         unsafe { std::mem::transmute(self) }
     }
@@ -83,6 +86,7 @@ pub struct Tiles<Tab> {
     leaf_registry: BTreeMap<Id<Tab>, Id<Tile<Tab>>>,
 }
 impl<Tab> Tiles<Tab> {
+    #[must_use]
     pub fn new_from_root(tab_id: Id<Tab>) -> Self {
         let root_tile_id = Id::generate();
         let mut tiles = IdMap::new();
@@ -156,7 +160,8 @@ impl<Tab> Tiles<Tab> {
         self.tiles.remove(&tile_to_remove).unwrap();
     }
 
-    pub fn get_root_tile(&self) -> Id<Tile<Tab>> {
+    #[must_use]
+    pub const fn get_root_tile(&self) -> Id<Tile<Tab>> {
         self.root_id
     }
 
@@ -164,6 +169,7 @@ impl<Tab> Tiles<Tab> {
     //     self.leaf_registry.get(&tab_id).copied()
     // }
 
+    #[must_use]
     pub fn get_tile(&self, tile_id: Id<Tile<Tab>>) -> Option<&Tile<Tab>> {
         self.tiles.get(&tile_id)
     }
@@ -206,10 +212,12 @@ impl<Tab> Tiles<Tab> {
         })
     }
 
+    #[must_use]
     pub fn get_leaf_tile_id(&self, tab_handler: Id<Tab>) -> Option<Id<Tile<Tab>>> {
         self.leaf_registry.get(&tab_handler).copied()
     }
 
+    #[must_use]
     pub fn transmute<NewTab>(self) -> Tiles<NewTab> {
         unsafe { std::mem::transmute(self) }
     }

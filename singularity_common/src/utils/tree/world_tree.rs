@@ -11,11 +11,13 @@ impl WorldTreePath {
     // }
 
     /// getting by this will return the same thing
+    #[must_use]
     pub fn new_empty() -> Self {
         Self(Box::new([]))
     }
 
     /// Goes one level `into`
+    #[must_use]
     pub fn new_into() -> Self {
         Self(Box::new([TreeNodePath::new_root()]))
     }
@@ -28,7 +30,7 @@ pub enum WorldTree<T> {
     World(Box<RecursiveTreeNode<Self>>),
 }
 impl<T> WorldTree<T> {
-    pub fn new_base(val: T) -> Self {
+    pub const fn new_base(val: T) -> Self {
         Self::Base(val)
     }
 
@@ -65,6 +67,7 @@ impl<T> WorldTree<T> {
     }
 }
 impl WorldTree<String> {
+    #[must_use]
     pub fn outer_world_to_string(&self, focus_path: Option<TreeNodePath>) -> String {
         match self {
             Self::Base(inner) => {

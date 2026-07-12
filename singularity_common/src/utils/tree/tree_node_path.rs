@@ -6,16 +6,19 @@
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TreeNodePath(pub Vec<usize>);
 impl TreeNodePath {
-    pub fn new_root() -> Self {
+    #[must_use]
+    pub const fn new_root() -> Self {
         Self(Vec::new())
     }
 
-    pub fn is_root(&self) -> bool {
+    #[must_use]
+    pub const fn is_root(&self) -> bool {
         self.0.is_empty()
     }
 
     /// root has depth=0
-    pub fn depth(&self) -> usize {
+    #[must_use]
+    pub const fn depth(&self) -> usize {
         self.0.len()
     }
 }
@@ -78,6 +81,7 @@ pub enum TreeTraverseOperation {
     LastChild,
 }
 impl TreeTraverseOperation {
+    #[must_use]
     pub fn from_char(traverse_key: char) -> Option<Self> {
         match traverse_key {
             'a' => Some(Self::Parent),
@@ -102,6 +106,7 @@ impl TreeTraverseOperation {
 mod tree_node_path_traversal_impls {
     use super::{TraversableTree, TreeNodePath, TreeTraverseOperation};
     impl TreeNodePath {
+        #[must_use]
         pub fn traverse_to_parent(&self) -> Option<Self> {
             if self.0.is_empty() {
                 None
@@ -113,6 +118,7 @@ mod tree_node_path_traversal_impls {
             }
         }
 
+        #[must_use]
         pub fn unchecked_traverse_to_child(&self, child_index: usize) -> Self {
             let mut child_path_vec = self.0.clone();
 

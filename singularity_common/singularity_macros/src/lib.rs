@@ -61,8 +61,8 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     // [(component ident, container size, focus id)]
     let components = {
         let mut components = vec![];
-        for field in struct_.fields.iter() {
-            for attr in field.attrs.iter() {
+        for field in &struct_.fields {
+            for attr in &field.attrs {
                 if attr.path().is_ident("component") {
                     // just get the first thing from attr.tokens
                     let (container_size, focus_id) =
@@ -106,8 +106,8 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     // [(component ident, individual area generator, individual node renderer, individual event handler, focus_id)]
     let tree_components = {
         let mut tree_components = vec![];
-        for field in struct_.fields.iter() {
-            for attr in field.attrs.iter() {
+        for field in &struct_.fields {
+            for attr in &field.attrs {
                 if attr.path().is_ident("tree_component") {
                     let (area_generator, renderer, event_handler, focus_id) = match attr
                         .to_token_stream()
@@ -198,7 +198,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
     let forward_events_impl = {
         let mut match_cases = quote! {};
         let mut search_clicked = quote! {};
-        for (component_ident, component_size, focus_id) in components.iter() {
+        for (component_ident, component_size, focus_id) in &components {
             match_cases.extend(quote! {
                 #focus_id => if let Some(remapped_event) = singularity_common::components::remap_event(#component_size, event.clone()) {
                     self.#component_ident.handle_event(remapped_event);

@@ -7782,3 +7782,7 @@ The `const` when possible is definitely appreciated.
 You know what, I'm going to make a shell script for all these little things.
 
 Ok, (damn, I did it again) I'm at 447 errors, I am going to commit then run the auto fixer.
+
+...
+
+106 insertions (not counting README) and now I'm at 237 diagnostics.

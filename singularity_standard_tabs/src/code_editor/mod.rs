@@ -51,6 +51,7 @@ where
     }
 }
 impl CodeEditorApplet {
+    #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
         struct EditorSpawner;
         impl AppletSpawnerTrait for EditorSpawner {
@@ -85,7 +86,7 @@ impl CodeEditorApplet {
     }
 
     // TODO: make something that iterates the line_idx's?
-    fn disp_row_to_line_idx(&self, display_row: usize) -> usize {
+    const fn disp_row_to_line_idx(&self, display_row: usize) -> usize {
         display_row
     }
 }

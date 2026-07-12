@@ -34,7 +34,7 @@ pub struct RecursiveTreeNode<T> {
     children: Vec<Self>,
 }
 impl<T> RecursiveTreeNode<T> {
-    pub fn new(value: T, children: Vec<Self>) -> Self {
+    pub const fn new(value: T, children: Vec<Self>) -> Self {
         Self { value, children }
     }
 
@@ -44,11 +44,11 @@ impl<T> RecursiveTreeNode<T> {
 
     /// Gets the value held by this node.
     /// If this is the root node, we can say this is the root value.
-    pub fn get_value(&self) -> &T {
+    pub const fn get_value(&self) -> &T {
         &self.value
     }
 
-    pub fn get_value_mut(&mut self) -> &mut T {
+    pub const fn get_value_mut(&mut self) -> &mut T {
         &mut self.value
     }
 
@@ -60,7 +60,7 @@ impl<T> RecursiveTreeNode<T> {
     pub fn safe_get(&self, path: &TreeNodePath) -> Option<&Self> {
         let mut node = self;
 
-        for index in path.0.iter() {
+        for index in &path.0 {
             node = node.children.get(*index)?;
         }
 
@@ -69,7 +69,7 @@ impl<T> RecursiveTreeNode<T> {
     pub fn safe_get_mut(&mut self, path: &TreeNodePath) -> Option<&mut Self> {
         let mut node = self;
 
-        for index in path.0.iter() {
+        for index in &path.0 {
             node = node.children.get_mut(*index)?;
         }
 

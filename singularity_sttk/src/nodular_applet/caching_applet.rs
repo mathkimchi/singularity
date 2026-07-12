@@ -121,6 +121,7 @@ impl CachingApplet {
     }
 
     #[deprecated]
+    #[must_use]
     pub fn placeholder() -> Self {
         /// Since I need an applet to make multi-applet holder
         /// and the actual applet needs a hook to the multi-applet holder,

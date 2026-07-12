@@ -115,7 +115,8 @@ impl<T> RootedTree<T> {
     }
 
     /// safe for now, but might need change
-    pub fn num_nodes(&self) -> usize {
+    #[must_use]
+    pub const fn num_nodes(&self) -> usize {
         self.flattened_nodes.len()
     }
 }

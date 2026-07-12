@@ -47,6 +47,7 @@ impl SessionData {
     }
 
     // NOTE: this type currently isn't suited for manual modification. It's really for the SDE to serialize to and from
+    #[must_use]
     pub fn new(project: &Project) -> Self {
         let id = Id::generate();
 

@@ -54,6 +54,7 @@ impl ImageViewerApplet {
     {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(image_path, hook))
     }
+    #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
         struct ImageViewerSpawner;
         impl AppletSpawnerTrait for ImageViewerSpawner {

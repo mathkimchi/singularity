@@ -32,12 +32,15 @@ pub enum UIElement {
     Nothing,
 }
 impl UIElement {
+    #[must_use]
     pub fn contain(self, area: DisplayArea) -> Self {
         Self::Contained(Box::new(self), area)
     }
+    #[must_use]
     pub fn bordered(self, border: Color) -> Self {
         Self::Bordered(Box::new(self), border)
     }
+    #[must_use]
     pub fn fill_bg(self, bg: Color) -> Self {
         Self::Backgrounded(Box::new(self), bg)
     }
@@ -65,6 +68,7 @@ impl UIElement {
     }
 
     /// For background, you must draw a rectangle
+    #[must_use]
     pub fn glyphon_attr(fg: Color) -> glyphon::AttrsOwned {
         glyphon::AttrsOwned::new(
             &glyphon::Attrs::new()
@@ -143,7 +147,8 @@ pub struct CharCell {
     // TODO: just store glyphon::AttrsOwned?
 }
 impl CharCell {
-    pub fn new(character: char) -> Self {
+    #[must_use]
+    pub const fn new(character: char) -> Self {
         Self {
             character,
             fg: Color::LIGHT_YELLOW,
@@ -205,6 +210,7 @@ impl From<String> for CharGrid {
     }
 }
 impl CharGrid {
+    #[must_use]
     pub fn new(width: usize, height: usize, content: Vec<InternalCharCell>) -> Self {
         debug_assert_eq!(width * height, content.len());
 
@@ -216,6 +222,7 @@ impl CharGrid {
     }
 
     /// TODO: make a CharGridSize struct?
+    #[must_use]
     pub fn new_empty(width: usize, height: usize) -> Self {
         Self::new(
             width,
@@ -224,6 +231,7 @@ impl CharGrid {
         )
     }
 
+    #[must_use]
     pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
         let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
             width
@@ -255,7 +263,8 @@ impl CharGrid {
     }
 
     /// Returns (width, height)
-    pub fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+    #[must_use]
+    pub const fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
         (
             // Font size is height, width is twice the height
             // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer
@@ -264,7 +273,8 @@ impl CharGrid {
         )
     }
 
-    pub fn display_size(&self) -> DisplayContainerSize {
+    #[must_use]
+    pub const fn display_size(&self) -> DisplayContainerSize {
         DisplayContainerSize {
             width: (self.width as u32) * FONT_SIZE_U * 2,
             height: (self.height as u32) * FONT_SIZE_U,
@@ -284,19 +294,23 @@ impl CharGrid {
     //         .join("\n")
     // }
 
-    pub fn element(self) -> UIElement {
+    #[must_use]
+    pub const fn element(self) -> UIElement {
         UIElement::CharGrid(self)
     }
 
-    pub fn width(&self) -> usize {
+    #[must_use]
+    pub const fn width(&self) -> usize {
         self.width
     }
 
-    pub fn height(&self) -> usize {
+    #[must_use]
+    pub const fn height(&self) -> usize {
         self.height
     }
 
     /// Returns char cell at index `row * self.width + col`
+    #[must_use]
     pub fn get_char(&self, row: usize, col: usize) -> CharCell {
         self.content[row * self.width + col].into()
     }
@@ -319,6 +333,7 @@ impl CharGrid {
         self.content[row * self.width + col].fg = bg;
     }
 
+    #[must_use]
     pub fn content(&self) -> &[InternalCharCell] {
         &self.content
     }

@@ -53,6 +53,7 @@ pub enum WorldTreeTraversalOperation {
 impl WorldTreeTraversalOperation {
     /// Some keys are different than the outdated normal tree traverse operations.
     /// So, check the overridden bindings first then pass to layerwise normal traversal.
+    #[must_use]
     pub fn from_char(traverse_key: char) -> Option<Self> {
         match traverse_key {
             'e' => Some(Self::NextLayer),

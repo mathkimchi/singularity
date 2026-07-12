@@ -93,11 +93,13 @@ impl Project {
         )
     }
 
-    pub fn get_project_directory(&self) -> &PathBuf {
+    #[must_use]
+    pub const fn get_project_directory(&self) -> &PathBuf {
         &self.project_directory
     }
 
-    pub fn get_project_settings(&self) -> &ProjectSettings {
+    #[must_use]
+    pub const fn get_project_settings(&self) -> &ProjectSettings {
         &self.project_settings
     }
 

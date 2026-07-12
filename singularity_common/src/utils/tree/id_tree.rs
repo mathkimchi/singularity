@@ -15,6 +15,7 @@ pub struct IdTree<T> {
     nodes: BTreeMap<Id<T>, Node<T>>,
 }
 impl<T> IdTree<T> {
+    #[must_use]
     pub fn new(root_id: Id<T>) -> Self {
         let mut nodes = BTreeMap::new();
         nodes.insert(root_id, Node::default());
@@ -100,26 +101,30 @@ impl<T> IdTree<T> {
         self.nodes.append(&mut sub_tree.nodes);
     }
 
-    pub fn get_root_id(&self) -> Id<T> {
+    #[must_use]
+    pub const fn get_root_id(&self) -> Id<T> {
         self.root_id
     }
 
     /// climb downwards
+    #[must_use]
     pub fn get_id_from_path(&self, path: &TreeNodePath) -> Option<Id<T>> {
         let mut node_id = self.root_id;
 
-        for index in path.0.iter() {
+        for index in &path.0 {
             node_id = *self.nodes.get(&node_id)?.children.get(*index)?;
         }
 
         Some(node_id)
     }
 
+    #[must_use]
     pub fn get_children(&self, parent_id: &Id<T>) -> &Vec<Id<T>> {
         &self.nodes.get(parent_id).unwrap().children
     }
 
     /// climb upwards
+    #[must_use]
     pub fn get_path(&self, id: Id<T>) -> Option<TreeNodePath> {
         let mut path_vec = Vec::new();
         let mut node_id = id;
@@ -288,6 +293,7 @@ impl<T> IdTree<T> {
 
     /// Like re-casting, just change the types which is fine
     /// for this struct since its all phantom data anyways
+    #[must_use]
     pub fn transmute<NewItem>(self) -> IdTree<NewItem> {
         unsafe { std::mem::transmute(self) }
     }

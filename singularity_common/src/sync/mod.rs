@@ -26,6 +26,7 @@ impl<T: Clone> EncapsulatedLock<T> {
     }
 
     /// Returns a clone of the held object.
+    #[must_use]
     pub fn get(&self) -> T {
         self.inner.read().unwrap().clone()
     }
@@ -67,11 +68,13 @@ impl<T, CleanUpHook: Fn()> Clam<T, CleanUpHook> {
         }
     }
 
+    #[must_use]
     pub fn get_pearl(&self) -> Pearl<T, CleanUpHook> {
         Pearl::from_clam(self)
     }
 
     /// Returns whether or not clam is currently dormant.
+    #[must_use]
     pub fn is_dormant(&self) -> bool {
         self.fields
             .pearl_counter
@@ -96,6 +99,7 @@ impl<T, CleanUpHook: Fn()> Clone for Pearl<T, CleanUpHook> {
     }
 }
 impl<T, CleanUpHook: Fn()> Pearl<T, CleanUpHook> {
+    #[must_use]
     pub fn from_clam(clam: &Clam<T, CleanUpHook>) -> Self {
         clam.fields
             .pearl_counter
@@ -106,6 +110,7 @@ impl<T, CleanUpHook: Fn()> Pearl<T, CleanUpHook> {
         }
     }
 
+    #[must_use]
     pub fn get_clam(&self) -> Clam<T, CleanUpHook> {
         Clam {
             fields: self.fields.clone(),
