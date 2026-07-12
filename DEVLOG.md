@@ -7820,3 +7820,33 @@ because it doesn't show up anymore.
 I feel disgusting committing because I feel like I committed too many times today,
 but you know what, that sense of shame is how society controls us, and I will not allow shame
 to oppress individuality and just let it happen.
+
+2026-07-12 01:50AM
+
+... hmm, so before fixing that, I was trying to remember where I was
+before doing all the clippy stuff, which I did bc I got distracted from doing
+refactoring, which I took the time to do before doing tests
+(specifically drawing the chargrid output to a jpg file)
+because I was rewriting the Char Grid renderer myself in GPU
+because Glyphon was to slow and didn't meet my needs for the text editor I was working on.
+
+In other words, I need to do the testing right now.
+(That sentence just reminded me, I have my OS midterms Monday and I should be sleeping
+and I haven't even began studying.
+I really want to get an A+ though for the important reason of fueling my ego.)
+
+Well never fricking mind, I'm giving up on testing.
+I never wanted to write it anyways, and it seems like drawing to an image isn't as simple as just
+telling the GPU the target is an image.
+At that point, I would need to modify my GPU code to have a version for Windows and a version for Images,
+at which point, drawing to an image might not accurately reflect what would happen if I rendered to a Window.
+
+I'm just going to debug the Char Grid normally.
+
+... Oh brother, I said the px width was num chars wide * font size * 2
+bc I was looking at some code above where I said
+we could fit at most (px width / font size) * 2 amount of chars.
+Bro, I needed to do px width is num chars wide * font size / 2.
+
+...now it's showing 8 full boxes wide and sometimes a sliver of a ninth column.
+The rows are working as expected, they have been working for a while.

@@ -252,7 +252,7 @@ impl CharGrid {
     #[must_use]
     pub const fn display_size(&self) -> DisplayContainerSize {
         DisplayContainerSize {
-            width: (self.width as u32) * FONT_SIZE_U * 2,
+            width: (self.width as u32) * FONT_SIZE_U / 2,
             height: (self.height as u32) * FONT_SIZE_U,
         }
     }

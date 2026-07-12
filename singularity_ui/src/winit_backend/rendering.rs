@@ -501,6 +501,15 @@ impl UIElement {
 
         // set instance buffer
         {
+            log::debug!(
+                "Char Grid Area: {} {} px",
+                area.size()
+                    .width
+                    .pixels(drawing_shared_data.surface_config.width as _),
+                area.size()
+                    .height
+                    .pixels(drawing_shared_data.surface_config.height as _),
+            );
             let instances = vec![CharGridInstance {
                 // this currently takes in top left
                 origin: [
@@ -514,11 +523,10 @@ impl UIElement {
                         as _,
                 ],
                 size: [
-                    // area.size()
-                    //     .width
-                    //     .pixels(drawing_shared_data.surface_config.width as _)
-                    //     as _,
-                    100.,
+                    area.size()
+                        .width
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
                     area.size()
                         .height
                         .pixels(drawing_shared_data.surface_config.height as _)
@@ -1247,8 +1255,45 @@ impl UIDisplay {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn draw_char_grid() {}
-}
+// #[cfg(test)]
+// mod tests {
+//     use wgpu::{DeviceDescriptor, TextureViewDescriptor};
+
+//     use crate::{UIDisplay, ui_element::UIElement};
+
+//     /// https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
+//     /// For using GPU without making a window
+//     #[test]
+//     fn draw_char_grid() {
+//         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+//         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+//             power_preference: wgpu::PowerPreference::default(),
+//             compatible_surface: None,
+//             force_fallback_adapter: false,
+//         }))
+//         .unwrap();
+//         let (device, queue) =
+//             pollster::block_on(adapter.request_device(&DeviceDescriptor::default())).unwrap();
+
+//         let texture_size = 256u32;
+
+//         let texture_desc = wgpu::TextureDescriptor {
+//             size: wgpu::Extent3d {
+//                 width: texture_size,
+//                 height: texture_size,
+//                 depth_or_array_layers: 1,
+//             },
+//             mip_level_count: 1,
+//             sample_count: 1,
+//             dimension: wgpu::TextureDimension::D2,
+//             format: wgpu::TextureFormat::Rgba8UnormSrgb,
+//             usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+//             label: None,
+//             view_formats: &[],
+//         };
+//         let texture = device.create_texture(&texture_desc);
+//         let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+//         UIElement::draw(drawing_shared_data, char_grid, area);
+//     }
+// }
