@@ -176,9 +176,7 @@ impl BasicApplet for CodeEditorApplet {
         for row in 0..height {
             let line_idx = self.disp_row_to_line_idx(row);
 
-            let line = if let Some(line) = self.buffer.get_line(line_idx) {
-                line
-            } else {
+            let Some(line) = self.buffer.get_line(line_idx) else {
                 break;
             };
 

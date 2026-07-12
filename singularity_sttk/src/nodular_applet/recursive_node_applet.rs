@@ -56,7 +56,7 @@ impl SharedResource {
     /// NOTE: this can't take `&self` because we need to create a weak reference to shared resource,
     /// so we need to get this already wrapped in an Arc.
     pub fn add_child(
-        shared_resource: Arc<Self>,
+        shared_resource: &Arc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
     ) {
         // breaks when adding the first child
@@ -139,7 +139,10 @@ impl SharedResource {
                 }
 
                 fn add_child(&self, initializer: NodularAppletInitializer) {
-                    SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
+                    SharedResource::add_child(
+                        &self.shared_resource.upgrade().unwrap(),
+                        initializer,
+                    );
                 }
 
                 fn change_focus(&self, operation: WorldTreeTraversalOperation) {
@@ -181,7 +184,7 @@ impl SharedResource {
             let inner_hook = InnerHook {
                 // window: inner_applet_window.clone(),
                 // index: shared_resource.children.read().unwrap().len(),
-                shared_resource: Arc::downgrade(&shared_resource),
+                shared_resource: Arc::downgrade(shared_resource),
                 // treeview: inner_applet_treeview.clone(),
             };
 
@@ -285,7 +288,7 @@ impl SharedResource {
                             Some(FocusIndex::Child(
                                 (child_index as isize + shift)
                                     .clamp(0, self.children.read().unwrap().len() as isize - 1)
-                                    as usize,
+                                    .cast_unsigned(),
                             )),
                             None,
                         ),
@@ -404,7 +407,10 @@ impl RecursiveNodeApplet {
                 }
 
                 fn add_child(&self, initializer: NodularAppletInitializer) {
-                    SharedResource::add_child(self.shared_resource.upgrade().unwrap(), initializer);
+                    SharedResource::add_child(
+                        &self.shared_resource.upgrade().unwrap(),
+                        initializer,
+                    );
                 }
 
                 fn change_focus(&self, operation: WorldTreeTraversalOperation) {

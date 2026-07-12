@@ -208,15 +208,17 @@ impl<T> IdTree<T> {
             // represents pointers to the ids from the parent's perspective
             let ptrs: [*mut Id<T>; 2] = ids_to_swap.map(|id| {
                 if let Some(parent_id) = self.nodes[&id].parent {
-                    self.nodes
-                        .get_mut(&parent_id)
-                        .unwrap()
-                        .children
-                        .iter_mut()
-                        .find(|other| other == &&id)
-                        .unwrap() as *mut Id<T>
+                    std::ptr::from_mut::<Id<T>>(
+                        self.nodes
+                            .get_mut(&parent_id)
+                            .unwrap()
+                            .children
+                            .iter_mut()
+                            .find(|other| other == &&id)
+                            .unwrap(),
+                    )
                 } else {
-                    &mut self.root_id as *mut Id<T>
+                    &raw mut self.root_id
                 }
             });
 
@@ -229,8 +231,8 @@ impl<T> IdTree<T> {
             // TODO: like `swap for parents` and `swap parents`, there is actually a better way
 
             // represents pointers to the ids from the parent's perspective
-            let children: [*mut Vec<Id<T>>; 2] = ids_to_swap
-                .map(|id| &mut self.nodes.get_mut(&id).unwrap().children as *mut Vec<Id<T>>);
+            let children: [*mut Vec<Id<T>>; 2] =
+                ids_to_swap.map(|id| &raw mut self.nodes.get_mut(&id).unwrap().children);
 
             std::ptr::swap(children[0], children[1]);
         }
@@ -305,7 +307,7 @@ impl<T> TraversableTree for IdTree<T> {
 }
 
 /// for some of the derive impls, I just took the type restrictions out of the derive macros
-#[allow(clippy::pedantic, clippy::nursery)]
+#[allow(clippy::pedantic)]
 mod derive_macro_impls {
     use super::*;
 

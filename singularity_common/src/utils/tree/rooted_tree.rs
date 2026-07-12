@@ -89,6 +89,7 @@ impl<T> RootedTree<T> {
     }
 
     /// Same as add_node, but builder pattern for convenience
+    #[must_use]
     pub fn builder_add_node(mut self, item: T, parent_path: &TreeNodePath) -> Self {
         self.add_node(item, parent_path);
 

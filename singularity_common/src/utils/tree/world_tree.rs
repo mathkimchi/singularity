@@ -43,13 +43,11 @@ impl<T> WorldTree<T> {
     pub fn get_root_value(&self) -> &T {
         match self {
             Self::Base(value) => value,
-            Self::World(recursive_tree_node) => {
-                recursive_tree_node.get_value().get_root_value()
-            }
+            Self::World(recursive_tree_node) => recursive_tree_node.get_value().get_root_value(),
         }
     }
 
-    pub fn safe_get(&self, path: WorldTreePath) -> Option<&Self> {
+    pub fn safe_get(&self, path: &WorldTreePath) -> Option<&Self> {
         match path.0.first() {
             None => {
                 // Base case:
@@ -61,7 +59,7 @@ impl<T> WorldTree<T> {
                 Self::World(recursive_tree_node) => recursive_tree_node
                     .safe_get(tree_path)?
                     .get_value()
-                    .safe_get(WorldTreePath(path.0[1..].into())),
+                    .safe_get(&WorldTreePath(path.0[1..].into())),
             },
         }
     }

@@ -203,9 +203,9 @@ impl UIElement {
             ],
             corner_radius: radius,
             border_dist,
-            main_color: inner_color.0.map(|c| c as f32 / u8::MAX as f32),
+            main_color: inner_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
             // shouldn't matter
-            border_color: border_color.0.map(|c| c as f32 / u8::MAX as f32),
+            border_color: border_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
         }];
 
         let instance_buffer =
@@ -1109,10 +1109,9 @@ impl UIDisplay {
             ..
         } = &mut state.wgpu_data;
 
-        let output = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+        let wgpu::CurrentSurfaceTexture::Success(output) = surface.get_current_texture() else {
             // TODO
-            _ => panic!(),
+            panic!()
         };
         let view = output
             .texture

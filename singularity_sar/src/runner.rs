@@ -46,7 +46,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             let is_running = is_running.clone();
 
             std::thread::spawn(move || {
-                UIDisplay::run_display(root_window, ui_event_queue, is_running)
+                UIDisplay::run_display(root_window, ui_event_queue, is_running);
             });
         }
 

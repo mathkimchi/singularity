@@ -180,33 +180,10 @@ pub struct CharGrid {
     height: usize,
     content: Vec<InternalCharCell>,
 }
-impl From<String> for CharGrid {
+impl From<&str> for CharGrid {
     /// Makes width and height the smallest necessary to fit everything.
-    fn from(raw_content: String) -> Self {
-        let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
-            width
-        } else {
-            return Self {
-                width: 0,
-                height: 0,
-                content: Vec::new(),
-            };
-        };
-        let height = raw_content.lines().count();
-
-        let mut content = Vec::new();
-        for line_str in raw_content.split('\n') {
-            let chars = line_str.chars().collect::<Vec<_>>();
-            for i in 0..width {
-                content.push(CharCell::new(chars.get(i).cloned().unwrap_or(' ')).into());
-            }
-        }
-
-        Self {
-            width,
-            height,
-            content,
-        }
+    fn from(raw_content: &str) -> Self {
+        Self::new_monostyled(raw_content, Color::LIGHT_YELLOW, Color::TRANSPARENT)
     }
 }
 impl CharGrid {
@@ -231,11 +208,10 @@ impl CharGrid {
         )
     }
 
+    /// Makes width and height the smallest necessary to fit everything.
     #[must_use]
-    pub fn new_monostyled(raw_content: String, fg: Color, bg: Color) -> Self {
-        let width = if let Some(width) = raw_content.lines().map(|line| line.len()).max() {
-            width
-        } else {
+    pub fn new_monostyled(raw_content: &str, fg: Color, bg: Color) -> Self {
+        let Some(width) = raw_content.lines().map(str::len).max() else {
             return Self {
                 width: 0,
                 height: 0,
@@ -252,7 +228,7 @@ impl CharGrid {
                     CharCell {
                         fg,
                         bg,
-                        character: chars.get(i).cloned().unwrap_or(' '),
+                        character: chars.get(i).copied().unwrap_or(' '),
                     }
                     .into(),
                 );

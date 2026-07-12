@@ -295,6 +295,7 @@ mod tree_node_path_traversal_impls {
         }
 
         /// `checked_traverse_on_operation` but if something goes wrong, return self
+        #[must_use]
         pub fn clamped_traverse_on_operation(
             &self,
             tree_to_traverse: &impl TraversableTree,
@@ -308,6 +309,7 @@ mod tree_node_path_traversal_impls {
         ///
         /// TODO: seperate functions for wrapped traversal
         #[deprecated]
+        #[must_use]
         pub fn clamped_traverse_based_on_wasd(
             &self,
             tree_to_traverse: &impl TraversableTree,

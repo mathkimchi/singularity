@@ -7786,3 +7786,9 @@ Ok, (damn, I did it again) I'm at 447 errors, I am going to commit then run the 
 ...
 
 106 insertions (not counting README) and now I'm at 237 diagnostics.
+
+I disabled nursery warnings because it's just for experimental stuff.
+It puts me at 208 diagnostics, so it didn't really do much.
+
+Some of these lints like `match_same_arms` are just opinionated stuff,
+I'm going to be more skeptical of these warnings starting now.

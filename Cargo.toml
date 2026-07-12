@@ -37,21 +37,36 @@ image = { version = "^0.25" }
 # singularity_ui = { features = ["iced_backend"] }
 
 [workspace.lints.clippy]
-all = "warn"
-pedantic = "warn"
-nursery = "warn"
-cargo = "warn"
+# all = "warn"
+pedantic = { level = "warn", priority = -1 }
+# nursery = "warn" # these are for experimental lints
+cargo = { level = "warn", priority = -1 }
 
 # all the pedantic stuff I'm not going to listen to:
 
 # something with common things to put in a Crate like liscence and stuff
 # TODO: enable; I'll do these if I ever put this on crates.io
-cargo_common_metadata = { level = "allow", priority = 1 }
+cargo_common_metadata = "allow"
 # I think this technically bloats the system but might be inevitable?
 # I also just don't have wifi rn so I can't do anything about it rn...
-multiple_crate_versions = { level = "allow", priority = 1 }
+multiple_crate_versions = "allow"
 
 # Doc suggestions that are too pedantic, especially since it's just me developing rn
-doc_markdown = { level = "allow", priority = 1 }
-too_long_first_doc_paragraph = { level = "allow", priority = 1 } # more like too_long_lint_name (bam roasted)
-missing_panics_doc = { level = "allow", priority = 1 }
+doc_markdown = "allow"
+too_long_first_doc_paragraph = "allow" # more like too_long_lint_name (bam roasted)
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+
+# opinionated stuff
+match_same_arms = "allow"
+match_wildcard_for_single_variants = "allow"
+semicolon_if_nothing_returned = "allow"
+similar_names = "allow"
+unsafe_derive_deserealize = "allow"
+cast_possible_wrap = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+unsafe_derive_deserialize = "allow"
+items_after_statements = "allow"
+
+unused_qualifications = "warn"

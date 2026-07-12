@@ -37,7 +37,7 @@ impl AppletSpawnData {
             applet_type_id,
             method: AppletSpawnMethod::PipeChildProcess {
                 program: applet_spawn_command.into(),
-                args: args.map(|arg| arg.into()).collect(),
+                args: args.map(Into::into).collect(),
             },
             initial_session_storage,
         }

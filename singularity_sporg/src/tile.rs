@@ -11,7 +11,7 @@ pub enum Orientation {
     Vertical,
 }
 impl Orientation {
-    const fn get_transpose(&self) -> Self {
+    const fn get_transpose(self) -> Self {
         match self {
             Self::Horizontal => Self::Vertical,
             Self::Vertical => Self::Horizontal,

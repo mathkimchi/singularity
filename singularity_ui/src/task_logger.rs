@@ -8,7 +8,7 @@ pub struct TaskTimer {
 }
 impl TaskTimer {
     /// task name not unique
-    pub fn start(task_name: impl ToString) -> Self {
+    pub fn start(task_name: &impl ToString) -> Self {
         let task_name = task_name.to_string();
 
         println!("Starting '{task_name}'...");
@@ -28,7 +28,7 @@ impl TaskTimer {
     }
 }
 
-pub fn do_task<O, F: FnOnce() -> O>(task_name: impl ToString, task_doer: F) -> O {
+pub fn do_task<O, F: FnOnce() -> O>(task_name: &impl ToString, task_doer: F) -> O {
     let task_timer = TaskTimer::start(task_name);
     let output = task_doer();
     task_timer.end();

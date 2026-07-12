@@ -1,1 +1,1 @@
-cargo clippy --fix -- -A clippy::all -A clippy::pedantic -A clippy::nursery -A clippy::cargo -W clippy::use_self -W clippy::must_use_candidate -W clippy::missing_const_for_fn -W clippy::explicit_iter_loop -W clippy::uninlined_format_args
+cargo clippy --fix -- -A clippy::all -A clippy::pedantic -A clippy::nursery -A clippy::cargo -W clippy::use_self -W clippy::must_use_candidate -W clippy::missing_const_for_fn -W clippy::explicit_iter_loop -W clippy::uninlined_format_args -W clippy::default_trait_access
