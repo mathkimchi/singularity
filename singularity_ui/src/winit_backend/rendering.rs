@@ -532,8 +532,7 @@ impl UIElement {
                         .pixels(drawing_shared_data.surface_config.height as _)
                         as _,
                 ],
-                // grid_size: [width, height],
-                grid_size: [10, 10],
+                grid_size: [width, height],
             }];
 
             let instance_buffer =

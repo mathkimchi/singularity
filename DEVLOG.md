@@ -7974,3 +7974,12 @@ but forgot to change one of the widths to height.
 
 Nice! It works now.
 
+...
+
+Now I'll revert the debug simplifications one-by-one and try to see how far expected behavior is maintainted.
+First, I'll use the actual characters wide and tall (grid size) instead of just doing 10 of them.
+Now, the boxes should be constant size and there should be more or less to fit the available space.
+
+Ok, that's a commit bc it works splendidly (I mean, it can either work or not work and it works, so that's good).
+By the way, I'm also noticing that after the initial lag,
+when I resize, it updates very very fast and smooth.
