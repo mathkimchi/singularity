@@ -7795,3 +7795,28 @@ I'm going to be more skeptical of these warnings starting now.
 
 Ok, I'm kinda done now.
 There's 16 diagnostics.
+
+2026-07-12 12:11AM
+
+Ok, so where was I before I started this?
+(I kinda wasted today's code time on these warnings, but whatevs)
+
+One final tweak that has been on my mind this whole time:
+
+```rs
+// for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
+//     state.process_ui_event(ui_event);
+// }
+// more idiomatic implementation than the above, which also allocates new memory in the collect
+while let Ok(ui_event) = state.input_queue.try_recv() {
+    state.process_ui_event(ui_event);
+}
+```
+
+I hope the comment and reading the code can explain why this is good.
+The original impl at one point did show a warning, but I guess it was in nursery or something,
+because it doesn't show up anymore.
+
+I feel disgusting committing because I feel like I committed too many times today,
+but you know what, that sense of shame is how society controls us, and I will not allow shame
+to oppress individuality and just let it happen.

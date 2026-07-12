@@ -155,7 +155,11 @@ impl WaylandCompositor {
         //     .unwrap();
 
         loop {
-            for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
+            // for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
+            //     state.process_ui_event(ui_event);
+            // }
+            // more idiomatic implementation than the above, which also allocates new memory in the collect
+            while let Ok(ui_event) = state.input_queue.try_recv() {
                 state.process_ui_event(ui_event);
             }
 
