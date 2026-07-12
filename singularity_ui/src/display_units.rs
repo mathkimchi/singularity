@@ -157,6 +157,15 @@ impl DisplayContainerSize {
     pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
+
+    /// Similar to `DisplayArea::map_onto`
+    #[must_use]
+    pub fn find_subsize(&self, inner_size: DisplaySize) -> Self {
+        Self {
+            width: inner_size.width.pixels(self.width as i32).cast_unsigned(),
+            height: inner_size.width.pixels(self.height as i32).cast_unsigned(),
+        }
+    }
 }
 impl From<DisplayContainerSize> for DisplaySize {
     fn from(value: DisplayContainerSize) -> Self {

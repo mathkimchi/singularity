@@ -32,10 +32,12 @@ pub enum UIElement {
     Nothing,
 }
 impl UIElement {
+    #[deprecated(note = "Use `LayoutBuilder` instead")]
     #[must_use]
     pub fn contain(self, area: DisplayArea) -> Self {
         Self::Contained(Box::new(self), area)
     }
+    #[deprecated(note = "Use `LayoutBuilder` instead")]
     #[must_use]
     pub fn bordered(self, border: Color) -> Self {
         Self::Bordered(Box::new(self), border)
@@ -75,6 +77,14 @@ impl UIElement {
                 .family(glyphon::Family::Monospace)
                 .color(fg.into()),
         )
+    }
+
+    #[must_use]
+    pub fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
+        DisplayContainerSize {
+            width: container_size.width - 2,
+            height: container_size.height - 2,
+        }
     }
 }
 impl From<Option<Self>> for UIElement {

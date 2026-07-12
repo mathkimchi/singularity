@@ -138,7 +138,6 @@ impl BasicApplet for RootNodeApplet {
         UIElement::Container(vec![
             self.get_treeview_display()
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
-            //
             self.applet
                 .get_window(container_size)
                 .bordered(Color::LIGHT_GREEN)
