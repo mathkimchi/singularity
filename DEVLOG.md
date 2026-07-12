@@ -7864,3 +7864,94 @@ but there's nothing other than a tiny border above and below so the height was p
 
 Bam, I'm Sherlock Holmes, I can go to sleep now
 (actually, I really want to shower after walking around Ithaca).
+
+2026-07-12 01:29PM
+
+I know the error now, but I am not sure how I should go about fixing this.
+Right now, the only time the container size of a child should change is when the root node applet
+is calling a child.
+I could manually calculate the bounds, but that is not going to scale well.
+
+Okay, I think I found a way.
+For reference, currently, an app embedding widgets might return something like this:
+
+```rs
+UIElement::Container(vec![
+    widget_1.get_window(container_size)
+        .bordered(Color::GREEN)
+        .contain(DisplayArea::LEFT_HALF),
+    widget_2.get_window(container_size)
+        .bordered(Color::BLUE)
+        .contain(DisplayArea::RIGHT_HALF),
+    UIElement::text(format!("UI that isn't a widget. Container size is {container_size:?}"))
+        .bordered(...)
+        .contain(...)
+])
+```
+
+and you can see that each widget thinks it has the area of the entire container to draw,
+but it only gets one half of it (and you also subtract the border size).
+The reason why is becaue I am asking each widget for its UI,
+then applying decorations which impose size constraints after the fact.
+So, the widget can't react to those constraints.
+
+Here is my new proposed idea inspired vaguely by iced:
+
+```rs
+layout_helper::contain_multiple(vec![
+    (layout_helper::bordered(widget_1.get_window, Color::GREEN), DisplayArea::LEFT_HALF),
+    (layout_helper::bordered(widget_1.get_window, Color::BLUE), DisplayArea::RIGHT_HALF),
+    (layout_helper::bordered(
+            |container_size| format!("UI that isn't a widget. Container size is {container_size:?}"),
+            Color::BLUE
+        ),
+        DisplayArea::RIGHT_HALF
+    ),
+]).get_ui(container_size)
+```
+
+the previous idea I had (and I actually tried this a year back or so),
+was to entirely store widgets with their modifiers,
+so if the above code only had widget 1, it would've been stored as:
+`Contained<Bordered<Widget1>>`
+which is absolutely bollocks as the Bri'ish would say.
+It led to very messy types and I think the philosophical reason it sucked
+is because it forced you to think about the UI Layout every time you accessed widget 1,
+even if you were doing something completely unrelated to layout.
+
+I haven't fully solidified the types yet,
+but I would have some kind of `LayoutBuilder` trait
+or maybe a concrete struct that just holds a `Box<FnOnce(DisplayContainerSize) -> UIElement>`.
+(Idk if the name makes the most sense, but I'm a coder not an English major so idc.)
+
+I would like to make a distinction between
+having the LayoutBuilders live locally for each Applet's layout then return the calculated UI primitives at the end
+(what I'm doing now)
+versus each app returning a LayoutBuilder and only calling it at the very end.
+I am avoiding the latter because first, lifetime and concurrency issues so it would be hard to implement,
+and second, idk I think its really just the first reason.
+
+Another way I've been considering is passing a `Context` to every applet and widget,
+and then having them draw to the context,
+so it'd be like:
+
+```rs
+let mut widget_1_context = context.contained(DisplayArea::LEFT_HALF).bordered(Color::GREEN);
+widget_1.draw_to(widget_1_context);
+
+let mut other_example_context = context.contained(...).bordered(...);
+other_example_context.add_text(format!("Container size: {:?}", other_example_context.size()));
+```
+
+and this is actually kinda neat, I won't lie,
+and it would work (I think), and it is similar to what `egui` uses.
+The problem is, I think caching logic could be annoying and complicated with this.
+(Hence, it makes sense why `egui` doesn't cache either.)
+This would be really nice for storing everything in a flat Vector of primitives and still easily enforcing that
+applets abide by container size.
+
+Note that in all these examples (except for my first one that doesn't work),
+you call the elements outside-in, so you start with creating a contained size,
+then you create a border inside that region, then you finally draw the widget inside the borders.
+
+Okay, I'm going to get started on actually implementing LayoutBuilder now after this commit.
