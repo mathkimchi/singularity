@@ -244,7 +244,7 @@ impl CharGrid {
         (
             // Font size is height, width is twice the height
             // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer
-            ((container_size.width / FONT_SIZE_U) * 2) as usize,
+            ((container_size.width * 2) / FONT_SIZE_U) as usize,
             (container_size.height / FONT_SIZE_U) as usize,
         )
     }

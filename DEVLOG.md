@@ -7850,3 +7850,17 @@ Bro, I needed to do px width is num chars wide * font size / 2.
 
 ...now it's showing 8 full boxes wide and sometimes a sliver of a ninth column.
 The rows are working as expected, they have been working for a while.
+
+With fontsize 1, rows are still working, cols are still usually 8.
+I did realize if I stretch the screen fast enough, it shows all 10 columns,
+but the get reset on the next event.
+
+Wait, I think I know why this whole thing isn't working.
+I don't think I ever remap the display container size,
+so each applet thinks it can draw on a rectangle the area of the entire window.
+The x axis wasn't experiencing a logic problem the y axis didn't have,
+it was just that the toolbar is on the left, so the main applet gets a smaller width than expected,
+but there's nothing other than a tiny border above and below so the height was pretty accurate.
+
+Bam, I'm Sherlock Holmes, I can go to sleep now
+(actually, I really want to shower after walking around Ithaca).
