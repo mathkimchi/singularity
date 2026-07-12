@@ -72,7 +72,7 @@ impl WorldTree<String> {
         match self {
             Self::Base(inner) => {
                 if focus_path.is_some() {
-                    format!(">{}", inner)
+                    format!(">{inner}")
                 } else {
                     inner.clone()
                 }

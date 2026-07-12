@@ -103,7 +103,7 @@ impl RootNodeApplet {
         let focused_path = self.applet.get_focus_path();
         let treeview = self.applet.get_treeview();
 
-        println!("Focused path: {:?}", focused_path);
+        println!("Focused path: {focused_path:?}");
 
         // CharGrid::from(treeview.outer_world_to_string())
         //     .element()

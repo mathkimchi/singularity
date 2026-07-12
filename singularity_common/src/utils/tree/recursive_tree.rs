@@ -38,7 +38,7 @@ impl<T> RecursiveTreeNode<T> {
         Self { value, children }
     }
 
-    pub fn from_value(value: T) -> Self {
+    pub const fn from_value(value: T) -> Self {
         Self::new(value, Vec::new())
     }
 
