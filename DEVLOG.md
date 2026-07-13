@@ -8125,3 +8125,10 @@ It looks straight out of a horror movie but I'm going to commit now.
 
 I think the simple source of the problem is that the threshold is wrong.
 The sign is also inverted for some reason.
+
+Another reason why it looks like a ransom letter is because I think it is stretching
+out glyphs to use the most space as possible.
+I am not going to do that since this is monospace.
+
+Hmm, bounds still sucks, but at least it isn't the worst part now.
+There's still anti-aliasing, the background, and making the user of CharGrid not print the newline.

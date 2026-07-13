@@ -435,8 +435,8 @@ impl CharGridRenderer {
     /// TODO: use klyff_msdf crate bc it supports u8 and runs on wgpu
     // const SDF_PIXEL_BYTES: usize = 4 * 4;
     const SDF_PIXEL_BYTES: usize = 4;
-    const SDF_WIDTH: usize = 32;
-    const SDF_HEIGHT: usize = 32;
+    const SDF_WIDTH: usize = 64;
+    const SDF_HEIGHT: usize = 64;
     /// Num bytes for each character's atlas
     const ATLAS_SIZE: usize = Self::SDF_PIXEL_BYTES * Self::SDF_WIDTH * Self::SDF_HEIGHT;
 
@@ -451,8 +451,24 @@ impl CharGridRenderer {
 
             let mut shape = font.glyph_shape(glyph).unwrap();
 
-            let bound = shape.get_bound();
-            let framing = bound
+            // let bound = shape.get_bound();
+            // let framing = bound
+            //     .autoframe(
+            //         Self::SDF_WIDTH as _,
+            //         Self::SDF_HEIGHT as _,
+            //         msdfgen::Range::Px(4.0),
+            //         None,
+            //     )
+            //     .unwrap();
+            // log::debug!("Char: {}", ascii_code as char);
+            // log::debug!("Bound: {bound:?}");
+            // log::debug!("Autoframe: {framing:?}");
+            // let framing = msdfgen::Framing::new(
+            //     222.0,
+            //     msdfgen::Vector2::new(0.01, 0.01),
+            //     msdfgen::Vector2::new(400., 100.),
+            // );
+            let framing = msdfgen::Bound::new(0., -500., 1200., 1600.)
                 .autoframe(
                     Self::SDF_WIDTH as _,
                     Self::SDF_HEIGHT as _,
@@ -460,6 +476,7 @@ impl CharGridRenderer {
                     None,
                 )
                 .unwrap();
+
             let fill_rule = FillRule::default();
 
             let mut bitmap = Bitmap::new(Self::SDF_WIDTH as _, Self::SDF_HEIGHT as _);
