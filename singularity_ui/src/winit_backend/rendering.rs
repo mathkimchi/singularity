@@ -340,7 +340,6 @@ pub struct CharGridRenderer {
     render_pipeline: RenderPipeline,
     /// TODO: rename
     char_grid_texture_bind_group_layout: BindGroupLayout,
-    atlas_bind_group_layout: BindGroupLayout,
     atlas_bind_group: BindGroup,
 }
 impl CharGridRenderer {
@@ -427,7 +426,6 @@ impl CharGridRenderer {
         Self {
             render_pipeline,
             char_grid_texture_bind_group_layout,
-            atlas_bind_group_layout,
             atlas_bind_group,
         }
     }
@@ -497,7 +495,7 @@ impl CharGridRenderer {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::StorageTexture {
                             access: wgpu::StorageTextureAccess::ReadOnly,
-                            format: wgpu::TextureFormat::Rgba8Uint,
+                            format: wgpu::TextureFormat::Rgba32Float,
                             view_dimension: wgpu::TextureViewDimension::D2Array,
                         },
                         count: None,
@@ -524,7 +522,7 @@ impl CharGridRenderer {
             mip_level_count: 1, // We'll talk about this a little later
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Uint,
+            format: wgpu::TextureFormat::Rgba32Float,
             // COPY_DST means that we want to copy data to this texture
             // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
             usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
@@ -552,7 +550,7 @@ impl CharGridRenderer {
             // The layout of the texture
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * Self::SDF_WIDTH as u32),
+                bytes_per_row: Some((Self::SDF_PIXEL_BYTES * Self::SDF_WIDTH) as u32),
                 rows_per_image: Some(Self::SDF_HEIGHT as u32),
             },
             texture_size,
@@ -836,6 +834,12 @@ impl UIElement {
 
         // load the actual char grid info as if it was a texture where each pixel is a char
         {
+            drawing_shared_data.render_pass.set_bind_group(
+                0,
+                Some(&drawing_shared_data.char_grid_renderer.atlas_bind_group),
+                &[],
+            );
+
             let texture_size = wgpu::Extent3d {
                 width,
                 height,
@@ -904,7 +908,7 @@ impl UIElement {
                     });
             drawing_shared_data
                 .render_pass
-                .set_bind_group(0, Some(&bind_group), &[]);
+                .set_bind_group(1, Some(&bind_group), &[]);
         }
 
         // these buffers are how we pass data to the gpu

@@ -8075,3 +8075,15 @@ Ok, so I fixed some minor things like the type problem and using storage binding
 (despite what Google wants me to believe).
 It runs now without errors...
 until I actually have to render a char grid.
+
+I forgot to update the f32 in the bindgroup and texture.
+I also forgot to use the new byte size when calculating bytes per row.
+
+Ok, so now I'm getting that the Char Grid bind group is incompatible
+with the atlas bidn group.
+This is where I should be, so now I can continue,
+and the next thing to do is actually pass in the atlas.
+
+Wow! Nice, it runs now.
+Next is to use the atlas in the GPU.
+Here's to hoping that it's as simple as I think.
