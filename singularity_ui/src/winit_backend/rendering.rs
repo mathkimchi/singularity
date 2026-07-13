@@ -433,7 +433,8 @@ impl CharGridRenderer {
     /// 4 channels at f32
     /// I don't want to use this much,
     /// TODO: use klyff_msdf crate bc it supports u8 and runs on wgpu
-    const SDF_PIXEL_BYTES: usize = 4 * 4;
+    // const SDF_PIXEL_BYTES: usize = 4 * 4;
+    const SDF_PIXEL_BYTES: usize = 4;
     const SDF_WIDTH: usize = 32;
     const SDF_HEIGHT: usize = 32;
     /// Num bytes for each character's atlas
@@ -480,7 +481,7 @@ impl CharGridRenderer {
 
             let atlas_index = ascii_code as usize - 33;
             data[(atlas_index * Self::ATLAS_SIZE)..((atlas_index + 1) * Self::ATLAS_SIZE)]
-                .copy_from_slice(bitmap.raw_pixels());
+                .copy_from_slice(bitmap.convert::<msdfgen::Rgba<u8>>().raw_pixels());
         }
 
         data
@@ -523,7 +524,7 @@ impl CharGridRenderer {
             mip_level_count: 1, // We'll talk about this a little later
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             // COPY_DST means that we want to copy data to this texture
             // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
@@ -559,11 +560,7 @@ impl CharGridRenderer {
 
         // We don't need to configure the texture view much, so let's
         // let wgpu define it.
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-            format: Some(wgpu::TextureFormat::Rgba32Float),
-            dimension: Some(wgpu::TextureViewDimension::D2Array),
-            ..Default::default()
-        });
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,

@@ -8107,3 +8107,18 @@ and it turns out that Wgpu can't filter (ie interpolate) f32.
 Like, bruh.
 
 Well, I'm going to be using `klyff_msdf` now.
+
+...hmm, 19 downloads is pretty scary.
+I want to give it a chance, but I just can't risk it.
+For now, I'm just going to manually remap this to u8.
+
+By the way, I think even if the texture was originally u8,
+the GPU can automatically turn it into an f32 image.
+I don't know if I want that though.
+But assuming that happens, I think 0.5 will be the boundary.
+Oh, the Unorm type does that, I see.
+I think it is ultimately necessary because it must interpolate.
+
+Oh my lawd!
+It actually renders!
+It looks straight out of a horror movie but I'm going to commit now.
