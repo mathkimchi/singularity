@@ -8093,3 +8093,17 @@ Here's to hoping that it's as simple as I think.
 Ok, I wrote the wgsl code and it's saying the sampler type doesn't match.
 ~~I'm just going to fix it before committing.~~
 Nah, I'm going to farm those commits.
+
+... I might be a goob.
+Google was right when it said texture_2d_array expected texture binding flag,
+I changed the wrong thing.
+When creating the bind grtoup layout, I said it was a storage type.
+My bad gang, it's chill.
+
+Anyways, I'm getting this error:
+`Texture binding 0 expects sample type Float { filterable: true }, but was given a view with format Rgba32Float (sample type Float { filterable: false })`
+and I was trying to figure out what was wrong with my code,
+and it turns out that Wgpu can't filter (ie interpolate) f32.
+Like, bruh.
+
+Well, I'm going to be using `klyff_msdf` now.

@@ -493,10 +493,11 @@ impl CharGridRenderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::StorageTexture {
-                            access: wgpu::StorageTextureAccess::ReadOnly,
-                            format: wgpu::TextureFormat::Rgba32Float,
+                        ty: wgpu::BindingType::Texture {
+                            // idk what filterable or multisampled does, but the rest are straight-forward
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2Array,
+                            multisampled: false,
                         },
                         count: None,
                     },
@@ -525,7 +526,7 @@ impl CharGridRenderer {
             format: wgpu::TextureFormat::Rgba32Float,
             // COPY_DST means that we want to copy data to this texture
             // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
-            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("atlas_texture"),
             // This is the same as with the SurfaceConfig. It
             // specifies what texture formats can be used to
@@ -558,7 +559,11 @@ impl CharGridRenderer {
 
         // We don't need to configure the texture view much, so let's
         // let wgpu define it.
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(wgpu::TextureFormat::Rgba32Float),
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            ..Default::default()
+        });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -859,7 +864,7 @@ impl UIElement {
                     // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
                     // COPY_DST means that we want to copy data to this texture
                     usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
-                    label: Some("diffuse_texture"),
+                    label: Some("char_grid_storage"),
                     // This is the same as with the SurfaceConfig. It
                     // specifies what texture formats can be used to
                     // create TextureViews for this texture. The base
