@@ -175,7 +175,7 @@ impl Default for CharCell {
 
 /// think this is height in pixels
 /// TODO: make this not-so-hardcoded...
-pub const FONT_SIZE_U: u32 = 24;
+pub const FONT_SIZE_U: u32 = 32;
 pub const FONT_SIZE: i32 = FONT_SIZE_U as i32;
 pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
 

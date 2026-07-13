@@ -109,13 +109,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         } else {
             let msdf_values = textureSample(sdf_atlas, sdf_sampler, glyph_pos_uv, char_type - 33);
             // The gpu maps this to [0, 1]
-            if median(msdf_values.xyz) < 0.5 {
-                // idk bro, msdfgen crate inverts the sign for some reason
-                return bg;
-            } else {
-                // yeah, I'm just ignoring the border (==0.5) case
-                return fg;
-            }
+            // if median(msdf_values.xyz) < 0.5 {
+            //     // idk bro, msdfgen crate inverts the sign for some reason
+            //     return bg;
+            // } else {
+            //     // yeah, I'm just ignoring the border (==0.5) case
+            //     return fg;
+            // }
+            // The gpu maps this to [0, 1]
+            let signed_dist = median(msdf_values.xyz);
+            let smooth_bound = 0.1;
+            let fg_factor = smoothstep(0.5 - smooth_bound, 0.5 + smooth_bound, signed_dist);
+            return fg_factor * fg + (1. - fg_factor) * bg;
         }
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);

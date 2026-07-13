@@ -8132,3 +8132,6 @@ I am not going to do that since this is monospace.
 
 Hmm, bounds still sucks, but at least it isn't the worst part now.
 There's still anti-aliasing, the background, and making the user of CharGrid not print the newline.
+
+I'm just going to use smooth-step for antialiasing,
+so things `e` away from the boundary are a mix of both fg and bg.
