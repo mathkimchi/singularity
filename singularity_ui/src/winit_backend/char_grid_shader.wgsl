@@ -63,6 +63,10 @@ var sdf_sampler: sampler;
 @group(1) @binding(0)
 var characters: texture_storage_2d<rgba32uint, read>;
 
+fn median(v: vec3<f32>) -> f32 {
+    return clamp(v.x, min(v.y, v.z), max(v.y, v.z));
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // 0 to 1 placing this pixel relative to the whole char grid
@@ -98,8 +102,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if char_type == 32 {
             // space
             return bg;
+        } else if char_type < 32 || char_type > 126 {
+            // Non-printable character or beyond ascii, just draw red box
+            // https://www.ascii-code.com/
+            return vec4<f32>(0.5, 0.0, 0.0, 0.5);
         } else {
-            return fg;
+            let msdf_values = textureSample(sdf_atlas, sdf_sampler, glyph_pos_uv, char_type - 33);
+            if median(msdf_values.xyz) > 0 {
+                return bg;
+            } else {
+                // yeah, I'm just ignoring the border (==0) case
+                return fg;
+            }
         }
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);

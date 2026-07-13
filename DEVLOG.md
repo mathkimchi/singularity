@@ -8087,3 +8087,9 @@ and the next thing to do is actually pass in the atlas.
 Wow! Nice, it runs now.
 Next is to use the atlas in the GPU.
 Here's to hoping that it's as simple as I think.
+
+3:55PM: The end is right here, I can feel it.
+
+Ok, I wrote the wgsl code and it's saying the sampler type doesn't match.
+~~I'm just going to fix it before committing.~~
+Nah, I'm going to farm those commits.
