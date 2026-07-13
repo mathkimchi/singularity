@@ -8064,3 +8064,14 @@ so I don't have to copy over data each render if I don't need to.
 
 It is 3:32, I wrote the initializer code for the atlas bind group,
 but it errors at the SDF generation.
+
+Ugh, msdf uses f32 per channel by default, but I feel like u8 is more than enough.
+I think `klyff_msdf` crate can do u8 automatically and also runs on wgpu,
+but for now I'll just render with f32.
+
+...
+
+Ok, so I fixed some minor things like the type problem and using storage binding
+(despite what Google wants me to believe).
+It runs now without errors...
+until I actually have to render a char grid.

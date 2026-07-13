@@ -432,10 +432,14 @@ impl CharGridRenderer {
         }
     }
 
+    /// 4 channels at f32
+    /// I don't want to use this much,
+    /// TODO: use klyff_msdf crate bc it supports u8 and runs on wgpu
+    const SDF_PIXEL_BYTES: usize = 4 * 4;
     const SDF_WIDTH: usize = 32;
     const SDF_HEIGHT: usize = 32;
     /// Num bytes for each character's atlas
-    const ATLAS_SIZE: usize = 4 * Self::SDF_WIDTH * Self::SDF_HEIGHT;
+    const ATLAS_SIZE: usize = Self::SDF_PIXEL_BYTES * Self::SDF_WIDTH * Self::SDF_HEIGHT;
 
     fn generate_atlas_raw_data() -> Vec<u8> {
         let mut data = vec![0u8; Self::ATLAS_SIZE * (127 - 33)];
@@ -465,15 +469,14 @@ impl CharGridRenderer {
 
             let config = MsdfGeneratorConfig::default();
 
-            shape.generate_msdf(&mut bitmap, framing, config);
+            shape.generate_mtsdf(&mut bitmap, framing, config);
 
             // optionally
             shape.correct_sign(&mut bitmap, framing, fill_rule);
             shape.correct_msdf_error(&mut bitmap, framing, config);
 
-            let error = shape.estimate_error(&mut bitmap, framing, 5, FillRule::default());
-
-            println!("Estimated error: {error}");
+            // let error = shape.estimate_error(&mut bitmap, framing, 5, FillRule::default());
+            // log::debug!("Estimated error: {error}");
 
             bitmap.flip_y();
 
@@ -523,7 +526,8 @@ impl CharGridRenderer {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Uint,
             // COPY_DST means that we want to copy data to this texture
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("atlas_texture"),
             // This is the same as with the SurfaceConfig. It
             // specifies what texture formats can be used to
