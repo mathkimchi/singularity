@@ -6,7 +6,6 @@ use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
-    layout_builder::LayoutBuilder,
     ui_element::UIElement,
 };
 use std::{collections::BTreeMap, sync::RwLock};

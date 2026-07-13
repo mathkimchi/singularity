@@ -7,7 +7,7 @@ use crate::{
     ui_element::{CharGrid, FONT_SIZE_F, InternalCharCell, UIElement},
     winit_backend::WgpuData,
 };
-use glyphon::{Metrics, TextRenderer};
+use glyphon::{AttrsOwned, Metrics, TextRenderer};
 use image::RgbaImage;
 use std::iter;
 use wgpu::{
@@ -174,6 +174,42 @@ impl ImageInstance {
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
+    }
+
+    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayArea) {
+        let instances = vec![Self {
+            // this currently takes in top left
+            origin: [
+                area.0
+                    .x
+                    .pixels(drawing_shared_data.surface_config.width as _) as _,
+                area.0
+                    .y
+                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+            ],
+            size: [
+                area.size()
+                    .width
+                    .pixels(drawing_shared_data.surface_config.width as _) as _,
+                area.size()
+                    .height
+                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+            ],
+        }];
+
+        let instance_buffer =
+            drawing_shared_data
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(&instances),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+
+        // vertex buffer slot 1 is actually the instance buffer
+        drawing_shared_data
+            .render_pass
+            .set_vertex_buffer(1, instance_buffer.slice(..));
     }
 }
 
@@ -592,46 +628,8 @@ impl UIElement {
             .render_pass
             .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
 
-        // set instance buffer
-        {
-            let instances = vec![ImageInstance {
-                // this currently takes in top left
-                origin: [
-                    area.0
-                        .x
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.0
-                        .y
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
-                ],
-                size: [
-                    area.size()
-                        .width
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.size()
-                        .height
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
-                ],
-            }];
+        ImageInstance::set_instance_buffer(drawing_shared_data, area);
 
-            let instance_buffer =
-                drawing_shared_data
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Instance Buffer"),
-                        contents: bytemuck::cast_slice(&instances),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-
-            // vertex buffer slot 1 is actually the instance buffer
-            drawing_shared_data
-                .render_pass
-                .set_vertex_buffer(1, instance_buffer.slice(..));
-        }
         drawing_shared_data
             .render_pass
             .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
@@ -799,6 +797,262 @@ impl UIElement {
         drawing_shared_data
             .render_pass
             .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+
+        /*
+        let mut text_buffer = glyphon::Buffer::new(
+            drawing_shared_data.font_system,
+            Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
+        );
+
+        let attrs = &glyphon::Attrs::new().family(glyphon::Family::Monospace);
+        let shaping = glyphon::Shaping::Advanced;
+
+        // // text_buffer.set_size(
+        // //     &mut drawing_shared_data.font_system,
+        // //     Some(physical_width),
+        // //     Some(physical_height),
+        // // );
+
+        // // text_buffer.set_text(
+        // //     drawing_shared_data.font_system,
+        // //     character.to_string().as_str(),
+        // //     &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+        // //     glyphon::Shaping::Advanced,
+        // //     None,
+        // // );
+        // text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
+
+        // let mut text_renderer = TextRenderer::new(
+        //     drawing_shared_data.atlas,
+        //     drawing_shared_data.device,
+        //     MultisampleState::default(),
+        //     None,
+        // );
+
+        for row in 0..char_grid.height() {
+            for col in 0..char_grid.width() {
+                // log::debug!(
+                //     "Row: {row}, col: {col}, w: {}, h: {}",
+                //     char_grid.width(),
+                //     char_grid.height()
+                // );
+                let CharCell { character, fg, bg } = char_grid.get_char(row, col);
+
+                let top_left = DisplayCoord::new(
+                    container_area.0.x + DisplayUnits::Pixels(FONT_SIZE / 2 * (col as i32)),
+                    container_area.0.y + DisplayUnits::Pixels(FONT_SIZE * (row as i32) + 1),
+                );
+
+                if !container_area.contains(
+                    top_left,
+                    [
+                        drawing_shared_data.viewport.resolution().width as i32,
+                        drawing_shared_data.viewport.resolution().height as i32,
+                    ],
+                ) {
+                    // FIXME: not completely foolproof -- main purpose is just optimization
+                    continue;
+                }
+
+                // let bot_right = DisplayCoord::new(
+                //     container_area.0.x
+                //         + DisplayUnits::Pixels(
+                //             FONT_SIZE / 2 * ((col_index + 1) as i32),
+                //         ),
+                //     container_area.0.y
+                //         + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
+                // );
+
+                if bg != Color::TRANSPARENT {
+                    Self::fill_rect(
+                        drawing_shared_data,
+                        DisplayArea::from_corner_size(
+                            top_left,
+                            DisplaySize::new(
+                                (FONT_SIZE / 2 + 1).into(),
+                                (FONT_SIZE + 2).into(),
+                            ),
+                        ),
+                        0.,
+                        // Set to 1 for dbg boxes
+                        0.,
+                        bg,
+                        Color::TRANSPARENT,
+                    );
+                }
+
+                if character == ' ' {
+                    continue;
+                }
+
+                // let mut text_buffer = glyphon::Buffer::new(
+                //     drawing_shared_data.font_system,
+                //     Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
+                // );
+
+                // text_buffer.set_size(
+                //     &mut drawing_shared_data.font_system,
+                //     Some(physical_width),
+                //     Some(physical_height),
+                // );
+
+                text_buffer.set_text(
+                    drawing_shared_data.font_system,
+                    character.to_string().as_str(),
+                    // &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+                    attrs,
+                    // glyphon::Shaping::Advanced,
+                    shaping,
+                    None,
+                );
+                text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
+
+                let mut text_renderer = TextRenderer::new(
+                    drawing_shared_data.atlas,
+                    drawing_shared_data.device,
+                    MultisampleState::default(),
+                    None,
+                );
+
+                text_renderer
+                    .prepare(
+                        drawing_shared_data.device,
+                        drawing_shared_data.queue,
+                        drawing_shared_data.font_system,
+                        drawing_shared_data.atlas,
+                        drawing_shared_data.viewport,
+                        [glyphon::TextArea {
+                            buffer: &text_buffer,
+                            left: top_left
+                                .x
+                                .pixels(drawing_shared_data.surface_config.width as _)
+                                as _,
+                            top: top_left
+                                .y
+                                .pixels(drawing_shared_data.surface_config.height as _)
+                                as _,
+                            scale: 1.0,
+                            bounds: Self::display_area_to_text_bounds(
+                                container_area,
+                                drawing_shared_data.surface_config,
+                            ),
+                            default_color: fg.into(),
+                            custom_glyphs: &[],
+                        }],
+                        drawing_shared_data.swash_cache,
+                    )
+                    .unwrap();
+
+                text_renderer
+                    .render(
+                        drawing_shared_data.atlas,
+                        drawing_shared_data.viewport,
+                        &mut drawing_shared_data.render_pass,
+                    )
+                    .unwrap();
+
+                // drawing_shared_data.queue.submit(Some(encoder.finish()));
+                // drawing_shared_data.frame.present();
+
+                // drawing_shared_data.atlas.trim();
+
+                // dt.draw_text(
+                //     font,
+                //     FONT_SIZE as f32,
+                //     &character.to_string(),
+                //     // `start` is actually bottom left corner
+                //     bot_left.into_raqote_point(dt),
+                //     &raqote::Source::Solid((*fg).into()),
+                //     &DrawOptions::new(),
+                // );
+            }
+        }
+        */
+    }
+
+    fn draw_text_with_glyphon(
+        drawing_shared_data: &mut DrawingSharedData,
+        text: &[(String, AttrsOwned)],
+        container_area: DisplayArea,
+    ) {
+        let mut text_buffer = glyphon::Buffer::new(
+            drawing_shared_data.font_system,
+            Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
+        );
+        text_buffer.set_rich_text(
+            drawing_shared_data.font_system,
+            text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
+            &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+            glyphon::Shaping::Advanced,
+            None,
+        );
+
+        text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
+
+        let mut text_renderer = TextRenderer::new(
+            drawing_shared_data.atlas,
+            drawing_shared_data.device,
+            MultisampleState::default(),
+            None,
+        );
+
+        text_renderer
+            .prepare(
+                drawing_shared_data.device,
+                drawing_shared_data.queue,
+                drawing_shared_data.font_system,
+                drawing_shared_data.atlas,
+                drawing_shared_data.viewport,
+                [glyphon::TextArea {
+                    buffer: &text_buffer,
+                    left: container_area
+                        .0
+                        .x
+                        .pixels(drawing_shared_data.surface_config.width as _)
+                        as _,
+                    top: container_area
+                        .0
+                        .y
+                        .pixels(drawing_shared_data.surface_config.height as _)
+                        as _,
+                    scale: 1.0,
+                    bounds: Self::display_area_to_text_bounds(
+                        container_area,
+                        drawing_shared_data.surface_config,
+                    ),
+                    default_color: glyphon::Color::rgb(255, 255, 255),
+                    custom_glyphs: &[],
+                }],
+                drawing_shared_data.swash_cache,
+            )
+            .unwrap();
+
+        text_renderer
+            .render(
+                drawing_shared_data.atlas,
+                drawing_shared_data.viewport,
+                &mut drawing_shared_data.render_pass,
+            )
+            .unwrap();
+
+        // // FIXME: doesn't work with space
+        // dt.draw_text(
+        //     font,
+        //     FONT_SIZE as f32,
+        //     text,
+        //     DisplayCoord::new(
+        //         container_area.0.x,
+        //         container_area.0.y + FONT_SIZE.into(),
+        //     )
+        //     .into_raqote_point(dt),
+        //     &Source::Solid(SolidSource {
+        //         r: 0,
+        //         g: 0xFF,
+        //         b: 0xFF,
+        //         a: 0xFF,
+        //     }),
+        //     &DrawOptions::new(),
+        // );
     }
 
     fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
@@ -896,84 +1150,7 @@ impl UIElement {
                 inner_element.draw(drawing_shared_data, container_area);
             }
             Self::Text(text) => {
-                let mut text_buffer = glyphon::Buffer::new(
-                    drawing_shared_data.font_system,
-                    Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
-                );
-                text_buffer.set_rich_text(
-                    drawing_shared_data.font_system,
-                    text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
-                    &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-                    glyphon::Shaping::Advanced,
-                    None,
-                );
-
-                text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
-
-                let mut text_renderer = TextRenderer::new(
-                    drawing_shared_data.atlas,
-                    drawing_shared_data.device,
-                    MultisampleState::default(),
-                    None,
-                );
-
-                text_renderer
-                    .prepare(
-                        drawing_shared_data.device,
-                        drawing_shared_data.queue,
-                        drawing_shared_data.font_system,
-                        drawing_shared_data.atlas,
-                        drawing_shared_data.viewport,
-                        [glyphon::TextArea {
-                            buffer: &text_buffer,
-                            left: container_area
-                                .0
-                                .x
-                                .pixels(drawing_shared_data.surface_config.width as _)
-                                as _,
-                            top: container_area
-                                .0
-                                .y
-                                .pixels(drawing_shared_data.surface_config.height as _)
-                                as _,
-                            scale: 1.0,
-                            bounds: Self::display_area_to_text_bounds(
-                                container_area,
-                                drawing_shared_data.surface_config,
-                            ),
-                            default_color: glyphon::Color::rgb(255, 255, 255),
-                            custom_glyphs: &[],
-                        }],
-                        drawing_shared_data.swash_cache,
-                    )
-                    .unwrap();
-
-                text_renderer
-                    .render(
-                        drawing_shared_data.atlas,
-                        drawing_shared_data.viewport,
-                        &mut drawing_shared_data.render_pass,
-                    )
-                    .unwrap();
-
-                // // FIXME: doesn't work with space
-                // dt.draw_text(
-                //     font,
-                //     FONT_SIZE as f32,
-                //     text,
-                //     DisplayCoord::new(
-                //         container_area.0.x,
-                //         container_area.0.y + FONT_SIZE.into(),
-                //     )
-                //     .into_raqote_point(dt),
-                //     &Source::Solid(SolidSource {
-                //         r: 0,
-                //         g: 0xFF,
-                //         b: 0xFF,
-                //         a: 0xFF,
-                //     }),
-                //     &DrawOptions::new(),
-                // );
+                Self::draw_text_with_glyphon(drawing_shared_data, text, container_area);
             }
             Self::CharGrid(char_grid) => {
                 Self::draw_char_grid(
@@ -984,177 +1161,6 @@ impl UIElement {
                         char_grid.display_size().into(),
                     ),
                 );
-
-                /*
-                let mut text_buffer = glyphon::Buffer::new(
-                    drawing_shared_data.font_system,
-                    Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
-                );
-
-                let attrs = &glyphon::Attrs::new().family(glyphon::Family::Monospace);
-                let shaping = glyphon::Shaping::Advanced;
-
-                // // text_buffer.set_size(
-                // //     &mut drawing_shared_data.font_system,
-                // //     Some(physical_width),
-                // //     Some(physical_height),
-                // // );
-
-                // // text_buffer.set_text(
-                // //     drawing_shared_data.font_system,
-                // //     character.to_string().as_str(),
-                // //     &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-                // //     glyphon::Shaping::Advanced,
-                // //     None,
-                // // );
-                // text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
-
-                // let mut text_renderer = TextRenderer::new(
-                //     drawing_shared_data.atlas,
-                //     drawing_shared_data.device,
-                //     MultisampleState::default(),
-                //     None,
-                // );
-
-                for row in 0..char_grid.height() {
-                    for col in 0..char_grid.width() {
-                        // log::debug!(
-                        //     "Row: {row}, col: {col}, w: {}, h: {}",
-                        //     char_grid.width(),
-                        //     char_grid.height()
-                        // );
-                        let CharCell { character, fg, bg } = char_grid.get_char(row, col);
-
-                        let top_left = DisplayCoord::new(
-                            container_area.0.x + DisplayUnits::Pixels(FONT_SIZE / 2 * (col as i32)),
-                            container_area.0.y + DisplayUnits::Pixels(FONT_SIZE * (row as i32) + 1),
-                        );
-
-                        if !container_area.contains(
-                            top_left,
-                            [
-                                drawing_shared_data.viewport.resolution().width as i32,
-                                drawing_shared_data.viewport.resolution().height as i32,
-                            ],
-                        ) {
-                            // FIXME: not completely foolproof -- main purpose is just optimization
-                            continue;
-                        }
-
-                        // let bot_right = DisplayCoord::new(
-                        //     container_area.0.x
-                        //         + DisplayUnits::Pixels(
-                        //             FONT_SIZE / 2 * ((col_index + 1) as i32),
-                        //         ),
-                        //     container_area.0.y
-                        //         + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                        // );
-
-                        if bg != Color::TRANSPARENT {
-                            Self::fill_rect(
-                                drawing_shared_data,
-                                DisplayArea::from_corner_size(
-                                    top_left,
-                                    DisplaySize::new(
-                                        (FONT_SIZE / 2 + 1).into(),
-                                        (FONT_SIZE + 2).into(),
-                                    ),
-                                ),
-                                0.,
-                                // Set to 1 for dbg boxes
-                                0.,
-                                bg,
-                                Color::TRANSPARENT,
-                            );
-                        }
-
-                        if character == ' ' {
-                            continue;
-                        }
-
-                        // let mut text_buffer = glyphon::Buffer::new(
-                        //     drawing_shared_data.font_system,
-                        //     Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
-                        // );
-
-                        // text_buffer.set_size(
-                        //     &mut drawing_shared_data.font_system,
-                        //     Some(physical_width),
-                        //     Some(physical_height),
-                        // );
-
-                        text_buffer.set_text(
-                            drawing_shared_data.font_system,
-                            character.to_string().as_str(),
-                            // &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-                            attrs,
-                            // glyphon::Shaping::Advanced,
-                            shaping,
-                            None,
-                        );
-                        text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
-
-                        let mut text_renderer = TextRenderer::new(
-                            drawing_shared_data.atlas,
-                            drawing_shared_data.device,
-                            MultisampleState::default(),
-                            None,
-                        );
-
-                        text_renderer
-                            .prepare(
-                                drawing_shared_data.device,
-                                drawing_shared_data.queue,
-                                drawing_shared_data.font_system,
-                                drawing_shared_data.atlas,
-                                drawing_shared_data.viewport,
-                                [glyphon::TextArea {
-                                    buffer: &text_buffer,
-                                    left: top_left
-                                        .x
-                                        .pixels(drawing_shared_data.surface_config.width as _)
-                                        as _,
-                                    top: top_left
-                                        .y
-                                        .pixels(drawing_shared_data.surface_config.height as _)
-                                        as _,
-                                    scale: 1.0,
-                                    bounds: Self::display_area_to_text_bounds(
-                                        container_area,
-                                        drawing_shared_data.surface_config,
-                                    ),
-                                    default_color: fg.into(),
-                                    custom_glyphs: &[],
-                                }],
-                                drawing_shared_data.swash_cache,
-                            )
-                            .unwrap();
-
-                        text_renderer
-                            .render(
-                                drawing_shared_data.atlas,
-                                drawing_shared_data.viewport,
-                                &mut drawing_shared_data.render_pass,
-                            )
-                            .unwrap();
-
-                        // drawing_shared_data.queue.submit(Some(encoder.finish()));
-                        // drawing_shared_data.frame.present();
-
-                        // drawing_shared_data.atlas.trim();
-
-                        // dt.draw_text(
-                        //     font,
-                        //     FONT_SIZE as f32,
-                        //     &character.to_string(),
-                        //     // `start` is actually bottom left corner
-                        //     bot_left.into_raqote_point(dt),
-                        //     &raqote::Source::Solid((*fg).into()),
-                        //     &DrawOptions::new(),
-                        // );
-                    }
-                }
-                */
             }
             Self::Image(image_buffer) => {
                 Self::draw_image(drawing_shared_data, image_buffer, container_area);

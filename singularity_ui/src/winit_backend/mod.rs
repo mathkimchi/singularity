@@ -7,16 +7,15 @@ use crate::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,
     winit_backend::{
-        rendering::{CharGridInstance, CharGridRenderer, ImageRenderer, RectangleRenderer, Vertex},
+        rendering::{CharGridRenderer, ImageRenderer, RectangleRenderer, Vertex},
         ui_event::{KeyModifiers, UIEvent},
     },
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, PipelineCompilationOptions, PresentMode,
-    SurfaceConfiguration, SurfaceTarget, TextureFormat, TextureUsages, include_wgsl,
-    util::DeviceExt as _,
+    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
+    TextureFormat, TextureUsages, util::DeviceExt as _,
 };
 use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
