@@ -9,6 +9,7 @@ use crate::{
 };
 use glyphon::{AttrsOwned, Metrics, TextRenderer};
 use image::RgbaImage;
+use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
 use std::iter;
 use wgpu::{
     Device, MultisampleState, PipelineCompilationOptions, RenderPipeline, SurfaceConfiguration,
@@ -418,6 +419,59 @@ impl CharGridRenderer {
             render_pipeline,
             char_grid_texture_bind_group_layout,
         }
+    }
+
+    const SDF_WIDTH: usize = 32;
+    const SDF_HEIGHT: usize = 32;
+    /// Num bytes for each character's atlas
+    const ATLAS_SIZE: usize = 4 * Self::SDF_WIDTH * Self::SDF_HEIGHT;
+
+    fn generate_atlas_data() -> Vec<u8> {
+        let mut data = vec![0u8; Self::ATLAS_SIZE * (127 - 33)];
+
+        let font = ttf_parser::Face::parse(dejavu::sans_mono::regular(), 0).unwrap();
+        for ascii_code in 33..127u8 {
+            // Mostly just taken from msdf gen library: https://crates.io/crates/msdfgen
+            // NOTE: Versions are weird, might need to downgrade ttf_parser
+            let glyph = font.glyph_index(ascii_code as char).unwrap();
+
+            let mut shape = font.glyph_shape(glyph).unwrap();
+
+            let bound = shape.get_bound();
+            let framing = bound
+                .autoframe(
+                    Self::SDF_WIDTH as _,
+                    Self::SDF_HEIGHT as _,
+                    msdfgen::Range::Px(4.0),
+                    None,
+                )
+                .unwrap();
+            let fill_rule = FillRule::default();
+
+            let mut bitmap = Bitmap::new(Self::SDF_WIDTH as _, Self::SDF_HEIGHT as _);
+
+            shape.edge_coloring_simple(3.0, 0);
+
+            let config = MsdfGeneratorConfig::default();
+
+            shape.generate_msdf(&mut bitmap, framing, config);
+
+            // optionally
+            shape.correct_sign(&mut bitmap, framing, fill_rule);
+            shape.correct_msdf_error(&mut bitmap, framing, config);
+
+            let error = shape.estimate_error(&mut bitmap, framing, 5, FillRule::default());
+
+            println!("Estimated error: {error}");
+
+            bitmap.flip_y();
+
+            let atlas_index = ascii_code as usize - 33;
+            data[(atlas_index * Self::ATLAS_SIZE)..((atlas_index + 1) * Self::ATLAS_SIZE)]
+                .copy_from_slice(bitmap.raw_pixels());
+        }
+
+        data
     }
 }
 

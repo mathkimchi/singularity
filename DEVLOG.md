@@ -8041,3 +8041,15 @@ So, I'll be storing a 95 (128-33) x32x32 texture 2d array.
 Ok, I guess I'll start with just generating all this in the CPU.
 
 Actually, I decided I'm going to reorganize my code first.
+
+2026-07-13 01:20PM
+
+Now to generate the atlas-es.
+
+...
+
+Ok, `fdsm` crate has more than 10 times the downloads compared to the next msdf crate,
+which is `msdfgen`, which is just safe C bindings.
+But, `msdfgen` seems just better in every way like documentation and usability
+except for the fact that it isn't pure rust.
+I don't really care about that so I'm going to switch to msdfgen.
