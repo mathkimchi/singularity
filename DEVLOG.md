@@ -8122,3 +8122,6 @@ I think it is ultimately necessary because it must interpolate.
 Oh my lawd!
 It actually renders!
 It looks straight out of a horror movie but I'm going to commit now.
+
+I think the simple source of the problem is that the threshold is wrong.
+The sign is also inverted for some reason.

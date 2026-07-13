@@ -108,10 +108,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             return vec4<f32>(0.5, 0.0, 0.0, 0.5);
         } else {
             let msdf_values = textureSample(sdf_atlas, sdf_sampler, glyph_pos_uv, char_type - 33);
-            if median(msdf_values.xyz) > 0 {
+            // The gpu maps this to [0, 1]
+            if median(msdf_values.xyz) < 0.5 {
+                // idk bro, msdfgen crate inverts the sign for some reason
                 return bg;
             } else {
-                // yeah, I'm just ignoring the border (==0) case
+                // yeah, I'm just ignoring the border (==0.5) case
                 return fg;
             }
         }
