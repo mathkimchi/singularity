@@ -127,7 +127,7 @@ impl WgpuData {
 
         let rectangle_renderer = RectangleRenderer::new(&device, &surface_config);
         let image_renderer = ImageRenderer::new(&device, &surface_config);
-        let char_grid_renderer = CharGridRenderer::new(&device, &surface_config);
+        let char_grid_renderer = CharGridRenderer::new(&device, &surface_config, &queue);
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),

@@ -54,8 +54,13 @@ fn vs_main(
 
 // Fragment shader
 
-// Yeah, this is kinda jank, but I guess it makes it quirky *mews shyly*
+// I think each group changes together, and groups that change least should get lowest number
 @group(0) @binding(0)
+var sdf_atlas: texture_2d_array<u8>;
+@group(0) @binding(1)
+var sdf_sampler: sampler;
+// Yeah, this is kinda jank, but I guess it makes it quirky *mews shyly*
+@group(1) @binding(0)
 var characters: texture_storage_2d<rgba32uint, read>;
 
 @fragment

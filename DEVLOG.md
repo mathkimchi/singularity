@@ -8053,3 +8053,14 @@ which is `msdfgen`, which is just safe C bindings.
 But, `msdfgen` seems just better in every way like documentation and usability
 except for the fact that it isn't pure rust.
 I don't really care about that so I'm going to switch to msdfgen.
+
+...
+
+Now I have the bytes as a vec u8,
+I need to write the code to send it to the GPU.
+
+I am going to try to put as much of the code in the initialization,
+so I don't have to copy over data each render if I don't need to.
+
+It is 3:32, I wrote the initializer code for the atlas bind group,
+but it errors at the SDF generation.

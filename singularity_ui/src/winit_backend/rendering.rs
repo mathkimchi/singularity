@@ -12,8 +12,8 @@ use image::RgbaImage;
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
 use std::iter;
 use wgpu::{
-    Device, MultisampleState, PipelineCompilationOptions, RenderPipeline, SurfaceConfiguration,
-    include_wgsl, util::DeviceExt as _,
+    BindGroup, BindGroupLayout, Device, MultisampleState, PipelineCompilationOptions,
+    RenderPipeline, SurfaceConfiguration, include_wgsl, util::DeviceExt as _,
 };
 
 #[repr(C)]
@@ -338,10 +338,17 @@ impl CharGridInstance {
 
 pub struct CharGridRenderer {
     render_pipeline: RenderPipeline,
-    char_grid_texture_bind_group_layout: wgpu::BindGroupLayout,
+    /// TODO: rename
+    char_grid_texture_bind_group_layout: BindGroupLayout,
+    atlas_bind_group_layout: BindGroupLayout,
+    atlas_bind_group: BindGroup,
 }
 impl CharGridRenderer {
-    pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> Self {
+    pub fn new(
+        device: &Device,
+        surface_config: &SurfaceConfiguration,
+        queue: &wgpu::Queue,
+    ) -> Self {
         let char_grid_texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -357,11 +364,13 @@ impl CharGridRenderer {
                 }],
                 label: Some("char_grid_texture_bind_group_layout"),
             });
+        let (atlas_bind_group_layout, atlas_bind_group) = Self::atlas_bind_group(device, queue);
+
         let char_grid_render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
-                    // Difference
+                    Some(&atlas_bind_group_layout),
                     Some(&char_grid_texture_bind_group_layout),
                 ],
                 immediate_size: 0,
@@ -418,6 +427,8 @@ impl CharGridRenderer {
         Self {
             render_pipeline,
             char_grid_texture_bind_group_layout,
+            atlas_bind_group_layout,
+            atlas_bind_group,
         }
     }
 
@@ -426,7 +437,7 @@ impl CharGridRenderer {
     /// Num bytes for each character's atlas
     const ATLAS_SIZE: usize = 4 * Self::SDF_WIDTH * Self::SDF_HEIGHT;
 
-    fn generate_atlas_data() -> Vec<u8> {
+    fn generate_atlas_raw_data() -> Vec<u8> {
         let mut data = vec![0u8; Self::ATLAS_SIZE * (127 - 33)];
 
         let font = ttf_parser::Face::parse(dejavu::sans_mono::regular(), 0).unwrap();
@@ -472,6 +483,107 @@ impl CharGridRenderer {
         }
 
         data
+    }
+
+    fn atlas_bind_group(device: &Device, queue: &wgpu::Queue) -> (BindGroupLayout, BindGroup) {
+        let atlas_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::StorageTexture {
+                            access: wgpu::StorageTextureAccess::ReadOnly,
+                            format: wgpu::TextureFormat::Rgba8Uint,
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("atlas_bind_group_layout"),
+            });
+
+        let texture_size = wgpu::Extent3d {
+            width: Self::SDF_WIDTH as _,
+            height: Self::SDF_HEIGHT as _,
+            // All textures are stored as 3D
+            depth_or_array_layers: (127 - 33),
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1, // We'll talk about this a little later
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Uint,
+            // COPY_DST means that we want to copy data to this texture
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("atlas_texture"),
+            // This is the same as with the SurfaceConfig. It
+            // specifies what texture formats can be used to
+            // create TextureViews for this texture. The base
+            // texture format (Rgba8UnormSrgb in this case) is
+            // always supported. Note that using a different
+            // texture format is not supported on the WebGL2
+            // backend.
+            view_formats: &[],
+        });
+
+        queue.write_texture(
+            // Tells wgpu where to copy the pixel data
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            // The actual pixel data
+            bytemuck::cast_slice(&Self::generate_atlas_raw_data()),
+            // The layout of the texture
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * Self::SDF_WIDTH as u32),
+                rows_per_image: Some(Self::SDF_HEIGHT as u32),
+            },
+            texture_size,
+        );
+
+        // We don't need to configure the texture view much, so let's
+        // let wgpu define it.
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &atlas_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    // TODO: use texture view array?
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("atlas_bind_group"),
+        });
+
+        (atlas_bind_group_layout, bind_group)
     }
 }
 
