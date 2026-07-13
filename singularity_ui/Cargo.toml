@@ -30,6 +30,7 @@ winit = "^0.30.13"
 pollster = "^0.4.0"
 bytemuck = { version = "^1.25.0", features = ["derive"] }
 wgpu_canvas = { version = "^5.0.8" }
+fdsm = "^0.8"
 
 log = { workspace = true }
 

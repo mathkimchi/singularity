@@ -7998,3 +7998,46 @@ Holy crocodidledoo!
 It is doing expected behavior!
 
 And Jesus wept, for there were no more worlds to conquer!!!
+
+It's kinda crazy, but I am feeling the same magic as something working first try.
+I think it's because I split this into successively grainier subtasks/simplifications
+and once the very specific things were resolved, all the seemingly bigger and harder things came together very smoothly.
+
+Now, it's 3:56.
+Do I study for my OS midterm for which I have not started preparing for,
+or do I arrogantly wake the beast of glyph rendering?
+If I choose to challenge the beast,
+surely it would be a foolish blunder driven by the excitement of having overcome a much smaller foe with still great struggle.
+
+They call me Alexander, ambition be my folly.
+
+Frick bro, I'm doing it.
+I regret studying too much in highschool, so I'm going to to something even more anti-social and code a fricking
+glyph renderer for a text editor for an organization app I'm making.
+
+2026-07-13 11:36AM
+
+Ok, well the test was pretty breezy (finished in 40 min) so I was thinking about my own SDF implementation.
+But, I think I will just use msdf (or mtsdf).
+The gpu logic is as simple as taking the median of the RGB channels for a pseudo-signed distance.
+Then just use that as if it was the normal signed distance.
+
+I don't care to implement the msdf generator, so I will use an existing crate.
+[fdsm](https://crates.io/crates/fdsm) is the most downloaded msdf crate,
+so even though it has weird documentation, I will use it.
+
+I am going to store a glyph for all the ascii characters.
+While I think it is stupid that every program would have to do this in theory,
+I am just going to generate the SDFs at the very beginning of each run.
+In the future, I might implement some shared static resource so every program could just use that
+(note: applets don't need to worry about this, bc they aren't rendering directly).
+Maybe if I end up making my own OS, I'll do this.
+
+I'm going to subtract 33 from the character id,
+and if it was from 0-31 I'll just draw a bright red
+and if it was 32 (space), I'll just draw the bg.
+So, I'll be storing a 95 (128-33) x32x32 texture 2d array.
+
+Ok, I guess I'll start with just generating all this in the CPU.
+
+Actually, I decided I'm going to reorganize my code first.

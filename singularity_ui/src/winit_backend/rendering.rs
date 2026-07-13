@@ -10,7 +10,10 @@ use crate::{
 use glyphon::{Metrics, TextRenderer};
 use image::RgbaImage;
 use std::iter;
-use wgpu::{BindGroupLayout, MultisampleState, SurfaceConfiguration, util::DeviceExt as _};
+use wgpu::{
+    Device, MultisampleState, PipelineCompilationOptions, RenderPipeline, SurfaceConfiguration,
+    include_wgsl, util::DeviceExt as _,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -84,6 +87,70 @@ impl RoundRectInstance {
     }
 }
 
+pub struct RectangleRenderer {
+    render_pipeline: RenderPipeline,
+}
+impl RectangleRenderer {
+    pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> Self {
+        let rectangle_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                immediate_size: 0,
+            });
+        let rectangle_shader = device.create_shader_module(include_wgsl!("rectangle_shader.wgsl"));
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Rectangle Render Pipeline"),
+            layout: Some(&rectangle_render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &rectangle_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc(), RoundRectInstance::desc()],
+                compilation_options: PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &rectangle_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::OVER,
+                        alpha: wgpu::BlendComponent::OVER,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // tells wgpu to render to just specific texture layers.
+            multiview_mask: None,
+            // Useful for optimizing shader compilation on Android
+            cache: None,
+        });
+
+        Self { render_pipeline }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 pub(super) struct ImageInstance {
@@ -106,6 +173,99 @@ impl ImageInstance {
             array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+pub struct ImageRenderer {
+    render_pipeline: RenderPipeline,
+    image_texture_bind_group_layout: wgpu::BindGroupLayout,
+}
+impl ImageRenderer {
+    pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> Self {
+        let image_texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("image_texture_bind_group_layout"),
+            });
+        let image_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    // Difference
+                    Some(&image_texture_bind_group_layout),
+                ],
+                immediate_size: 0,
+            });
+        let image_shader = device.create_shader_module(include_wgsl!("image_shader.wgsl"));
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Image Render Pipeline"),
+            layout: Some(&image_render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &image_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc(), ImageInstance::desc()],
+                compilation_options: PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &image_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::OVER,
+                        alpha: wgpu::BlendComponent::OVER,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // tells wgpu to render to just specific texture layers.
+            multiview_mask: None,
+            // Useful for optimizing shader compilation on Android
+            cache: None,
+        });
+
+        Self {
+            render_pipeline,
+            image_texture_bind_group_layout,
         }
     }
 }
@@ -139,17 +299,99 @@ impl CharGridInstance {
     }
 }
 
+pub struct CharGridRenderer {
+    render_pipeline: RenderPipeline,
+    char_grid_texture_bind_group_layout: wgpu::BindGroupLayout,
+}
+impl CharGridRenderer {
+    pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> Self {
+        let char_grid_texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::ReadOnly,
+                        format: wgpu::TextureFormat::Rgba32Uint,
+                        // Hmm... no option for `texture_storage_2d`, hopefully this works
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                }],
+                label: Some("char_grid_texture_bind_group_layout"),
+            });
+        let char_grid_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    // Difference
+                    Some(&char_grid_texture_bind_group_layout),
+                ],
+                immediate_size: 0,
+            });
+        let char_grid_shader = device.create_shader_module(include_wgsl!("char_grid_shader.wgsl"));
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Char Grid Render Pipeline"),
+            layout: Some(&char_grid_render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &char_grid_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc(), CharGridInstance::desc()],
+                compilation_options: PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &char_grid_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::OVER,
+                        alpha: wgpu::BlendComponent::OVER,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // tells wgpu to render to just specific texture layers.
+            multiview_mask: None,
+            // Useful for optimizing shader compilation on Android
+            cache: None,
+        });
+
+        Self {
+            render_pipeline,
+            char_grid_texture_bind_group_layout,
+        }
+    }
+}
+
 /// Data needed for drawing
 pub(super) struct DrawingSharedData<'a> {
     render_pass: wgpu::RenderPass<'a>,
 
-    rectangle_render_pipeline: &'a wgpu::RenderPipeline,
-
-    image_render_pipeline: &'a wgpu::RenderPipeline,
-    image_texture_bind_group_layout: &'a BindGroupLayout,
-
-    char_grid_render_pipeline: &'a wgpu::RenderPipeline,
-    char_grid_texture_bind_group_layout: &'a BindGroupLayout,
+    rectangle_renderer: &'a RectangleRenderer,
+    image_renderer: &'a ImageRenderer,
+    char_grid_renderer: &'a CharGridRenderer,
 
     /// Just one large triangle
     vertex_buffer: &'a wgpu::Buffer,
@@ -177,7 +419,7 @@ impl UIElement {
     ) {
         drawing_shared_data
             .render_pass
-            .set_pipeline(drawing_shared_data.rectangle_render_pipeline);
+            .set_pipeline(&drawing_shared_data.rectangle_renderer.render_pipeline);
         // these buffers are how we pass data to the gpu
         drawing_shared_data
             .render_pass
@@ -245,7 +487,7 @@ impl UIElement {
     ) {
         drawing_shared_data
             .render_pass
-            .set_pipeline(drawing_shared_data.image_render_pipeline);
+            .set_pipeline(&drawing_shared_data.image_renderer.render_pipeline);
 
         // set bind group (which holds the image texture)
         {
@@ -324,7 +566,9 @@ impl UIElement {
                 drawing_shared_data
                     .device
                     .create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: drawing_shared_data.image_texture_bind_group_layout,
+                        layout: &drawing_shared_data
+                            .image_renderer
+                            .image_texture_bind_group_layout,
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding: 0,
@@ -417,7 +661,7 @@ impl UIElement {
 
         drawing_shared_data
             .render_pass
-            .set_pipeline(drawing_shared_data.char_grid_render_pipeline);
+            .set_pipeline(&drawing_shared_data.char_grid_renderer.render_pipeline);
 
         let width = char_grid.width() as u32;
         let height = char_grid.height() as u32;
@@ -481,7 +725,9 @@ impl UIElement {
                 drawing_shared_data
                     .device
                     .create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: drawing_shared_data.char_grid_texture_bind_group_layout,
+                        layout: &drawing_shared_data
+                            .char_grid_renderer
+                            .char_grid_texture_bind_group_layout,
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
                             resource: wgpu::BindingResource::TextureView(&texture_view),
@@ -1104,11 +1350,9 @@ impl UIDisplay {
             atlas,
             // text_renderer,
             // text_buffer,
-            rectangle_render_pipeline,
-            image_render_pipeline,
-            image_texture_bind_group_layout,
-            char_grid_render_pipeline,
-            char_grid_texture_bind_group_layout,
+            rectangle_renderer,
+            image_renderer,
+            char_grid_renderer,
             vertex_buffer,
             // index_buffer,
             // instance_buffer,
@@ -1165,11 +1409,9 @@ impl UIDisplay {
 
             let mut drawing_shared_data = DrawingSharedData {
                 render_pass,
-                rectangle_render_pipeline,
-                image_render_pipeline,
-                image_texture_bind_group_layout,
-                char_grid_render_pipeline,
-                char_grid_texture_bind_group_layout,
+                rectangle_renderer,
+                image_renderer,
+                char_grid_renderer,
                 vertex_buffer,
                 font_system,
                 swash_cache,
