@@ -8135,3 +8135,14 @@ There's still anti-aliasing, the background, and making the user of CharGrid not
 
 I'm just going to use smooth-step for antialiasing,
 so things `e` away from the boundary are a mix of both fg and bg.
+
+So it does seem to be antialiasing, but I think the problem is still with the bounds.
+The characters are just so spaced out right now, especially horizontally.
+And they are also horizontally squished for each individual.
+
+2026-07-15 04:16PM
+
+Yeah, I had to take a break.
+It is just so demoralizing that the text is so ugly after all this work.
+I am going to commit the previous change I made,
+which was using the global bounding box for the auto shaper.

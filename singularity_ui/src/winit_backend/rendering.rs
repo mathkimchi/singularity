@@ -468,14 +468,20 @@ impl CharGridRenderer {
             //     msdfgen::Vector2::new(0.01, 0.01),
             //     msdfgen::Vector2::new(400., 100.),
             // );
-            let framing = msdfgen::Bound::new(0., -500., 1200., 1600.)
-                .autoframe(
-                    Self::SDF_WIDTH as _,
-                    Self::SDF_HEIGHT as _,
-                    msdfgen::Range::Px(4.0),
-                    None,
-                )
-                .unwrap();
+            let bound = font.global_bounding_box();
+            let framing = msdfgen::Bound::new(
+                f64::from(bound.x_min),
+                f64::from(bound.y_min),
+                f64::from(bound.x_max),
+                f64::from(bound.y_max),
+            )
+            .autoframe(
+                Self::SDF_WIDTH as _,
+                Self::SDF_HEIGHT as _,
+                msdfgen::Range::Px(4.0),
+                None,
+            )
+            .unwrap();
 
             let fill_rule = FillRule::default();
 
