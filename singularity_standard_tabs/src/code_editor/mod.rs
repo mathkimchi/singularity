@@ -180,10 +180,16 @@ impl BasicApplet for CodeEditorApplet {
                 break;
             };
 
-            for (col, c) in line.chars().take(width).enumerate() {
+            for (col, mut c) in line.chars().take(width).enumerate() {
+                if c == '\n' {
+                    // we can't automatically rule out all final characters, bc of the final line
+                    c = ' ';
+                }
+
                 content.set_char(c, row, col);
 
                 // currently scroll is only horizontal
+                // ^- Erhm actchually, currently, scroll DNE. But the architecture for it only supports horizontal
                 let content_idx = self.buffer.line_to_char(line_idx) + col;
                 if content_idx == self.cursor {
                     let cursor_bg = if self.focused {
