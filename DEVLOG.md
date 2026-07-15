@@ -8202,3 +8202,11 @@ so all text has an opaque yellow bg, but the text actually looks good imo.
 Kinda blurry, but it actually looks like there's a chance someone wouldn't question it if they saw it.
 
 I'm actually going to try to push through and calculate the actual scale to multiply by.
+
+...
+
+Holy forking shirtballs, the text actully looks normal!!!
+
+This is the Aha! moment where I know that the final product will work, but it isn't the end just yet, so I won't celebrate just yet.
+After fixing the End of Line and the bg colors,
+I'll make it so that a char grid fills up its entire boundary and test it with a single char displayer.

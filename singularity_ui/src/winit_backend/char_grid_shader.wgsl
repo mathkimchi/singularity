@@ -120,16 +120,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             //     return fg;
             // }
             // The gpu maps all distances to [0, 1] since these operations are meant for rgb
-            // I think the 0 and 1 bounds mean that it is PX_RANGE far from boundary
+            // I think the 0 and 1 bounds mean that it is PX_RANGE / 2 far from boundary (bc it goes from -px range / 2 to +px range / 2)
             // I think PX_RANGE was in terms of the texture grid (like the 32x64 or 64x64 grid the dists were stored inside), not the actual pixels
             let signed_dist = median(msdf_values.xyz) - 0.5;
             // now in terms of normalized texture units, where unit length 1 is the dist of 1 char
             // (it's impossible to know the actual distance bc we got stretched dist, so I'll assume it was diagonal)
             // NOTE: This math doesn't actually come from logic, I am pretty sure it doesn't actually represent what I want it to.
             // Read 2026-07-15 devlog for more info.
-            let screen_uv_offset = PX_RANGE / (vec2<f32>(32.0, 64.0) * 0.70710678118);
-            let screen_px_offset = screen_uv_offset * vec2<f32>(textureDimensions(sdf_atlas));
-            let screen_px_dist = 0.1 * signed_dist * length(screen_px_offset);
+            let screen_uv_offset = PX_RANGE / 2. / (vec2<f32>(32.0, 64.0) * 0.70710678118);
+            let screen_px_offset = screen_uv_offset * in.size / vec2<f32>(in.grid_size);
+            let screen_px_dist = signed_dist * length(screen_px_offset);
             let opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
             return mix(bg, fg, opacity);
         }
