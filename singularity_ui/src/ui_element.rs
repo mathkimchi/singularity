@@ -175,11 +175,11 @@ impl Default for CharCell {
 
 /// think this is height in pixels
 /// TODO: make this not-so-hardcoded...
-pub const FONT_SIZE_U: u32 = 23;
+pub const FONT_SIZE_U: u32 = 46;
 pub const FONT_SIZE: i32 = FONT_SIZE_U as i32;
 pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
 /// The actual aspect ratio of DejaVu Mono is 1:1.933
-pub const FONT_WIDTH_U: u32 = 12;
+pub const FONT_WIDTH_U: u32 = 24;
 pub const FONT_WIDTH: i32 = FONT_WIDTH_U as i32;
 pub const FONT_WIDTH_F: f32 = FONT_WIDTH as f32;
 

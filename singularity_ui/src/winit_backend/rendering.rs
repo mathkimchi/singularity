@@ -435,7 +435,7 @@ impl CharGridRenderer {
     /// TODO: use klyff_msdf crate bc it supports u8 and runs on wgpu
     // const SDF_PIXEL_BYTES: usize = 4 * 4;
     const SDF_PIXEL_BYTES: usize = 4;
-    const SDF_WIDTH: usize = 64;
+    const SDF_WIDTH: usize = 32;
     const SDF_HEIGHT: usize = 64;
     /// Num bytes for each character's atlas
     const ATLAS_SIZE: usize = Self::SDF_PIXEL_BYTES * Self::SDF_WIDTH * Self::SDF_HEIGHT;
@@ -483,7 +483,8 @@ impl CharGridRenderer {
         .autoframe(
             Self::SDF_WIDTH as _,
             Self::SDF_HEIGHT as _,
-            msdfgen::Range::Px(2.0),
+            // NOTE: this should be the same number as PX_RANGE constant in the shader
+            msdfgen::Range::Px(4.0),
             None,
         )
         .unwrap();

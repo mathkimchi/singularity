@@ -63,8 +63,11 @@ var sdf_sampler: sampler;
 @group(1) @binding(0)
 var characters: texture_storage_2d<rgba32uint, read>;
 
+// Pixel Range used when generrating distance field
+const PX_RANGE: f32 = 4.0;
+
 fn median(v: vec3<f32>) -> f32 {
-    return clamp(v.x, min(v.y, v.z), max(v.y, v.z));
+    return max(min(v.x, v.y), min(max(v.x, v.y), v.z));
 }
 
 @fragment
@@ -116,11 +119,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             //     // yeah, I'm just ignoring the border (==0.5) case
             //     return fg;
             // }
-            // The gpu maps this to [0, 1]
-            let signed_dist = median(msdf_values.xyz);
-            let smooth_bound = 0.1;
-            let fg_factor = smoothstep(0.5 - smooth_bound, 0.5 + smooth_bound, signed_dist);
-            return fg_factor * fg + (1. - fg_factor) * bg;
+            // The gpu maps all distances to [0, 1] since these operations are meant for rgb
+            // I think the 0 and 1 bounds mean that it is PX_RANGE far from boundary
+            // I think PX_RANGE was in terms of the texture grid (like the 32x64 or 64x64 grid the dists were stored inside), not the actual pixels
+            let signed_dist = median(msdf_values.xyz) - 0.5;
+            // now in terms of normalized texture units, where unit length 1 is the dist of 1 char
+            // (it's impossible to know the actual distance bc we got stretched dist, so I'll assume it was diagonal)
+            // NOTE: This math doesn't actually come from logic, I am pretty sure it doesn't actually represent what I want it to.
+            // Read 2026-07-15 devlog for more info.
+            let screen_uv_offset = PX_RANGE / (vec2<f32>(32.0, 64.0) * 0.70710678118);
+            let screen_px_offset = screen_uv_offset * vec2<f32>(textureDimensions(sdf_atlas));
+            let screen_px_dist = 0.1 * signed_dist * length(screen_px_offset);
+            let opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
+            return mix(bg, fg, opacity);
         }
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);

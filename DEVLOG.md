@@ -8152,3 +8152,53 @@ Printing this, the ratio seems to be 1:1.933.
 I don't think that really changes anything, but I'll try using a 12:23 font aspect ratio.
 
 Ok, I think I need more anti-aliasing.
+
+I think the problem is that the blurring of anti-aliasing is currently twice vertically than horizontally.
+
+Some example msdf sources on anti-aliasing:
+- https://github.com/Chlumsky/msdfgen/blob/master/README.md
+ - From the original guy that invented msdf
+- https://www.fractolog.com/2025/01/msdf-fragment-shader-antialiasing/
+
+all these examples are in glsl, but the conversion is very straightforward.
+
+Ok, so it's actually impossible to get the pixel distance from boundary
+if I just have a stretched distance.
+I would need a vector, but you know what, it's fine.
+I just implemented (mostly hardcoded) my own math bc the guides were using derivates and stuff.
+
+```wgsl
+// The gpu maps all distances to [0, 1] since these operations are meant for rgb
+// I think the 0 and 1 bounds mean that it is PX_RANGE far from boundary
+// I think PX_RANGE was in terms of the texture grid (like the 32x64 or 64x64 grid the dists were stored inside), not the actual pixels
+let signed_dist = median(msdf_values.xyz) - 0.5;
+// now in terms of normalized texture units, where unit length 1 is the dist of 1 char
+// (it's impossible to know the actual distance bc we got stretched dist, so I'll assume it was diagonal)
+let screen_uv_offset = PX_RANGE * signed_dist / (vec2<f32>(32.0, 64.0) * 0.70710678118);
+let screen_px_offset = screen_uv_offset * vec2<f32>(textureDimensions(sdf_atlas));
+let screen_px_dist = length(screen_px_offset);
+let opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
+return mix(bg, fg, opacity);
+```
+
+it doesn't work because I lose the sign.
+It's fine, I can just do some algebraic manipulation.
+
+Ok, I think I can just multiply signed_dist to screen_px_dist after doing the length.
+
+Never mind, Fter thinking about it, I don't think ts is going to work.
+
+... Wait, wtf?
+It still looks disgusting, but less so.
+
+I tried multiplying the distance by 10 just to add some last-ditch fixing efforts, and it actually decreased aliasing
+(which makes sense in hindsight).
+But without aliasing, it actually looks readable.
+You can tell it looks like a gremlin or something (bc its so jaggedy),
+but I guess this proves the potential of this technique at least.
+
+With a multiplier of 0.1, it thinks everything is close to the bound,
+so all text has an opaque yellow bg, but the text actually looks good imo.
+Kinda blurry, but it actually looks like there's a chance someone wouldn't question it if they saw it.
+
+I'm actually going to try to push through and calculate the actual scale to multiply by.
