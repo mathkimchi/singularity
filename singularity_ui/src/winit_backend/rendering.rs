@@ -444,55 +444,56 @@ impl CharGridRenderer {
         let mut data = vec![0u8; Self::ATLAS_SIZE * (127 - 33)];
 
         let font = ttf_parser::Face::parse(dejavu::sans_mono::regular(), 0).unwrap();
+
+        // let bound = shape.get_bound();
+        // let framing = bound
+        //     .autoframe(
+        //         Self::SDF_WIDTH as _,
+        //         Self::SDF_HEIGHT as _,
+        //         msdfgen::Range::Px(4.0),
+        //         None,
+        //     )
+        //     .unwrap();
+        // log::debug!("Char: {}", ascii_code as char);
+        // log::debug!("Bound: {bound:?}");
+        // log::debug!("Autoframe: {framing:?}");
+        // let framing = msdfgen::Framing::new(
+        //     222.0,
+        //     msdfgen::Vector2::new(0.01, 0.01),
+        //     msdfgen::Vector2::new(400., 100.),
+        // );
+        // let bound = font.global_bounding_box();
+        // log::debug!(
+        //     "Bot: {}, top: {}, width: {}",
+        //     font.descender(), // -483
+        //     font.ascender(),  // 1901
+        //     font.glyph_hor_advance(font.glyph_index(' ').unwrap())
+        //         .unwrap(), // 1233
+        //                       // so actual aspect ratio is 1.933
+        // );
+        let framing = msdfgen::Bound::new(
+            0.,
+            f64::from(font.descender()),
+            f64::from(
+                font.glyph_hor_advance(font.glyph_index(' ').unwrap())
+                    .unwrap(),
+            ),
+            f64::from(font.ascender()),
+        )
+        .autoframe(
+            Self::SDF_WIDTH as _,
+            Self::SDF_HEIGHT as _,
+            msdfgen::Range::Px(2.0),
+            None,
+        )
+        .unwrap();
+
         for ascii_code in 33..127u8 {
             // Mostly just taken from msdf gen library: https://crates.io/crates/msdfgen
             // NOTE: Versions are weird, might need to downgrade ttf_parser
             let glyph = font.glyph_index(ascii_code as char).unwrap();
 
             let mut shape = font.glyph_shape(glyph).unwrap();
-
-            // let bound = shape.get_bound();
-            // let framing = bound
-            //     .autoframe(
-            //         Self::SDF_WIDTH as _,
-            //         Self::SDF_HEIGHT as _,
-            //         msdfgen::Range::Px(4.0),
-            //         None,
-            //     )
-            //     .unwrap();
-            // log::debug!("Char: {}", ascii_code as char);
-            // log::debug!("Bound: {bound:?}");
-            // log::debug!("Autoframe: {framing:?}");
-            // let framing = msdfgen::Framing::new(
-            //     222.0,
-            //     msdfgen::Vector2::new(0.01, 0.01),
-            //     msdfgen::Vector2::new(400., 100.),
-            // );
-            // let bound = font.global_bounding_box();
-            log::debug!(
-                "Bot: {}, top: {}, width: {}",
-                font.descender(), // -483
-                font.ascender(),  // 1901
-                font.glyph_hor_advance(font.glyph_index(' ').unwrap())
-                    .unwrap(), // 1233
-                                  // so actual aspect ratio is 1.933
-            );
-            let framing = msdfgen::Bound::new(
-                0.,
-                f64::from(font.descender()),
-                f64::from(
-                    font.glyph_hor_advance(font.glyph_index(' ').unwrap())
-                        .unwrap(),
-                ),
-                f64::from(font.ascender()),
-            )
-            .autoframe(
-                Self::SDF_WIDTH as _,
-                Self::SDF_HEIGHT as _,
-                msdfgen::Range::Px(2.0),
-                None,
-            )
-            .unwrap();
 
             let fill_rule = FillRule::default();
 
