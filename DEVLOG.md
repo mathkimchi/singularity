@@ -8146,3 +8146,9 @@ Yeah, I had to take a break.
 It is just so demoralizing that the text is so ugly after all this work.
 I am going to commit the previous change I made,
 which was using the global bounding box for the auto shaper.
+
+I am using ascent descent and advance instead of global bounds to Google AI's suggestion.
+Printing this, the ratio seems to be 1:1.933.
+I don't think that really changes anything, but I'll try using a 12:23 font aspect ratio.
+
+Ok, I think I need more anti-aliasing.

@@ -175,9 +175,13 @@ impl Default for CharCell {
 
 /// think this is height in pixels
 /// TODO: make this not-so-hardcoded...
-pub const FONT_SIZE_U: u32 = 32;
+pub const FONT_SIZE_U: u32 = 23;
 pub const FONT_SIZE: i32 = FONT_SIZE_U as i32;
 pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
+/// The actual aspect ratio of DejaVu Mono is 1:1.933
+pub const FONT_WIDTH_U: u32 = 12;
+pub const FONT_WIDTH: i32 = FONT_WIDTH_U as i32;
+pub const FONT_WIDTH_F: f32 = FONT_WIDTH as f32;
 
 /// #[deprecated]
 /// Idk why I deprecated this. If anything, CharGrid should be better than Glyphon Richtext
@@ -256,7 +260,7 @@ impl CharGrid {
         (
             // Font size is height, width is twice the height
             // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer
-            ((container_size.width * 2) / FONT_SIZE_U) as usize,
+            (container_size.width / FONT_WIDTH_U) as usize,
             (container_size.height / FONT_SIZE_U) as usize,
         )
     }
@@ -264,7 +268,7 @@ impl CharGrid {
     #[must_use]
     pub const fn display_size(&self) -> DisplayContainerSize {
         DisplayContainerSize {
-            width: (self.width as u32) * FONT_SIZE_U / 2,
+            width: (self.width as u32) * FONT_WIDTH_U,
             height: (self.height as u32) * FONT_SIZE_U,
         }
     }

@@ -468,17 +468,28 @@ impl CharGridRenderer {
             //     msdfgen::Vector2::new(0.01, 0.01),
             //     msdfgen::Vector2::new(400., 100.),
             // );
-            let bound = font.global_bounding_box();
+            // let bound = font.global_bounding_box();
+            log::debug!(
+                "Bot: {}, top: {}, width: {}",
+                font.descender(), // -483
+                font.ascender(),  // 1901
+                font.glyph_hor_advance(font.glyph_index(' ').unwrap())
+                    .unwrap(), // 1233
+                                  // so actual aspect ratio is 1.933
+            );
             let framing = msdfgen::Bound::new(
-                f64::from(bound.x_min),
-                f64::from(bound.y_min),
-                f64::from(bound.x_max),
-                f64::from(bound.y_max),
+                0.,
+                f64::from(font.descender()),
+                f64::from(
+                    font.glyph_hor_advance(font.glyph_index(' ').unwrap())
+                        .unwrap(),
+                ),
+                f64::from(font.ascender()),
             )
             .autoframe(
                 Self::SDF_WIDTH as _,
                 Self::SDF_HEIGHT as _,
-                msdfgen::Range::Px(4.0),
+                msdfgen::Range::Px(2.0),
                 None,
             )
             .unwrap();
