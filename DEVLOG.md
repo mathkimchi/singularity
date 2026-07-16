@@ -8239,3 +8239,11 @@ Welp, time to commit and not think too hard about if this was worth doing.
 > We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard.
 >
 > \- JFK
+
+2026-07-15 08:48PM
+
+I kind of want to jump straight back into editor development,
+but I'm actually going to take back and reflect on Sonamu's features.
+As I was doing the glyph stuff, I realized that people don't understand how much effort I put into Sonamu
+when I just say I'm working on an app that organizes other apps.
+So I'm going to add a list of technical features in the README.
