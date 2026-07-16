@@ -128,6 +128,7 @@ impl CommandHubApplet {
                 Some(&"text_editor") => self.execute_command(
                     "add_child text_editor examples/root-project/file_to_edit.txt",
                 ),
+                Some(&"char") => self.execute_command("add_child char_render_test"),
                 Some(test) => Err(format!(
                     "`{test}` is an unknown test. Currently working tests: `image`"
                 )),

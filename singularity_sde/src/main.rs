@@ -18,7 +18,10 @@
 // }
 
 use singularity_sar::runner::AppletRunner;
-use singularity_standard_tabs::{code_editor::CodeEditorApplet, image_viewer::ImageViewerApplet};
+use singularity_standard_tabs::{
+    code_editor::CodeEditorApplet, image_viewer::ImageViewerApplet,
+    one_char_render_test::OneCharRenderTestApplet,
+};
 use singularity_sttk::{
     command_hub::CommandHubApplet,
     nodular_applet::{
@@ -52,6 +55,10 @@ fn main() {
                 ImageViewerApplet::get_applet_spawner(),
             ),
             ("wl_app".to_string(), WaylandApplet::get_applet_spawner()),
+            (
+                "char_render_test".to_string(),
+                OneCharRenderTestApplet::get_applet_spawner(),
+            ),
         ]),
     ))
 }

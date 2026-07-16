@@ -8210,3 +8210,32 @@ Holy forking shirtballs, the text actully looks normal!!!
 This is the Aha! moment where I know that the final product will work, but it isn't the end just yet, so I won't celebrate just yet.
 After fixing the End of Line and the bg colors,
 I'll make it so that a char grid fills up its entire boundary and test it with a single char displayer.
+
+2026-07-15 08:31PM
+
+Ok, I made the tester.
+It errors when you press enter, but I don't really care.
+
+So, I think I'm done with rendering glyphs.
+Now I can reflect.
+
+I decided to render text myself 8 days ago on Jul 7.
+It is now Jul 15, 8:34 PM.
+After 53 commits (including this one; `git rev-list f867bbc..HEAD --count` returns 51 and I am including that commit + this one)
+and in total:
+
+```sh
+> git diff --shortstat f867bbc
+58 files changed, 3642 insertions(+), 2016 deletions(-)
+```
+
+including 771 DEVLOG line inserts (counting to before this sentence)
+with a now 16720 LoC codebase,
+I can say I'm kinda proud and feel simultaneously like I overcame a huge challenge
+and also that I just wasted a large chunk of my summer and overall sanity.
+
+Welp, time to commit and not think too hard about if this was worth doing.
+
+> We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard.
+>
+> \- JFK
