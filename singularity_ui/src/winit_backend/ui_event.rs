@@ -35,6 +35,8 @@ pub enum Key {
     ArrowKeyRight,
     Enter,
     Backspace,
+    PageDown,
+    PageUp,
     Char(char),
 }
 
@@ -187,6 +189,13 @@ impl TryFrom<winit::event::KeyEvent> for Key {
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => {
                     Ok(Self::Enter)
+                }
+
+                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
+                    Ok(Self::PageDown)
+                }
+                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageUp) => {
+                    Ok(Self::PageUp)
                 }
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {

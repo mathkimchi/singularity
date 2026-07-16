@@ -19,6 +19,25 @@ use std::{
     path::PathBuf,
 };
 
+/// Handles scroll offset
+/// TODO: fold, lines that span multiple rows, in-line embeds like comments or document embeds (for custom note-taking language), horizontal scroll
+struct ViewOffset {
+    /// What text line is the uppermost row?
+    scroll: usize,
+}
+impl ViewOffset {
+    // TODO: make something that iterates the line_idx's?
+    const fn disp_row_to_line_idx(&self, display_row: usize) -> usize {
+        display_row + self.scroll
+    }
+
+    /// Positive is down
+    /// Negative is up
+    fn add_scroll(&mut self, offset: isize) {
+        self.scroll = self.scroll.saturating_add_signed(offset);
+    }
+}
+
 pub struct CodeEditorApplet {
     file_path: PathBuf,
 
@@ -27,6 +46,8 @@ pub struct CodeEditorApplet {
     /// In char, not bytes
     cursor: usize,
     focused: bool,
+
+    view_offset: ViewOffset,
 
     hook: Box<dyn NodularRunnerHook>,
 }
@@ -45,6 +66,8 @@ where
             buffer,
             cursor: 0,
             focused: true,
+
+            view_offset: ViewOffset { scroll: 0 },
 
             hook,
         }
@@ -83,11 +106,6 @@ impl CodeEditorApplet {
         let mut dest = BufWriter::new(File::create(&self.file_path).unwrap());
         self.buffer.write_to(&mut dest).unwrap();
         dest.flush().unwrap();
-    }
-
-    // TODO: make something that iterates the line_idx's?
-    const fn disp_row_to_line_idx(&self, display_row: usize) -> usize {
-        display_row
     }
 }
 impl BasicApplet for CodeEditorApplet {
@@ -151,6 +169,9 @@ impl BasicApplet for CodeEditorApplet {
                             self.cursor = prev_idx;
                         }
                     }
+                    // these are mostly here for debug purposes
+                    (Key::PageDown, KeyModifiers::NONE) => self.view_offset.add_scroll(1),
+                    (Key::PageUp, KeyModifiers::NONE) => self.view_offset.add_scroll(-1),
                     _ => {}
                 }
             }
@@ -174,7 +195,7 @@ impl BasicApplet for CodeEditorApplet {
 
         let mut content = CharGrid::new_empty(width, height);
         for row in 0..height {
-            let line_idx = self.disp_row_to_line_idx(row);
+            let line_idx = self.view_offset.disp_row_to_line_idx(row);
 
             let Some(line) = self.buffer.get_line(line_idx) else {
                 break;

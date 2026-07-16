@@ -8247,3 +8247,12 @@ but I'm actually going to take back and reflect on Sonamu's features.
 As I was doing the glyph stuff, I realized that people don't understand how much effort I put into Sonamu
 when I just say I'm working on an app that organizes other apps.
 So I'm going to add a list of technical features in the README.
+
+2026-07-16 03:19PM
+
+So I'm looking at the git issue [#37](https://github.com/mathkimchi/singularity/issues/37)
+for this one, and the next feature is scrolling,
+which I was weirdly excited to do (tbh, I was looking forward to anything except for GPU rendering).
+
+I just need a line re-mapper to remap screen line to text line.
+I guess it's simple now, but the cool thing will be when I add folding later.
