@@ -1,6 +1,6 @@
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayContainerSize},
+    display_units::{DisplayArea, DisplayContainerSize, DisplayCoord},
 };
 
 /// TODO: rename most everything here
@@ -289,6 +289,12 @@ impl CharGrid {
     #[must_use]
     pub const fn element(self) -> UIElement {
         UIElement::CharGrid(self)
+    }
+
+    pub fn contained_element(self) -> UIElement {
+        let size = self.display_size().into();
+        self.element()
+            .contain(DisplayArea::from_corner_size(DisplayCoord::ZERO, size))
     }
 
     #[must_use]

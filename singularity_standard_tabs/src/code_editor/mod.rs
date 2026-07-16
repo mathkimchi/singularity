@@ -203,7 +203,14 @@ impl BasicApplet for CodeEditorApplet {
             }
         }
 
-        content.element()
+        /// I think this is good, but it might be a tad bid disorienting to resize a lot (it feels jiggly)
+        const EXPAND_EDITOR_TEXT: bool = true;
+
+        if EXPAND_EDITOR_TEXT {
+            content.element()
+        } else {
+            content.contained_element()
+        }
 
         // UIElement::Text(vec![
         //     (

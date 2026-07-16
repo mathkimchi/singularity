@@ -1365,14 +1365,7 @@ impl UIElement {
                 Self::draw_text_with_glyphon(drawing_shared_data, text, container_area);
             }
             Self::CharGrid(char_grid) => {
-                Self::draw_char_grid(
-                    drawing_shared_data,
-                    char_grid,
-                    DisplayArea::from_corner_size(
-                        container_area.0,
-                        char_grid.display_size().into(),
-                    ),
-                );
+                Self::draw_char_grid(drawing_shared_data, char_grid, container_area);
             }
             Self::Image(image_buffer) => {
                 Self::draw_image(drawing_shared_data, image_buffer, container_area);

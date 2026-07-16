@@ -179,6 +179,8 @@ pub struct DisplayCoord {
     pub y: DisplayUnits,
 }
 impl DisplayCoord {
+    pub const ZERO: Self = Self::new(DisplayUnits::ZERO, DisplayUnits::ZERO);
+
     #[must_use]
     pub const fn new(x: DisplayUnits, y: DisplayUnits) -> Self {
         Self { x, y }
