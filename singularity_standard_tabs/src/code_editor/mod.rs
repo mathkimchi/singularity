@@ -193,11 +193,12 @@ impl BasicApplet for CodeEditorApplet {
                 let content_idx = self.buffer.line_to_char(line_idx) + col;
                 if content_idx == self.cursor {
                     let cursor_bg = if self.focused {
-                        Color::LIGHT_YELLOW
+                        Color::ORANGE
                     } else {
                         Color::MEDIUM_GRAY
                     };
                     content.set_bg(cursor_bg, row, col);
+                    content.set_fg(Color::TRANSPARENT, row, col);
                 }
             }
         }
