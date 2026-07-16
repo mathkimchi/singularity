@@ -322,7 +322,7 @@ impl CharGrid {
     }
     /// at index `row * self.width + col`
     pub fn set_bg(&mut self, bg: Color, row: usize, col: usize) {
-        self.content[row * self.width + col].fg = bg;
+        self.content[row * self.width + col].bg = bg;
     }
 
     #[must_use]
