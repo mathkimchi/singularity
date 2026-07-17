@@ -225,8 +225,7 @@ impl CodeEditorApplet {
                 self.cursor = unclamped_new_cursor_pos.min(
                     self.buffer
                         .try_line_to_char(new_line + 1)
-                        .unwrap_or_else(|_| self.buffer.len_chars())
-                        - 1,
+                        .unwrap_or_else(|_| self.buffer.len_chars()),
                 );
                 self.clamp_view_to_cursor();
             }
