@@ -10,7 +10,7 @@ use singularity_sttk::{
 };
 use singularity_ui::{
     color::Color,
-    ui_element::CharGrid,
+    ui_element::{CharCellStyle, CharGrid},
     ui_event::{Key, KeyModifiers},
 };
 use std::{
@@ -52,6 +52,11 @@ impl ViewOffset {
     }
 }
 
+enum EditorMode {
+    Normal,
+    Insert,
+}
+
 pub struct CodeEditorApplet {
     file_path: PathBuf,
 
@@ -60,6 +65,7 @@ pub struct CodeEditorApplet {
     /// In char, not bytes
     cursor: usize,
     focused: bool,
+    mode: EditorMode,
 
     view_offset: ViewOffset,
 
@@ -78,8 +84,10 @@ where
         Self {
             file_path,
             buffer,
+
             cursor: 0,
             focused: true,
+            mode: EditorMode::Normal,
 
             view_offset: ViewOffset {
                 scroll: 0,
@@ -256,8 +264,15 @@ impl BasicApplet for CodeEditorApplet {
                     } else {
                         Color::MEDIUM_GRAY
                     };
-                    content.set_bg(cursor_bg, row, col);
-                    content.set_fg(Color::TRANSPARENT, row, col);
+                    content
+                        .get_char_mut(row, col)
+                        .set_fg(Color::TRANSPARENT)
+                        .set_bg(cursor_bg)
+                        .add_style(CharCellStyle::CURSOR_LINE);
+                    // log::debug!(
+                    //     "Cursor style: {}",
+                    //     (content.get_char(row, col).style.0 >> 2) & 1
+                    // );
                 }
             }
         }

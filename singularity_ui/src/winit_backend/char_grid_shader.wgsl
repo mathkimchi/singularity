@@ -99,10 +99,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let bg = unpack4x8unorm(char.z);
         let style = char.w;
 
+        // save bit 0 and 1 for bold and italic
+        let cursor_line = ((style >> 2) & 1) == 1;
+
         // // just make sure characters change
         // return vec4<f32>((f32(char_type) * 1.618033 * 1000000.) % 1., 0., 0., 1.);
 
-        if char_type == 32 {
+        if cursor_line && (glyph_pos_uv.x < 0.125) {
+            // draw left 1/8th for cursor line
+            return fg;
+        } else if char_type == 32 {
             // space
             return bg;
         } else if char_type < 32 || char_type > 126 {

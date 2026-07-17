@@ -8256,3 +8256,31 @@ which I was weirdly excited to do (tbh, I was looking forward to anything except
 
 I just need a line re-mapper to remap screen line to text line.
 I guess it's simple now, but the cool thing will be when I add folding later.
+
+2026-07-16 11:38PM
+
+Scrolling done.
+
+Next on the list is undo/redo history, but I'm going to skip that for now.
+(It seems harder than I'd want, though I hear that Ropey actually makes undo and redo history easy to efficiently implement
+bc a Rope is immutable.)
+
+So, I have graduated from the "Basic text editor" features to the "Nice features".
+I'll start with modes.
+
+I have been theorizing the best ways to do this,
+with additional integration with a custom keyboard layout, but I'll keep it simple for now.
+Since I like Helix, I'm just going to use most of it's keybinds.
+
+I'm going to add the first Char Grid flag.
+
+2026-07-17 12:17PM
+
+I added a style flag for the cursor and also modes, but the modes don't do anything.
+I thought the style doesn't work, but I'm gonna commit now,
+because I think it just looks like it doesn't work because right now,
+I am inverting the color for the cursor to make a block (which should be Normal mode)
+and simultaneously adding the cursor line (insert mode effect),
+and it just results in a slightly thinner block.
+
+I'll add mode switching and then change the cursor appearance based on the mode.

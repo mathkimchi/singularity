@@ -99,7 +99,45 @@ impl From<String> for UIElement {
     }
 }
 
+/// 0 and 1 are planned to be bold and italic
+/// 2 is cursor line
+#[repr(C)]
+#[derive(
+    Copy,
+    Clone,
+    bytemuck::Pod,
+    bytemuck::Zeroable,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+)]
+pub struct CharCellStyle(pub u32);
+impl CharCellStyle {
+    pub const UNSTYLED: Self = Self(0);
+    pub const CURSOR_LINE: Self = Self(1 << 2);
+}
+/// For me, add makes more sense than bitwise OR
+impl std::ops::Add for CharCellStyle {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        #[allow(clippy::suspicious_arithmetic_impl)]
+        Self(self.0 | rhs.0)
+    }
+}
+impl std::ops::AddAssign for CharCellStyle {
+    #[allow(clippy::suspicious_op_assign_impl)]
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+
 /// Made so this can instantly be turned to bytes
+/// REVIEW: rename to just `CharCell`?
 #[repr(C)]
 #[derive(
     Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug, Hash, PartialEq, Eq, PartialOrd, Ord,
@@ -110,66 +148,41 @@ pub struct InternalCharCell {
     pub fg: Color,
     /// RGBA
     pub bg: Color,
-    /// NOTE: currently unused
-    pub style: u32,
+    pub style: CharCellStyle,
 }
 impl InternalCharCell {
     pub const BYTES: usize = 16;
-}
-impl From<CharCell> for InternalCharCell {
-    fn from(CharCell { character, fg, bg }: CharCell) -> Self {
-        Self {
-            character: character as u32,
-            fg,
-            bg,
-            // currently unused
-            style: 0,
-        }
+
+    pub fn set_char(&mut self, c: char) -> &mut Self {
+        self.character = c as u32;
+        self
     }
-}
-impl From<InternalCharCell> for CharCell {
-    fn from(
-        InternalCharCell {
-            character,
-            fg,
-            bg,
-            style: _,
-        }: InternalCharCell,
-    ) -> Self {
-        Self {
-            character: character as u8 as char,
-            fg,
-            bg,
-        }
+    pub fn set_fg(&mut self, fg: Color) -> &mut Self {
+        self.fg = fg;
+        self
+    }
+    pub fn set_bg(&mut self, bg: Color) -> &mut Self {
+        self.bg = bg;
+        self
+    }
+
+    pub fn add_style(&mut self, new_style: CharCellStyle) -> &mut Self {
+        self.style += new_style;
+        self
+    }
+    pub fn set_style(&mut self, new_style: CharCellStyle) -> &mut Self {
+        self.style = new_style;
+        self
     }
 }
 impl Default for InternalCharCell {
     fn default() -> Self {
-        CharCell::default().into()
-    }
-}
-
-/// TODO: Replace this entirely with internal char cell?
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct CharCell {
-    pub character: char,
-    pub fg: Color,
-    pub bg: Color,
-    // TODO: just store glyphon::AttrsOwned?
-}
-impl CharCell {
-    #[must_use]
-    pub const fn new(character: char) -> Self {
         Self {
-            character,
-            fg: Color::LIGHT_YELLOW,
+            character: u32::from(' '),
+            fg: Color::WHITE,
             bg: Color::TRANSPARENT,
+            style: CharCellStyle::UNSTYLED,
         }
-    }
-}
-impl Default for CharCell {
-    fn default() -> Self {
-        Self::new(' ')
     }
 }
 
@@ -198,7 +211,12 @@ pub struct CharGrid {
 impl From<&str> for CharGrid {
     /// Makes width and height the smallest necessary to fit everything.
     fn from(raw_content: &str) -> Self {
-        Self::new_monostyled(raw_content, Color::LIGHT_YELLOW, Color::TRANSPARENT)
+        Self::new_monostyled(
+            raw_content,
+            Color::LIGHT_YELLOW,
+            Color::TRANSPARENT,
+            CharCellStyle::UNSTYLED,
+        )
     }
 }
 impl CharGrid {
@@ -225,7 +243,7 @@ impl CharGrid {
 
     /// Makes width and height the smallest necessary to fit everything.
     #[must_use]
-    pub fn new_monostyled(raw_content: &str, fg: Color, bg: Color) -> Self {
+    pub fn new_monostyled(raw_content: &str, fg: Color, bg: Color, style: CharCellStyle) -> Self {
         let Some(width) = raw_content.lines().map(str::len).max() else {
             return Self {
                 width: 0,
@@ -235,22 +253,26 @@ impl CharGrid {
         };
         let height = raw_content.lines().count();
 
-        let mut content = Vec::new();
-        for line_str in raw_content.split('\n') {
-            let chars = line_str.chars().collect::<Vec<_>>();
-            for i in 0..width {
-                content.push(
-                    CharCell {
-                        fg,
-                        bg,
-                        character: chars.get(i).copied().unwrap_or(' '),
-                    }
-                    .into(),
-                );
+        let mut s = Self {
+            width,
+            height,
+            content: vec![
+                InternalCharCell {
+                    fg,
+                    bg,
+                    style,
+                    character: u32::from(' ')
+                };
+                width * height
+            ],
+        };
+        for (row, line_str) in raw_content.split('\n').enumerate() {
+            for (col, c) in line_str.chars().enumerate() {
+                s.set_char(c, row, col);
             }
         }
 
-        Self::new(width, height, content)
+        s
     }
 
     /// Returns (width, height)
@@ -291,6 +313,7 @@ impl CharGrid {
         UIElement::CharGrid(self)
     }
 
+    #[must_use]
     pub fn contained_element(self) -> UIElement {
         let size = self.display_size().into();
         self.element()
@@ -309,15 +332,16 @@ impl CharGrid {
 
     /// Returns char cell at index `row * self.width + col`
     #[must_use]
-    pub fn get_char(&self, row: usize, col: usize) -> CharCell {
-        self.content[row * self.width + col].into()
+    pub fn get_char(&self, row: usize, col: usize) -> InternalCharCell {
+        self.content[row * self.width + col]
     }
 
-    // /// Returns char cell at index `row * self.width + col`
-    // pub fn get_char_mut(&mut self, row: usize, col: usize) -> &mut CharCell {
-    //     &mut self.content[row * self.width + col]
-    // }
+    /// Returns char cell at index `row * self.width + col`
+    pub fn get_char_mut(&mut self, row: usize, col: usize) -> &mut InternalCharCell {
+        &mut self.content[row * self.width + col]
+    }
 
+    /// TODO: move these into InternalCharCell
     /// at index `row * self.width + col`
     pub fn set_char(&mut self, c: char, row: usize, col: usize) {
         self.content[row * self.width + col].character = c as u32;
