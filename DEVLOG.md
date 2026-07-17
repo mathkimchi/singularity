@@ -8284,3 +8284,6 @@ and simultaneously adding the cursor line (insert mode effect),
 and it just results in a slightly thinner block.
 
 I'll add mode switching and then change the cursor appearance based on the mode.
+
+The ui_element.rs is kind of a mess,
+so I'm going to make the CharGrid stuff its own file.
