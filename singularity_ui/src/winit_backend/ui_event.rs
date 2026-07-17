@@ -37,6 +37,7 @@ pub enum Key {
     Backspace,
     PageDown,
     PageUp,
+    Escape,
     Char(char),
 }
 
@@ -200,6 +201,10 @@ impl TryFrom<winit::event::KeyEvent> for Key {
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
                     Ok(Self::Backspace)
+                }
+
+                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
+                    Ok(Self::Escape)
                 }
 
                 _ => value

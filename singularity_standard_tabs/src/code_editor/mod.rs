@@ -52,6 +52,7 @@ impl ViewOffset {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum EditorMode {
     Normal,
     Insert,
@@ -151,20 +152,20 @@ impl BasicApplet for CodeEditorApplet {
 
         match ui_event {
             singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                match (key, key_modifiers) {
-                    (Key::Char('s'), KeyModifiers::CTRL) => {
+                match (key, key_modifiers, &self.mode) {
+                    (Key::Char('s'), KeyModifiers::CTRL, _) => {
                         // log::info!("Saving!");
                         self.save_buffer();
                     }
-                    (Key::ArrowKeyLeft, KeyModifiers::NONE) => {
+                    (Key::ArrowKeyLeft, KeyModifiers::NONE, _) => {
                         self.cursor = self.cursor.saturating_sub(1);
                         self.clamp_view_to_cursor();
                     }
-                    (Key::ArrowKeyRight, KeyModifiers::NONE) => {
+                    (Key::ArrowKeyRight, KeyModifiers::NONE, _) => {
                         self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
                         self.clamp_view_to_cursor();
                     }
-                    (Key::ArrowKeyUp, KeyModifiers::NONE) => {
+                    (Key::ArrowKeyUp, KeyModifiers::NONE, _) => {
                         let line = self.buffer.char_to_line(self.cursor);
                         let column = self.cursor - self.buffer.line_to_char(line);
 
@@ -179,7 +180,7 @@ impl BasicApplet for CodeEditorApplet {
                         );
                         self.clamp_view_to_cursor();
                     }
-                    (Key::ArrowKeyDown, KeyModifiers::NONE) => {
+                    (Key::ArrowKeyDown, KeyModifiers::NONE, _) => {
                         let line = self.buffer.char_to_line(self.cursor);
                         let column = self.cursor - self.buffer.line_to_char(line);
 
@@ -194,26 +195,40 @@ impl BasicApplet for CodeEditorApplet {
                         );
                         self.clamp_view_to_cursor();
                     }
-                    (Key::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    (Key::Char('i'), KeyModifiers::NONE, EditorMode::Normal) => {
+                        self.mode = EditorMode::Insert;
+                    }
+                    (
+                        Key::Char(c),
+                        KeyModifiers::NONE | KeyModifiers::SHIFT,
+                        EditorMode::Insert,
+                    ) => {
                         self.buffer.insert_char(self.cursor, c);
                         self.cursor += 1;
                         self.clamp_view_to_cursor();
                     }
-                    (Key::Enter, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    (Key::Enter, KeyModifiers::NONE | KeyModifiers::SHIFT, EditorMode::Insert) => {
                         self.buffer.insert_char(self.cursor, '\n');
                         self.cursor += 1;
                         self.clamp_view_to_cursor();
                     }
-                    (Key::Backspace, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    (
+                        Key::Backspace,
+                        KeyModifiers::NONE | KeyModifiers::SHIFT,
+                        EditorMode::Insert,
+                    ) => {
                         if let Some(prev_idx) = self.cursor.checked_sub(1) {
                             self.buffer.remove(prev_idx..self.cursor);
                             self.cursor = prev_idx;
                             self.clamp_view_to_cursor();
                         }
                     }
+                    (Key::Escape, _, EditorMode::Insert) => {
+                        self.mode = EditorMode::Normal;
+                    }
                     // these are mostly here for debug purposes
-                    (Key::PageDown, KeyModifiers::NONE) => self.view_offset.add_scroll(1),
-                    (Key::PageUp, KeyModifiers::NONE) => self.view_offset.add_scroll(-1),
+                    (Key::PageDown, KeyModifiers::NONE, _) => self.view_offset.add_scroll(1),
+                    (Key::PageUp, KeyModifiers::NONE, _) => self.view_offset.add_scroll(-1),
                     _ => {}
                 }
             }
