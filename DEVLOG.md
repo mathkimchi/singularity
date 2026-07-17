@@ -8287,3 +8287,11 @@ I'll add mode switching and then change the cursor appearance based on the mode.
 
 The ui_element.rs is kind of a mess,
 so I'm going to make the CharGrid stuff its own file.
+
+The cursor doesn't show up at the end (when it is after the last character),
+because I draw the cursor when I draw the character with the same index as the cursor.
+This is very simple logic that is nice because it works even if I change how characters are displayed.
+I *could* just append an invisible space to the end on render or have an if statement for the exception,
+but Ropey already provides a line thing that seems perfect for this.
+I'm going to just calculate the line of the cursor
+and then draw the cursor when I draw the line with the cursor (as opposed to when I draw the char).

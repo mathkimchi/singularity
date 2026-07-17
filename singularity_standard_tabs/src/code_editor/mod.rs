@@ -151,7 +151,8 @@ impl CodeEditorApplet {
             }
             (Key::Char('a'), KeyModifiers::NONE) => {
                 self.mode = EditorMode::Insert;
-                self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                // TODO: do this with actions system (will need to make an actions system)
+                self.cursor = (self.cursor + 1).min(self.buffer.len_chars());
                 self.clamp_view_to_cursor();
             }
             _ => {}
@@ -196,7 +197,7 @@ impl CodeEditorApplet {
                 self.clamp_view_to_cursor();
             }
             (Key::ArrowKeyRight, KeyModifiers::NONE) => {
-                self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                self.cursor = (self.cursor + 1).min(self.buffer.len_chars());
                 self.clamp_view_to_cursor();
             }
             (Key::ArrowKeyUp, KeyModifiers::NONE) => {
@@ -271,6 +272,9 @@ impl BasicApplet for CodeEditorApplet {
         // let line_idx = self.buffer.char_to_line(self.cursor);
         // log::info!("Cursor position: {}", self.cursor);
 
+        // From ropey documentation: `char_idx` can be one-past-the-end, which will return the last line index.
+        let cursor_line = self.buffer.char_to_line(self.cursor);
+
         let mut content = CharGrid::new_empty(width, height);
         for row in 0..height {
             let line_idx = self.view_offset.disp_row_to_line_idx(row);
@@ -287,10 +291,15 @@ impl BasicApplet for CodeEditorApplet {
 
                 content.set_char(c, row, col);
 
-                // currently scroll is only horizontal
-                // ^- Erhm actchually, currently, scroll DNE. But the architecture for it only supports horizontal
-                let content_idx = self.buffer.line_to_char(line_idx) + col;
-                if content_idx == self.cursor {
+                // // currently scroll is only horizontal
+                // // ^- Erhm actchually, currently, scroll DNE. But the architecture for it only supports horizontal
+                // //    ^- Erhm actchuahllie, scroll exists now
+                // let content_idx = self.buffer.line_to_char(line_idx) + col;
+            }
+
+            if line_idx == cursor_line {
+                let cursor_col = self.cursor - self.buffer.line_to_char(line_idx);
+                if cursor_col < width {
                     match self.mode {
                         EditorMode::Normal => {
                             let cursor_bg = if self.focused {
@@ -299,13 +308,13 @@ impl BasicApplet for CodeEditorApplet {
                                 Color::MEDIUM_GRAY
                             };
                             content
-                                .get_char_mut(row, col)
+                                .get_char_mut(row, cursor_col)
                                 .set_fg(Color::TRANSPARENT)
                                 .set_bg(cursor_bg);
                         }
                         EditorMode::Insert => {
                             content
-                                .get_char_mut(row, col)
+                                .get_char_mut(row, cursor_col)
                                 .add_style(CharCellStyle::CURSOR_LINE);
                             // log::debug!(
                             //     "Cursor style: {}",
