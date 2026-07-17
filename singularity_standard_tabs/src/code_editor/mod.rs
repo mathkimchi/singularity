@@ -24,6 +24,8 @@ use std::{
 struct ViewOffset {
     /// What text line is the uppermost row?
     scroll: usize,
+
+    most_recent_num_rows: Option<usize>,
 }
 impl ViewOffset {
     // TODO: make something that iterates the line_idx's?
@@ -35,6 +37,18 @@ impl ViewOffset {
     /// Negative is up
     fn add_scroll(&mut self, offset: isize) {
         self.scroll = self.scroll.saturating_add_signed(offset);
+    }
+
+    fn clamp_to_cursor(&mut self, cursor_line: usize) {
+        // the top row displayed (scroll) should be at cursor_line or above (minus)
+        self.scroll = self.scroll.clamp(
+            if let Some(num_rows) = self.most_recent_num_rows {
+                (cursor_line + 1).saturating_sub(num_rows)
+            } else {
+                0
+            },
+            cursor_line,
+        );
     }
 }
 
@@ -67,7 +81,10 @@ where
             cursor: 0,
             focused: true,
 
-            view_offset: ViewOffset { scroll: 0 },
+            view_offset: ViewOffset {
+                scroll: 0,
+                most_recent_num_rows: None,
+            },
 
             hook,
         }
@@ -107,6 +124,16 @@ impl CodeEditorApplet {
         self.buffer.write_to(&mut dest).unwrap();
         dest.flush().unwrap();
     }
+
+    fn clamp_view_to_cursor(&mut self) {
+        self.view_offset
+            .clamp_to_cursor(self.buffer.char_to_line(self.cursor));
+    }
+
+    // fn set_cursor(&mut self, new_cursor: usize) {
+    //     self.cursor = new_cursor;
+    //     self.clamp_view_to_cursor();
+    // }
 }
 impl BasicApplet for CodeEditorApplet {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
@@ -123,9 +150,11 @@ impl BasicApplet for CodeEditorApplet {
                     }
                     (Key::ArrowKeyLeft, KeyModifiers::NONE) => {
                         self.cursor = self.cursor.saturating_sub(1);
+                        self.clamp_view_to_cursor();
                     }
                     (Key::ArrowKeyRight, KeyModifiers::NONE) => {
                         self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                        self.clamp_view_to_cursor();
                     }
                     (Key::ArrowKeyUp, KeyModifiers::NONE) => {
                         let line = self.buffer.char_to_line(self.cursor);
@@ -140,6 +169,7 @@ impl BasicApplet for CodeEditorApplet {
                                 .unwrap_or_else(|_| self.buffer.len_chars())
                                 - 1,
                         );
+                        self.clamp_view_to_cursor();
                     }
                     (Key::ArrowKeyDown, KeyModifiers::NONE) => {
                         let line = self.buffer.char_to_line(self.cursor);
@@ -154,19 +184,23 @@ impl BasicApplet for CodeEditorApplet {
                                 .unwrap_or_else(|_| self.buffer.len_chars())
                                 - 1,
                         );
+                        self.clamp_view_to_cursor();
                     }
                     (Key::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                         self.buffer.insert_char(self.cursor, c);
                         self.cursor += 1;
+                        self.clamp_view_to_cursor();
                     }
                     (Key::Enter, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                         self.buffer.insert_char(self.cursor, '\n');
                         self.cursor += 1;
+                        self.clamp_view_to_cursor();
                     }
                     (Key::Backspace, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                         if let Some(prev_idx) = self.cursor.checked_sub(1) {
                             self.buffer.remove(prev_idx..self.cursor);
                             self.cursor = prev_idx;
+                            self.clamp_view_to_cursor();
                         }
                     }
                     // these are mostly here for debug purposes
@@ -175,7 +209,11 @@ impl BasicApplet for CodeEditorApplet {
                     _ => {}
                 }
             }
-            singularity_ui::ui_event::UIEvent::WindowResized(_display_container_size) => {}
+            singularity_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
+                let (_width, height) = CharGrid::largest_fittable_size(display_container_size);
+
+                self.view_offset.most_recent_num_rows = Some(height);
+            }
             singularity_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO");
             }
