@@ -152,7 +152,7 @@ impl BasicApplet for CodeEditorApplet {
 
         match ui_event {
             singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                match (key, key_modifiers, &self.mode) {
+                match (key, key_modifiers, self.mode) {
                     (Key::Char('s'), KeyModifiers::CTRL, _) => {
                         // log::info!("Saving!");
                         self.save_buffer();
@@ -274,20 +274,28 @@ impl BasicApplet for CodeEditorApplet {
                 // ^- Erhm actchually, currently, scroll DNE. But the architecture for it only supports horizontal
                 let content_idx = self.buffer.line_to_char(line_idx) + col;
                 if content_idx == self.cursor {
-                    let cursor_bg = if self.focused {
-                        Color::ORANGE
-                    } else {
-                        Color::MEDIUM_GRAY
-                    };
-                    content
-                        .get_char_mut(row, col)
-                        .set_fg(Color::TRANSPARENT)
-                        .set_bg(cursor_bg)
-                        .add_style(CharCellStyle::CURSOR_LINE);
-                    // log::debug!(
-                    //     "Cursor style: {}",
-                    //     (content.get_char(row, col).style.0 >> 2) & 1
-                    // );
+                    match self.mode {
+                        EditorMode::Normal => {
+                            let cursor_bg = if self.focused {
+                                Color::ORANGE
+                            } else {
+                                Color::MEDIUM_GRAY
+                            };
+                            content
+                                .get_char_mut(row, col)
+                                .set_fg(Color::TRANSPARENT)
+                                .set_bg(cursor_bg);
+                        }
+                        EditorMode::Insert => {
+                            content
+                                .get_char_mut(row, col)
+                                .add_style(CharCellStyle::CURSOR_LINE);
+                            // log::debug!(
+                            //     "Cursor style: {}",
+                            //     (content.get_char(row, col).style.0 >> 2) & 1
+                            // );
+                        }
+                    }
                 }
             }
         }
