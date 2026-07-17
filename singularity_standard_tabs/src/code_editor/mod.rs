@@ -143,6 +143,101 @@ impl CodeEditorApplet {
     //     self.cursor = new_cursor;
     //     self.clamp_view_to_cursor();
     // }
+
+    fn handle_keypress_normal(&mut self, key: Key, key_modifiers: KeyModifiers) {
+        match (key, key_modifiers) {
+            (Key::Char('i'), KeyModifiers::NONE) => {
+                self.mode = EditorMode::Insert;
+            }
+            (Key::Char('a'), KeyModifiers::NONE) => {
+                self.mode = EditorMode::Insert;
+                self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                self.clamp_view_to_cursor();
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_keypress_insert(&mut self, key: Key, key_modifiers: KeyModifiers) {
+        match (key, key_modifiers) {
+            (Key::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                self.buffer.insert_char(self.cursor, c);
+                self.cursor += 1;
+                self.clamp_view_to_cursor();
+            }
+            (Key::Enter, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                self.buffer.insert_char(self.cursor, '\n');
+                self.cursor += 1;
+                self.clamp_view_to_cursor();
+            }
+            (Key::Backspace, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                if let Some(prev_idx) = self.cursor.checked_sub(1) {
+                    self.buffer.remove(prev_idx..self.cursor);
+                    self.cursor = prev_idx;
+                    self.clamp_view_to_cursor();
+                }
+            }
+            (Key::Escape, _) => {
+                self.mode = EditorMode::Normal;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_keypress(&mut self, key: Key, key_modifiers: KeyModifiers) {
+        match (key, key_modifiers) {
+            // global keypresses
+            (Key::Char('s'), KeyModifiers::CTRL) => {
+                // log::info!("Saving!");
+                self.save_buffer();
+            }
+            (Key::ArrowKeyLeft, KeyModifiers::NONE) => {
+                self.cursor = self.cursor.saturating_sub(1);
+                self.clamp_view_to_cursor();
+            }
+            (Key::ArrowKeyRight, KeyModifiers::NONE) => {
+                self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
+                self.clamp_view_to_cursor();
+            }
+            (Key::ArrowKeyUp, KeyModifiers::NONE) => {
+                let line = self.buffer.char_to_line(self.cursor);
+                let column = self.cursor - self.buffer.line_to_char(line);
+
+                let new_line = line.saturating_sub(1);
+                let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
+
+                self.cursor = unclamped_new_cursor_pos.min(
+                    self.buffer
+                        .try_line_to_char(new_line + 1)
+                        .unwrap_or_else(|_| self.buffer.len_chars())
+                        - 1,
+                );
+                self.clamp_view_to_cursor();
+            }
+            (Key::ArrowKeyDown, KeyModifiers::NONE) => {
+                let line = self.buffer.char_to_line(self.cursor);
+                let column = self.cursor - self.buffer.line_to_char(line);
+
+                let new_line = (line + 1).min(self.buffer.len_lines() - 1);
+                let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
+
+                self.cursor = unclamped_new_cursor_pos.min(
+                    self.buffer
+                        .try_line_to_char(new_line + 1)
+                        .unwrap_or_else(|_| self.buffer.len_chars())
+                        - 1,
+                );
+                self.clamp_view_to_cursor();
+            }
+            // these are mostly here for debug purposes
+            (Key::PageDown, KeyModifiers::NONE) => self.view_offset.add_scroll(1),
+            (Key::PageUp, KeyModifiers::NONE) => self.view_offset.add_scroll(-1),
+            _ => match self.mode {
+                EditorMode::Normal => self.handle_keypress_normal(key, key_modifiers),
+                EditorMode::Insert => self.handle_keypress_insert(key, key_modifiers),
+            },
+        }
+    }
 }
 impl BasicApplet for CodeEditorApplet {
     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
@@ -152,85 +247,7 @@ impl BasicApplet for CodeEditorApplet {
 
         match ui_event {
             singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                match (key, key_modifiers, self.mode) {
-                    (Key::Char('s'), KeyModifiers::CTRL, _) => {
-                        // log::info!("Saving!");
-                        self.save_buffer();
-                    }
-                    (Key::ArrowKeyLeft, KeyModifiers::NONE, _) => {
-                        self.cursor = self.cursor.saturating_sub(1);
-                        self.clamp_view_to_cursor();
-                    }
-                    (Key::ArrowKeyRight, KeyModifiers::NONE, _) => {
-                        self.cursor = (self.cursor + 1).min(self.buffer.len_chars() - 1);
-                        self.clamp_view_to_cursor();
-                    }
-                    (Key::ArrowKeyUp, KeyModifiers::NONE, _) => {
-                        let line = self.buffer.char_to_line(self.cursor);
-                        let column = self.cursor - self.buffer.line_to_char(line);
-
-                        let new_line = line.saturating_sub(1);
-                        let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
-
-                        self.cursor = unclamped_new_cursor_pos.min(
-                            self.buffer
-                                .try_line_to_char(new_line + 1)
-                                .unwrap_or_else(|_| self.buffer.len_chars())
-                                - 1,
-                        );
-                        self.clamp_view_to_cursor();
-                    }
-                    (Key::ArrowKeyDown, KeyModifiers::NONE, _) => {
-                        let line = self.buffer.char_to_line(self.cursor);
-                        let column = self.cursor - self.buffer.line_to_char(line);
-
-                        let new_line = (line + 1).min(self.buffer.len_lines() - 1);
-                        let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
-
-                        self.cursor = unclamped_new_cursor_pos.min(
-                            self.buffer
-                                .try_line_to_char(new_line + 1)
-                                .unwrap_or_else(|_| self.buffer.len_chars())
-                                - 1,
-                        );
-                        self.clamp_view_to_cursor();
-                    }
-                    (Key::Char('i'), KeyModifiers::NONE, EditorMode::Normal) => {
-                        self.mode = EditorMode::Insert;
-                    }
-                    (
-                        Key::Char(c),
-                        KeyModifiers::NONE | KeyModifiers::SHIFT,
-                        EditorMode::Insert,
-                    ) => {
-                        self.buffer.insert_char(self.cursor, c);
-                        self.cursor += 1;
-                        self.clamp_view_to_cursor();
-                    }
-                    (Key::Enter, KeyModifiers::NONE | KeyModifiers::SHIFT, EditorMode::Insert) => {
-                        self.buffer.insert_char(self.cursor, '\n');
-                        self.cursor += 1;
-                        self.clamp_view_to_cursor();
-                    }
-                    (
-                        Key::Backspace,
-                        KeyModifiers::NONE | KeyModifiers::SHIFT,
-                        EditorMode::Insert,
-                    ) => {
-                        if let Some(prev_idx) = self.cursor.checked_sub(1) {
-                            self.buffer.remove(prev_idx..self.cursor);
-                            self.cursor = prev_idx;
-                            self.clamp_view_to_cursor();
-                        }
-                    }
-                    (Key::Escape, _, EditorMode::Insert) => {
-                        self.mode = EditorMode::Normal;
-                    }
-                    // these are mostly here for debug purposes
-                    (Key::PageDown, KeyModifiers::NONE, _) => self.view_offset.add_scroll(1),
-                    (Key::PageUp, KeyModifiers::NONE, _) => self.view_offset.add_scroll(-1),
-                    _ => {}
-                }
+                self.handle_keypress(key, key_modifiers);
             }
             singularity_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
                 let (_width, height) = CharGrid::largest_fittable_size(display_container_size);
