@@ -26,6 +26,8 @@ serde_json = { workspace = true }
 
 # printpdf = "^0.9.1"
 
+arboard = { version = "^3.6.1", features = ["wayland-data-control"] }
+
 image = { workspace = true }
 
 # things needed for editor

@@ -181,6 +181,15 @@ impl CodeEditorApplet {
             (Key::Escape, _) => {
                 self.mode = EditorMode::Normal;
             }
+            (Key::Char('v'), KeyModifiers::CTRL) | (Key::Char('V'), KeyModifiers::CTRL_SHIFT) => {
+                // log::debug!("Pasting");
+                if let Ok(text) = arboard::Clipboard::new().unwrap().get_text() {
+                    self.buffer.insert(self.cursor, &text);
+                    self.cursor += text.len();
+                    self.clamp_view_to_cursor();
+                }
+                // dbg!(arboard::Clipboard::new().unwrap().get_text());
+            }
             _ => {}
         }
     }

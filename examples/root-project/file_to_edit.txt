@@ -1,3 +1,18 @@
+2026-07-18 10:25PM
+
+Let's test pasting:
+
+pasted text (original, ik)
+
+even has new linespasted text (original, ik)
+
+even has new lines
+
+...erhm, it pastes then pastes a second time
+on whatever the next keypress is...
+
+Eh, this is good enough for me.
+
 2026-07-07 12:33PM
 
 Ok, try 4 or something.
