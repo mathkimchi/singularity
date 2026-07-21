@@ -8295,3 +8295,235 @@ I *could* just append an invisible space to the end on render or have an if stat
 but Ropey already provides a line thing that seems perfect for this.
 I'm going to just calculate the line of the cursor
 and then draw the cursor when I draw the line with the cursor (as opposed to when I draw the char).
+
+2026-07-19 10:16PM
+
+I just got Niri, and within a minute of using it,
+I realized I really liked it.
+Here is what I wrote in my log for my configs:
+
+```md
+Also, I'm going to try using Niri.
+
+I'm not just hopping onto the shiniest new thing (which happens to be written in Rust),
+KDE has just been really slow and unresponsive for me.
+Pressing the meta key makes the command bar pop up over a second late,
+and everything with it seems to be processed with some noticable amount of lag.
+
+There's a [NixOS wiki page on Niri](https://wiki.nixos.org/wiki/Niri/en)
+so I'll just install Niri and use their recommended home manager setup.
+
+...
+
+Woah.
+
+Just based off the basic commands and the three finger swipes,
+I already know I'm going to love Niri.
+Honestly, I want to use a lot of it as inspiration for Sonamu.
+
+I think waybar uses awesome fonts, so I just have to install that.
+
+To be honest, I'll admit that I was initially threatened by how good Niri
+is because it effectively implements a lot of the "feels"
+of what I was going for with Sonamu.
+
+But, Sonamu still has features that are nowhere to be seen
+in any DE or compositor, so I think I should take this as a good sign
+that the modern desktop experience still has much to be gained
+from a redesign.
+And until Sonamu is done, I can tell Niri really is good
+from just 10 minutes of playing around in it.
+This also is giving me the confidence that if I actually give good
+Wayland compositor support for Sonamu,
+it might actually be used by other people just like Niri.
+
+Ok, well I have to do my OS hw now.
+```
+
+If you're wondering if I did my OS homework,
+no.
+Well, yeah, kind of.
+
+I'm doing it rn.
+(The testing program is running rn, but there's like a state explosion.)
+
+The trouble is, I am studying in the dorm lounge but there is ts couple
+that has been talking for like 20 minutes,
+so I am looking for something to be locked-in for such that I can
+drown out their voice.
+
+"Why not just move?"
+you ask.
+
+Well you see, for some reason it's like a matter of principle for me now.
+This is really petty, just like when my friend said he had more followers than me
+so I spent my free time friending people until I got to 1k followers.
+
+I might be going crazy, but I swear it feels like they're rubbing it in
+that they are a couple and I am just by myself coding.
+I swear, it feels like that, but I don't want to say the specific things
+that lead me to this conclusion because that is even more embarrasing.
+
+I feel like a jaded old man in a christmas movie right now.
+A skilled writer could probably write a short story about this.
+How the jaded guy is trying to pay attention to his work,
+which he has led himself to believe is the only way to happiness
+by adopting a transactional world view.
+But through his mind, we get details about the guy
+and what he's hearing and then we realize that ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+
+...uh, my laptop deadass just died so I ended up coming back to my room.
+
+BROOOO, I swear if this isn't evidence of their mockery I don't know what is:
+They were like "I should go", "before you go, \<starts a new conversation\>"
+like 10 times,
+and as soon as I went back to my room, they were like:
+"Ok goodnight."
+
+Bro, this is the same type of evidence Alex Bale pulls out as the ultimate proof.
+
+(As Chuck McGill)
+This is some kind of sick joke to them,
+the mockery of the eternal singles.
+They do it out of a twisted sense of superiority.
+
+But maybe me thinking that is a revealation of my own twisted sense of inferiority.
+
+Idk, but before my laptop died, I was going to say that
+we (the readers) slowly get to know the couple better through the jaded guy,
+like what their lives are like and their inside jokes and their love languages,
+and then we realize that he is telling us these things because
+he has also become extremely invested in their story.
+And the writer would mix this in with some backstory of the character.
+
+The old guy only views relationships transactionally
+so he could mask his disappointment when people drifted away from him.
+And the conclusion would be that he longs for a relationship way more than he'd like to admit.
+
+Wow, there's like so many levels to this because I am me,
+but as the writer of this story, I am trying to analyze myself from a higher, rational perspective,
+and the character of the jaded old man is a reductive representation of me.
+Essentially, the narrator, subject character, and reader
+(when I say "we" the viewer) are all different representations
+of the real me.
+
+Dude, maybe I really should write a story about this.
+
+As for the practicality (how this premise would actually be set up),
+I feel like a stage play would be interesting
+(I took a playwriting class and I really liked it).
+
+We start with a guy sitting alone at a round table in a cafe
+and the light is just on his table.
+He picks up a call and says,
+~~"yes, I have the story idea for the book you wanted".~~
+
+~~So pretty much, it's a writer, sitting, working hard, in a library or park,
+or I don't know, a cafe (lights turn on and show he's in a cafe
+with obvious sign that says "_ Cafe") could work too.~~
+
+~~The dilemma is that~~
+
+New try:
+
+*pick up*
+
+Have I been working?
+
+No, because this couple keeps making out
+five feet in front of me.
+
+*lights show couple, he continues to stare at them, they don't react*
+
+I don't know, do you want a story about a guy
+trying to drown out the voices of this obnxiously flirtatious couple?
+Well, for some reason, that's the only story in my head right now.
+
+Fine, so we have a writer, sitting, working hard, in a library or park,
+or I don't know, a cafe (lights turn on and show he's in a cafe
+with obvious sign that says "_ Cafe") could work too.
+Point is, he's in a public place where people go to work,
+and it would be very inappropriate for a couple to make out.
+
+...Ok, end scene, I don't want to get lost in the deep end.
+I'm not going to make this a seperate commit.
+
+2026-07-20 09:16PM
+
+I wanted to discuss my new idea for a new framework based on thinking about CSD vs SSD,
+but I want this commit to have actual code changes,
+so I'll do showing line numbers which I hope is easy.
+
+(By the way, I asked @glolichen for their thoughts on CSD and SSD,
+and like a true Arch head and vimmer,
+they responded "Window decorations are bloat".)
+
+But the new architecture idea is that basic features (analagous to decorations,
+in Sonamu's case it will be mainly the tree management)
+are implemented by the server by default,
+as opposed to providing it to clients as a toolkit and hoping they use it.
+(Later, this will also allow me to deal with permission and stuff.)
+
+Another difference is that the client-server relationship will be closer to two seperate entities communicating than caller-callee.
+Previously, the server pretty much called the client, even though when I made it, I was imagining the Client and serverhandler being seperated.
+Looking back, this was kinda inevitable with me calling the serverhandler the BasicApplet or NodularApplet.
+I think I meant this to be a proxy but 
+The things I still liked about this and would like to maintain is that the caller had the option to see the applet's type
+(useful for widgets, though maybe I should just make widgets a seperate type, yk what I'm not going to go out of my way to let widgets be applets and I guess we'll see what happens)
+and the fact that it supported both active and reactive applets.
+
+So, how am I thinking of actually do this?
+I will make communication go through a concrete struct `SonamuMediator` (naming is rough)
+that stores callbacks for both sides (for safety, I can later make a client side and server side object that holds a shared reference to the main mediator
+but only allows operations that the client/server should be allowed to do).
+The server creates this, passing in default callback implementations.
+If the client does absolutely nothing, then the applet will just look like a blank screen.
+The client can act by calling the default client functions without needing to replace server functions,
+and this can either be in response to a server function (for a reactive applet) or from another event source/just on a loop (for an active applet).
+If the client wants to be a reactive applet, it can replace the default functions that the server will call (server functions)
+with reactive functions.
+In this way, a reactive applet doesn't actually have to "exist";
+the server gives the mediator to the client initializer and the client initializer just tells the mediator how to simulate an applet
+instead of creating a seperate applet entity that uses the mediator.
+
+If you think about it, other than deadlocks and implementation details, a reactive and active applet is actually pretty indististinguishable from the server.
+The difference is that reactive applets react to the server, whereas the active applet might be reacting to some external event source.
+
+For example, take both sides the display protocol.
+The mediator holds a boxed `DisplayGetter` (a trait?) which the server calls to get the client's display content.
+For the default protocol (CachedDisplayGetter), the Mediator stores a copy of the display content,
+when the server asks for the content, it just returns that.
+(TODO: use Rc or Arc like Ropey to avoid needing to clone?)
+The CachedDisplayGetter provides another function as well (not a part of DisplayGetter trait)
+for the client to set the display content.
+(The request to parent to update is ommitted from this example,
+but I think that can be ironed out in a straightforward manner:
+just have an extra is_updated bool as well as storing the server's damage callback.)
+A standard active app that commits every so often can use this.
+A lazy app that only wants to draw when called can implement it's own `DisplayGetter` and call the Mediator to update it.
+(NOTE: all these operations should be in lock,
+and another note is that from the Mediator, the client won't be able to call the `set_display`
+as it is an additional thing implemented CachedDisplayGetter not in the DisplayGetter trait,
+so.)
+(Sidenote: my spelling has been really bad recently.
+Like typing clien't or traight for trait.
+Maybe I am just more distracted or simply typing faster.
+I thought the latter was true, but after checking monkeytype, my average wpm was previously in the 90s and now it's about 80.
+Actually, I think it's just that I was playing shorter modes and swapped to a longer mode.)
+
+This is actually similar to one of the ideas I was proposing for a UI revamp
+but didn't end up doing because it was more work than it was worth.
+
+Anyways, I have to make a similar interface for every component of communication
+(display, tree hierarchy (use one module for view and traversal), event handling, later: commands/actions, session management, closing).
+Previously, the goal was to somehow support arbitrary event extensions and stuff, but I imagine a great Sonamu that doesn't need that,
+so I won't think about it.
+(You could say that the current refactoring is also unnecessary, but I believe it will speed up development.
+For example, the `AppletSpawner` implementations have a lot of boilerplate in my opinion.
+Also, standardizing the tree hierarchy and by default not doing it recursively is probably good.
+The Wayland applet portal sohuld also be standardized and not recursive, so there should just be one Wayland server.)
+
+Ok, I really gotta take a leak now (biological type, not memory).
+I said I wanted to do actual code for this commit, but this is enough brainstorming for a commit.
+I guess this also means I'm going to put the editor applet on hold and refactor a crap ton of code.
+I'll commit then make a new GitHub issue for "refactor SAP communication with mediator pattern".
