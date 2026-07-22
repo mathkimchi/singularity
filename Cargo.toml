@@ -69,6 +69,7 @@ cast_precision_loss = "allow"
 items_after_statements = "allow"
 struct_excessive_bools = "allow"
 struct_field_name = "allow"
+must_use_candidate = "allow"                 # having must_use everywhere is getting kinda ugly
 
 [workspace.lint.rustc]
 unused_qualifications = "warn"

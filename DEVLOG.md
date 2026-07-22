@@ -8527,3 +8527,21 @@ Ok, I really gotta take a leak now (biological type, not memory).
 I said I wanted to do actual code for this commit, but this is enough brainstorming for a commit.
 I guess this also means I'm going to put the editor applet on hold and refactor a crap ton of code.
 I'll commit then make a new GitHub issue for "refactor SAP communication with mediator pattern".
+
+2026-07-21 11:50AM
+
+I am looking at the existing code and I don't know why I put the interface between the server and client
+in singularity SAR.
+It should really be inside singularity SAP (singularity applet protocol, currently inside common),
+that's the whole point of it.
+Wtv... I guess I'll try to properly organize everything while refactoring.
+
+2026-07-22 07:17PM
+
+Ok, I've had a hard time focusing lately for some reason
+(probably bc I am in my dorm and not library, also I've been playing a lot of guitar)
+but I got this initial prototype along with a Reactive example.
+
+I'll commit now.
+Actually, I would like to add that it worked first try
+(well, the first time I tried to run, so I'm not counting compile-time errors).
