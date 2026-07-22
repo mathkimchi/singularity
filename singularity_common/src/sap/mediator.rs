@@ -56,6 +56,7 @@ impl ClientSideMediator {
 pub trait DisplayContentGetter: Sync + Send {
     fn is_damaged(&self) -> bool;
 
+    /// Should set `is_damaged` to false
     fn get_display_content(&self) -> UIElement;
 }
 
@@ -79,7 +80,18 @@ impl DisplayContentGetter for CacheDisplay {
     }
 
     fn get_display_content(&self) -> UIElement {
+        // I already wrote the logic somewhere else of why we should set is_damaged to false and then get the content
+        self.is_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         self.display_content.get()
+    }
+}
+impl CacheDisplay {
+    pub fn set_display_content(&self, new_content: UIElement) {
+        // TODO: callback system for the parent/server
+        self.display_content.set(new_content);
+        self.is_damaged
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -89,7 +101,7 @@ pub trait ClientInitializer {
     /// TODO: not really sure how to deal with the generics and stuff
     /// the ownership and synchronization isn't a problem, but this just feels really suboptimal
     /// but maybe it is also just a matter of framing what each of the types are
-    fn initialize(self, mediator: ClientSideMediator, display_getter: CacheDisplay);
+    fn initialize(self: Box<Self>, mediator: ClientSideMediator, display_getter: CacheDisplay);
 }
 
 /*

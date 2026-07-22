@@ -8545,3 +8545,8 @@ but I got this initial prototype along with a Reactive example.
 I'll commit now.
 Actually, I would like to add that it worked first try
 (well, the first time I tried to run, so I'm not counting compile-time errors).
+
+...
+
+Now, time for an Active applet that does the same thing (just display time)
+but I'll have it running on a seperate thread.
