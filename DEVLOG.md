@@ -8550,3 +8550,22 @@ Actually, I would like to add that it worked first try
 
 Now, time for an Active applet that does the same thing (just display time)
 but I'll have it running on a seperate thread.
+
+...
+
+Active applet was fairly straightforward.
+The one annoying thing is that the client initializer takes a box of itself
+bc of some `Sized` thing.
+(If you want to call a `func(self, ...)` of a `Box<dyn Trait>`,
+you either have to change the function to take `func(self: Box<Self>, ...)` or add a `where Self: Sized`,
+but the latter option kinda prevents you from having a `Box<dyn Trait>` as far as I've tried.)
+
+Now, I'll do the input bc it will tell me more about if this protocol will work
+than implementing tree which is pretty similar to display content.
+
+New perspective (just a different way of thinking about each type):
+each component like `CacheDisplay` right now is just one communicator for a protocol,
+`DisplayGetter` is an interface for one direction (implemented by client (or left as default) and used by server) of the protocol.
+`SonamuMediator` holds a bundle of these communicators.
+
+Ok, I'm going to actually fix the indenting on the readme and commit this.
