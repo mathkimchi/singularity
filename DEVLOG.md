@@ -8619,3 +8619,43 @@ This solves many of the sources of "uglieness" I was worried about with the way 
 Ok, I'm not going to actually implement that in this commit,
 since I already started making the event handling protocol.
 
+...
+
+2026-07-24 01:01AM
+
+Bro, idk why but today, in my coding hw,
+I just gave up on writing good names and used like "wait_for_fight_to_be_done"
+for a condvar name.
+I ended up changing it bc I didn't want to get points taken off or even risk that.
+But in the Sonamu comments, I'm just really not holding back
+and not in the edgy sense,
+but holding back like the same way you hold in diahorhea.
+(I'm not even going to bother looking up how to spell that correctly.)
+
+You know what, I hust decitded that I'm note going to bother fixing bmy typos anymore.
+
+Oh my gah, this pains me,bu t I am hoping that this will make me more productinge because I don't have to woyry about maknig the devlog look nice.
+
+I'll keep capitalizatoin and punctuation though, bc they change the tone.
+I feel like spelling (as long isas it can be understood,) just changes the ormality but not necessarily tone
+unless you're doing satier (i know how to spell satier, but i'm just leaving that typo).
+
+ok, i guess i'm ignoreing capointaliazation as well.
+i'm kinada just meshing all the keybuttons at onexe now,
+so i'm actively adding more typos to my typing.
+i don't think its really making me faster.
+
+This is like when Kevin Malone did his "smalltalk" from the Office.
+And like him, I'll type normally again...
+but
+hwen me presiesindent, htey see.
+theys ee.
+
+...
+
+It is now 2026-07-24 01:27AM.
+Running the example (`cargo run --example sap_mediator_sequential`) seems to work.
+Even if it didn't, I'm going to go to bed now.
+(I'm actually not even in my dorm building rn bc I have to do laundy in a different dorm bc the power's out.)
+
+Kay, toodles.

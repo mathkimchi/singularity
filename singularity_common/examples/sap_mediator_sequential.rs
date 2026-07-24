@@ -1,5 +1,5 @@
 use singularity_common::sap::mediator::{
-    CacheDisplayCommunicator, ClientInitializer, ClientSideMediator, DisplayContentGetter,
+    CacheDisplayCommunicator, ClientInitializer, DisplayContentGetter, NullEventCommunicator,
     SonamuMediator,
 };
 use singularity_ui::ui_element::UIElement;
@@ -13,11 +13,7 @@ use std::{
 /// Different from a standard reactive client that only updates on events from server, but I haven't set that up
 struct ReactiveClientInitializer;
 impl ClientInitializer for ReactiveClientInitializer {
-    fn initialize(
-        self: Box<Self>,
-        mediator: ClientSideMediator,
-        _display_getter: CacheDisplayCommunicator,
-    ) {
+    fn initialize(self: Box<Self>) -> SonamuMediator {
         // I am starting to worry that this new architecture might get ugly, but hopefully it scales well
         // hmm, I think it's fine if I just move the struct def outside for non-trivial applets
         struct TimeGetter;
@@ -32,43 +28,42 @@ impl ClientInitializer for ReactiveClientInitializer {
             }
         }
 
-        mediator.set_display_getter(TimeGetter);
+        SonamuMediator::new(TimeGetter, NullEventCommunicator)
     }
 }
 
 /// Applet that spawns a seperate thread to update the clock every so often.
 struct ActiveClientInitializer;
 impl ClientInitializer for ActiveClientInitializer {
-    fn initialize(
-        self: Box<Self>,
-        _mediator: ClientSideMediator,
-        display_getter: CacheDisplayCommunicator,
-    ) {
-        // NOTE: `initialize` should be non-blocking; Sonamu doesn't enforce this but it assumes it
-        // I mean, client should never write a blocking function the server calls, but wtv
-        thread::spawn(move || {
-            loop {
-                display_getter.set_display_content(UIElement::from(format!(
-                    "Time: {:?}",
-                    time::SystemTime::now()
-                )));
-                // This should update slower than the reactive
-                sleep(Duration::from_secs(1));
-            }
-        });
+    fn initialize(self: Box<Self>) -> SonamuMediator {
+        let cache_display_communicator = CacheDisplayCommunicator::default();
+
+        {
+            let cache_display_communicator = cache_display_communicator.clone();
+            // NOTE: `initialize` should be non-blocking; Sonamu doesn't enforce this but it assumes it
+            // I mean, client should never write a blocking function the server calls, but wtv
+            thread::spawn(move || {
+                loop {
+                    cache_display_communicator.set_display_content(UIElement::from(format!(
+                        "Time: {:?}",
+                        time::SystemTime::now()
+                    )));
+                    // This should update slower than the reactive
+                    sleep(Duration::from_secs(1));
+                }
+            });
+        }
+
+        SonamuMediator::new(cache_display_communicator, NullEventCommunicator)
     }
 }
 
 // This is a simplified vesion of what you'd see in the server
 pub fn sequential_run(client_initializer: impl ClientInitializer) {
-    let cache_display = CacheDisplayCommunicator::default();
-    let mediator = SonamuMediator::new(cache_display.clone());
-    let (server_side_mediator, client_side_mediator) = mediator.split();
-
-    Box::new(client_initializer).initialize(client_side_mediator, cache_display);
+    let mediator = Box::new(client_initializer).initialize();
 
     loop {
-        dbg!(server_side_mediator.get_display_content());
+        dbg!(mediator.get_display_content());
         sleep(Duration::from_millis(500));
     }
 }
@@ -79,13 +74,7 @@ pub fn multi_sequential_run(client_initializers: Vec<Box<dyn ClientInitializer>>
         .into_iter()
         .map(|client_initializer| {
             // assume this segment is in the server code
-            let cache_display = CacheDisplayCommunicator::default();
-            let mediator = SonamuMediator::new(cache_display.clone());
-            let (server_side_mediator, client_side_mediator) = mediator.split();
-
-            client_initializer.initialize(client_side_mediator, cache_display);
-
-            server_side_mediator
+            Box::new(client_initializer).initialize()
         })
         .collect::<Vec<_>>();
 

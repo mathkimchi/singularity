@@ -4,10 +4,16 @@
 
 use crate::sync::EncapsulatedLock;
 use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
-use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
+use std::sync::{Arc, atomic::AtomicBool, mpsc};
 
-/// Made by server with default impls,
-/// given to client initializer which can use and modify the mediator.
+/// ~~Made by server with default impls,
+/// given to client initializer which can use and modify the mediator.~~
+///
+/// Just make the client initializer makes ts bruh.
+/// (Duh doy)
+/// I'm not going to update comments other than this,
+/// TODO: update documentation
+/// ^-- funny joke, what documentation?
 ///
 /// I currerntly have each protocol as it's own component.
 ///
@@ -34,46 +40,21 @@ impl SonamuMediator {
             event_sender: Box::new(event_sender),
         }
     }
-
-    pub fn split(self) -> (ServerSideMediator, ClientSideMediator) {
-        let shared_self = Arc::new(Mutex::new(self));
-
-        (
-            ServerSideMediator(shared_self.clone()),
-            ClientSideMediator(shared_self),
-        )
-    }
 }
 
-/// Used by server
-pub struct ServerSideMediator(Arc<Mutex<SonamuMediator>>);
 // Server Side Mediator is proxy pattern, is this bad?
-impl DisplayContentGetter for ServerSideMediator {
+impl DisplayContentGetter for SonamuMediator {
     fn is_damaged(&self) -> bool {
-        self.0.lock().unwrap().display_getter.is_damaged()
+        self.display_getter.is_damaged()
     }
 
     fn get_display_content(&self) -> UIElement {
-        self.0.lock().unwrap().display_getter.get_display_content()
+        self.display_getter.get_display_content()
     }
 }
-impl EventSender for ServerSideMediator {
+impl EventSender for SonamuMediator {
     fn send_event(&self, event: UIEvent) {
-        self.0.lock().unwrap().event_sender.send_event(event);
-    }
-}
-
-/// Used by client
-/// TODO: don't need client vs server side difference, remove this (look at 2026-07-23 log for why, or probably this will only be here for 1 commit so idk why someone would be reading this comment rn... bruh existentialism but I'm to lazy to feel dread. I guess that's nihilism)
-pub struct ClientSideMediator(Arc<Mutex<SonamuMediator>>);
-// I mean I guess this could be macro'd but wtv
-impl ClientSideMediator {
-    pub fn set_display_getter(&self, display_getter: impl DisplayContentGetter + 'static) {
-        self.0.lock().unwrap().display_getter = Box::new(display_getter);
-    }
-
-    pub fn set_event_sender(&self, event_sender: impl EventSender + 'static) {
-        self.0.lock().unwrap().event_sender = Box::new(event_sender);
+        self.event_sender.send_event(event);
     }
 }
 
@@ -87,17 +68,17 @@ pub trait DisplayContentGetter: Sync + Send {
 }
 
 /// Default implementation of display getter that the server can give to client
+/// ^- not exactly anymore, but this is a simple one that the client initializer can make
+/// TODO: These should really go in client toolkit now
 #[derive(Clone)]
 pub struct CacheDisplayCommunicator {
     is_damaged: Arc<AtomicBool>,
     display_content: EncapsulatedLock<UIElement>,
 }
+
 impl Default for CacheDisplayCommunicator {
     fn default() -> Self {
-        Self {
-            is_damaged: Arc::new(AtomicBool::new(false)),
-            display_content: EncapsulatedLock::new(UIElement::Nothing),
-        }
+        Self::new(UIElement::Nothing)
     }
 }
 impl DisplayContentGetter for CacheDisplayCommunicator {
@@ -113,6 +94,13 @@ impl DisplayContentGetter for CacheDisplayCommunicator {
     }
 }
 impl CacheDisplayCommunicator {
+    pub fn new(starting_content: UIElement) -> Self {
+        Self {
+            // REVIEW: should this be true, false, does it matter?
+            is_damaged: Arc::new(AtomicBool::new(true)),
+            display_content: EncapsulatedLock::new(starting_content),
+        }
+    }
     pub fn set_display_content(&self, new_content: UIElement) {
         // TODO: callback system for the parent/server
         self.display_content.set(new_content);
@@ -125,21 +113,24 @@ pub trait EventSender: Sync + Send {
     fn send_event(&self, event: UIEvent);
 }
 
+/// Just throws away the events
+pub struct NullEventCommunicator;
+impl EventSender for NullEventCommunicator {
+    fn send_event(&self, _: UIEvent) {}
+}
+
 /// Default implementation of display getter that the server can give to client
 #[derive(Clone)]
 pub struct QueuedEventCommunicator {
     event_queue: mpsc::Sender<UIEvent>,
 }
-impl Default for QueuedEventCommunicator {
-    fn default() -> Self {
-        Self {
-            event_queue: todo!(
-                "I was going to implement this before switching to simplified architecture, but I realized that it would probably be overrided so i really don't care"
-            ),
-        }
+impl QueuedEventCommunicator {
+    pub fn new() -> (Self, mpsc::Receiver<UIEvent>) {
+        let (tx, rx) = mpsc::channel();
+
+        (Self { event_queue: tx }, rx)
     }
 }
-impl QueuedEventCommunicator {}
 impl EventSender for QueuedEventCommunicator {
     fn send_event(&self, event: UIEvent) {
         self.event_queue.send(event).unwrap();
@@ -152,9 +143,5 @@ pub trait ClientInitializer {
     /// TODO: not really sure how to deal with the generics and stuff
     /// the ownership and synchronization isn't a problem, but this just feels really suboptimal
     /// but maybe it is also just a matter of framing what each of the types are
-    fn initialize(
-        self: Box<Self>,
-        mediator: ClientSideMediator,
-        default_display_communicator: CacheDisplayCommunicator,
-    );
+    fn initialize(self: Box<Self>) -> SonamuMediator;
 }
