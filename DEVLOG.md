@@ -8569,3 +8569,53 @@ each component like `CacheDisplay` right now is just one communicator for a prot
 `SonamuMediator` holds a bundle of these communicators.
 
 Ok, I'm going to actually fix the indenting on the readme and commit this.
+
+...
+
+2026-07-23 02:15PM
+
+Now time to implement event handling.
+
+I was thinking about it,
+and there is no reason that the server has to give the client a default implementation.
+
+Instead of the current system of the server making the mediator with default impls,
+cloning it, giving a copy of the mediator and the concrete default implementations to the client initializer,
+and having the client initializer either:
+re-implement protocol (using the mediator but discarding the default impl)
+or just using the default impl (which doesn't use the mediator),
+there's a much less convoluted way.
+
+We often hope that the simplest solutions are easiest to come up with,
+but sometimes an elegant solution is only earned after much thought.
+
+2026-07-24 12:39AM
+
+...bruh, I had to send some documents before I could write the actual idea.
+Why did I write my reflection on not even the idea but just ideas in general
+before actually writing the idea?
+(Istg, I have a crazy low attention span, but my mom insists I don't have ADHD.
+She's so adamant that I don't have it, I suspect that she might be lying.)
+
+Ok, I have to get my laundry out of my dryer.
+
+Just kidding, the above line is a joke on how I got distracted
+reprimanding myself about how easily I get distracted.
+The paragraph before that line was really me getting distracted.
+
+Well now I'm distracted explaining my joke about getting distracted,
+and now it just became meta.
+...you can't seriously tell me I have a healthy attention span.
+
+ANYWAYS, the "much less convoluted way" is to just have the client initializer
+return the mediator.
+
+Bam!
+That's all it took, just one sentence.
+But I decided to dance around it for like 20 lines (in markdown).
+
+This solves many of the sources of "uglieness" I was worried about with the way things were looking.
+
+Ok, I'm not going to actually implement that in this commit,
+since I already started making the event handling protocol.
+

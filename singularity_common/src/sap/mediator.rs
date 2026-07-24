@@ -3,20 +3,35 @@
 //! tracks the initial implementation of this.
 
 use crate::sync::EncapsulatedLock;
-use singularity_ui::ui_element::UIElement;
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
 
 /// Made by server with default impls,
 /// given to client initializer which can use and modify the mediator.
 ///
 /// I currerntly have each protocol as it's own component.
+///
+/// This really holds the server side (side called by server) of the protocols,
+/// but client is given this so they can replace the default implementations.
+///
+/// Generally, the interfaces like `DisplayContentGetter` and `EventSender`
+/// are for the server to call and client to implement (or leave as default).
+/// The server doesn't know the impl beyond the interface
+/// while the client should know the actual type of it
+/// (either because it is kept the default impl struct or because the client re-implemented)
 pub struct SonamuMediator {
     display_getter: Box<dyn DisplayContentGetter>,
+
+    event_sender: Box<dyn EventSender>,
 }
 impl SonamuMediator {
-    pub fn new(display_getter: impl DisplayContentGetter + 'static) -> Self {
+    pub fn new(
+        display_getter: impl DisplayContentGetter + 'static,
+        event_sender: impl EventSender + 'static,
+    ) -> Self {
         Self {
             display_getter: Box::new(display_getter),
+            event_sender: Box::new(event_sender),
         }
     }
 
@@ -32,7 +47,7 @@ impl SonamuMediator {
 
 /// Used by server
 pub struct ServerSideMediator(Arc<Mutex<SonamuMediator>>);
-// Server Side Mediator is a proxy, is this bad?
+// Server Side Mediator is proxy pattern, is this bad?
 impl DisplayContentGetter for ServerSideMediator {
     fn is_damaged(&self) -> bool {
         self.0.lock().unwrap().display_getter.is_damaged()
@@ -42,12 +57,23 @@ impl DisplayContentGetter for ServerSideMediator {
         self.0.lock().unwrap().display_getter.get_display_content()
     }
 }
+impl EventSender for ServerSideMediator {
+    fn send_event(&self, event: UIEvent) {
+        self.0.lock().unwrap().event_sender.send_event(event);
+    }
+}
 
 /// Used by client
+/// TODO: don't need client vs server side difference, remove this (look at 2026-07-23 log for why, or probably this will only be here for 1 commit so idk why someone would be reading this comment rn... bruh existentialism but I'm to lazy to feel dread. I guess that's nihilism)
 pub struct ClientSideMediator(Arc<Mutex<SonamuMediator>>);
+// I mean I guess this could be macro'd but wtv
 impl ClientSideMediator {
     pub fn set_display_getter(&self, display_getter: impl DisplayContentGetter + 'static) {
         self.0.lock().unwrap().display_getter = Box::new(display_getter);
+    }
+
+    pub fn set_event_sender(&self, event_sender: impl EventSender + 'static) {
+        self.0.lock().unwrap().event_sender = Box::new(event_sender);
     }
 }
 
@@ -60,13 +86,13 @@ pub trait DisplayContentGetter: Sync + Send {
     fn get_display_content(&self) -> UIElement;
 }
 
-/// Default implementation of display getter that the Sonamu Mediator will use
+/// Default implementation of display getter that the server can give to client
 #[derive(Clone)]
-pub struct CacheDisplay {
+pub struct CacheDisplayCommunicator {
     is_damaged: Arc<AtomicBool>,
     display_content: EncapsulatedLock<UIElement>,
 }
-impl Default for CacheDisplay {
+impl Default for CacheDisplayCommunicator {
     fn default() -> Self {
         Self {
             is_damaged: Arc::new(AtomicBool::new(false)),
@@ -74,7 +100,7 @@ impl Default for CacheDisplay {
         }
     }
 }
-impl DisplayContentGetter for CacheDisplay {
+impl DisplayContentGetter for CacheDisplayCommunicator {
     fn is_damaged(&self) -> bool {
         self.is_damaged.load(std::sync::atomic::Ordering::Relaxed)
     }
@@ -86,12 +112,37 @@ impl DisplayContentGetter for CacheDisplay {
         self.display_content.get()
     }
 }
-impl CacheDisplay {
+impl CacheDisplayCommunicator {
     pub fn set_display_content(&self, new_content: UIElement) {
         // TODO: callback system for the parent/server
         self.display_content.set(new_content);
         self.is_damaged
             .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+pub trait EventSender: Sync + Send {
+    fn send_event(&self, event: UIEvent);
+}
+
+/// Default implementation of display getter that the server can give to client
+#[derive(Clone)]
+pub struct QueuedEventCommunicator {
+    event_queue: mpsc::Sender<UIEvent>,
+}
+impl Default for QueuedEventCommunicator {
+    fn default() -> Self {
+        Self {
+            event_queue: todo!(
+                "I was going to implement this before switching to simplified architecture, but I realized that it would probably be overrided so i really don't care"
+            ),
+        }
+    }
+}
+impl QueuedEventCommunicator {}
+impl EventSender for QueuedEventCommunicator {
+    fn send_event(&self, event: UIEvent) {
+        self.event_queue.send(event).unwrap();
     }
 }
 
@@ -101,31 +152,9 @@ pub trait ClientInitializer {
     /// TODO: not really sure how to deal with the generics and stuff
     /// the ownership and synchronization isn't a problem, but this just feels really suboptimal
     /// but maybe it is also just a matter of framing what each of the types are
-    fn initialize(self: Box<Self>, mediator: ClientSideMediator, display_getter: CacheDisplay);
+    fn initialize(
+        self: Box<Self>,
+        mediator: ClientSideMediator,
+        default_display_communicator: CacheDisplayCommunicator,
+    );
 }
-
-/*
-TODO: currently give client and server access to everything and just expect them to call the right things, but I should split them and only open up necessary interface like mpsc, maybe this is the facade pattern
-
-/// Mediator used by the client
-pub struct ClientSideMediator {
-    inner: Arc<Mutex<SonamuMediator>>,
-}
-impl ClientSideMediator {
-    pub fn set_display_content_getter(&self, new_getter: ) {}
-}
-
-/// Mediator used by the server
-pub struct ServerSideMediator {
-    inner: Arc<Mutex<SonamuMediator>>,
-}
-impl ServerSideMediator {
-    pub fn get_display_content(&self) -> UIElement {
-        self.inner
-            .lock()
-            .unwrap()
-            .display_getter
-            .get_display_content()
-    }
-}
-*/
