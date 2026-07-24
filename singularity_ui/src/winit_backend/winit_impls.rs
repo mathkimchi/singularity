@@ -56,11 +56,10 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 window.request_redraw();
 
                 self.ui_event_queue
-                    .lock()
-                    .unwrap()
-                    .push(crate::ui_event::UIEvent::WindowResized(
+                    .send(crate::ui_event::UIEvent::WindowResized(
                         DisplayContainerSize::new(size.width, size.height),
-                    ));
+                    ))
+                    .unwrap();
             }
             winit::event::WindowEvent::CloseRequested => {
                 self.is_running
@@ -78,9 +77,8 @@ impl winit::application::ApplicationHandler for UIDisplay {
             } => {
                 if let Ok(key) = Key::try_from(event) {
                     self.ui_event_queue
-                        .lock()
-                        .unwrap()
-                        .push(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers));
+                        .send(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers))
+                        .unwrap();
                 }
 
                 window.request_redraw();

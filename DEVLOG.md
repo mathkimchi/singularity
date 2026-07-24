@@ -8675,3 +8675,10 @@ so I'll do an actual GUI demo.
 Looking at the UI code, I think it is time to update that as well.
 
 I guess I'll commit the damage callback and then start redoing the sonamu UI stuff.
+
+I do want to implement the `tty-udev` backend
+(ex: [Anvil](https://github.com/Smithay/smithay/blob/master/anvil/src/udev.rs))
+which means I'd be able to run it as an actual compositor
+as opposed to it just running as a Winit app.
+But, that looks like it'll take at least 1k lines of code,
+so I won't do that now.

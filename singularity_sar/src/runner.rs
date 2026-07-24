@@ -2,7 +2,7 @@ use crate::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
     UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
 };
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
 
 // /// Wrap this around an Arc
 // struct UIConnections {
@@ -24,7 +24,7 @@ pub struct AppletRunner<Applet: BasicApplet> {
     root_window_damaged: Arc<AtomicBool>,
 
     /// TODO: use mpsc
-    ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+    ui_event_queue: mpsc::Receiver<UIEvent>,
     is_running: Arc<AtomicBool>,
 
     window_size: DisplayContainerSize,
@@ -36,17 +36,16 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
     pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
         let root_window = Arc::new(Mutex::new(UIElement::Nothing));
         let root_window_damaged = Arc::new(AtomicBool::new(true));
-        let ui_event_queue = Arc::new(Mutex::new(Vec::new()));
+        let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
         let is_running = Arc::new(AtomicBool::new(true));
 
         {
             // clone to satisfy compiler
             let root_window = root_window.clone();
-            let ui_event_queue = ui_event_queue.clone();
             let is_running = is_running.clone();
 
             std::thread::spawn(move || {
-                UIDisplay::run_display(root_window, ui_event_queue, is_running);
+                UIDisplay::run_display(root_window, ui_event_queue_tx, is_running);
             });
         }
 
@@ -85,14 +84,14 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             applet,
             root_window,
             root_window_damaged,
-            ui_event_queue,
+            ui_event_queue: ui_event_queue_rx,
             is_running,
             // REVIEW
             window_size: DisplayContainerSize::new(0, 0),
         };
 
         while runner.is_running.load(std::sync::atomic::Ordering::Relaxed) {
-            for ui_event in std::mem::take(&mut *(runner.ui_event_queue.lock().unwrap())) {
+            while let Ok(ui_event) = runner.ui_event_queue.try_recv() {
                 if let UIEvent::WindowResized(window_size) = ui_event {
                     runner.window_size = window_size;
                 }

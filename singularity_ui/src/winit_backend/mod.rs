@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,
@@ -219,7 +219,7 @@ pub struct UIDisplay {
     root_element: Arc<Mutex<UIElement>>,
 
     /// TODO: just use mpsc
-    ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+    ui_event_queue: mpsc::Sender<UIEvent>,
 
     /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
     is_running: Arc<AtomicBool>,
@@ -233,7 +233,7 @@ impl UIDisplay {
     /// Returns when display is closed.
     pub fn run_display(
         root_element: Arc<Mutex<UIElement>>,
-        ui_event_queue: Arc<Mutex<Vec<UIEvent>>>,
+        ui_event_queue: mpsc::Sender<UIEvent>,
         is_running: Arc<AtomicBool>,
     ) {
         let event_loop = EventLoop::builder()
