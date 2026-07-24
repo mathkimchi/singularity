@@ -95,6 +95,8 @@ pub fn multi_sequential_run(client_initializers: Vec<Box<dyn ClientInitializer>>
 }
 
 fn main() {
+    // singularity_ui::UIDisplay::run_display(root_element, ui_event_queue, is_running);
+
     multi_sequential_run(vec![
         Box::new(ReactiveClientInitializer),
         Box::new(ActiveClientInitializer),

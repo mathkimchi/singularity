@@ -8659,3 +8659,19 @@ Even if it didn't, I'm going to go to bed now.
 (I'm actually not even in my dorm building rn bc I have to do laundy in a different dorm bc the power's out.)
 
 Kay, toodles.
+
+...
+
+2026-07-24 02:49PM
+
+Now I have to figure out how to do active updates from client to server.
+I guess the server can pass something like
+"damage callback" to the innitializer.
+This is kinda annoying imo but I guess it works so wtv.
+
+Adding that is simple, but now the demo is getting complicated,
+so I'll do an actual GUI demo.
+
+Looking at the UI code, I think it is time to update that as well.
+
+I guess I'll commit the damage callback and then start redoing the sonamu UI stuff.

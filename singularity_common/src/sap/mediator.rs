@@ -67,6 +67,13 @@ pub trait DisplayContentGetter: Sync + Send {
     fn get_display_content(&self) -> UIElement;
 }
 
+/// Called by client when `is_damaged` goes from false to true.
+/// No need to call this when you update content and `is_damaged` is already true.
+/// You're allowed to call it, it'll just be redundant.
+pub trait DamgeCallback: Send + Sync {
+    fn damage(&self);
+}
+
 /// Default implementation of display getter that the server can give to client
 /// ^- not exactly anymore, but this is a simple one that the client initializer can make
 /// TODO: These should really go in client toolkit now
@@ -143,5 +150,8 @@ pub trait ClientInitializer {
     /// TODO: not really sure how to deal with the generics and stuff
     /// the ownership and synchronization isn't a problem, but this just feels really suboptimal
     /// but maybe it is also just a matter of framing what each of the types are
-    fn initialize(self: Box<Self>) -> SonamuMediator;
+    fn initialize(
+        self: Box<Self>,
+        content_damage_callback: Box<dyn DamgeCallback>,
+    ) -> SonamuMediator;
 }
