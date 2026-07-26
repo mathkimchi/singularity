@@ -7198,11 +7198,11 @@ and the idea of a post-WIMP paradigm.
 I think it *is* absolutely helpful to go over existing UI frameworks.
 Even if I don't know the actual implementation, just knowing how it is used is plenty of insight.
 - Clay (the goat), I haven't used it but this one I actually know how it works bc it has a YT video explaining how the dev (Nick Barker?) made it
- - I am kinda envisioning something more complex for Sonamu, but this is a good starting point and backup
- - Similar paradigm to my current system, where you just have functions that return the UI tree and idk how input works
+  - I am kinda envisioning something more complex for Sonamu, but this is a good starting point and backup
+  - Similar paradigm to my current system, where you just have functions that return the UI tree and idk how input works
 - Vanilla HTML+CSS
- - More complex than my current system, ex: you can put arbitrary logic inside the UI elements (like you can attatch arbitrary events to UI)
- - I mean, if it wasn't so related to JS, I think I might actually like it. Also, it is verbose but that doesn't really matter if we are generating the UI instead of hardcoding it
+  - More complex than my current system, ex: you can put arbitrary logic inside the UI elements (like you can attatch arbitrary events to UI)
+  - I mean, if it wasn't so related to JS, I think I might actually like it. Also, it is verbose but that doesn't really matter if we are generating the UI instead of hardcoding it
 
 2026-06-30 3:37PM
 
@@ -7269,10 +7269,10 @@ on what other editors do.
 
 Resources:
 - Helix's [`Document`](https://github.com/helix-editor/helix/blob/master/helix-view/src/document.rs#L141) seems to correspond to the text editor portion of it.
- - They really do store the text as just a rope
+  - They really do store the text as just a rope
 - Cursor location seems to be [`Selection`](https://github.com/helix-editor/helix/blob/master/helix-core/src/selection.rs#L417)
- - The main takaway for me (for no selection or multi cursor magic) is just that `primary_index: usize`
- - But in the good lord's name, what is `ranges: SmallVec<[Range; 1]>`? Specifically, wth is `[_; 1]`? They don't even explain it in the docs. Maybe it's just to make it an iterator or something
+  - The main takaway for me (for no selection or multi cursor magic) is just that `primary_index: usize`
+  - But in the good lord's name, what is `ranges: SmallVec<[Range; 1]>`? Specifically, wth is `[_; 1]`? They don't even explain it in the docs. Maybe it's just to make it an iterator or something
 - [Zed's Rope/Sumtree blog](https://zed.dev/blog/zed-decoded-rope-sumtree) just talks about rope and sumtree's implementation which I don't need because I'm just using ropey
 
 I'll continue citing specific sources I find,
@@ -7539,8 +7539,8 @@ As I am writing my third shader, I am beginning to understand the WGpu code
 For a single draw call:
 - Set the pipeline
 - Set the buffers in any order
- - Vertex always, instance usually
- - Do textures with bind groups (idk what they are though)
+  - Vertex always, instance usually
+  - Do textures with bind groups (idk what they are though)
 - Do the draw call
 
 Hmm... I was thinking about it, and I might later consider using `texture_storage_3d`
@@ -8157,7 +8157,7 @@ I think the problem is that the blurring of anti-aliasing is currently twice ver
 
 Some example msdf sources on anti-aliasing:
 - https://github.com/Chlumsky/msdfgen/blob/master/README.md
- - From the original guy that invented msdf
+  - From the original guy that invented msdf
 - https://www.fractolog.com/2025/01/msdf-fragment-shader-antialiasing/
 
 all these examples are in glsl, but the conversion is very straightforward.
@@ -8682,3 +8682,130 @@ which means I'd be able to run it as an actual compositor
 as opposed to it just running as a Winit app.
 But, that looks like it'll take at least 1k lines of code,
 so I won't do that now.
+
+Hmmm... actually, I don't feel like fixing the UI Display code,
+well, I changed the event queue to use mpsc instead of doing an arc mutex mpsc,
+but I don't feel like focusing on the display backend stuff beyond that just yet.
+Rather, I want to think about how to use CondVar and I am actually quite excited now.
+
+Here's the idea:
+the main runner has a main loop, right?
+Right now, it's just a while loop that loops through any new events from the UI
+then checks if the applet damaged the UI
+(and obviously in either cases, it handles those events).
+
+It doesn't immediately look like it, but ultimately, this is equivalent to a spinlock.
+Just think about the fact that most of the time, probably nothing new happened,
+so we're just wasting a lot of cpu cycles polling for events than actually handling them.
+(Analogy: it's like reloading your email/messengers over and over again hoping someone responded.
+It would be much more efficient if you just set up notifications and you could sleep or do other chores
+until the notif woke you up.)
+Luckily, I can use my newfound knowledge of CondVars to do exactly this.
+(I am way to excited that I get to use an actual concept from my OS class.)
+
+Now, the other straight-forward method of implementing this would be with mpsc.
+You can literally just wait until an event happens, so it seems perfect for this use:
+just make an enum for UIEvent and a Damage event (applet updates its UI).
+But there is one special condition about Sonamu's usecase:
+if there were suddenly two damage events,
+we don't need to handle the first one.
+With this additional layer of nuance, I have concluded that CondVars will work best.
+
+So just to make this concrete, this is the general idea
+(I will slightly implement it differently, but let's start simple):
+- there's three entities:
+  - the UI display
+  - the main loop/main runner (kind of handles communication between the UI display and Applet)
+  - the applet (all subapplets all under the main applet)
+- Data shared:
+  - is_running
+  - window content
+  - window damaged
+  - event queue
+
+So put all the data shared into one Mutex (event queue can just be a normal VecDeque now).
+This is because CondVar is inherently couple with a Mutex.
+...wait, this won't work because of deadlock.
+I mean, I could always just do a trivial Mutex but I feel like that would be an indication that I'm doing something wrong.
+
+2026-07-25 12:00AM
+
+I thought about it further, and I think I will need to update the UI Display logic as well,
+and that will help solve the deadlock/mutex issue.
+
+Let me just, lay down on the dorm lounge sofa and try to think.
+
+~~Okay, I'm going to make a system where there's only one thread necessary,
+and the UI mainloop is going to be the only loop.~~
+
+2026-07-25 02:26PM
+
+I'm thinking about it, and the crossed out thing above is the opposite of where I'm supposed to be going.
+
+I think even with reactive applets, I should be using threads.
+
+Now that I know what CondVars are and that you can just wait until an event,
+I realize that I can just make Reactive Applets have their own threads while still not being wasteful.
+
+I'm actually pretty sure now that I just re-invented how every single app already works on every OS.
+Technically, the callback based method could be faster on one core because it doesn't require context switch,
+but that is such a minor cost and nowdays, with multi core, it is actually faster to do multithreading.
+
+Ok, so this is what I'm thinking:
+the times an applet has to be awoken,
+are when the parent sends an event (event_queue is non-empty),
+when one of its children updates their displays (one of the `child_damaged` is true),
+and whatever custom logic that the applet might implement.
+
+This is the generalized/simplified synchronization problem I am facing:
+I have a tree structure, each tree has a corresponding thread.
+When a thread is awoken, it needs to lock all its edges.
+In other words, a parent and child will block each other.
+
+Preventing a deadlock is actually not necessary in this problem...
+As I learned in my OS class, one of the conditions for a deadlock is a circular wait.
+As Mr GWK taught me in my highschool graph theory class, a tree is by definition acyclic.
+
+So as long as grabbing a single edge can't deadlock
+(I say this because maybe an "edge" is actually multiple objects),
+the tree can't deadlock.
+
+So, I guess there wasn't really a problem.
+I'm just going to say wait on the parent edge mutex.
+
+I'm imagining something like this for the main loop:
+
+```rs
+let mut parent_edge = parent_edge_lock.lock().unwrap();
+loop {
+    // acquire children edges
+    let children_edges = children_edge_locks.map(|lock| lock.lock().unwrap());
+
+    // Do actual processing logic
+
+    // remember to manually drop all the other locks while waiting
+    drop(children_edges);
+    parent_edge = node_condvar.wait(parent_edge);
+}
+```
+
+This is different from the standard way of using condvars
+because the whole mainloop is in an infinite loop
+so we don't need to check seperately against supurious wakeups.
+
+Okay (*sigh*), I guess I'm going to just make every applet a new thread.
+
+You know what, no.
+I'm going to just leave it as it is right now threading-wise.
+(Little bro is chained to sunk cost fallacy bruh.)
+To recap, the applets will have a thread with a main applet loop,
+and the UI is going to have its own thread.
+Children applets don't need a thread but it is supported.
+
+I will implement the condvar and mutex logic as if each app was a new thread though.
+
+Ok, I'll commit this brainstorm.
+
+I feel like I didn't actually come up with something new,
+but before I was trying to use as little threads as possible because I thought it would be more efficient,
+but now I know it's less efficient and I'm keeping it like this because I'm lazy.
