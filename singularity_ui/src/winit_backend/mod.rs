@@ -276,6 +276,18 @@ pub struct UISharedData {
     inner: Arc<(Mutex<UIState>, Condvar)>,
 }
 impl UISharedData {
+    pub fn new(root_element: UIElement) -> Self {
+        Self {
+            inner: Arc::new((
+                Mutex::new(UIState::Running {
+                    root_element,
+                    ui_event_queue: VecDeque::new(),
+                }),
+                Condvar::new(),
+            )),
+        }
+    }
+
     pub fn lock_state(&self) -> UIStateGuard<'_> {
         let state = self.inner.0.lock().unwrap();
         // // Since for this case, there's just one edge, notify_one should suffice but just have this to be safe

@@ -1,6 +1,10 @@
 use crate::applet::{BasicApplet, BasicRunnerHook};
 use singularity_ui::{
-    UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+    UIDisplay,
+    display_units::DisplayContainerSize,
+    ui_element::UIElement,
+    ui_event::UIEvent,
+    winit_backend::{UISharedData, UIState},
 };
 use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
 
@@ -19,13 +23,14 @@ use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
 pub struct AppletRunner<Applet: BasicApplet> {
     applet: Applet,
 
-    // fields for dealing with the UI
-    root_window: Arc<Mutex<UIElement>>,
+    // // fields for dealing with the UI
+    // root_window: Arc<Mutex<UIElement>>,
     root_window_damaged: Arc<AtomicBool>,
 
-    /// TODO: use mpsc
-    ui_event_queue: mpsc::Receiver<UIEvent>,
-    is_running: Arc<AtomicBool>,
+    // /// TODO: use mpsc
+    // ui_event_queue: mpsc::Receiver<UIEvent>,
+    // is_running: Arc<AtomicBool>,
+    ui_shared_data: UISharedData,
 
     window_size: DisplayContainerSize,
 }
@@ -34,27 +39,26 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
     ///
     /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
     pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
-        let root_window = Arc::new(Mutex::new(UIElement::Nothing));
+        let ui_shared_data = UISharedData::new(UIElement::Nothing);
+        // let root_window = Arc::new(Mutex::new(UIElement::Nothing));
         let root_window_damaged = Arc::new(AtomicBool::new(true));
-        let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
-        let is_running = Arc::new(AtomicBool::new(true));
+        // let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
+        // let is_running = Arc::new(AtomicBool::new(true));
 
         {
             // clone to satisfy compiler
-            let root_window = root_window.clone();
-            let is_running = is_running.clone();
+            let ui_shared_data = ui_shared_data.clone();
 
             std::thread::spawn(move || {
-                UIDisplay::run_display(root_window, ui_event_queue_tx, is_running);
+                UIDisplay::run_display(ui_shared_data);
             });
         }
 
         let applet = {
             // anon implementation
             struct AppletRunnerHook {
+                ui_shared_data: UISharedData,
                 root_window_damaged: Arc<AtomicBool>,
-
-                is_running: Arc<AtomicBool>,
             }
             impl BasicRunnerHook for AppletRunnerHook {
                 // fn update_display(&self, display: &UIElement) {
@@ -69,29 +73,32 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 }
 
                 fn close(&self) {
-                    self.is_running
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                    self.ui_shared_data.set_ended();
                 }
             }
 
             applet_initizer(Box::new(AppletRunnerHook {
                 root_window_damaged: root_window_damaged.clone(),
-                is_running: is_running.clone(),
+                ui_shared_data: ui_shared_data.clone(),
             }))
         };
 
         let mut runner = Self {
             applet,
-            root_window,
             root_window_damaged,
-            ui_event_queue: ui_event_queue_rx,
-            is_running,
             // REVIEW
             window_size: DisplayContainerSize::new(0, 0),
+            ui_shared_data,
         };
 
-        while runner.is_running.load(std::sync::atomic::Ordering::Relaxed) {
-            while let Ok(ui_event) = runner.ui_event_queue.try_recv() {
+        let mut shared_state_guard = runner.ui_shared_data.lock_state();
+
+        while let UIState::Running {
+            root_element,
+            ui_event_queue,
+        } = &mut *shared_state_guard
+        {
+            for ui_event in std::mem::take(ui_event_queue) {
                 if let UIEvent::WindowResized(window_size) = ui_event {
                     runner.window_size = window_size;
                 }
@@ -103,8 +110,13 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 .root_window_damaged
                 .swap(false, std::sync::atomic::Ordering::Relaxed)
             {
-                *runner.root_window.lock().unwrap() = runner.applet.get_window(runner.window_size);
+                *root_element = runner.applet.get_window(runner.window_size);
+                runner.ui_shared_data.notify();
             }
+
+            dbg!("Runner main loop begin wait:");
+            shared_state_guard.wait_for_update();
+            dbg!("Runner main loop finish wait.");
         }
     }
 }
