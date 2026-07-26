@@ -1,7 +1,7 @@
 use crate::{
     display_units::DisplayContainerSize,
     ui_event::Key,
-    winit_backend::{UIDisplay, WgpuData, WinitData},
+    winit_backend::{UIDisplay, UIState, WgpuData, WinitData},
 };
 use std::sync::Arc;
 use winit::{dpi::LogicalSize, window::Window};
@@ -27,10 +27,16 @@ impl winit::application::ApplicationHandler for UIDisplay {
         _window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        if !self.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+        let mut guard = self.shared_data.lock_state();
+        let UIState::Running {
+            root_element,
+            ui_event_queue,
+        } = &mut *guard
+        else {
+            // UI ended, we can quit
             event_loop.exit();
             return;
-        }
+        };
 
         let Some(state) = &mut self.winit_data else {
             return;
@@ -55,16 +61,15 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 surface.configure(device, surface_config);
                 window.request_redraw();
 
-                self.ui_event_queue
-                    .send(crate::ui_event::UIEvent::WindowResized(
-                        DisplayContainerSize::new(size.width, size.height),
-                    ))
-                    .unwrap();
+                ui_event_queue.push_back(crate::ui_event::UIEvent::WindowResized(
+                    DisplayContainerSize::new(size.width, size.height),
+                ));
+                self.shared_data.notify();
             }
             winit::event::WindowEvent::CloseRequested => {
-                self.is_running
-                    .store(false, std::sync::atomic::Ordering::Relaxed);
+                *guard = UIState::Ended;
                 event_loop.exit();
+                self.shared_data.notify();
             }
             // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {
@@ -76,9 +81,8 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 is_synthetic: _,
             } => {
                 if let Ok(key) = Key::try_from(event) {
-                    self.ui_event_queue
-                        .send(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers))
-                        .unwrap();
+                    ui_event_queue
+                        .push_back(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers));
                 }
 
                 window.request_redraw();
@@ -91,7 +95,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             //     println!("TODO: mouse press");
             // }
             winit::event::WindowEvent::RedrawRequested => {
-                self.draw();
+                Self::draw(&mut self.winit_data, root_element);
             }
             _ => {}
         }

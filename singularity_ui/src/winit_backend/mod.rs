@@ -12,7 +12,12 @@ use crate::{
     },
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
+use std::{
+    collections::VecDeque,
+    ops::{Deref, DerefMut},
+    ptr,
+    sync::{Arc, Condvar, Mutex, MutexGuard},
+};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,
@@ -213,16 +218,96 @@ impl WinitData {
     }
 }
 
+/// Look at 2026-07-25 devlog
+/// This is the "edge" data shared between UI Display and the root applet logic.
+/// Every time the state of this is changed by one of the threads, it should notify the other thread.
+pub enum UIState {
+    Running {
+        root_element: UIElement,
+        /// Individually, mpsc would be better than mutex vec dequeue, but with other things to be locked,
+        /// this is much nicer to organize and probably faster.
+        /// Same with the AtomicBool for is_running which is now just represented via the enum states
+        ui_event_queue: VecDeque<UIEvent>,
+    },
+    /// I was going to use Option instead of manually naming the running vs ended, but I think this is clearer.
+    Ended,
+}
+
+/// What you get when you lock the UI State
+pub struct UIStateGuard<'a> {
+    state: MutexGuard<'a, UIState>,
+
+    /// Only needed for the condvar
+    shared_data: UISharedData,
+}
+impl UIStateGuard<'_> {
+    /// Releases lock, waits until the state changes, and then returns the new state locked
+    pub fn wait_for_update(&mut self) {
+        // self.state = self.shared_data.inner.1.wait(self.state).unwrap();
+        unsafe {
+            // this is scary, and I don't even know if it's right
+            // the idea is that ptr::read is like an unsafe copy kinda,
+            // the point is that between the ptr::read and ptr::write, the self.state is super sus
+            // REVIEW: And I think you need to worry about Drop with this, so I'm lowkey worried but idk
+            let old_state = ptr::read(&raw const self.state);
+
+            let new_state = self.shared_data.inner.1.wait(old_state).unwrap();
+
+            ptr::write(&raw mut self.state, new_state);
+        }
+    }
+}
+impl Deref for UIStateGuard<'_> {
+    type Target = UIState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+impl DerefMut for UIStateGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.state
+    }
+}
+
+#[derive(Clone)]
+pub struct UISharedData {
+    /// I realized it looks nicer to use `inner` over a tuple struct of one
+    inner: Arc<(Mutex<UIState>, Condvar)>,
+}
+impl UISharedData {
+    pub fn lock_state(&self) -> UIStateGuard<'_> {
+        let state = self.inner.0.lock().unwrap();
+        // // Since for this case, there's just one edge, notify_one should suffice but just have this to be safe
+        // // The nice thing about condvar is that this will only wake threads up once the Lock is dropped
+        // self.inner.1.notify_all();
+        // ^^^ will cause the two threads to continuously update each other even if they don't change anything
+        // Now that UIStateGuard is its own struct, I could also have implemented Drop, but I won't have to do either.
+        UIStateGuard {
+            state,
+            // REVIEW: Will this be a circular loop? I'm kinda turning off my brain (it's easy to write random stuff and hard to figure out if it should work)
+            shared_data: self.clone(),
+        }
+    }
+
+    pub fn set_ended(&self) {
+        *self.inner.0.lock().unwrap() = UIState::Ended;
+
+        self.notify();
+    }
+
+    pub fn notify(&self) {
+        // Since for this case, there's just one edge, notify_one should suffice but just have this to be safe
+        self.inner.1.notify_all();
+    }
+}
+
 /// REVIEW: rename this
+/// REVIEW: don't even expose this to pub?
+/// I'm thinking I have the UISharedData standardized, and then it has a run function that depends on each backend
 pub struct UIDisplay {
-    /// TODO: use `EncapsulatedLock`?
-    root_element: Arc<Mutex<UIElement>>,
+    shared_data: UISharedData,
 
-    /// TODO: just use mpsc
-    ui_event_queue: mpsc::Sender<UIEvent>,
-
-    /// REVIEW: Use `Arc<Mutex<bool>>`, `Arc<RwLock<bool>>`, or `Arc<AtomicBool>`?
-    is_running: Arc<AtomicBool>,
     // width: u32,
     // height: u32,
     key_modifiers: KeyModifiers,
@@ -231,11 +316,7 @@ pub struct UIDisplay {
 }
 impl UIDisplay {
     /// Returns when display is closed.
-    pub fn run_display(
-        root_element: Arc<Mutex<UIElement>>,
-        ui_event_queue: mpsc::Sender<UIEvent>,
-        is_running: Arc<AtomicBool>,
-    ) {
+    pub fn run_display(shared_data: UISharedData) {
         let event_loop = EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
@@ -243,9 +324,7 @@ impl UIDisplay {
             .unwrap();
         event_loop
             .run_app(&mut Self {
-                root_element,
-                ui_event_queue,
-                is_running,
+                shared_data,
                 // width: 256,
                 // height: 256,
                 key_modifiers: KeyModifiers::NONE,
@@ -363,7 +442,9 @@ impl UIDisplay {
 }
 impl Drop for UIDisplay {
     fn drop(&mut self) {
-        self.is_running
-            .store(false, std::sync::atomic::Ordering::Relaxed);
+        // TODO: is this even needed?
+        self.shared_data.set_ended();
+        // self.is_running
+        //     .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }

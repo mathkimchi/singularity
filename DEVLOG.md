@@ -8809,3 +8809,38 @@ Ok, I'll commit this brainstorm.
 I feel like I didn't actually come up with something new,
 but before I was trying to use as little threads as possible because I thought it would be more efficient,
 but now I know it's less efficient and I'm keeping it like this because I'm lazy.
+
+...
+
+2026-07-25 11:52PM
+
+I'll start by implementing the CondVar logic for the "edge" between the UI and root applet.
+
+When I was storing locks for each component, I used AtomicBool for is_running
+and a mpsc for event queue, because individually, these are better generally than mutex bool or vecdeque individually.
+But, I decided to put everything into one mutex,
+and I am also going to use an `Option<EdgeData>` instead of having an is_running bool.
+
+...
+
+Bro I'm going to abandon all technology and go live in a forest or something.
+Winit babysits you by forcing you to use their loop system.
+Apparently Smithay provides their own `calloop` crate but doesn't require it.
+
+I think I'll make a custom sync primitive that lets you wait until the type is updated.
+For this commit, I'll put it inside the winit impls,
+but I think this means I have to change how my crates work.
+I was going to just put singularity_ui as a module inside of the common crate,
+but I think the play is something more complicated:
+I put singularity_ui as a subcrate of singularity_common and pull out singularity_sync
+as another subcrate of singularity_common,
+then have singularity_common rely on both of its subcrates
+and also make singularity_ui rely on singularity_sync.
+
+For now I sleep though.
+
+2026-07-26 01:39AM
+
+Oh my gosh bro, I just implemented this in the UI Display side.
+(It doesn't do wait or wake up, but that is lowkey Winit's fault
+and that wasn't being done anyways so wtv, there will be no change.)

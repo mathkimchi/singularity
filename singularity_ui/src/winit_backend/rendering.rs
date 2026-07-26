@@ -5,7 +5,7 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplayUnits},
     ui_element::{CharGrid, FONT_SIZE_F, InternalCharCell, UIElement},
-    winit_backend::WgpuData,
+    winit_backend::{WgpuData, WinitData},
 };
 use glyphon::{AttrsOwned, Metrics, TextRenderer};
 use image::RgbaImage;
@@ -1544,8 +1544,9 @@ impl UIElement {
 }
 
 impl UIDisplay {
-    pub fn draw(&mut self) {
-        let Some(state) = &mut self.winit_data else {
+    /// REVIEW: move somewhere else?
+    pub(super) fn draw(winit_data: &mut Option<WinitData>, root_element: &UIElement) {
+        let Some(state) = winit_data else {
             return;
         };
 
@@ -1636,10 +1637,7 @@ impl UIDisplay {
                 // text_buffer,
             };
 
-            self.root_element
-                .lock()
-                .unwrap()
-                .draw(&mut drawing_shared_data, DisplayArea::FULL);
+            root_element.draw(&mut drawing_shared_data, DisplayArea::FULL);
         }
 
         queue.submit(iter::once(encoder.finish()));
