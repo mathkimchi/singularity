@@ -4,7 +4,7 @@
 
 use crate::sync::EncapsulatedLock;
 use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
-use std::sync::{atomic::AtomicBool, mpsc, Arc};
+use std::sync::{atomic::AtomicBool, mpsc};
 
 /// ~~Made by server with default impls,
 /// given to client initializer which can use and modify the mediator.~~
@@ -26,30 +26,43 @@ use std::sync::{atomic::AtomicBool, mpsc, Arc};
 /// while the client should know the actual type of it
 /// (either because it is kept the default impl struct or because the client re-implemented)
 pub struct SonamuMediator {
-    display_getter: Box<dyn DisplayContentGetter>,
+    /// TODO: use double buffer?
+    display_content: EncapsulatedLock<UIElement>,
+    /// TODO: figure out Arc later
+    display_damaged: AtomicBool,
+
+    display_client_callbacks: Box<dyn DisplayProtocolClientCallbacks>,
 
     event_sender: Box<dyn EventSender>,
 }
 impl SonamuMediator {
     pub fn new(
-        display_getter: impl DisplayContentGetter + 'static,
+        display_client_callbacks: impl DisplayProtocolClientCallbacks + 'static,
         event_sender: impl EventSender + 'static,
     ) -> Self {
         Self {
-            display_getter: Box::new(display_getter),
+            // just set initial content as nothing
+            display_content: EncapsulatedLock::new(UIElement::Nothing),
+            display_damaged: AtomicBool::new(false),
+            display_client_callbacks: Box::new(display_client_callbacks),
             event_sender: Box::new(event_sender),
         }
+    }
+
+    /// NOTE: Assumes whoever is calling this (server) will process it
+    pub fn get_display_content(&self) -> UIElement {
+        let content = self.display_content.get();
+        self.content_processed();
+        content
     }
 }
 
 // Server Side Mediator is proxy pattern, is this bad?
-impl DisplayContentGetter for SonamuMediator {
-    fn is_damaged(&self) -> bool {
-        self.display_getter.is_damaged()
-    }
-
-    fn get_display_content(&self) -> UIElement {
-        self.display_getter.get_display_content()
+impl DisplayProtocolClientCallbacks for SonamuMediator {
+    fn content_processed(&self) {
+        self.display_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.display_client_callbacks.content_processed();
     }
 }
 impl EventSender for SonamuMediator {
@@ -60,11 +73,10 @@ impl EventSender for SonamuMediator {
 
 /// This interface is called by the server
 /// (but the actual struct implementing this will probably let people use this)
-pub trait DisplayContentGetter: Sync + Send {
-    fn is_damaged(&self) -> bool;
-
-    /// Should set `is_damaged` to false
-    fn get_display_content(&self) -> UIElement;
+pub trait DisplayProtocolClientCallbacks: Sync + Send {
+    /// Called by the server when it reads the updated content
+    /// and sets damaged to false
+    fn content_processed(&self);
 }
 
 /// Called by client when `is_damaged` goes from false to true.
@@ -74,47 +86,47 @@ pub trait DamgeCallback: Send + Sync {
     fn damage(&self);
 }
 
-/// Default implementation of display getter that the server can give to client
-/// ^- not exactly anymore, but this is a simple one that the client initializer can make
-/// TODO: These should really go in client toolkit now
-#[derive(Clone)]
-pub struct CacheDisplayCommunicator {
-    is_damaged: Arc<AtomicBool>,
-    display_content: EncapsulatedLock<UIElement>,
-}
+// /// Default implementation of display getter that the server can give to client
+// /// ^- not exactly anymore, but this is a simple one that the client initializer can make
+// /// TODO: These should really go in client toolkit now
+// #[derive(Clone)]
+// pub struct CacheDisplayCommunicator {
+//     is_damaged: Arc<AtomicBool>,
+//     display_content: EncapsulatedLock<UIElement>,
+// }
 
-impl Default for CacheDisplayCommunicator {
-    fn default() -> Self {
-        Self::new(UIElement::Nothing)
-    }
-}
-impl DisplayContentGetter for CacheDisplayCommunicator {
-    fn is_damaged(&self) -> bool {
-        self.is_damaged.load(std::sync::atomic::Ordering::Relaxed)
-    }
+// impl Default for CacheDisplayCommunicator {
+//     fn default() -> Self {
+//         Self::new(UIElement::Nothing)
+//     }
+// }
+// impl DisplayProtocolClientCallbacks for CacheDisplayCommunicator {
+//     fn is_damaged(&self) -> bool {
+//         self.is_damaged.load(std::sync::atomic::Ordering::Relaxed)
+//     }
 
-    fn get_display_content(&self) -> UIElement {
-        // I already wrote the logic somewhere else of why we should set is_damaged to false and then get the content
-        self.is_damaged
-            .store(false, std::sync::atomic::Ordering::Relaxed);
-        self.display_content.get()
-    }
-}
-impl CacheDisplayCommunicator {
-    pub fn new(starting_content: UIElement) -> Self {
-        Self {
-            // REVIEW: should this be true, false, does it matter?
-            is_damaged: Arc::new(AtomicBool::new(true)),
-            display_content: EncapsulatedLock::new(starting_content),
-        }
-    }
-    pub fn set_display_content(&self, new_content: UIElement) {
-        // TODO: callback system for the parent/server
-        self.display_content.set(new_content);
-        self.is_damaged
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-    }
-}
+//     fn get_display_content(&self) -> UIElement {
+//         // I already wrote the logic somewhere else of why we should set is_damaged to false and then get the content
+//         self.is_damaged
+//             .store(false, std::sync::atomic::Ordering::Relaxed);
+//         self.display_content.get()
+//     }
+// }
+// impl CacheDisplayCommunicator {
+//     pub fn new(starting_content: UIElement) -> Self {
+//         Self {
+//             // REVIEW: should this be true, false, does it matter?
+//             is_damaged: Arc::new(AtomicBool::new(true)),
+//             display_content: EncapsulatedLock::new(starting_content),
+//         }
+//     }
+//     pub fn set_display_content(&self, new_content: UIElement) {
+//         // TODO: callback system for the parent/server
+//         self.display_content.set(new_content);
+//         self.is_damaged
+//             .store(true, std::sync::atomic::Ordering::Relaxed);
+//     }
+// }
 
 pub trait EventSender: Sync + Send {
     fn send_event(&self, event: UIEvent);

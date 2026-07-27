@@ -13,12 +13,7 @@ use crate::{
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use sonamu_sync::shared_state::SharedData;
-use std::{
-    collections::VecDeque,
-    ops::{Deref, DerefMut},
-    ptr,
-    sync::{Arc, Condvar, Mutex, MutexGuard},
-};
+use std::{collections::VecDeque, sync::Arc};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,

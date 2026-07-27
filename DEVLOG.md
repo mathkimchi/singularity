@@ -8947,3 +8947,30 @@ reciever can wait until damaged is true and can set damaged to false (maybe not 
 
 Maybe I can look into interrupts?
 Idk, I'm just throwing out a bunch of ideas.
+
+2026-07-27 12:49PM
+
+Will stream, but I want to write down what I want to accomplish beforehand so I can start fast:
+
+The overall goal is to make Clients run on worker threads (with tokio probably).
+
+I can only do that if I make it so that client can not block server.
+This means that I will be removing the `get_display_content` function that server calls for client.
+I will use the shared data idea I discussed earlier,
+but I have a strategy to minimize unneccessary computation
+(where applet draws more than server renders,
+eg: an applet that displays time to the nanosecond so it is always updating):
+
+When an applet has new content, it update the shared content
+and notifies the server of `content_damaged`.
+Later, when the server renders it, it will look at the shared content and render it,
+then tell the applet that the content was read (set content_damaged to false).
+
+An applet should update its content when:
+it has updates to make and content_damaged is false.
+
+Requiring content_damaged be false will make it so applets don't
+generate content more often than server renders them.
+I think the content will be outdated by at most the time between frames
+plus latency.
+I am fine with this much outdatedness, especially since it has an upper bound.
