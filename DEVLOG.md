@@ -8868,3 +8868,82 @@ This is because in the edge analogy, the edge between the main loop and UI
 should be different from the edge between the main loop and the root applet.
 
 Before I fix this, I'm going to just make Singularity UI a subcrate of the common crate.
+
+...
+
+2026-07-26 10:13PM
+
+I did the crate stuff and abstracted out the other stuff.
+
+Here is the comment explaining the fix:
+
+```rs
+/// Because of the "edge" model (look at devlog sometime before 2026-07-26),
+/// we have main runner loop share a state with UI and with root applet,
+/// but they should be different locks (ie: UI and root applet can not lock each other)
+/// so, for redundant information like whether the app runs or not,
+/// I will duplicate that information and let the middleman keep them matching
+pub enum RootAppletState {
+    Running,
+    Ended,
+}
+```
+
+2026-07-26 10:47PM
+
+Ok, it works (closing and everything else like UI event and updating) now!
+
+I think this code will work 99% of the time,
+but there are two problems I thought of:
+
+First, I am just cloning one condvar for the two edges of the main loop,
+so if this logic is used by all the other nodes as well,
+everyone will end up using one condvar.
+I did think of a way to fix this by letting one condvar represent one node,
+and an edge actually holds two condvars (or maybe 1 and an optional condvar).
+Waiting remains simple and the difference is that on notify, it notifies both condvars
+(or if you figure out who the caller is, then just notify the other one).
+
+Anyways, that is something that can be fixed in a straightforward way
+(even if it might be a little annoying).
+
+The other problem is that just like how I could have missed a UI notification
+before I used the `&mut` thing,
+in this code the main loop could still miss an update from the root applet.
+I am done with Sonamu for today, but I think if I write down all the interactions I want,
+I will be able to represent all of them in non-blocking ways.
+(Might end up going back to AtomicBool and mpsc.)
+
+I feel like most of this is straightforward except for the fact that I want
+rendering to be lazy,
+so when the content updates an applet just notifies its parent and then
+only has to actually give the content when parent asks for it.
+I might have a system where the "renderer" of an applet runs on the parent.
+Or maybe I should just force the child to render every time and just set a shared data.
+
+Pros:
++ prevents misbehaving applets blocking the parent and potentially main thread,
++ simple to implement
++ could make the overall system faster if rendering logic takes a long time
++ I already use this system for the main loop to UI communication
+
+Cons:
+- suboptimal in terms of allowing unnecessary compute
+- sunk cost fallacy
+- the current (previous) way is most conceptually elegant imo, because it theoretically allows for the most updated possible content
+
+A very inelegant solution that technically keeps the pros
+and negates the con would be to just tell each applet if it's visible or not.
+I don't like this though.
+(Mostly because of sunk cost fallacy, but also because it means on the first frame of appearing,
+the applet will be outdated.)
+
+For the damage tracking, I might also make a sync object that is a cross between
+a condvar, atomic bool, and mpsc.
+Like mpsc, you could split it to a sender and reciever.
+The sender sets it damaged to true,
+reciever can wait until damaged is true and can set damaged to false (maybe not instantly though).
+(Maybe semaphore could help?)
+
+Maybe I can look into interrupts?
+Idk, I'm just throwing out a bunch of ideas.
