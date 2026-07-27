@@ -8845,4 +8845,15 @@ Oh my gosh bro, I just implemented this in the UI Display side.
 (It doesn't do wait or wake up, but that is lowkey Winit's fault
 and that wasn't being done anyways so wtv, there will be no change.)
 
+2026-07-26 07:49PM
 
+What's up?
+I'm streaming rn. (It's an unlisted stream so this is more of a rehearsal.)
+
+Using new code on the main loop as well, no compile errors.
+Need to fix deadlock or something.
+
+...
+
+I just forgot to notify the condvar on keypress events.
+I should really think of a way to automatically do this.

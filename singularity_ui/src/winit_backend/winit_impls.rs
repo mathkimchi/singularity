@@ -83,6 +83,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 if let Ok(key) = Key::try_from(event) {
                     ui_event_queue
                         .push_back(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers));
+                    self.shared_data.notify();
                 }
 
                 window.request_redraw();
