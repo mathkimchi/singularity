@@ -8857,3 +8857,12 @@ Need to fix deadlock or something.
 
 I just forgot to notify the condvar on keypress events.
 I should really think of a way to automatically do this.
+
+2026-07-26 09:23PM
+
+Ah, I see the problem now, it is because when the applet wants to close,
+it tries to change the shared state, but this is called by the main loop while the shared state
+is locked by the main loop.
+
+This is because in the edge analogy, the edge between the main loop and UI
+should be different from the edge between the main loop and the root applet.

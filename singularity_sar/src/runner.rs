@@ -73,6 +73,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 }
 
                 fn close(&self) {
+                    dbg!("Closing");
                     self.ui_shared_data.set_ended();
                 }
             }
@@ -114,9 +115,8 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 runner.ui_shared_data.notify();
             }
 
-            dbg!("Runner main loop begin wait:");
             shared_state_guard.wait_for_update();
-            dbg!("Runner main loop finish wait.");
         }
+        dbg!("mainloop done!");
     }
 }
