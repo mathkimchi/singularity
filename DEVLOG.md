@@ -8974,3 +8974,17 @@ generate content more often than server renders them.
 I think the content will be outdated by at most the time between frames
 plus latency.
 I am fine with this much outdatedness, especially since it has an upper bound.
+
+...
+
+It is 2026-07-27 03:08PM.
+I lowkey screwed up on stream because I kept just going with suboptimal choices and ugly code
+because I wanted to keep the stream going,
+and I ended up running into a problem with circular initialization,
+which I could've solved with even messier code,
+but I decided that was finally too much.
+
+I am going to commit this now,
+and next I'll just kinda start a whole new sync primitive for the edge and node system
+because I just thought of a nice implementation for it,
+and I want to feel productive.

@@ -4,7 +4,20 @@
 
 use crate::sync::EncapsulatedLock;
 use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
-use std::sync::{atomic::AtomicBool, mpsc};
+use std::sync::{Arc, atomic::AtomicBool, mpsc};
+
+struct MediatorSharedData {
+    /// TODO: use double buffer?
+    display_content: EncapsulatedLock<UIElement>,
+    /// TODO: figure out Arc later
+    display_damaged: AtomicBool,
+
+    /// Called by the client notifying server that display damaged went from false to true
+    display_server_callback: Box<dyn DamgeCallback>,
+    display_client_callbacks: Box<dyn DisplayProtocolClientCallbacks>,
+
+    event_sender: Box<dyn EventSender>,
+}
 
 /// ~~Made by server with default impls,
 /// given to client initializer which can use and modify the mediator.~~
@@ -25,49 +38,75 @@ use std::sync::{atomic::AtomicBool, mpsc};
 /// The server doesn't know the impl beyond the interface
 /// while the client should know the actual type of it
 /// (either because it is kept the default impl struct or because the client re-implemented)
+#[derive(Clone)]
 pub struct SonamuMediator {
-    /// TODO: use double buffer?
-    display_content: EncapsulatedLock<UIElement>,
-    /// TODO: figure out Arc later
-    display_damaged: AtomicBool,
-
-    display_client_callbacks: Box<dyn DisplayProtocolClientCallbacks>,
-
-    event_sender: Box<dyn EventSender>,
+    inner: Arc<MediatorSharedData>,
 }
 impl SonamuMediator {
     pub fn new(
+        display_server_callback: Box<dyn DamgeCallback>,
         display_client_callbacks: impl DisplayProtocolClientCallbacks + 'static,
         event_sender: impl EventSender + 'static,
     ) -> Self {
         Self {
-            // just set initial content as nothing
-            display_content: EncapsulatedLock::new(UIElement::Nothing),
-            display_damaged: AtomicBool::new(false),
-            display_client_callbacks: Box::new(display_client_callbacks),
-            event_sender: Box::new(event_sender),
+            inner: Arc::new(MediatorSharedData {
+                // just set initial content as nothing
+                display_content: EncapsulatedLock::new(UIElement::Nothing),
+                display_damaged: AtomicBool::new(false),
+                display_server_callback,
+                display_client_callbacks: Box::new(display_client_callbacks),
+                event_sender: Box::new(event_sender),
+            }),
         }
     }
 
     /// NOTE: Assumes whoever is calling this (server) will process it
     pub fn get_display_content(&self) -> UIElement {
-        let content = self.display_content.get();
-        self.content_processed();
+        let content = self.inner.display_content.get();
+        // self.content_processed();
+        self.inner
+            .display_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.inner.display_client_callbacks.content_processed();
         content
+    }
+
+    /// client should call this
+    /// REVIEW: also have a force update?
+    /// Returns whether or not display was actually updated
+    pub fn try_update_display_content(&self, content_getter: impl FnOnce() -> UIElement) -> bool {
+        if self
+            .inner
+            .display_damaged
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            // there are already unprocessed display updates, so don't update this
+            false
+        } else {
+            // only update display if all previous updates have been processed by server
+            self.inner.display_content.set(content_getter());
+
+            self.inner
+                .display_damaged
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            self.inner.display_server_callback.damage();
+
+            true
+        }
     }
 }
 
-// Server Side Mediator is proxy pattern, is this bad?
-impl DisplayProtocolClientCallbacks for SonamuMediator {
-    fn content_processed(&self) {
-        self.display_damaged
-            .store(false, std::sync::atomic::Ordering::Relaxed);
-        self.display_client_callbacks.content_processed();
-    }
-}
+// // Server Side Mediator is proxy pattern, is this bad?
+// impl DisplayProtocolClientCallbacks for SonamuMediator {
+//     fn content_processed(&self) {
+//         self.display_damaged
+//             .store(false, std::sync::atomic::Ordering::Relaxed);
+//         self.display_client_callbacks.content_processed();
+//     }
+// }
 impl EventSender for SonamuMediator {
     fn send_event(&self, event: UIEvent) {
-        self.event_sender.send_event(event);
+        self.inner.event_sender.send_event(event);
     }
 }
 
@@ -85,6 +124,16 @@ pub trait DisplayProtocolClientCallbacks: Sync + Send {
 pub trait DamgeCallback: Send + Sync {
     fn damage(&self);
 }
+
+pub struct NullDamageCallback;
+impl DamgeCallback for NullDamageCallback {
+    fn damage(&self) {}
+}
+
+// pub struct NullClientDisplayCallback;
+// impl DisplayProtocolClientCallbacks for NullClientDisplayCallback {
+//     fn content_processed(&self) {}
+// }
 
 // /// Default implementation of display getter that the server can give to client
 // /// ^- not exactly anymore, but this is a simple one that the client initializer can make
