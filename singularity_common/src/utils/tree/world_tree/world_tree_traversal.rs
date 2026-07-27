@@ -28,11 +28,6 @@
 //! without having a good reason, it can be forked to obey.
 //! So, I guess I'll leave it recursive.
 
-// // TODO:
-// pub const TREE_TRAVERSE_KEYS: &[char] = &[
-//     'w', 'a', 's', 'd', 'q', 'e', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-// ];
-
 use crate::utils::tree::tree_node_path::TreeTraverseOperation;
 
 #[derive(Debug, Clone, Copy)]
@@ -42,12 +37,6 @@ pub enum WorldTreeTraversalOperation {
     PrevLayer,
     /// Into a world
     NextLayer,
-    // LayerwiseDFSPrev,
-    // LayerwiseDFSNext,
-    // PrevSibling,
-    // NextSibling,
-    // Parent,
-    // Child,
     Layerwise(TreeTraverseOperation),
 }
 impl WorldTreeTraversalOperation {

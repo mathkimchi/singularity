@@ -2,46 +2,11 @@ use crate::applet_data::{AppletSpawnData, AppletType, AppletTypeId};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::PathBuf};
 
-// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-// pub struct SubappFileSystemPermission {
-//     location: String,
-//     /// default to false
-//     #[serde(default)]
-//     read: bool,
-//     /// default to false
-//     #[serde(default)]
-//     write: bool,
-//     /// default to false
-//     #[serde(default)]
-//     execute: bool,
-// }
-
-// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-// pub struct SubappFileSystemPermissions {
-//     property: Option<SubappFileSystemPermission>,
-// }
-
-// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-// pub struct SubappStandardSettings {
-//     pub spawnable_default: Option<AppletSpawnData>,
-// }
-
-// /// This is for a tab type as opposed to a specific instance of a tab
-// /// TODO: rename
-// #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-// pub struct SubappSettings {
-//     pub subapp_standard_settings: Option<SubappStandardSettings>,
-//     pub subapp_specific_settings: Option<HashMap<String, serde_json::Value>>,
-// }
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSettings {
     /// this is the list of tab types
     /// REVIEW: rename
     pub applet_types: HashSet<AppletType>,
-}
-impl ProjectSettings {
-    // pub fn get_applet(&self, applet: AppletTypeId) -> A {}
 }
 
 pub struct Project {
@@ -53,7 +18,7 @@ impl Project {
     pub fn open_or_make<P>(project_directory: P) -> Self
     where
         P: AsRef<std::path::Path> + Clone,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         Self::try_from_project_directory(project_directory.clone()).unwrap_or_else(|| Self {
             project_settings: ProjectSettings {
@@ -73,7 +38,7 @@ impl Project {
     pub fn try_from_project_directory<P>(project_directory: P) -> Option<Self>
     where
         P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         Some(Self {
             project_settings: Self::parse_project_settings(&project_directory)?,

@@ -200,19 +200,6 @@ impl CharGrid {
         }
     }
 
-    // pub fn get_text_as_string(&self) -> String {
-    //     self.content
-    //         .iter()
-    //         .map(|line| {
-    //             line.iter()
-    //                 .map(|c| c.character.to_string())
-    //                 .collect::<Vec<_>>()
-    //                 .join("")
-    //         })
-    //         .collect::<Vec<_>>()
-    //         .join("\n")
-    // }
-
     #[must_use]
     pub const fn element(self) -> UIElement {
         UIElement::CharGrid(self)

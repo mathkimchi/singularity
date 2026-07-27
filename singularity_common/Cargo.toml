@@ -7,13 +7,9 @@ edition = "2024"
 workspace = true
 
 [dependencies]
-singularity_macros = { path = "./singularity_macros" }
 sonamu_ui = { workspace = true }
 sonamu_sync = { workspace = true }
 
 serde = { workspace = true }
-serde_json = { workspace = true }
 
 uuid = { workspace = true }
-
-paste = { workspace = true }

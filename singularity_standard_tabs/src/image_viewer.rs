@@ -23,7 +23,7 @@ impl ImageViewerApplet {
     pub fn new<P>(image_path: P, hook: Box<dyn NodularRunnerHook>) -> Self
     where
         P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         let image = ImageReader::open(&image_path)
             .unwrap()
@@ -41,7 +41,7 @@ impl ImageViewerApplet {
     pub fn get_initiator<P>(file_path: P) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self
     where
         P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         |hook: Box<dyn NodularRunnerHook>| Self::new(file_path, hook)
     }
@@ -50,7 +50,7 @@ impl ImageViewerApplet {
     ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
     where
         P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(image_path, hook))
     }
@@ -116,7 +116,7 @@ impl NodularApplet for ImageViewerApplet {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.get_title())
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         // WorldTreePath::new_empty()
         WorldTreePath::new_into()
     }

@@ -6,19 +6,10 @@ use crate::sync::EncapsulatedLock;
 use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{atomic::AtomicBool, mpsc, Arc};
 
-/// ~~Made by server with default impls,
-/// given to client initializer which can use and modify the mediator.~~
+/// Created by the client initializer; each protocol is its own component.
 ///
-/// Just make the client initializer makes ts bruh.
-/// (Duh doy)
-/// I'm not going to update comments other than this,
-/// TODO: update documentation
-/// ^-- funny joke, what documentation?
-///
-/// I currerntly have each protocol as it's own component.
-///
-/// This really holds the server side (side called by server) of the protocols,
-/// but client is given this so they can replace the default implementations.
+/// This holds the server side (the side called by the server) of the protocols,
+/// but the client is given this so they can replace the default implementations.
 ///
 /// Generally, the interfaces like `DisplayContentGetter` and `EventSender`
 /// are for the server to call and client to implement (or leave as default).

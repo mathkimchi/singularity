@@ -75,7 +75,7 @@ pub struct CodeEditorApplet {
 impl<P> CreatableNodularApplet<P> for CodeEditorApplet
 where
     P: AsRef<std::path::Path>,
-    PathBuf: std::convert::From<P>,
+    PathBuf: From<P>,
 {
     fn new(file_path: P, hook: Box<dyn NodularRunnerHook + 'static>) -> Self {
         // Is reader overkill? Should I just have read?
@@ -182,13 +182,11 @@ impl CodeEditorApplet {
                 self.mode = EditorMode::Normal;
             }
             (Key::Char('v'), KeyModifiers::CTRL) | (Key::Char('V'), KeyModifiers::CTRL_SHIFT) => {
-                // log::debug!("Pasting");
                 if let Ok(text) = arboard::Clipboard::new().unwrap().get_text() {
                     self.buffer.insert(self.cursor, &text);
                     self.cursor += text.len();
                     self.clamp_view_to_cursor();
                 }
-                // dbg!(arboard::Clipboard::new().unwrap().get_text());
             }
             _ => {}
         }
@@ -342,24 +340,6 @@ impl BasicApplet for CodeEditorApplet {
         } else {
             content.contained_element()
         }
-
-        // UIElement::Text(vec![
-        //     (
-        //         self.buffer.slice(..self.cursor).to_string(),
-        //         UIElement::glyphon_attr(Color::WHITE),
-        //     ),
-        //     (
-        //         self.buffer.char(self.cursor).to_string(),
-        //         // TODO: right now, this changes fg color,
-        //         // glyphon doesn't do bg so I'll have to deal w that manually later
-        //         // might even need to do glyph rendering manually bruh (i'm cryng)
-        //         UIElement::glyphon_attr(cursor_color),
-        //     ),
-        //     (
-        //         self.buffer.slice((self.cursor + 1)..).to_string(),
-        //         UIElement::glyphon_attr(Color::WHITE),
-        //     ),
-        // ])
     }
 }
 impl NodularApplet for CodeEditorApplet {

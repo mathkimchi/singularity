@@ -88,9 +88,3 @@ impl Borrow<AppletTypeId> for AppletType {
 pub enum AppletTypeId {
     FileManager,
 }
-// pub struct AppletTypeId(pub String);
-// impl AppletTypeId {
-//     pub fn new(s: impl ToString) -> Self {
-//         Self(s.to_string())
-//     }
-// }

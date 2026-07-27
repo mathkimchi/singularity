@@ -15,9 +15,7 @@ use glyphon::{FontSystem, SwashCache, TextAtlas};
 use sonamu_sync::shared_state::SharedData;
 use std::{
     collections::VecDeque,
-    ops::{Deref, DerefMut},
-    ptr,
-    sync::{Arc, Condvar, Mutex, MutexGuard},
+    sync::Arc,
 };
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
@@ -42,9 +40,7 @@ struct WgpuData {
     font_system: FontSystem,
     swash_cache: SwashCache,
     viewport: glyphon::Viewport,
-    atlas: glyphon::TextAtlas,
-    // text_renderer: glyphon::TextRenderer,
-    // text_buffer: glyphon::Buffer,
+    atlas: TextAtlas,
 
     // for wgpu
     rectangle_renderer: RectangleRenderer,
@@ -52,9 +48,6 @@ struct WgpuData {
     char_grid_renderer: CharGridRenderer,
 
     vertex_buffer: wgpu::Buffer,
-    // // index_buffer: wgpu::Buffer,
-    // instances: Vec<RoundRectInstance>,
-    // instance_buffer: wgpu::Buffer,
 }
 impl WgpuData {
     async fn new(
@@ -112,22 +105,6 @@ impl WgpuData {
         let cache = glyphon::Cache::new(&device);
         let viewport = glyphon::Viewport::new(&device, &cache);
         let atlas = TextAtlas::new(&device, &queue, &cache, swapchain_format);
-        // let text_renderer =
-        //     TextRenderer::new(&mut atlas, &device, MultisampleState::default(), None);
-        // let mut text_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(12.0, 12.0));
-
-        // let physical_width = (physical_size.width as f64 * scale_factor) as f32;
-        // let physical_height = (physical_size.height as f64 * scale_factor) as f32;
-
-        // text_buffer.set_size(
-        //     &mut font_system,
-        //     Some(physical_width),
-        //     Some(physical_height),
-        // );
-        // text_buffer.set_text(&mut font_system,
-        //     "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z",
-        // &Attrs::new().family(Family::Monospace), Shaping::Advanced,None,);
-        // text_buffer.shape_until_scroll(&mut font_system, false);
 
         // Set up gpu pipeline
 
@@ -140,36 +117,6 @@ impl WgpuData {
             contents: bytemuck::cast_slice(Vertex::VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        // let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Index Buffer"),
-        //     contents: bytemuck::cast_slice(INDICES),
-        //     usage: wgpu::BufferUsages::INDEX,
-        // });
-
-        // let instances = vec![
-        //     RoundRectInstance {
-        //         origin: [200.0, 200.0],
-        //         size: [300.0, 150.0],
-        //         corner_radius: 40.0,
-        //         border_dist: 3.0,
-        //         main_color: [0.5, 0.7, 0.5, 1.0],
-        //         border_color: [0.2, 0.2, 0.2, 1.0],
-        //     },
-        //     // RoundRectInstance {
-        //     //     origin: [400.0, 400.0],
-        //     //     size: [50.0, 150.0],
-        //     //     corner_radius: 20.0,
-        //     //     border_dist: 3.0,
-        //     //     main_color: [0.5, 0.7, 0.5, 1.0],
-        //     //     border_color: [0.2, 0.2, 0.2, 1.0],
-        //     // },
-        // ];
-
-        // let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Instance Buffer"),
-        //     contents: bytemuck::cast_slice(&instances),
-        //     usage: wgpu::BufferUsages::VERTEX,
-        // });
 
         Self {
             device,
@@ -180,15 +127,10 @@ impl WgpuData {
             swash_cache,
             viewport,
             atlas,
-            // text_renderer,
-            // text_buffer,
             rectangle_renderer,
             image_renderer,
             char_grid_renderer,
             vertex_buffer,
-            // // index_buffer,
-            // instances,
-            // instance_buffer,
         }
     }
 }
@@ -240,8 +182,6 @@ pub enum UIState {
 pub struct UIDisplay {
     shared_data: SharedData<UIState>,
 
-    // width: u32,
-    // height: u32,
     key_modifiers: KeyModifiers,
 
     winit_data: Option<WinitData>,
@@ -257,128 +197,18 @@ impl UIDisplay {
         event_loop
             .run_app(&mut Self {
                 shared_data,
-                // width: 256,
-                // height: 256,
                 key_modifiers: KeyModifiers::NONE,
                 winit_data: None,
             })
             .unwrap();
 
-        // // All Wayland apps start by connecting the compositor (server).
-        // let conn = Connection::connect_to_env().unwrap();
-
-        // // Enumerate the list of globals to get the protocols the server implements.
-        // let (globals, event_queue) = registry_queue_init(&conn).unwrap();
-        // let qh = event_queue.handle();
-        // let mut event_loop: EventLoop<UIDisplay> =
-        //     EventLoop::try_new().expect("Failed to initialize the event loop!");
-        // let loop_handle = event_loop.handle();
-        // WaylandSource::new(conn.clone(), event_queue)
-        //     .insert(loop_handle)
-        //     .unwrap();
-
-        // // The compositor (not to be confused with the server which is commonly called the compositor) allows
-        // // configuring surfaces to be presented.
-        // let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
-        // // For desktop platforms, the XDG shell is the standard protocol for creating desktop windows.
-        // let xdg_shell = XdgShell::bind(&globals, &qh).expect("xdg shell is not available");
-        // // Since we are not using the GPU in this example, we use wl_shm to allow software rendering to a buffer
-        // // we share with the compositor process.
-        // let shm = Shm::bind(&globals, &qh).expect("wl shm is not available.");
-        // // If the compositor supports xdg-activation it probably wants us to use it to get focus
-        // let xdg_activation = ActivationState::bind(&globals, &qh).ok();
-
-        // // A window is created from a surface.
-        // let surface = compositor.create_surface(&qh);
-        // // And then we can create the window.
-        // let window = xdg_shell.create_window(surface, WindowDecorations::RequestServer, &qh);
-        // // Configure the window, this may include hints to the compositor about the desired minimum size of the
-        // // window, app id for WM identification, the window title, etc.
-        // window.set_title("A wayland window");
-        // // GitHub does not let projects use the `org.github` domain but the `io.github` domain is fine.
-        // window.set_app_id("io.github.smithay.client-toolkit.SimpleWindow");
-        // window.set_min_size(Some((256, 256)));
-        // window.set_maximized();
-
-        // // In order for the window to be mapped, we need to perform an initial commit with no attached buffer.
-        // // For more info, see WaylandSurface::commit
-        // //
-        // // The compositor will respond with an initial configure that we can then use to present to the window with
-        // // the correct options.
-        // window.commit();
-
-        // // To request focus, we first need to request a token
-        // if let Some(activation) = xdg_activation.as_ref() {
-        //     activation.request_token(
-        //         &qh,
-        //         RequestData {
-        //             seat_and_serial: None,
-        //             surface: Some(window.wl_surface().clone()),
-        //             app_id: Some(String::from(
-        //                 "io.github.smithay.client-toolkit.SimpleWindow",
-        //             )),
-        //         },
-        //     )
-        // }
-
-        // // We don't know how large the window will be yet, so lets assume the minimum size we suggested for the
-        // // initial memory allocation.
-        // let pool = SlotPool::new(256 * 256 * 4, &shm).expect("Failed to create pool");
-
-        // let mut ui_display = UIDisplay {
-        //     root_element,
-        //     ui_event_queue,
-
-        //     // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
-        //     // listen for seats and outputs.
-        //     registry_state: RegistryState::new(&globals),
-        //     seat_state: SeatState::new(&globals, &qh),
-        //     output_state: OutputState::new(&globals, &qh),
-        //     shm,
-        //     xdg_activation,
-
-        //     is_running,
-        //     first_configure: true,
-        //     pool,
-        //     width: 256,
-        //     height: 256,
-        //     _shift: None,
-        //     buffer: None,
-        //     window,
-        //     keyboard: None,
-        //     key_modifiers: KeyModifiers::default(),
-        //     pointer: None,
-        //     loop_handle: event_loop.handle(),
-        //     font: SystemSource::new()
-        //         .select_best_match(
-        //             &[font_kit::family_name::FamilyName::Monospace],
-        //             font_kit::properties::Properties::new()
-        //                 .weight(font_kit::properties::Weight::MEDIUM),
-        //         )
-        //         .unwrap()
-        //         .load()
-        //         .unwrap(),
-        // };
-
-        // // We don't draw immediately, the configure will notify us when to first draw.
-        // while ui_display.is_running.load(Ordering::Relaxed) {
-        //     event_loop
-        //         .dispatch(
-        //             Duration::from_secs_f32(FRAME_DELTA_SECONDS),
-        //             &mut ui_display,
-        //         )
-        //         .unwrap();
-        // }
         println!("Graciously ending display loop.");
     }
 }
 impl Drop for UIDisplay {
     fn drop(&mut self) {
         // TODO: is this even needed?
-        // self.shared_data.set_ended();
         *self.shared_data.lock_state() = UIState::Ended;
         self.shared_data.notify();
-        // self.is_running
-        //     .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }

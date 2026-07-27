@@ -6,13 +6,6 @@ use sonamu_ui::{
 };
 use std::collections::VecDeque;
 
-// /// Wrap this around an Arc
-// struct UIConnections {
-//     root_ui_element: Mutex<UIElement>,
-//     ui_event_queue: Mutex<Vec<UIEvent>>,
-//     is_running: AtomicBool,
-// }
-
 /// Because of the "edge" model (look at devlog sometime before 2026-07-26),
 /// we have main runner loop share a state with UI and with root applet,
 /// but they should be different locks (ie: UI and root applet can not lock each other)
@@ -31,13 +24,6 @@ pub enum RootAppletState {
 pub struct AppletRunner<Applet: BasicApplet> {
     applet: Applet,
 
-    // // fields for dealing with the UI
-    // root_window: Arc<Mutex<UIElement>>,
-    // root_window_damaged: Arc<AtomicBool>,
-
-    // /// TODO: use mpsc
-    // ui_event_queue: mpsc::Receiver<UIEvent>,
-    // is_running: Arc<AtomicBool>,
     ui_shared_data: SharedData<UIState>,
     root_applet_shared_data: SharedData<RootAppletState>,
 
@@ -46,7 +32,7 @@ pub struct AppletRunner<Applet: BasicApplet> {
 impl<Applet: BasicApplet> AppletRunner<Applet> {
     /// Returns after the applet is closed.
     ///
-    /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
+    /// The logic of this is similar to `UIDisplay::run_display` in `winit_backend`
     pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
         let ui_shared_data = SharedData::new(UIState::Running {
             root_element: UIElement::Nothing,
@@ -58,10 +44,6 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             },
             &ui_shared_data,
         );
-        // let root_window = Arc::new(Mutex::new(UIElement::Nothing));
-        // let root_window_damaged = Arc::new(AtomicBool::new(true));
-        // let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
-        // let is_running = Arc::new(AtomicBool::new(true));
 
         {
             // clone to satisfy compiler
@@ -75,21 +57,11 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
         let applet = {
             // anon implementation
             struct AppletRunnerHook {
-                // // UI and root applet should NOT have any direct locks shared
-                // ui_shared_data: SharedData<UIState>,
+                // NOTE: UI and root applet should NOT have any direct locks shared
                 applet_shared_data: SharedData<RootAppletState>,
-                // root_window_damaged: Arc<AtomicBool>,
             }
             impl BasicRunnerHook for AppletRunnerHook {
-                // fn update_display(&self, display: &UIElement) {
-                //     // TODO: send reminder as well
-
-                //     *self.root_ui_element.lock().unwrap() = display.clone();
-                // }
-
                 fn damage_window(&self) {
-                    // self.root_window_damaged
-                    //     .store(true, std::sync::atomic::Ordering::Relaxed);
                     if let RootAppletState::Running {
                         root_window_damaged,
                     } = &mut *self.applet_shared_data.lock_state()
@@ -100,7 +72,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 }
 
                 fn close(&self) {
-                    dbg!("Closing");
+                    log::debug!("Closing");
                     // FIXME: Culprit: this is being called in main loop and mainloop is locking lock_state
                     *self.applet_shared_data.lock_state() = RootAppletState::Ended;
                     self.applet_shared_data.notify();
@@ -108,15 +80,12 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             }
 
             applet_initizer(Box::new(AppletRunnerHook {
-                // root_window_damaged: root_window_damaged.clone(),
-                // ui_shared_data: ui_shared_data.clone(),
                 applet_shared_data: root_applet_shared_data.clone(),
             }))
         };
 
         let mut runner = Self {
             applet,
-            // root_window_damaged,
             // REVIEW
             window_size: DisplayContainerSize::new(0, 0),
             ui_shared_data,
@@ -165,12 +134,12 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 }
             }
 
-            dbg!("Main loop waiting");
+            log::debug!("Main loop waiting");
             ui_shared_state_guard.wait_for_update();
         }
 
         *runner.root_applet_shared_data.lock_state() = RootAppletState::Ended;
         runner.root_applet_shared_data.notify();
-        dbg!("mainloop done!");
+        log::debug!("mainloop done!");
     }
 }

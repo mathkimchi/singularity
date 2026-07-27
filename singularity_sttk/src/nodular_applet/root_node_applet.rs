@@ -61,7 +61,7 @@ impl RootNodeApplet {
                 // REVIEW: do I need to do anything here?
             }
 
-            fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
+            fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner) {
                 self.applet_spawner_registry
                     .write()
                     .unwrap()
@@ -69,10 +69,10 @@ impl RootNodeApplet {
             }
             fn get_applet_spawners(
                 &self,
-            ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+            ) -> BTreeMap<String, AppletSpawner> {
                 self.applet_spawner_registry.read().unwrap().clone()
             }
-            fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+            fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
                 self.applet_spawner_registry
                     .read()
                     .unwrap()
@@ -146,72 +146,3 @@ impl BasicApplet for RootNodeApplet {
         ])
     }
 }
-
-/*
-
-/// Holds a nodular applet but only supports Basic operations.
-/// NOTE: This is really for debugging; for the actual, I'll implement RootNodeApplet.
-pub struct NodularHolderApplet<InnerApplet: NodularApplet> {
-    inner_applet: InnerApplet,
-}
-impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
-    pub fn new(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> InnerApplet,
-        hook: Box<dyn BasicRunnerHook>,
-    ) -> Self {
-        struct InnerHook {
-            outer_hook: Box<dyn BasicRunnerHook>,
-        }
-        impl BasicRunnerHook for InnerHook {
-            // fn update_display(&self, display: &sonamu_ui::ui_element::UIElement) {
-            //     self.outer_hook.update_display(display);
-            // }
-
-            fn close(&self) {
-                self.outer_hook.close();
-            }
-
-            fn damage_window(&self) {
-                self.outer_hook.damage_window();
-            }
-        }
-        impl NodularRunnerHook for InnerHook {
-            // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
-
-            fn add_child(&self, _initializer: Box<super::NodularAppletInitializer>) {}
-
-            fn damage_treeview(&self) {
-                todo!()
-            }
-
-            fn change_focus(
-                &self,
-                _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
-            ) {
-            }
-        }
-
-        let inner_hook = InnerHook { outer_hook: hook };
-
-        Self {
-            inner_applet: inner_initializer(Box::new(inner_hook)),
-        }
-    }
-
-    pub fn get_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> InnerApplet,
-    ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
-        move |hook| Self::new(inner_initializer, hook)
-    }
-}
-impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet> {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-        self.inner_applet.handle_ui_event(ui_event);
-    }
-
-    fn get_window(&self) -> UIElement {
-        self.inner_applet.get_window()
-    }
-}
-
-*/
