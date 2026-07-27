@@ -96,7 +96,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             //     println!("TODO: mouse press");
             // }
             winit::event::WindowEvent::RedrawRequested => {
-                Self::draw(&mut self.winit_data, root_element);
+                Self::draw(&mut self.winit_data, &root_element);
             }
             _ => {}
         }

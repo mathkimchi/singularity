@@ -3088,6 +3088,7 @@ name = "singularity_sar"
 version = "0.1.0"
 dependencies = [
  "singularity_macros",
+ "sonamu_sync",
  "sonamu_ui",
 ]
 
@@ -3349,6 +3350,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smithay-client-toolkit 0.20.0",
+ "sonamu_sync",
  "ttf-parser 0.18.1",
  "wayland-client",
  "wayland-protocols",

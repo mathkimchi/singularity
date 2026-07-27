@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, RwLock, atomic::AtomicUsize},
 };
 
+pub mod shared_state;
+
 /// Lock (RwLock) but you can only call getter and setter,
 /// so this is guranteed to prevent deadlocks.
 /// (Don't hold me liable for the above statement.)

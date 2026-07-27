@@ -12,6 +12,7 @@ use crate::{
     },
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
+use sonamu_sync::shared_state::SharedData;
 use std::{
     collections::VecDeque,
     ops::{Deref, DerefMut},
@@ -233,92 +234,11 @@ pub enum UIState {
     Ended,
 }
 
-/// What you get when you lock the UI State
-pub struct UIStateGuard<'a> {
-    state: MutexGuard<'a, UIState>,
-
-    /// Only needed for the condvar
-    shared_data: UISharedData,
-}
-impl UIStateGuard<'_> {
-    /// Releases lock, waits until the state changes, and then returns the new state locked
-    pub fn wait_for_update(&mut self) {
-        // self.state = self.shared_data.inner.1.wait(self.state).unwrap();
-        unsafe {
-            // this is scary, and I don't even know if it's right
-            // the idea is that ptr::read is like an unsafe copy kinda,
-            // the point is that between the ptr::read and ptr::write, the self.state is super sus
-            // REVIEW: And I think you need to worry about Drop with this, so I'm lowkey worried but idk
-            let old_state = ptr::read(&raw const self.state);
-
-            let new_state = self.shared_data.inner.1.wait(old_state).unwrap();
-
-            ptr::write(&raw mut self.state, new_state);
-        }
-    }
-}
-impl Deref for UIStateGuard<'_> {
-    type Target = UIState;
-
-    fn deref(&self) -> &Self::Target {
-        &self.state
-    }
-}
-impl DerefMut for UIStateGuard<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.state
-    }
-}
-
-#[derive(Clone)]
-pub struct UISharedData {
-    /// I realized it looks nicer to use `inner` over a tuple struct of one
-    inner: Arc<(Mutex<UIState>, Condvar)>,
-}
-impl UISharedData {
-    pub fn new(root_element: UIElement) -> Self {
-        Self {
-            inner: Arc::new((
-                Mutex::new(UIState::Running {
-                    root_element,
-                    ui_event_queue: VecDeque::new(),
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    pub fn lock_state(&self) -> UIStateGuard<'_> {
-        let state = self.inner.0.lock().unwrap();
-        // // Since for this case, there's just one edge, notify_one should suffice but just have this to be safe
-        // // The nice thing about condvar is that this will only wake threads up once the Lock is dropped
-        // self.inner.1.notify_all();
-        // ^^^ will cause the two threads to continuously update each other even if they don't change anything
-        // Now that UIStateGuard is its own struct, I could also have implemented Drop, but I won't have to do either.
-        UIStateGuard {
-            state,
-            // REVIEW: Will this be a circular loop? I'm kinda turning off my brain (it's easy to write random stuff and hard to figure out if it should work)
-            shared_data: self.clone(),
-        }
-    }
-
-    pub fn set_ended(&self) {
-        *self.inner.0.lock().unwrap() = UIState::Ended;
-
-        self.notify();
-    }
-
-    pub fn notify(&self) {
-        // Since for this case, there's just one edge, notify_one should suffice but just have this to be safe
-        self.inner.1.notify_all();
-    }
-}
-
 /// REVIEW: rename this
 /// REVIEW: don't even expose this to pub?
 /// I'm thinking I have the UISharedData standardized, and then it has a run function that depends on each backend
 pub struct UIDisplay {
-    shared_data: UISharedData,
+    shared_data: SharedData<UIState>,
 
     // width: u32,
     // height: u32,
@@ -328,7 +248,7 @@ pub struct UIDisplay {
 }
 impl UIDisplay {
     /// Returns when display is closed.
-    pub fn run_display(shared_data: UISharedData) {
+    pub fn run_display(shared_data: SharedData<UIState>) {
         let event_loop = EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
@@ -455,7 +375,9 @@ impl UIDisplay {
 impl Drop for UIDisplay {
     fn drop(&mut self) {
         // TODO: is this even needed?
-        self.shared_data.set_ended();
+        // self.shared_data.set_ended();
+        *self.shared_data.lock_state() = UIState::Ended;
+        self.shared_data.notify();
         // self.is_running
         //     .store(false, std::sync::atomic::Ordering::Relaxed);
     }

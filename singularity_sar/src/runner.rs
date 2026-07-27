@@ -1,12 +1,13 @@
 use crate::applet::{BasicApplet, BasicRunnerHook};
+use sonamu_sync::shared_state::SharedData;
 use sonamu_ui::{
-    UIDisplay,
-    display_units::DisplayContainerSize,
-    ui_element::UIElement,
-    ui_event::UIEvent,
-    winit_backend::{UISharedData, UIState},
+    UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+    winit_backend::UIState,
 };
-use std::sync::{Arc, Mutex, atomic::AtomicBool, mpsc};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 // /// Wrap this around an Arc
 // struct UIConnections {
@@ -30,7 +31,7 @@ pub struct AppletRunner<Applet: BasicApplet> {
     // /// TODO: use mpsc
     // ui_event_queue: mpsc::Receiver<UIEvent>,
     // is_running: Arc<AtomicBool>,
-    ui_shared_data: UISharedData,
+    ui_shared_data: SharedData<UIState>,
 
     window_size: DisplayContainerSize,
 }
@@ -39,7 +40,10 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
     ///
     /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
     pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
-        let ui_shared_data = UISharedData::new(UIElement::Nothing);
+        let ui_shared_data = SharedData::new(UIState::Running {
+            root_element: UIElement::Nothing,
+            ui_event_queue: VecDeque::new(),
+        });
         // let root_window = Arc::new(Mutex::new(UIElement::Nothing));
         let root_window_damaged = Arc::new(AtomicBool::new(true));
         // let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
@@ -57,7 +61,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
         let applet = {
             // anon implementation
             struct AppletRunnerHook {
-                ui_shared_data: UISharedData,
+                ui_shared_data: SharedData<UIState>,
                 root_window_damaged: Arc<AtomicBool>,
             }
             impl BasicRunnerHook for AppletRunnerHook {
@@ -74,7 +78,8 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
 
                 fn close(&self) {
                     dbg!("Closing");
-                    self.ui_shared_data.set_ended();
+                    *self.ui_shared_data.lock_state() = UIState::Ended;
+                    self.ui_shared_data.notify();
                 }
             }
 

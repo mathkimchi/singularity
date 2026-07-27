@@ -7,6 +7,8 @@ edition = "2024"
 workspace = true
 
 [dependencies]
+sonamu_sync = { workspace = true }
+
 wayland-client = { version = "^0.31", optional = true }
 wayland-protocols = { version = "^0.32", features = [
     "client",
