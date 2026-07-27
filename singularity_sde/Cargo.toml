@@ -10,7 +10,7 @@ workspace = true
 singularity_common = { path = "../singularity_common" }
 singularity_macros = { path = "../singularity_common/singularity_macros" }
 singularity_standard_tabs = { path = "../singularity_standard_tabs" }
-singularity_ui = { path = "../singularity_ui" }
+sonamu_ui = { workspace = true }
 # singularity_sap = { path = "../singularity_sap", features = [
 #     "standard_packets",
 # ] }

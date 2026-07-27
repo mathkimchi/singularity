@@ -5,7 +5,7 @@ use singularity_sap::{
     standard_packets::display_packets::{DisplayEvent, RequestChangeName, RequestUpdateWindow},
     universal_stream::universal_client_stream::UniversalClientStream,
 };
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     ui_element::{CharGrid, UIElement},
     ui_event::{KeyModifiers, KeyTrait, UIEvent},

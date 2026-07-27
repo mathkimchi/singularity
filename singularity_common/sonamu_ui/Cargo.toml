@@ -1,5 +1,5 @@
 [package]
-name = "singularity_ui"
+name = "sonamu_ui"
 version = "0.1.0"
 edition = "2024"
 

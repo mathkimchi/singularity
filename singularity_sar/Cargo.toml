@@ -8,4 +8,4 @@ workspace = true
 
 [dependencies]
 singularity_macros = { path = "../singularity_common/singularity_macros" }
-singularity_ui = { path = "../singularity_ui" }
+sonamu_ui = { workspace = true }

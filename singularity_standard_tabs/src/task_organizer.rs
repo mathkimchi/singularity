@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget, Component},
+    components::{Component, button::ToggleButton, text_box::TextBox, timer_widget::TimerWidget},
     tab::packets::Event,
     utils::{
         timer::Timer,
         tree::{
             recursive_tree::RecursiveTreeNode,
-            tree_node_path::{TreeNodePath, TREE_TRAVERSE_KEYS},
+            tree_node_path::{TREE_TRAVERSE_KEYS, TreeNodePath},
         },
     },
 };
 use singularity_macros::ComposeComponents;
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord},
     ui_element::{CharGrid, UIElement},
@@ -97,7 +97,7 @@ impl Component for IndividualTaskWidget {
 
     fn handle_event(&mut self, event: singularity_common::tab::packets::Event) {
         use singularity_common::tab::packets::Event;
-        use singularity_ui::ui_event::{KeyModifiers, UIEvent};
+        use sonamu_ui::ui_event::{KeyModifiers, UIEvent};
         match event {
             Event::UIEvent(ref ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 15 => {
@@ -216,7 +216,7 @@ impl TaskOrganizer {
                 (path.depth() as i32 * 6 * 4).into(),
                 (index as i32 * 12).into(),
             ),
-            singularity_ui::display_units::DisplaySize::new((12 * 40).into(), 12.into()),
+            sonamu_ui::display_units::DisplaySize::new((12 * 40).into(), 12.into()),
         )
     }
 
@@ -259,15 +259,17 @@ impl TaskOrganizer {
         };
 
         UIElement::CharGrid(CharGrid {
-            content: vec![self.tasks[path]
-                .title
-                .chars()
-                .map(|c| singularity_ui::ui_element::CharCell {
-                    character: c,
-                    fg,
-                    bg,
-                })
-                .collect()],
+            content: vec![
+                self.tasks[path]
+                    .title
+                    .chars()
+                    .map(|c| sonamu_ui::ui_element::CharCell {
+                        character: c,
+                        fg,
+                        bg,
+                    })
+                    .collect(),
+            ],
         })
     }
 
@@ -317,7 +319,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
 
         //         task_list_vec.push(
         //             line.chars()
-        //                 .map(|c| singularity_ui::ui_element::CharCell {
+        //                 .map(|c| sonamu_ui::ui_element::CharCell {
         //                     character: c,
         //                     fg: Color::LIGHT_YELLOW,
         //                     bg: bg_color,
@@ -356,7 +358,7 @@ impl singularity_common::tab::BasicTab for TaskOrganizer {
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) {
         use singularity_common::tab::packets::Event;
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
 
         match self.mode {
             Mode::Viewing => match event {

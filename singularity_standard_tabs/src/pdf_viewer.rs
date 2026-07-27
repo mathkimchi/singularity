@@ -8,8 +8,8 @@
 //     components::text_box::TextBox,
 //     nodular_applet::{NodularApplet, NodularRunnerHook},
 // };
-// use singularity_ui::ui_event::{KeyModifiers, KeyTrait as _};
-// use singularity_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
+// use sonamu_ui::ui_event::{KeyModifiers, KeyTrait as _};
+// use sonamu_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
 // use std::path::PathBuf;
 
 // /// Just turns pdf into image and then shows the image.

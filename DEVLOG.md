@@ -8866,3 +8866,5 @@ is locked by the main loop.
 
 This is because in the edge analogy, the edge between the main loop and UI
 should be different from the edge between the main loop and the root applet.
+
+Before I fix this, I'm going to just make Singularity UI a subcrate of the common crate.

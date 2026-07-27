@@ -4,9 +4,7 @@ use singularity_common::{
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{
-    display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
-};
+use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
@@ -109,7 +107,7 @@ impl CachingApplet {
         }
     }
 
-    pub fn immut_handle_ui_event(&self, ui_event: singularity_ui::ui_event::UIEvent) {
+    pub fn immut_handle_ui_event(&self, ui_event: sonamu_ui::ui_event::UIEvent) {
         self.applet.lock().unwrap().handle_ui_event(ui_event);
     }
 
@@ -176,7 +174,7 @@ impl BasicApplet for CachingApplet {
         self.window.get()
     }
 
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         self.immut_handle_ui_event(ui_event);
     }
 }

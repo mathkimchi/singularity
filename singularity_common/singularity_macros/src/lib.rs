@@ -4,7 +4,7 @@ use std::{
 };
 
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{DeriveInput, Fields};
 
 /// REVIEW: I realize that this is actually very arbitrary and unflexible for most use-cases
@@ -39,11 +39,8 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                         .collect::<Vec<proc_macro2::TokenTree>>()
                         .as_slice()
                     {
-                        &[
-                            proc_macro2::TokenTree::Group(area_generator),
-                            proc_macro2::TokenTree::Punct(seperator),
-                            proc_macro2::TokenTree::Group(node_renderer),
-                        ] => {
+                        &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(node_renderer)] =>
+                        {
                             assert_eq!(seperator.as_char(), ',');
                             Some((area_generator.stream(), node_renderer.stream()))
                         }
@@ -65,26 +62,28 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             for attr in &field.attrs {
                 if attr.path().is_ident("component") {
                     // just get the first thing from attr.tokens
-                    let (container_size, focus_id) =
-                        match attr.to_token_stream().clone().into_iter().next().unwrap() {
-                            proc_macro2::TokenTree::Group(group) => match &group
-                                .stream()
-                                .into_iter()
-                                .collect::<Vec<proc_macro2::TokenTree>>()
-                                .as_slice()
+                    let (container_size, focus_id) = match attr
+                        .to_token_stream()
+                        .clone()
+                        .into_iter()
+                        .next()
+                        .unwrap()
+                    {
+                        proc_macro2::TokenTree::Group(group) => match &group
+                            .stream()
+                            .into_iter()
+                            .collect::<Vec<proc_macro2::TokenTree>>()
+                            .as_slice()
+                        {
+                            &[proc_macro2::TokenTree::Group(container_size), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(focus_id)] =>
                             {
-                                &[
-                                    proc_macro2::TokenTree::Group(container_size),
-                                    proc_macro2::TokenTree::Punct(seperator),
-                                    proc_macro2::TokenTree::Group(focus_id),
-                                ] => {
-                                    assert_eq!(seperator.as_char(), ',');
-                                    (container_size.stream(), focus_id.stream())
-                                }
-                                _ => panic!("component attribute unparsable"),
-                            },
-                            _ => panic!("component attribute unparsable (not a group)"),
-                        };
+                                assert_eq!(seperator.as_char(), ',');
+                                (container_size.stream(), focus_id.stream())
+                            }
+                            _ => panic!("component attribute unparsable"),
+                        },
+                        _ => panic!("component attribute unparsable (not a group)"),
+                    };
                     components.push((field.ident.clone().unwrap(), container_size, focus_id));
                 }
 
@@ -182,7 +181,7 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
         }
         for (component_ident, area_generator, node_renderer, _, _) in &tree_components {
             render_components.extend(quote! {
-                singularity_ui::ui_element::UIElement::Container(
+                sonamu_ui::ui_element::UIElement::Container(
                     __singularity_common::utils::tree::tree_node_path::TraversableTree::collect_paths_dfs(&self.#component_ident)
                         .iter()
                         .enumerate()
@@ -259,8 +258,8 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             extern crate singularity_common as __singularity_common;
             #[automatically_derived]
             impl #struct_identifier {
-                pub fn render_components(&mut self) -> singularity_ui::ui_element::UIElement {
-                    singularity_ui::ui_element::UIElement::Container(vec![
+                pub fn render_components(&mut self) -> sonamu_ui::ui_element::UIElement {
+                    sonamu_ui::ui_element::UIElement::Container(vec![
                         #render_components
                     ])
                 }

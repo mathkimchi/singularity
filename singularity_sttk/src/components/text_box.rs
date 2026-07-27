@@ -1,4 +1,4 @@
-use singularity_ui::{
+use sonamu_ui::{
     ui_element::CharGrid,
     ui_event::{Key, UIEvent},
 };
@@ -45,7 +45,7 @@ impl TextBox {
 
     /// char can not be new line
     /// knows location from cursor
-    fn write_character(&mut self, character: singularity_ui::ui_element::CharCell) {
+    fn write_character(&mut self, character: sonamu_ui::ui_element::CharCell) {
         self.text.content[self.cursor_logical_position.1]
             .insert(self.cursor_logical_position.0, character);
         self.cursor_logical_position.0 += 1;
@@ -90,13 +90,13 @@ impl TextBox {
 
     pub fn render_grid_with_color(
         &self,
-        (cursor_fg, cursor_bg): (singularity_ui::color::Color, singularity_ui::color::Color),
+        (cursor_fg, cursor_bg): (sonamu_ui::color::Color, sonamu_ui::color::Color),
     ) -> CharGrid {
         let mut text_clone = self.text.clone();
 
         // add this in case the cursor is rightmost
         text_clone.content[self.cursor_logical_position.1]
-            .push(singularity_ui::ui_element::CharCell::new(' '));
+            .push(sonamu_ui::ui_element::CharCell::new(' '));
 
         // highlight cursor
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
@@ -112,10 +112,10 @@ impl TextBox {
 
         // add this in case the cursor is rightmost
         text_clone.content[self.cursor_logical_position.1]
-            .push(singularity_ui::ui_element::CharCell::new(' '));
+            .push(sonamu_ui::ui_element::CharCell::new(' '));
 
         // highlight cursor
-        use singularity_ui::color::Color;
+        use sonamu_ui::color::Color;
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].bg =
             Color::LIGHT_YELLOW;
         text_clone.content[self.cursor_logical_position.1][self.cursor_logical_position.0].fg =
@@ -124,12 +124,12 @@ impl TextBox {
         text_clone
     }
 
-    pub fn render(&self) -> singularity_ui::ui_element::UIElement {
-        singularity_ui::ui_element::UIElement::CharGrid(self.render_grid())
+    pub fn render(&self) -> sonamu_ui::ui_element::UIElement {
+        sonamu_ui::ui_element::UIElement::CharGrid(self.render_grid())
     }
 
     pub fn handle_event(&mut self, ui_event: UIEvent) {
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait};
+        use sonamu_ui::ui_event::{KeyModifiers, KeyTrait};
 
         match ui_event {
             // UIEvent::KeyPress(key, KeyModifiers::NONE) if key.raw_code == 108 => {
@@ -195,7 +195,7 @@ impl TextBox {
             {
                 // NOTE: I wish rust will soon implement if let within matches
                 if let Some(c) = key.to_char() {
-                    self.write_character(singularity_ui::ui_element::CharCell::new(c));
+                    self.write_character(sonamu_ui::ui_element::CharCell::new(c));
                 }
             }
             _ => {}

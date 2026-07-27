@@ -2,7 +2,7 @@ use singularity_common::sap::mediator::{
     CacheDisplayCommunicator, ClientInitializer, DisplayContentGetter, NullEventCommunicator,
     SonamuMediator,
 };
-use singularity_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UIElement;
 use std::{
     thread::{self, sleep},
     time::{self, Duration},
@@ -23,7 +23,7 @@ impl ClientInitializer for ReactiveClientInitializer {
                 true
             }
 
-            fn get_display_content(&self) -> singularity_ui::ui_element::UIElement {
+            fn get_display_content(&self) -> sonamu_ui::ui_element::UIElement {
                 UIElement::from(format!("Time: {:?}", time::SystemTime::now()))
             }
         }
@@ -95,7 +95,7 @@ pub fn multi_sequential_run(client_initializers: Vec<Box<dyn ClientInitializer>>
 }
 
 fn main() {
-    // singularity_ui::UIDisplay::run_display(root_element, ui_event_queue, is_running);
+    // sonamu_ui::UIDisplay::run_display(root_element, ui_event_queue, is_running);
 
     multi_sequential_run(vec![
         Box::new(ReactiveClientInitializer),

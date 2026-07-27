@@ -13,9 +13,9 @@
 // use singularity_sar::applet::BasicRunnerHook;
 // use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 // use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
-// use singularity_ui::ui_element::CharCell;
-// use singularity_ui::ui_element::CharGrid;
-// use singularity_ui::{
+// use sonamu_ui::ui_element::CharCell;
+// use sonamu_ui::ui_element::CharGrid;
+// use sonamu_ui::{
 //     color::Color,
 //     ui_element::UIElement,
 //     ui_event::{KeyModifiers, KeyTrait, UIEvent},

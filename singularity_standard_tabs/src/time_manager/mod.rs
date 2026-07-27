@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use singularity_common::{
     ask_query,
-    components::{text_box::TextBox, Component},
+    components::{Component, text_box::TextBox},
     tab::packets::Event,
 };
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     display_units::DisplayArea,
     ui_element::{CharGrid, UIElement},
@@ -144,7 +144,7 @@ impl singularity_common::tab::BasicTab for TimeManager {
     fn render_tab(
         &mut self,
         _manager_handler: &singularity_common::tab::ManagerHandler,
-    ) -> Option<singularity_ui::ui_element::UIElement> {
+    ) -> Option<sonamu_ui::ui_element::UIElement> {
         // render the past blocks
         let blocks = self
             .blocks
@@ -189,7 +189,7 @@ impl singularity_common::tab::BasicTab for TimeManager {
         event: singularity_common::tab::packets::Event,
         _manager_handler: &singularity_common::tab::ManagerHandler,
     ) {
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         if let Event::UIEvent(UIEvent::KeyPress(ref key, KeyModifiers::CTRL)) = event {
             if key.to_char() == Some('s') {
                 self.save_to_file();

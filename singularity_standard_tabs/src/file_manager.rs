@@ -1,6 +1,6 @@
 use singularity_common::utils::tree::{
     rooted_tree::RootedTree,
-    tree_node_path::{TraversableTree, TreeNodePath, TREE_TRAVERSE_KEYS},
+    tree_node_path::{TREE_TRAVERSE_KEYS, TraversableTree, TreeNodePath},
 };
 use singularity_macros::EventPacketUnion;
 use singularity_sap::{
@@ -13,7 +13,7 @@ use singularity_sap::{
     universal_stream::universal_client_stream::UniversalClientStream,
 };
 use singularity_sporg::applet_data::{AppletSpawnData, AppletTypeId};
-use singularity_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UIElement;
 use std::{io::Stdout, path::PathBuf};
 
 #[derive(EventPacketUnion)]
@@ -93,7 +93,7 @@ impl FileManager {
     }
 
     pub fn render_tab(&self) -> UIElement {
-        use singularity_ui::{
+        use sonamu_ui::{
             color::Color,
             ui_element::{CharCell, CharGrid, UIElement},
         };
@@ -136,7 +136,7 @@ impl FileManager {
         event: DisplayEvent,
         client_stream: &mut UniversalClientStream<impl ByteStream, Event>,
     ) {
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             DisplayEvent::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE)

@@ -19,14 +19,12 @@ impl TimerWidget {
             most_recent: Instant::now(),
             button: super::EnclosedComponent::new(
                 super::button::Button::new(
-                    singularity_ui::ui_element::UIElement::CharGrid(
-                        "Toggle Running".to_string().into(),
-                    )
-                    .bordered(singularity_ui::color::Color::LIGHT_GREEN),
+                    sonamu_ui::ui_element::UIElement::CharGrid("Toggle Running".to_string().into())
+                        .bordered(sonamu_ui::color::Color::LIGHT_GREEN),
                 ),
-                singularity_ui::display_units::DisplayArea::from_center_half_size(
-                    singularity_ui::display_units::DisplayCoord::new(0.5.into(), 0.75.into()),
-                    singularity_ui::display_units::DisplaySize::new(0.4.into(), 0.1.into()),
+                sonamu_ui::display_units::DisplayArea::from_center_half_size(
+                    sonamu_ui::display_units::DisplayCoord::new(0.5.into(), 0.75.into()),
+                    sonamu_ui::display_units::DisplaySize::new(0.4.into(), 0.1.into()),
                 ),
             ),
         }
@@ -60,34 +58,34 @@ impl TimerWidget {
     }
 }
 impl Component for TimerWidget {
-    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+    fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
         self.tick();
 
         let fg = if self.is_done() {
-            singularity_ui::color::Color::LIGHT_GREEN
+            sonamu_ui::color::Color::LIGHT_GREEN
         } else if self.running {
-            singularity_ui::color::Color::WHITE
+            sonamu_ui::color::Color::WHITE
         } else {
-            singularity_ui::color::Color::ORANGE
+            sonamu_ui::color::Color::ORANGE
         };
 
-        let elapsed = singularity_ui::ui_element::CharGrid::new_monostyled(
+        let elapsed = sonamu_ui::ui_element::CharGrid::new_monostyled(
             format!("{:.2?}", self.timer.elapsed),
             fg,
-            singularity_ui::color::Color::BLACK,
+            sonamu_ui::color::Color::BLACK,
         );
 
-        singularity_ui::ui_element::UIElement::Container(vec![
-            singularity_ui::ui_element::UIElement::CharGrid(elapsed)
-                .fill_bg(singularity_ui::color::Color::BLACK)
-                .bordered(singularity_ui::color::Color::LIGHT_GREEN),
+        sonamu_ui::ui_element::UIElement::Container(vec![
+            sonamu_ui::ui_element::UIElement::CharGrid(elapsed)
+                .fill_bg(sonamu_ui::color::Color::BLACK)
+                .bordered(sonamu_uior::Color::LIGHT_GREEN),
             self.button.render(),
         ])
     }
 
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
-        use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+        use sonamu_uievent::{KeyModifiers, KeyTrait, UIEvent};
         match event {
             Event::UIEvent(ui_event) => match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::NONE) if key.to_char() == Some(' ') => {

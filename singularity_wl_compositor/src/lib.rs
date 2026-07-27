@@ -3,7 +3,6 @@ use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
     recursive_node_applet::RecursiveNodeApplet,
 };
-use singularity_ui::ui_event::{Key, UIEvent};
 use smithay::{
     backend::{
         input::Keycode,
@@ -38,6 +37,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
+use sonamu_ui::ui_event::{Key, UIEvent};
 use std::{
     env::set_var,
     ffi::{OsStr, OsString},
@@ -359,7 +359,7 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            singularity_ui::ui_event::UIEvent::KeyPress(key, _key_modifiers) => {
+            sonamu_ui::ui_event::UIEvent::KeyPress(key, _key_modifiers) => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,
@@ -387,8 +387,8 @@ impl WaylandCompositor {
                     );
                 }
             }
-            singularity_ui::ui_event::UIEvent::WindowResized(_) => {}
-            singularity_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
+            sonamu_ui::ui_event::UIEvent::WindowResized(_) => {}
+            sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO: handle keypress in wayland applet");
             }
         }

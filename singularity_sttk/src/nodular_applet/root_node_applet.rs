@@ -3,7 +3,7 @@ use crate::nodular_applet::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
     ui_element::UIElement,
@@ -29,7 +29,7 @@ impl RootNodeApplet {
             applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
         }
         impl BasicRunnerHook for InnerHook {
-            // fn update_display(&self, display: &singularity_ui::ui_element::UIElement) {
+            // fn update_display(&self, display: &sonamu_ui::ui_element::UIElement) {
             //     self.outer_hook.update_display(display);
             // }
 
@@ -43,7 +43,7 @@ impl RootNodeApplet {
             }
         }
         impl NodularRunnerHook for InnerHook {
-            // fn update_treeview(&self, _treeview: &singularity_ui::ui_element::UIElement) {}
+            // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
 
             fn add_child(&self, _initializer: super::NodularAppletInitializer) {
                 todo!()
@@ -130,7 +130,7 @@ impl RootNodeApplet {
     }
 }
 impl BasicApplet for RootNodeApplet {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         self.applet.handle_ui_event(ui_event);
     }
 
@@ -163,7 +163,7 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
             outer_hook: Box<dyn BasicRunnerHook>,
         }
         impl BasicRunnerHook for InnerHook {
-            // fn update_display(&self, display: &singularity_ui::ui_element::UIElement) {
+            // fn update_display(&self, display: &sonamu_ui::ui_element::UIElement) {
             //     self.outer_hook.update_display(display);
             // }
 
@@ -176,7 +176,7 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
             }
         }
         impl NodularRunnerHook for InnerHook {
-            // fn update_treeview(&self, _treeview: &singularity_ui::ui_element::UIElement) {}
+            // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
 
             fn add_child(&self, _initializer: Box<super::NodularAppletInitializer>) {}
 
@@ -205,7 +205,7 @@ impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
     }
 }
 impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet> {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         self.inner_applet.handle_ui_event(ui_event);
     }
 

@@ -3,8 +3,8 @@
 //! tracks the initial implementation of this.
 
 use crate::sync::EncapsulatedLock;
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
-use std::sync::{Arc, atomic::AtomicBool, mpsc};
+use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
+use std::sync::{atomic::AtomicBool, mpsc, Arc};
 
 /// ~~Made by server with default impls,
 /// given to client initializer which can use and modify the mediator.~~

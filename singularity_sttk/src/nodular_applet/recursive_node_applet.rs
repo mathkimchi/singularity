@@ -11,7 +11,7 @@ use singularity_common::{
     },
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{
+use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,
     ui_event::{KeyModifiers, KeyTrait, UIEvent},

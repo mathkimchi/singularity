@@ -6,7 +6,7 @@ use singularity_common::utils::tree::world_tree::{
     WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
 };
 use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
+use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
 
 pub mod caching_applet;
 pub mod recursive_node_applet;
@@ -26,7 +26,7 @@ pub mod root_node_applet;
 //         todo!()
 //     }
 
-//     fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+//     fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
 //         todo!()
 //     }
 // }
@@ -48,7 +48,7 @@ pub trait NodularApplet: BasicApplet {
 }
 // TODO: look into Box::downcast
 impl BasicApplet for Box<dyn NodularApplet> {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         // REVIEW: I don't know what ** does
         (**self).handle_ui_event(ui_event);
     }

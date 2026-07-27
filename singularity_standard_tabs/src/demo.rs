@@ -1,14 +1,14 @@
 #![cfg(test)]
 
 use singularity_common::{
-    components::{button::Button, remap_event, text_box::TextBox, Component},
+    components::{Component, button::Button, remap_event, text_box::TextBox},
     tab::packets::Event,
     utils::tree::{
         rooted_tree::RootedTree,
         tree_node_path::{TraversableTree, TreeNodePath},
     },
 };
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayCoord, DisplaySize},
     ui_element::{CharGrid, UIElement},
@@ -52,11 +52,11 @@ impl Test {
     }
 }
 impl Component for Test {
-    fn render(&mut self) -> singularity_ui::ui_element::UIElement {
-        singularity_ui::ui_element::UIElement::Container(vec![
+    fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
+        sonamu_ui::ui_element::UIElement::Container(vec![
             self.button1.render().contain(Self::BUTTON1_AREA),
             self.button2.render().contain(Self::BUTTON2_AREA),
-            singularity_ui::ui_element::UIElement::Container(
+            sonamu_ui::ui_element::UIElement::Container(
                 self.tree
                     .collect_paths_dfs()
                     .iter()
@@ -122,19 +122,19 @@ impl Component for Test {
 
 #[test]
 pub fn run_test() {
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::sync::{Arc, atomic::AtomicBool};
 
     let mut test_widget = Test {
         focus: Focus::Button1,
         button1: Button::new(
-            singularity_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
+            sonamu_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
                 "button1".to_string(),
                 Color::WHITE,
                 Color::BLACK,
             )), // .bordered(Color::LIGHT_GREEN),
         ),
         button2: Button::new(
-            singularity_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
+            sonamu_ui::ui_element::UIElement::CharGrid(CharGrid::new_monostyled(
                 "button1".to_string(),
                 Color::WHITE,
                 Color::BLACK,
@@ -152,16 +152,12 @@ pub fn run_test() {
     let ui_event_queue_clone = ui_event_queue.clone();
     let is_running_clone = is_running.clone();
     let ui_thread_handle = std::thread::spawn(move || {
-        singularity_ui::UIDisplay::run_display(
-            root_element,
-            ui_event_queue_clone,
-            is_running_clone,
-        );
+        sonamu_ui::UIDisplay::run_display(root_element, ui_event_queue_clone, is_running_clone);
     });
 
     while is_running.load(std::sync::atomic::Ordering::Relaxed) {
         for ui_event in std::mem::take(&mut *(ui_event_queue.lock().unwrap())) {
-            use singularity_ui::ui_event::{KeyModifiers, UIEvent};
+            use sonamu_ui::ui_event::{KeyModifiers, UIEvent};
             match ui_event {
                 UIEvent::KeyPress(key, KeyModifiers::CTRL) if key.raw_code == 16 => {
                     // Ctrl+Q
@@ -176,7 +172,7 @@ pub fn run_test() {
                 UIEvent::WindowResized(_) => {}
                 UIEvent::MousePress([[click_x, click_y], [tot_width, tot_height]], container) => {
                     test_widget.handle_event(singularity_common::tab::packets::Event::UIEvent(
-                        singularity_ui::ui_event::UIEvent::MousePress(
+                        sonamu_ui::ui_event::UIEvent::MousePress(
                             [[click_x, click_y], [tot_width, tot_height]],
                             container,
                         ),

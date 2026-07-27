@@ -1,4 +1,4 @@
-use singularity_ui::{
+use sonamu_ui::{
     display_units::DisplayContainerSize, layout_builder::LayoutBuilder, ui_element::UIElement,
     ui_event::UIEvent,
 };

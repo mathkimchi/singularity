@@ -38,7 +38,7 @@
 //     //             tab_type: "TASK_ORGANIZER".to_string(),
 //     //             session_data: serde_json::to_value("../examples/root-project").unwrap(),
 //     //         },
-//     //         singularity_ui::display_units::DisplayArea::new((0.5, 0.), (1.0, 1.)),
+//     //         sonamu_ui::display_units::DisplayArea::new((0.5, 0.), (1.0, 1.)),
 //     //     ),
 //     //     &manager
 //     //         .tabs

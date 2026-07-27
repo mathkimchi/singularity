@@ -6,7 +6,7 @@
 //     },
 // };
 // use singularity_sttk::{ratk::ReactiveApplet, register_applet};
-// use singularity_ui::ui_event::UIEvent;
+// use sonamu_ui::ui_event::UIEvent;
 
 // pub struct MathGameApplet {
 //     terms: [u8; 2],

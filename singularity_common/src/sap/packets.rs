@@ -1,5 +1,5 @@
 use crate::Todo;
-use singularity_ui::ui_event::UIEvent;
+use sonamu_ui::ui_event::UIEvent;
 
 pub enum StandardRequest {}
 

@@ -1,5 +1,5 @@
 use crate::applet::{BasicApplet, BasicRunnerHook};
-use singularity_ui::{
+use sonamu_ui::{
     UIDisplay,
     display_units::DisplayContainerSize,
     ui_element::UIElement,

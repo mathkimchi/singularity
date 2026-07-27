@@ -1,5 +1,5 @@
 use singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation;
-use singularity_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
 
 use crate::{
     command_hub::CommandHubApplet,

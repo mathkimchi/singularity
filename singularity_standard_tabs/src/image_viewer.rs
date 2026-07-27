@@ -7,8 +7,8 @@ use singularity_sttk::nodular_applet::{
 };
 use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
-use singularity_ui::display_units::DisplayContainerSize;
-use singularity_ui::{ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::display_units::DisplayContainerSize;
+use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
 use std::path::PathBuf;
 
 pub struct ImageViewerApplet {

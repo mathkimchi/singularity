@@ -7,7 +7,7 @@ use singularity_sttk::{
         recursive_node_applet::RecursiveNodeApplet,
     },
 };
-use singularity_ui::{
+use sonamu_ui::{
     ui_element::CharGrid,
     ui_event::{KeyTrait, UIEvent},
 };
@@ -43,7 +43,7 @@ impl OneCharRenderTestApplet {
     }
 }
 impl BasicApplet for OneCharRenderTestApplet {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         if let UIEvent::KeyPress(key, _) = ui_event
             && let Some(c) = key.to_char()
         {
@@ -55,8 +55,8 @@ impl BasicApplet for OneCharRenderTestApplet {
 
     fn get_window(
         &self,
-        _container_size: singularity_ui::display_units::DisplayContainerSize,
-    ) -> singularity_ui::ui_element::UIElement {
+        _container_size: sonamu_ui::display_units::DisplayContainerSize,
+    ) -> sonamu_ui::ui_element::UIElement {
         CharGrid::from(self.0.to_string().as_str()).element()
     }
 }

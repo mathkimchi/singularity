@@ -1,5 +1,5 @@
 use super::Component;
-use singularity_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UIElement;
 
 /// TODO: make button's `was_clicked` feature a macro so it is more flexible
 pub struct Button {
@@ -31,7 +31,7 @@ impl Component for Button {
 
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
-        use singularity_ui::ui_event::UIEvent;
+        use sonamu_ui::ui_event::UIEvent;
         match event {
             Event::UIEvent(ui_event) => {
                 if let UIEvent::MousePress(..) = ui_event {
@@ -71,7 +71,7 @@ impl Component for ToggleButton {
 
     fn handle_event(&mut self, event: crate::tab::packets::Event) {
         use crate::tab::packets::Event;
-        use singularity_ui::ui_event::UIEvent;
+        use sonamu_ui::ui_event::UIEvent;
         match event {
             Event::UIEvent(ui_event) => {
                 if let UIEvent::MousePress(..) = ui_event {

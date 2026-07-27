@@ -3,7 +3,7 @@ use singularity_common::utils::tree::{
     id_tree::IdTree,
     tree_node_path::{TREE_TRAVERSE_KEYS, TreeNodePath, TreeTraverseOperation},
 };
-use singularity_ui::{
+use sonamu_ui::{
     display_units::DisplayArea,
     ui_event::{Key, KeyModifiers, KeyTrait, UIEvent},
 };

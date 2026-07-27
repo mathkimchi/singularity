@@ -1,5 +1,5 @@
 use singularity_sporg::applet_data::{AppletSpawnMethod, AppletTypeId};
-use singularity_ui::{display_units::DisplayArea, ui_element::UIElement};
+use sonamu_ui::{display_units::DisplayArea, ui_element::UIElement};
 
 /// Represents Applet on the server side.
 pub struct AppletHandler {

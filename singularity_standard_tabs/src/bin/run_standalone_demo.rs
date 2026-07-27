@@ -6,7 +6,7 @@
 //     runner::AppletRunner,
 // };
 // use singularity_sttk::components::text_box::TextBox;
-// use singularity_ui::{
+// use sonamu_ui::{
 //     color::Color,
 //     display_units::DisplayContainerSize,
 //     ui_element::UIElement,

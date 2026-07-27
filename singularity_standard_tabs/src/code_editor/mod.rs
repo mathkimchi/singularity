@@ -8,7 +8,7 @@ use singularity_sttk::{
     },
     standard_keybinds::handle_standard_keybinds,
 };
-use singularity_ui::{
+use sonamu_ui::{
     color::Color,
     ui_element::{CharCellStyle, CharGrid},
     ui_event::{Key, KeyModifiers},
@@ -249,21 +249,21 @@ impl CodeEditorApplet {
     }
 }
 impl BasicApplet for CodeEditorApplet {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         if handle_standard_keybinds(&ui_event, &self.hook) {
             return;
         }
 
         match ui_event {
-            singularity_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
+            sonamu_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
                 self.handle_keypress(key, key_modifiers);
             }
-            singularity_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
+            sonamu_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
                 let (_width, height) = CharGrid::largest_fittable_size(display_container_size);
 
                 self.view_offset.most_recent_num_rows = Some(height);
             }
-            singularity_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
+            sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO");
             }
         }
@@ -273,8 +273,8 @@ impl BasicApplet for CodeEditorApplet {
 
     fn get_window(
         &self,
-        container_size: singularity_ui::display_units::DisplayContainerSize,
-    ) -> singularity_ui::ui_element::UIElement {
+        container_size: sonamu_ui::display_units::DisplayContainerSize,
+    ) -> sonamu_ui::ui_element::UIElement {
         let (width, height) = CharGrid::largest_fittable_size(container_size);
 
         // let line_idx = self.buffer.char_to_line(self.cursor);

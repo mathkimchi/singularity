@@ -8,7 +8,7 @@ use singularity_common::utils::{
     id_map::{Id, IdMap},
     tree::id_tree::IdTree,
 };
-use singularity_ui::display_units::DisplayArea;
+use sonamu_ui::display_units::DisplayArea;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]

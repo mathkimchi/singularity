@@ -10,9 +10,9 @@ use singularity_sttk::{
     components::text_box::TextBox,
     nodular_applet::{NodularApplet, NodularRunnerHook},
 };
-use singularity_ui::display_units::DisplayContainerSize;
-use singularity_ui::ui_event::{KeyModifiers, KeyTrait as _};
-use singularity_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::display_units::DisplayContainerSize;
+use sonamu_ui::ui_event::{KeyModifiers, KeyTrait as _};
+use sonamu_ui::{color::Color, ui_element::UIElement, ui_event::UIEvent};
 use std::path::PathBuf;
 
 /// Currently Just treats everything like plaintext.
@@ -178,7 +178,7 @@ use singularity_sap::{
     universal_stream::universal_client_stream::UniversalClientStream,
 };
 use singularity_sttk::components::text_box::TextBox;
-use singularity_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
+use sonamu_ui::{color::Color, ui_element::UIElement, ui_event::KeyModifiers};
 use std::{io::Stdout, path::PathBuf};
 
 #[derive(EventPacketUnion)]
@@ -286,7 +286,7 @@ impl Editor {
     pub fn handle_tab_event(&mut self, event: DisplayEvent) {
         match event {
             DisplayEvent::UIEvent(ref ui_event) => match ui_event {
-                singularity_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)
+                sonamu_ui::ui_event::UIEvent::KeyPress(key, KeyModifiers::CTRL)
                     if key.raw_code == 31 =>
                 {
                     self.save_to_file();

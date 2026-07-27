@@ -12,7 +12,7 @@
 //     session::Session,
 //     tile::{Orientation, Tile},
 // };
-// use singularity_ui::{
+// use sonamu_ui::{
 //     UIDisplay,
 //     color::Color,
 //     display_units::{DisplayArea, DisplayCoord, DisplaySize},
@@ -537,7 +537,7 @@
 //                         [tot_width as i32, tot_height as i32],
 //                     ) {
 //                         focused_tab.send_event(SDEEvent::DisplayEvent(DisplayEvent::UIEvent(
-//                             singularity_ui::ui_event::UIEvent::MousePress(
+//                             sonamu_ui::ui_event::UIEvent::MousePress(
 //                                 [[click_x, click_y], [tot_width, tot_height]],
 //                                 focused_tab.get_area().map_onto(container),
 //                             ),

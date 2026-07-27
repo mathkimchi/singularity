@@ -1,6 +1,6 @@
 // use super::Component;
 // use crate::utils::tree::tree_node_path::{TraversableTree, TreeNodePath};
-// use singularity_ui::{
+// use sonamu_ui::{
 //     display_units::{DisplayArea, DisplayCoord, DisplaySize},
 //     ui_element::UIElement,
 // };
@@ -26,7 +26,7 @@
 // where
 //     Self: Send,
 // {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_uielement::UIElement {
 //         UIElement::Container(
 //             self.tree
 //                 .iter_paths_dfs()

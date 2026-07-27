@@ -4,10 +4,10 @@ use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
     nodular_applet::NodularApplet, standard_keybinds::handle_standard_keybinds,
 };
-use singularity_ui::display_units::DisplayContainerSize;
+use sonamu_ui::display_units::DisplayContainerSize;
 
 impl BasicApplet for WaylandApplet {
-    fn handle_ui_event(&mut self, ui_event: singularity_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
         if handle_standard_keybinds(&ui_event, &self.hook) {
             return;
         }
@@ -21,13 +21,13 @@ impl BasicApplet for WaylandApplet {
     fn get_window(
         &self,
         _container_size: DisplayContainerSize,
-    ) -> singularity_ui::ui_element::UIElement {
+    ) -> sonamu_ui::ui_element::UIElement {
         if let Ok(image) = self.image.lock()
             && let Some(ref image) = *image
         {
-            singularity_ui::ui_element::UIElement::Image(image.clone())
+            sonamu_ui::ui_element::UIElement::Image(image.clone())
         } else {
-            singularity_ui::ui_element::UIElement::from("Wayland app loading...".to_string())
+            sonamu_ui::ui_element::UIElement::from("Wayland app loading...".to_string())
         }
     }
 }

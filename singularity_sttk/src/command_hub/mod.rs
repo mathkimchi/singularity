@@ -9,7 +9,7 @@ use crate::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use singularity_sar::applet::BasicApplet;
-use singularity_ui::{
+use sonamu_ui::{
     color::Color, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
 };
 use std::fmt::Write as _;
@@ -183,11 +183,11 @@ impl BasicApplet for CommandHubApplet {
 
         if let UIEvent::KeyPress(key, _) = &ui_event {
             match key {
-                singularity_ui::ui_event::Key::Enter => self.handle_enter(),
-                singularity_ui::ui_event::Key::Backspace => {
+                sonamu_ui::ui_event::Key::Enter => self.handle_enter(),
+                sonamu_ui::ui_event::Key::Backspace => {
                     self.current_prompt.pop();
                 }
-                singularity_ui::ui_event::Key::Char(key_char) => {
+                sonamu_ui::ui_event::Key::Char(key_char) => {
                     self.current_prompt.push(*key_char);
                 }
                 _ => {}

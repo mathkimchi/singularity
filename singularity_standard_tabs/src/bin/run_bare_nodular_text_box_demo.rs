@@ -9,8 +9,8 @@
 //     components::text_box::TextBox,
 //     nodular_applet::{NodularApplet, NodularRunnerHook},
 // };
-// use singularity_ui::display_units::DisplayContainerSize;
-// use singularity_ui::{
+// use sonamu_ui::display_units::DisplayContainerSize;
+// use sonamu_ui::{
 //     color::Color,
 //     ui_element::UIElement,
 //     ui_event::{KeyModifiers, KeyTrait, UIEvent},

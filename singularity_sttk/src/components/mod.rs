@@ -1,6 +1,6 @@
 //! NOTE: Widget kind of just means it is more complicated than a bare bones component
 
-// use singularity_ui::ui_element::UIElement;
+// use sonamu_ui::ui_element::UIElement;
 
 // pub mod button;
 // TODO: do re-implement textbox with ropey; actually, just copy over most of code editor into text_box
@@ -9,7 +9,7 @@
 // pub mod tree_viewer;
 
 // pub trait Component: Send {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement;
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement;
 
 //     fn handle_event(&mut self, event: crate::tab::packets::Event);
 // }
@@ -20,13 +20,13 @@
 // /// TODO: remove me
 // #[deprecated = "use `event.remap(area)` instead"]
 // pub fn remap_event(
-//     area: singularity_ui::display_units::DisplayArea,
+//     area: sonamu_ui::display_units::DisplayArea,
 //     event: crate::tab::packets::Event,
 // ) -> Option<crate::tab::packets::Event> {
 //     use crate::tab::packets::Event;
-//     use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
+//     use sonamu_ui::{display_units::DisplayCoord, ui_event::UIEvent};
 
-//     if let Event::UIEvent(singularity_ui::ui_event::UIEvent::MousePress(
+//     if let Event::UIEvent(sonamu_ui::ui_event::UIEvent::MousePress(
 //         [[click_x, click_y], [tot_width, tot_height]],
 //         container,
 //     )) = event
@@ -51,13 +51,13 @@
 // /// REVIEW: is this a good idea? (feels kind of bulky to have everything like `EnclosedComponent<InnerComponent>`)
 // /// REVIEW: does enclosed component even need to exist?
 // pub struct EnclosedComponent<InnerComponent: Component + ?Sized> {
-//     pub area: singularity_ui::display_units::DisplayArea,
+//     pub area: sonamu_ui::display_units::DisplayArea,
 //     pub inner_component: InnerComponent,
 // }
 // impl<InnerComponent: Component> EnclosedComponent<InnerComponent> {
 //     pub fn new(
 //         inner_component: InnerComponent,
-//         area: singularity_ui::display_units::DisplayArea,
+//         area: sonamu_ui::display_units::DisplayArea,
 //     ) -> Self {
 //         Self {
 //             area,
@@ -70,13 +70,13 @@
 //     /// REVIEW: Does this belong in enclosed component?
 //     /// REVIEW: does enclosed component even need to exist?
 //     pub fn remap_event(
-//         area: singularity_ui::display_units::DisplayArea,
+//         area: sonamu_ui::display_units::DisplayArea,
 //         event: crate::tab::packets::Event,
 //     ) -> Option<crate::tab::packets::Event> {
 //         use crate::tab::packets::Event;
-//         use singularity_ui::{display_units::DisplayCoord, ui_event::UIEvent};
+//         use sonamu_ui::{display_units::DisplayCoord, ui_event::UIEvent};
 
-//         if let Event::UIEvent(singularity_ui::ui_event::UIEvent::MousePress(
+//         if let Event::UIEvent(sonamu_ui::ui_event::UIEvent::MousePress(
 //             [[click_x, click_y], [tot_width, tot_height]],
 //             container,
 //         )) = event
@@ -98,7 +98,7 @@
 //     }
 // }
 // impl<InnerComponent: Component> Component for EnclosedComponent<InnerComponent> {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
 //         self.inner_component.render().contain(self.area)
 //     }
 
@@ -111,7 +111,7 @@
 // }
 
 // impl<T: Component> Component for Option<T> {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
 //         self.as_mut().map(|inner| inner.render()).into()
 //     }
 
@@ -122,7 +122,7 @@
 //     }
 // }
 // impl<T: Component> Component for Box<T> {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
 //         T::render(self)
 //     }
 
@@ -131,7 +131,7 @@
 //     }
 // }
 // impl<T: Component> Component for std::sync::Arc<std::sync::Mutex<T>> {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
 //         T::render(self.lock().as_mut().unwrap())
 //     }
 
@@ -141,7 +141,7 @@
 // }
 
 // impl Component for UIElement {
-//     fn render(&mut self) -> singularity_ui::ui_element::UIElement {
+//     fn render(&mut self) -> sonamu_ui::ui_element::UIElement {
 //         self.clone()
 //     }
 
