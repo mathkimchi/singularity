@@ -8988,3 +8988,48 @@ I am going to commit this now,
 and next I'll just kinda start a whole new sync primitive for the edge and node system
 because I just thought of a nice implementation for it,
 and I want to feel productive.
+
+2026-07-27 (later)
+
+Wrote that sync primitive: `sonamu_sync::node_edge`.
+(This entry is a design note, not stream-of-consciousness, so rewrite it in your own voice if you want.)
+
+The rule that makes it work: **a node's lock and its edges' locks are different locks**,
+and the node's own lock guards nothing but a counter of how many times peers have poked it.
+
+- `Node` = a thread. `node_a.connect_to(&node_b, shared)` makes an edge and hands back
+  `(a's end, b's end)`. Writing through an end wakes the node at the *other* end,
+  so the two ends are not interchangeable and you can not accidentally notify yourself.
+- `node.watch()` snapshots the poke counter. You take it **before** looking at your edges
+  and hand it to `node.wait(watch)` **after**. If anything poked you in between, `wait`
+  refuses to sleep. That is the whole fix for the missed-update problem:
+  the check and the sleep are one step, because the check happens under the node lock
+  and a poker has to take that same lock to bump the counter.
+- Counter instead of a bool because a bool has to be cleared, and clearing it after
+  handling throws away pokes that arrived *during* the handling.
+- `node.run(|| ... ControlFlow)` is that loop written correctly once, so I do not have to
+  re-derive it at every call site.
+- Notifying is automatic: `EdgeGuard`'s `DerefMut` marks the edge dirty and the peer gets
+  poked when the guard drops (after the edge is unlocked, so it does not wake up just to
+  block). No more "I forgot to notify the condvar on keypress".
+  `guard.quiet_mut()` is the opt-out, for when I am *consuming* rather than producing
+  (draining my own inbox) -- that is what stops two nodes from notifying each other forever.
+- One condvar per *node*, not one shared by everything, which was the other thing I
+  wanted to fix.
+
+Why it can not deadlock: a node lock is a **leaf** (nothing is ever locked while one is
+held, and waiting releases it), so the new locks can not be part of a cycle. The edge locks
+are the same as before: one at a time, and the graph is a tree.
+Falling asleep while holding an edge would wedge the peer forever, so `wait` panics
+instead of hanging (thread-local guard count).
+
+`cargo run -p sonamu_sync --example tree` runs the ui/runner/applet shape,
+where the runner is a middle node with two edges. That is the topology `singularity_sar`
+needs, so migrating `runner.rs` off `SharedData` should mostly be mechanical:
+one `Node` per thread, `UIState` and `RootAppletState` become the two edges,
+`lock_state()` becomes `end.lock()`, `notify()` disappears, and the main loop body
+becomes the closure passed to `run`.
+
+The tests in `sonamu_sync/tests/node_edge.rs` are all written so a lost update shows up
+as a hang (each one runs behind a deadline). Checked they actually catch it by breaking
+`wait` on purpose to ignore the watch: 5 of the 12 fail, which is what I wanted to see.
