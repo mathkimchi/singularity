@@ -9034,3 +9034,49 @@ Don't worry about missing notifications either because we already know that ther
 I just realized the language of the setup (nodes and edges) of this is somewhat similar to the dining philosophers problem,
 but the problem we are trying to solve (no missed notifs vs no deadlock for dining philosphers)
 is very different.
+
+2026-07-28 12:31AM
+
+Bro @Logan-Huang's claude came up with a solution to this with an update counter.
+I didn't read the whole thing, but the solution is pretty obvious once you get the concept of the update counter.
+
+A node's mutex lock holds an update counter.
+The node thread should hold a num_updates_processed,
+and the condition for the condvar can now be whenever the update counter doesn't match the num_updates_processed.
+We can now be very liberal with our wakeups.
+Specifically, whenever an edge's lock is dropped, we can notify the other node.
+(Previously, this would've caused nodes to just infinitely wake each other up when there was no wakeups.)
+This deals with the deadlock problem between two neighbors,
+because the neighbor who doesn't immediately get the lock can just
+drop everything and restart.
+(You can't just have it wait on the edge lock while holding the locks it currently has,
+because the other node might need to update this node's update counter.)
+
+We also avoid the missed update problem because to update a node,
+you need to update its node counter so that node's thread must be sleeping.
+
+Booyah!
+
+I'm going to just commit the devlog and give @Logan-Huang the code file for the solution that I wrote.
+I still want to avoid fully AI generated code,
+but I still want to let Logan contribute.
+
+...
+
+Wait, I was coding, and I just realized:
+why can't I just make this a boolean?
+
+I'm pretty sure I absolutely can.
+The logic is pretty similar, it's 12:40AM so I won't explain it.
+
+...
+
+2026-07-28 01:15AM
+
+Wham!
+I'm oily as heck bc I didn't shower and I had just cooked beef for lunch
+(no carbs or fruits or veggies or seasoning),
+but I did it!
+
+I'm going to commit this DEVLOG and send the file to Logang.
+I haven't tested it yet, but honestly, I'll blame it on having to send this to logan.
