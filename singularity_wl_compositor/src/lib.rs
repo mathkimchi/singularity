@@ -72,8 +72,6 @@ struct WaylandCompositor {
     // I think it might be more efficient to share the seat
     // but this is easier for me to implement
     input_queue: mpsc::Receiver<UIEvent>,
-    // // Singularity stuff
-    // hook: Box<dyn NodularRunnerHook>,
 }
 impl WaylandCompositor {
     /// Creates and runs
@@ -101,11 +99,7 @@ impl WaylandCompositor {
         };
 
         unsafe {
-            // set_var("WAYLAND_DISPLAY", &state.socket_name);
             set_var("WAYLAND_DISPLAY", format!("wayland-{listener_count}"));
-            // // Firefox just spawns in normal compositor with this unset
-            // // Whoop dee doo, it still doesn't work
-            // set_var("MOZ_ENABLE_WAYLAND", "1");
         }
         // TODO
         std::process::Command::new(program)
@@ -116,58 +110,14 @@ impl WaylandCompositor {
 
         let mut renderer = PixmanRenderer::new().unwrap();
         let mut image = pixman::Image::new(pixman::FormatCode::R8G8B8A8, 800, 600, false).unwrap();
-        // let mut target = renderer.bind(&mut image).unwrap();
-
-        // event_loop
-        //     .run(None, &mut state, |state| {
-        //         dbg!(state.surface.is_none());
-
-        //         if let Some(surface) = &state.surface {
-        //             // main_client.get_data();
-        //             // state.display_handle.get_client(ObjectId:: main_client);
-        //             // let elements: Vec<WaylandSurfaceRenderElement<_>> =
-        //             //     render_elements_from_surface_tree(
-        //             //         &mut renderer,
-        //             //         surface,
-        //             //         (0, 0),
-        //             //         1.0,
-        //             //         1.0,
-        //             //         smithay::backend::renderer::element::Kind::Unspecified,
-        //             //     );
-
-        //             with_states(surface, |states| {
-        //                 let mut binding = states.cached_state.get::<SurfaceAttributes>();
-        //                 let buffer = binding.current().buffer.as_ref().unwrap();
-
-        //                 // renderer.import_shm_buffer(buffer, Some(surface.data().unwrap()), &[])
-
-        //                 if let BufferAssignment::NewBuffer(buffer) = buffer {
-        //                     with_buffer_contents(buffer, |ptr, len, data| {
-        //                         let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
-
-        //                         print!("Slice: {:?}", slice);
-        //                     })
-        //                     .unwrap();
-        //                 }
-        //             });
-        //         }
-        //     })
-        //     .unwrap();
 
         loop {
-            // for ui_event in state.input_queue.try_iter().collect::<Vec<_>>() {
-            //     state.process_ui_event(ui_event);
-            // }
-            // more idiomatic implementation than the above, which also allocates new memory in the collect
             while let Ok(ui_event) = state.input_queue.try_recv() {
                 state.process_ui_event(ui_event);
             }
 
             let mut target = renderer.bind(&mut image).unwrap();
 
-            // // let size: Size<usize, smithay::utils::Physical> = Size::new(image.width(), image.height());
-            // let size = target.size();
-            // let damage = Rectangle::from_size(size);
             let damage = Rectangle::from_size(Size::new(800, 600));
             {
                 let elements = state
@@ -225,25 +175,11 @@ impl WaylandCompositor {
 
                 let rgba_image = RgbaImage::from_vec(800, 600, raw_image_data).unwrap();
 
-                // rgba_image.save("examples/smithay.png").unwrap();
                 *state.image.lock().unwrap() = Some(rgba_image);
-
-                // save_buffer(
-                //     "examples/smithay.png",
-                //     &raw_image_data,
-                //     800,
-                //     600,
-                //     ColorType::Rgba8,
-                // )
-                // .unwrap();
 
                 // I need this bc if I quit while rendering, it doesn't work
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
-
-            // // It is important that all events on the display have been dispatched and flushed to clients before
-            // // swapping buffers because this operation may block.
-            // backend.submit(Some(&[damage])).unwrap();
         }
     }
 
@@ -261,12 +197,6 @@ impl WaylandCompositor {
         let compositor_state = CompositorState::new::<Self>(&display_handle);
         let xdg_shell_state = XdgShellState::new::<Self>(&display_handle);
         let shm_state = ShmState::new::<Self>(&display_handle, vec![]);
-        // let popups = PopupManager::default();
-
-        // let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&display_handle);
-
-        // // Data device is responsible for clipboard and drag-and-drop
-        // let data_device_state = DataDeviceState::new::<Self>(&dh);
 
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&display_handle, "hello");
@@ -288,9 +218,6 @@ impl WaylandCompositor {
             xdg_shell_state,
             shm_state,
             seat_state,
-            // output_manager_state,
-            // data_device_state: todo!(),
-            // popups,
             seat,
 
             _socket_name: socket_name,
@@ -303,49 +230,13 @@ impl WaylandCompositor {
         }
     }
 
-    fn init_wayland_listener(// display: &mut Display<Self>,
-        // event_loop: &mut EventLoop<Self>,
-    ) -> OsString {
+    fn init_wayland_listener() -> OsString {
         // Creates a new listening socket, automatically choosing the next available `wayland` socket name.
         let listening_socket = ListeningSocketSource::new_auto().unwrap();
 
         // Get the name of the listening socket.
         // Clients will connect to this socket.
-        let socket_name = listening_socket.socket_name().to_os_string();
-
-        // let loop_handle = event_loop.handle();
-
-        // loop_handle
-        //     .insert_source(listening_socket, |client_stream, (), state| {
-        //         let client = state
-        //             .display_handle
-        //             .insert_client(client_stream, Arc::new(ClientState::default()))
-        //             .unwrap();
-
-        //         state.main_client = Some(client);
-
-        //         println!("Got new client");
-        //     })
-        //     .unwrap();
-
-        // loop_handle
-        //     .insert_source(
-        //         Generic::new(
-        //             display,
-        //             Interest::READ,
-        //             smithay::reexports::calloop::Mode::Level,
-        //         ),
-        //         |_, display, state| {
-        //             // Safety: we don't drop the display
-        //             unsafe {
-        //                 display.get_mut().dispatch_clients(state).unwrap();
-        //             }
-        //             Ok(PostAction::Continue)
-        //         },
-        //     )
-        //     .unwrap();
-
-        socket_name
+        listening_socket.socket_name().to_os_string()
     }
 
     /// NOTE: ignores modifiers

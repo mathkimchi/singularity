@@ -53,7 +53,7 @@ impl CommandHubApplet {
             fn create_initializer(
                 &self,
                 args: &[&str],
-            ) -> Option<crate::nodular_applet::NodularAppletInitializer> {
+            ) -> Option<NodularAppletInitializer> {
                 if !args.is_empty() {
                     println!("Warning: command hub doesn't use spawn args.");
                 }
@@ -170,13 +170,6 @@ impl CommandHubApplet {
 }
 impl BasicApplet for CommandHubApplet {
     fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        // println!("{ui_event:?}");
-        // self.hook.update_display(&UIElement::Backgrounded(
-        //     Box::new(UIElement::CharGrid(CharGrid::from(format!("{ui_event:?}")))),
-        //     Color::BLACK,
-        // ));
-        // self.hook.update_display(&UIElement::Text("a".to_string()));
-
         if handle_standard_keybinds(&ui_event, &self.hook) {
             return;
         }
@@ -220,7 +213,7 @@ impl NodularApplet for CommandHubApplet {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         // WorldTreePath::new_empty()
         WorldTreePath::new_into()
     }

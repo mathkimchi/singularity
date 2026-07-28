@@ -81,8 +81,8 @@ impl Session {
     /// Given the project directory, gets the previously closed session (and project settings) if they exist, otherwise starts a new session.
     pub fn get_or_make_session<P>(project_directory: P) -> Self
     where
-        P: AsRef<std::path::Path> + Clone,
-        PathBuf: std::convert::From<P>,
+        P: AsRef<Path> + Clone,
+        PathBuf: From<P>,
     {
         let project = Project::open_or_make(project_directory.clone());
         let session_data = SessionData::try_parse_from_file(

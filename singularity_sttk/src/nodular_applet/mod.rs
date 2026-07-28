@@ -12,25 +12,6 @@ pub mod caching_applet;
 pub mod recursive_node_applet;
 pub mod root_node_applet;
 
-// pub struct RootApplet<Applet: BasicApplet> {
-//     inner: Applet,
-//     children: NodeApplet<Box<dyn BasicApplet>>,
-// }
-// impl<Applet: BasicApplet> BasicApplet for RootApplet<Applet> {
-//     type InitializingData = Applet::InitializingData;
-
-//     fn initialize(
-//         initializing_data: Self::InitializingData,
-//         hook: Box<dyn singularity_sar::applet::RunnerHook>,
-//     ) -> Self {
-//         todo!()
-//     }
-
-//     fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-//         todo!()
-//     }
-// }
-
 pub enum NodularEvent {
     /// More or less means that the selector is over this tab but isn't actually selected
     Highlighted(bool),

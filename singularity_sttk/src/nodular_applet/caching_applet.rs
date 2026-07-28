@@ -107,11 +107,11 @@ impl CachingApplet {
         }
     }
 
-    pub fn immut_handle_ui_event(&self, ui_event: sonamu_ui::ui_event::UIEvent) {
+    pub fn immut_handle_ui_event(&self, ui_event: UIEvent) {
         self.applet.lock().unwrap().handle_ui_event(ui_event);
     }
 
-    pub fn immut_handle_nodular_event(&self, nodular_event: super::NodularEvent) {
+    pub fn immut_handle_nodular_event(&self, nodular_event: NodularEvent) {
         self.applet
             .lock()
             .unwrap()
@@ -174,12 +174,12 @@ impl BasicApplet for CachingApplet {
         self.window.get()
     }
 
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: UIEvent) {
         self.immut_handle_ui_event(ui_event);
     }
 }
 impl NodularApplet for CachingApplet {
-    fn handle_nodular_event(&mut self, nodular_event: super::NodularEvent) {
+    fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
         self.immut_handle_nodular_event(nodular_event);
     }
 
@@ -196,7 +196,7 @@ impl NodularApplet for CachingApplet {
     }
 
     /// TODO: cache this
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         self.applet.lock().unwrap().get_focus_path()
     }
 }

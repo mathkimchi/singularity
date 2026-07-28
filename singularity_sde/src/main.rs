@@ -1,22 +1,3 @@
-// pub mod packets;
-// pub mod project_manager;
-// pub mod tab;
-
-// /// this should be run from cli
-// fn main() -> Result<(), std::io::Error> {
-//     // let args: Vec<String> = std::env::args().collect();
-
-//     // let project_manager = project_manager::ProjectManager::new(
-//     //     args.get(1)
-//     //         .unwrap_or(&"examples/root-project".to_string())
-//     //         .clone(),
-//     // );
-
-//     // project_manager.run()
-
-//     Ok(())
-// }
-
 use singularity_sar::runner::AppletRunner;
 use singularity_standard_tabs::{
     code_editor::CodeEditorApplet, image_viewer::ImageViewerApplet,
@@ -42,10 +23,6 @@ fn main() {
                 "command_hub".to_string(),
                 CommandHubApplet::get_applet_spawner(),
             ),
-            // (
-            //     "text_editor".to_string(),
-            //     TextEditorApplet::get_applet_spawner(),
-            // ),
             (
                 "code_editor".to_string(),
                 CodeEditorApplet::get_applet_spawner(),
@@ -65,13 +42,6 @@ fn main() {
 
 fn init_logging() {
     tracing_subscriber::fmt()
-        // .with_max_level(tracing_subscriber::filter::LevelFilter::DEBUG)
         .with_env_filter(EnvFilter::new("warn,singularity=trace"))
         .init();
-
-    // if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
-    //     tracing_subscriber::fmt().with_env_filter(env_filter).init();
-    // } else {
-    //     tracing_subscriber::fmt().init();
-    // }
 }

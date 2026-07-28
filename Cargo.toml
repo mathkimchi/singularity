@@ -1,23 +1,14 @@
 [workspace]
 members = [
-    # "singularity_ui",
-    # "singularity_sap",
-
     "singularity_common",
     "singularity_common/sonamu_ui",
-    "singularity_common/singularity_macros",
 
     "singularity_sporg",
     "singularity_sde",
     "singularity_sttk",
     "singularity_standard_tabs",
-    # "singularity_standard_tabs/*", # TODO: make the asterisk work
-    "singularity_standard_tabs/dylib_math_game",
     "singularity_sar",
     "singularity_wl_compositor",
-
-    # "dynamic_plugin_sandbox/server",
-    # "dynamic_plugin_sandbox/client",
 ]
 resolver = "2"
 
@@ -36,9 +27,6 @@ image = { version = "^0.25" }
 
 sonamu_ui = { path = "./singularity_common/sonamu_ui" }
 sonamu_sync = { path = "./singularity_common/sonamu_sync" }
-
-# [[members]]
-# singularity_ui = { features = ["iced_backend"] }
 
 [workspace.lints.clippy]
 # all = "warn"
@@ -75,6 +63,5 @@ struct_excessive_bools = "allow"
 struct_field_name = "allow"
 must_use_candidate = "allow"                 # having must_use everywhere is getting kinda ugly
 
-# [workspace.lints.rustc]
-[workspace.lint.rustc]
+[workspace.lints.rust]
 unused_qualifications = "warn"

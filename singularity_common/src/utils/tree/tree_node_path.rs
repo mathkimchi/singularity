@@ -33,7 +33,7 @@ pub trait TraversableTree {
 
     fn iter_paths_dfs(&self) -> DfsPathsIterator<'_, Self>
     where
-        Self: std::marker::Sized,
+        Self: Sized,
     {
         DfsPathsIterator {
             tree_to_traverse: self,
@@ -43,7 +43,7 @@ pub trait TraversableTree {
 
     fn collect_paths_dfs(&self) -> Vec<TreeNodePath>
     where
-        Self: std::marker::Sized,
+        Self: Sized,
     {
         self.iter_paths_dfs().collect()
     }

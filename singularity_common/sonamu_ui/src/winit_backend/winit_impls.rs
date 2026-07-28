@@ -71,7 +71,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 event_loop.exit();
                 self.shared_data.notify();
             }
-            // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {
                 self.key_modifiers = modifiers.into();
             }
@@ -88,13 +87,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
 
                 window.request_redraw();
             }
-            // winit::event::WindowEvent::MouseInput {
-            //     device_id,
-            //     state,
-            //     button,
-            // } => {
-            //     println!("TODO: mouse press");
-            // }
+            // TODO: handle WindowEvent::MouseInput (mouse press)
             winit::event::WindowEvent::RedrawRequested => {
                 Self::draw(&mut self.winit_data, &root_element);
             }

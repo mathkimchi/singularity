@@ -192,9 +192,7 @@ impl<T> IdTree<T> {
     }
 
     fn update_parent_connections(&mut self, parent_id: &Id<T>) {
-        dbg!("Hey");
         for child_id in self.get_children(parent_id).clone() {
-            dbg!("Hi");
             self.nodes.get_mut(&child_id).unwrap().parent = Some(*parent_id);
         }
     }
@@ -250,45 +248,8 @@ impl<T> IdTree<T> {
             for id in &ids_to_swap {
                 self.update_parent_connections(id);
             }
-
-            // for id in self.nodes.clone().keys() {
-            //     self.update_parent_connections(id);
-            // }
         }
 
-        // // swap node values
-        // unsafe {
-        //     // using unsafe raw pointers is the only "elegant" way I could think of doing this
-        //     // TODO: like `swap for parents` and `swap parents`, there is actually a better way
-
-        //     // represents pointers to the ids from the parent's perspective
-        //     let node: [*mut Node<T>; 2] =
-        //         ids_to_swap.map(|id| self.nodes.get_mut(&id).unwrap() as *mut Node<T>);
-
-        //     std::ptr::swap(node[0], node[1]);
-        // }
-
-        // // swap for children
-        // for id in ids_to_swap {
-        //     let other_id = ids_to_swap.iter().find(|o| o == &&id).unwrap();
-        //     for child in self.nodes.get(&id).unwrap().children.clone() {
-        //         self.nodes.get_mut(&child).unwrap().parent = Some(*other_id);
-        //     }
-        // }
-
-        // // swap parents
-        // unsafe {
-        //     // using unsafe raw pointers is the only "elegant" way I could think of doing this
-        //     // TODO: like `swap for parents`, there is actually a better way
-
-        //     // represents pointers to the ids from the parent's perspective
-        //     let parents: [*mut Option<Id<T>>; 2] = ids_to_swap
-        //         .map(|id| &mut self.nodes.get_mut(&id).unwrap().parent as *mut Option<Id<T>>);
-
-        //     std::ptr::swap(parents[0], parents[1]);
-        // }
-
-        dbg!(&self);
         self.locally_consistent(ids_to_swap[0]).unwrap();
         self.locally_consistent(ids_to_swap[1]).unwrap();
     }
@@ -456,7 +417,7 @@ mod derive_macro_impls {
         }
     }
     impl<'de, T> serde::Deserialize<'de> for IdTree<T> {
-        fn deserialize<__D>(__deserializer: __D) -> serde::__private228::Result<Self, __D::Error>
+        fn deserialize<__D>(__deserializer: __D) -> Result<Self, __D::Error>
         where
             __D: serde::Deserializer<'de>,
         {
@@ -481,40 +442,40 @@ mod derive_macro_impls {
                 fn visit_u64<__E>(
                     self,
                     __value: u64,
-                ) -> serde::__private228::Result<Self::Value, __E>
+                ) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
                     match __value {
-                        0u64 => serde::__private228::Ok(__Field::__field0),
-                        1u64 => serde::__private228::Ok(__Field::__field1),
-                        _ => serde::__private228::Ok(__Field::__ignore),
+                        0u64 => Ok(__Field::__field0),
+                        1u64 => Ok(__Field::__field1),
+                        _ => Ok(__Field::__ignore),
                     }
                 }
                 fn visit_str<__E>(
                     self,
                     __value: &str,
-                ) -> serde::__private228::Result<Self::Value, __E>
+                ) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
                     match __value {
-                        "root_id" => serde::__private228::Ok(__Field::__field0),
-                        "nodes" => serde::__private228::Ok(__Field::__field1),
-                        _ => serde::__private228::Ok(__Field::__ignore),
+                        "root_id" => Ok(__Field::__field0),
+                        "nodes" => Ok(__Field::__field1),
+                        _ => Ok(__Field::__ignore),
                     }
                 }
                 fn visit_bytes<__E>(
                     self,
                     __value: &[u8],
-                ) -> serde::__private228::Result<Self::Value, __E>
+                ) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
                     match __value {
-                        b"root_id" => serde::__private228::Ok(__Field::__field0),
-                        b"nodes" => serde::__private228::Ok(__Field::__field1),
-                        _ => serde::__private228::Ok(__Field::__ignore),
+                        b"root_id" => Ok(__Field::__field0),
+                        b"nodes" => Ok(__Field::__field1),
+                        _ => Ok(__Field::__ignore),
                     }
                 }
             }
@@ -522,7 +483,7 @@ mod derive_macro_impls {
                 #[inline]
                 fn deserialize<__D>(
                     __deserializer: __D,
-                ) -> serde::__private228::Result<Self, __D::Error>
+                ) -> Result<Self, __D::Error>
                 where
                     __D: serde::Deserializer<'de>,
                 {
@@ -546,14 +507,14 @@ mod derive_macro_impls {
                 fn visit_seq<__A>(
                     self,
                     mut __seq: __A,
-                ) -> serde::__private228::Result<Self::Value, __A::Error>
+                ) -> Result<Self::Value, __A::Error>
                 where
                     __A: serde::de::SeqAccess<'de>,
                 {
                     let __field0 = match serde::de::SeqAccess::next_element::<Id<T>>(&mut __seq)? {
-                        serde::__private228::Some(__value) => __value,
-                        serde::__private228::None => {
-                            return serde::__private228::Err(serde::de::Error::invalid_length(
+                        Some(__value) => __value,
+                        None => {
+                            return Err(serde::de::Error::invalid_length(
                                 0usize,
                                 &"struct IdTree with 2 elements",
                             ));
@@ -563,15 +524,15 @@ mod derive_macro_impls {
                         BTreeMap<Id<T>, Node<T>>,
                     >(&mut __seq)?
                     {
-                        serde::__private228::Some(__value) => __value,
-                        serde::__private228::None => {
-                            return serde::__private228::Err(serde::de::Error::invalid_length(
+                        Some(__value) => __value,
+                        None => {
+                            return Err(serde::de::Error::invalid_length(
                                 1usize,
                                 &"struct IdTree with 2 elements",
                             ));
                         }
                     };
-                    serde::__private228::Ok(IdTree {
+                    Ok(IdTree {
                         root_id: __field0,
                         nodes: __field1,
                     })
@@ -580,41 +541,41 @@ mod derive_macro_impls {
                 fn visit_map<__A>(
                     self,
                     mut __map: __A,
-                ) -> serde::__private228::Result<Self::Value, __A::Error>
+                ) -> Result<Self::Value, __A::Error>
                 where
                     __A: serde::de::MapAccess<'de>,
                 {
-                    let mut __field0: serde::__private228::Option<Id<T>> =
-                        serde::__private228::None;
-                    let mut __field1: serde::__private228::Option<BTreeMap<Id<T>, Node<T>>> =
-                        serde::__private228::None;
-                    while let serde::__private228::Some(__key) =
+                    let mut __field0: Option<Id<T>> =
+                        None;
+                    let mut __field1: Option<BTreeMap<Id<T>, Node<T>>> =
+                        None;
+                    while let Some(__key) =
                         serde::de::MapAccess::next_key::<__Field>(&mut __map)?
                     {
                         match __key {
                             __Field::__field0 => {
-                                if serde::__private228::Option::is_some(&__field0) {
-                                    return serde::__private228::Err(
+                                if Option::is_some(&__field0) {
+                                    return Err(
                                         <__A::Error as serde::de::Error>::duplicate_field(
                                             "root_id",
                                         ),
                                     );
                                 }
                                 __field0 =
-                                    serde::__private228::Some(serde::de::MapAccess::next_value::<
+                                    Some(serde::de::MapAccess::next_value::<
                                         Id<T>,
                                     >(
                                         &mut __map
                                     )?);
                             }
                             __Field::__field1 => {
-                                if serde::__private228::Option::is_some(&__field1) {
-                                    return serde::__private228::Err(
+                                if Option::is_some(&__field1) {
+                                    return Err(
                                         <__A::Error as serde::de::Error>::duplicate_field("nodes"),
                                     );
                                 }
                                 __field1 =
-                                    serde::__private228::Some(serde::de::MapAccess::next_value::<
+                                    Some(serde::de::MapAccess::next_value::<
                                         BTreeMap<Id<T>, Node<T>>,
                                     >(
                                         &mut __map
@@ -628,18 +589,18 @@ mod derive_macro_impls {
                         }
                     }
                     let __field0 = match __field0 {
-                        serde::__private228::Some(__field0) => __field0,
-                        serde::__private228::None => {
+                        Some(__field0) => __field0,
+                        None => {
                             serde::__private228::de::missing_field("root_id")?
                         }
                     };
                     let __field1 = match __field1 {
-                        serde::__private228::Some(__field1) => __field1,
-                        serde::__private228::None => {
+                        Some(__field1) => __field1,
+                        None => {
                             serde::__private228::de::missing_field("nodes")?
                         }
                     };
-                    serde::__private228::Ok(IdTree {
+                    Ok(IdTree {
                         root_id: __field0,
                         nodes: __field1,
                     })
@@ -658,7 +619,7 @@ mod derive_macro_impls {
             )
         }
     }
-    impl<T> core::clone::Clone for IdTree<T> {
+    impl<T> Clone for IdTree<T> {
         fn clone(&self) -> Self {
             let Self { root_id, nodes } = self;
             Self {

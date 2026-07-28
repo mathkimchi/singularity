@@ -2,14 +2,9 @@ use crate::utils::tree::{recursive_tree::RecursiveTreeNode, tree_node_path::Tree
 
 pub mod world_tree_traversal;
 
-// pub struct WorldTreePath(Vec<TreeNodePath>);
 #[derive(Debug, Clone)]
 pub struct WorldTreePath(pub Box<[TreeNodePath]>);
 impl WorldTreePath {
-    // pub fn new(inner: &[TreeNodePath]) -> Self {
-    //     Self(Rc::new(inner))
-    // }
-
     /// getting by this will return the same thing
     #[must_use]
     pub fn new_empty() -> Self {
