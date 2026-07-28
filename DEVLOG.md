@@ -8988,3 +8988,49 @@ I am going to commit this now,
 and next I'll just kinda start a whole new sync primitive for the edge and node system
 because I just thought of a nice implementation for it,
 and I want to feel productive.
+
+The solution I was talking about is to have
+a lock on each node as well as each edge.
+When a node waits, it waits on its node lock.
+On wake up, the condvar automatically gets its node lock,
+but we want to acquire all the edges as well.
+
+Reminder: this gurantees no deadlocks in a tree because trees are acyclic.
+(This means two nodes can't have multiple edges either)
+Otherwise, a deadlock might be possible if you aren't careful.
+
+~~If you blindly acquire the edge locks afterwards,
+you might get a deadlock because two nodes might~~
+
+~~Never mind, from here, you can just acquire the edge locks.
+No need to do something fancy with acquiring the other nodes first.
+Then you just drop all the edges before waiting again.~~
+
+Wait, no!!!
+In the time between dropping the edges and waiting again,
+the other edge might change it.
+This is the whole problem I was trying to avoid!
+Plus, the node mutex wouldn't actually do anything in this case,
+which should've been a sign of something gone wrong.
+
+Guranteeing no notifications are missed means
+a node can't notify another node unless the other node is actively waiting.
+Since nodes wait on their locks, we can know a node is actively waiting if it's lock is available.
+This means that if I can grab another node's lock, that means that node is waiting right now.
+
+If we only had this procedure where we grab the other node's lock
+to mean holding the edge,
+we would now have no missed messages, but we could have a deadlock
+if two nodes try to grab each other's locks.
+I'm sure there's a faster way of solving this,
+but I'm just going to try thinking of a solution that uses the edge locks,
+because of sunk cost fallacy.
+Blindly saying acquire the edge then the other node would still lead to deadlock.
+But, we could say if you can't acquire the edge, then you must temporarily release
+your node lock (don't worry about releasing the already acquired edges because there's no cycles).
+Don't worry about missing notifications either because we already know that there have been notifications.
+...I am just going to use Tokio.
+
+I just realized the language of the setup (nodes and edges) of this is somewhat similar to the dining philosophers problem,
+but the problem we are trying to solve (no missed notifs vs no deadlock for dining philosphers)
+is very different.
