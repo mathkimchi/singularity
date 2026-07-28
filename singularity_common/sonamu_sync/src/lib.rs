@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, RwLock, atomic::AtomicUsize},
 };
 
+pub mod node_edge;
 pub mod shared_state;
 
 /// Lock (RwLock) but you can only call getter and setter,
