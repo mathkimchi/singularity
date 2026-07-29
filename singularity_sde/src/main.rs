@@ -66,7 +66,7 @@ fn main() {
 fn init_logging() {
     tracing_subscriber::fmt()
         // .with_max_level(tracing_subscriber::filter::LevelFilter::DEBUG)
-        .with_env_filter(EnvFilter::new("warn,singularity=trace"))
+        .with_env_filter(EnvFilter::new("warn,singularity=trace,sonamu=trace"))
         .init();
 
     // if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {

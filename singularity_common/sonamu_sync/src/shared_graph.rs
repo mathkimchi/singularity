@@ -157,7 +157,7 @@ impl<Data> DerefMut for SyncEdgeGuard<'_, Data> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // This time, I'm auto doing the update via if ref or mut deref is used
         *self.other_endpoint.is_updated.lock().unwrap() = true;
-        self.other_endpoint.cond.notify_one();
+        // notify is done anyways on drop so no need to do it again here
         &mut self.data_guard
     }
 }

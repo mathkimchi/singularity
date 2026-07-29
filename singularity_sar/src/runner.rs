@@ -7,7 +7,7 @@ use sonamu_ui::{
     ui_event::{self, UIEvent},
     winit_backend::UIState,
 };
-use std::collections::VecDeque;
+use std::{collections::VecDeque, thread};
 
 // /// Wrap this around an Arc
 // struct UIConnections {
@@ -162,29 +162,37 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             let Some(mut ui_shared_data) = runner.ui_shared_data.try_lock() else {
                 // we just start over without marking that we processed updates
                 dbg!("Failed to get ui shared data");
+                node_lock.wait_for_notif();
                 continue;
             };
+            dbg!("Succeed locking ui shared data");
             match &mut *ui_shared_data {
                 UIState::Running { ui_event_queue, .. } => {
+                    dbg!("point 1");
                     for ui_event in std::mem::take(ui_event_queue) {
                         if let UIEvent::WindowResized(window_size) = ui_event {
                             runner.window_size = window_size;
                         }
 
-                        runner.applet.handle_ui_event(ui_event);
+                        dbg!("point 2");
+
+                        thread::spawn(move || runner.applet.handle_ui_event(ui_event));
                     }
+                    dbg!("point 3");
                 }
                 UIState::Ended => {
-                    // let the applet know we're done
-                    *runner.root_applet_shared_data.wait_lock(node_lock) = RootAppletState::Ended;
+                    // let the applet know we're done; do this later bc it is potentially deadlock
+                    // *runner.root_applet_shared_data.wait_lock(node_lock) = RootAppletState::Ended;
                     break;
                 }
             }
 
             let Some(mut root_applet_guard) = runner.root_applet_shared_data.try_lock() else {
                 dbg!("Failed to get root applet");
+                node_lock.wait_for_notif();
                 continue;
             };
+            dbg!("Succeed to get root applet");
             match &*root_applet_guard {
                 RootAppletState::Running {
                     root_window_damaged: true,
@@ -194,14 +202,12 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                     };
                     // we don't need to notify root applet bc main loop is the only one who waits for this
 
-                    drop(root_applet_guard); // avoid deadlock
-
                     match &mut *ui_shared_data {
                         UIState::Running { root_element, .. } => {
                             *root_element = runner.applet.get_window(runner.window_size);
                         }
                         UIState::Ended => {
-                            unreachable!()
+                            *root_applet_guard = RootAppletState::Ended;
                         }
                     }
                 }
@@ -212,7 +218,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
                 }
                 RootAppletState::Ended => {
                     // let the ui know we're done
-                    *runner.ui_shared_data.wait_lock(node_lock) = UIState::Ended;
+                    *ui_shared_data = UIState::Ended;
                     break;
                 }
             }

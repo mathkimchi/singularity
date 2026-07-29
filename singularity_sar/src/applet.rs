@@ -23,7 +23,7 @@ impl BasicRunnerHook for Box<dyn BasicRunnerHook> {
     }
 }
 
-pub trait BasicApplet {
+pub trait BasicApplet: Send + Sync {
     // type InitializingData;
 
     // // REVIEW: should I use box or generic like BasicApplet<Hook: RunnerHook>?

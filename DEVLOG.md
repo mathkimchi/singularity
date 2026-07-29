@@ -9118,3 +9118,19 @@ This is because `wait_for_update` automatically lets them through.
 I'm going to commit the debug stuff now,
 but the solution should be to allow for `wait_for_notif`
 that should be called before the continue on lock fail.
+
+Bruh, I couldn't see the debug in the ui because I renamed the crate to start with sonamu
+and the env logger was only letting messages from crates that start with singularity through.
+
+I think I've reached the point where I need to redo the Applet interface as well,
+because it isn't letting me run an applet's handle ui function in a thread bc it takes &mut self.
+
+Oh my life, I'm going to become a music major and start practicing my begging skills already.
+AI deserves to take my job for this.
+
+I just realized I can just use a normal fricking event queue
+because I already figured out a system to limit the amount of damages.
+My OS teacher was lowkey prophetic with ts.
+
+> Rule 4 of Computer Science:
+> Don't try to reinvent the working wheel if it's working.
