@@ -5,6 +5,24 @@ use crate::{
 
 mod char_grid;
 pub use char_grid::*;
+use wgpu::TextureView;
+
+pub struct RoundRect {
+    pub corner_radius: f32,
+    /// Eats into content
+    pub border_width: f32,
+    pub main_color: [f32; 4],
+    pub border_color: [f32; 4],
+}
+
+/// On their own, a UI Primitive fills up the whole space
+pub enum UIPrimitiveElement {
+    RoundRect(RoundRect),
+    Text(Vec<(String, glyphon::AttrsOwned)>),
+    CharGrid(CharGrid),
+    /// Just general holder
+    Texture(TextureView),
+}
 
 /// TODO: rename most everything here
 /// TODO: have a UI Element vs UI Primitive (to allow for easier chunking in GPU) (Or just have a private UI Primitives and do a conversion in Winit drawing impls?)
@@ -12,6 +30,7 @@ pub use char_grid::*;
 pub enum UIElement {
     /// Contains a list of inner elements.
     /// Overlapping is allowed.
+    /// First element is bottom.
     Container(Vec<Self>),
 
     /// contains inner element within a certain area
@@ -89,6 +108,12 @@ impl UIElement {
             width: container_size.width.saturating_sub(2),
             height: container_size.height.saturating_sub(2),
         }
+    }
+
+    /// First element at bottom
+    /// TODO: UI element user should give in this form
+    pub fn as_primitives(&self) -> Vec<(UIPrimitiveElement, DisplayArea)> {
+        todo!()
     }
 }
 impl From<Option<Self>> for UIElement {

@@ -9134,3 +9134,60 @@ My OS teacher was lowkey prophetic with ts.
 
 > Rule 4 of Computer Science:
 > Don't try to reinvent the working wheel if it's working.
+
+2026-07-29 12:36AM
+
+Ok, so I'm just going to try to use Smithay's calloop.
+
+Calloop seems like it should work.
+
+I think I footgunned myself by trying to solve a non-existent problem of wasted compute.
+The problem Sonamu is solving was never about the computer's efficiency,
+so I shouldn't have tried to do something new for it unless I started experiencing performance issues.
+The only new thing I really need to accomplish with a custom applet interface
+is embedding other apps.
+This is different from a weaker widget system.
+For example, consider the mini text editor inside a file explorer.
+Previously, I wanted a rather straightforward approach of saying the parent applet deals
+with compositing the children UI,
+but I think I will allow for a more centralized approach:
+
+The Sonamu runner keeps a flat hashmap of all the applets (rn, say applet and surface is 1-to-1).
+If an applet wants to embed a child surface, it can just have a UI Element that points to the child surface.
+The UI framework shouldn't have to deal with this,
+the UI framework only deals in UI primitives and maybe resizing.
+
+This is sounding similar to the Wayland protocol.
+Maybe I should just really look into how Smithay does everything.
+
+It seems I can use a `wgpu::TextureView` to represent a general surface,
+including a Smithay surface as well (hopefully).
+
+The centralized approach would allow for me to deal with WL apps easier.
+Instead of implementing an applet that acts as a Wl to Sonamu layer,
+I'm just going to have a WlApplet vs SonamuApplet type.
+
+Okay, so I just went around my UI code thinking of how I'd do this,
+and I have an idea for the overall display protocol.
+
+Next, for how the applets are stored on the server (and client-server communication),
+as I said, I'll have a hashmap mapping their IDs to the client handle.
+A client handle would include the event queue from server to client as well as the shared data for its surface.
+A client holds the server handle, which would include the request queue from client to server.
+I haven't looked into this, but Calloop's futures::executer might allow for query-requests.
+I think for each client, server just adds the client as an event source
+(for this part, I can try to look at what a normal Smithay compositor server does).
+The server also keeps track of the applet ownership hierarchy
+(just simple parent child relationship, differnt from the more robust organizational hierarchy).
+Each client should have exactly one parent (or point to root).
+I think I'll just let them recursively deal with user input and the organizational hierarchy for now
+(though centralized shortcut and action manager would be nice later).
+For a sec, I considered if I should just have two layers of trees,
+with the outer layer being the ownership hierarchy,
+but that wouldn't be able to support things like projects or embedded apps or inner apps. 
+
+I think that at this stage of development, I should just think of Sonamu as a hierarchical WL compositor
+that also supports a second type of applets that better hierarchy integration.
+
+Ok, I should sign off now bc it's 2026-07-29 02:17AM
+and I had to run to class this morning not to be late.

@@ -575,6 +575,9 @@ impl CharGridRenderer {
             view_formats: &[],
         });
 
+        // TODO: apparently texture is like vec and textureview is like slice
+        // so I can just send over the textureview
+        // (this goes for every time I have textureview, so chargrid and image as well)
         queue.write_texture(
             // Tells wgpu where to copy the pixel data
             wgpu::TexelCopyTextureInfo {
