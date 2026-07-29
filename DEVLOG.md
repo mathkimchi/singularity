@@ -9080,3 +9080,17 @@ but I did it!
 
 I'm going to commit this DEVLOG and send the file to Logang.
 I haven't tested it yet, but honestly, I'll blame it on having to send this to logan.
+
+2026-07-28 04:22PM
+
+I am now using the sync node and edge,
+but Logang is playing tennis so I'll wait until I can push to or fetch from remote.
+
+Also, I told this problem to my OS teacher,
+and they said I should use queues of empty values,
+and I realized that's the same as having an update counter,
+which can then be boiled down to the current boolean system.
+
+2026-07-28 10:47PM
+
+Logang made the PR, so now I'll just commit and push my code.

@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use sonamu_sync::shared_state::SharedData;
+use sonamu_sync::shared_graph::{SyncEdge, SyncNode};
 use std::{collections::VecDeque, sync::Arc};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
@@ -233,7 +233,9 @@ pub enum UIState {
 /// REVIEW: don't even expose this to pub?
 /// I'm thinking I have the UISharedData standardized, and then it has a run function that depends on each backend
 pub struct UIDisplay {
-    shared_data: SharedData<UIState>,
+    /// Tracks if any shared data was updated
+    node: SyncNode,
+    shared_data: SyncEdge<UIState>,
 
     // width: u32,
     // height: u32,
@@ -243,7 +245,7 @@ pub struct UIDisplay {
 }
 impl UIDisplay {
     /// Returns when display is closed.
-    pub fn run_display(shared_data: SharedData<UIState>) {
+    pub fn run_display(node: SyncNode, shared_data: SyncEdge<UIState>) {
         let event_loop = EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
@@ -251,6 +253,7 @@ impl UIDisplay {
             .unwrap();
         event_loop
             .run_app(&mut Self {
+                node,
                 shared_data,
                 // width: 256,
                 // height: 256,
@@ -371,8 +374,16 @@ impl Drop for UIDisplay {
     fn drop(&mut self) {
         // TODO: is this even needed?
         // self.shared_data.set_ended();
-        *self.shared_data.lock_state() = UIState::Ended;
-        self.shared_data.notify();
+        // let mut node_lock = self.node.lock();
+        // loop {
+        //     if let Some(mut shared_data) = self.shared_data.try_lock() {
+        //         *shared_data = UIState::Ended;
+        //         break;
+        //     }
+        //     node_lock.wait_for_update();
+        // }
+        *self.shared_data.wait_lock(self.node.lock()) = UIState::Ended;
+
         // self.is_running
         //     .store(false, std::sync::atomic::Ordering::Relaxed);
     }
