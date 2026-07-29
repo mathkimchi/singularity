@@ -9094,3 +9094,27 @@ which can then be boiled down to the current boolean system.
 2026-07-28 10:47PM
 
 Logang made the PR, so now I'll just commit and push my code.
+
+My code isn't working.
+It's just a black screen that doesn't even quit.
+
+It looks like the main loop constantly fails to get the UI shared data.
+
+But actually printing when UI locks the edge,
+this happens before the UI locks anything.
+
+If I call `try_lock` before `wait_for_update`,
+it returns some.
+So either `wait_for_update` itself somehow changes the state
+or whoever is updating changes something.
+
+There's too many things going on at once with three threads.
+I'm going to test the sync stuff in a toy usecase.
+
+Ok, I did a simple test with two threads, but it seems to be working mostly.
+Wait, on failing to lock an edge, a thread retries over and over again without waiting.
+
+This is because `wait_for_update` automatically lets them through.
+I'm going to commit the debug stuff now,
+but the solution should be to allow for `wait_for_notif`
+that should be called before the continue on lock fail.

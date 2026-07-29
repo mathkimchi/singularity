@@ -64,6 +64,23 @@ pub struct SyncNodeGuard<'a> {
     node: Arc<SyncNodeInner>,
 }
 impl SyncNodeGuard<'_> {
+    /// call this before re-attempting a grab
+    pub fn wait_for_notif(&mut self) {
+        unsafe {
+            // this is scary, and I don't even know if it's right
+            // the idea is that ptr::read is like an unsafe copy kinda,
+            // the point is that between the ptr::read and ptr::write, the self.state is super sus
+            // REVIEW: And I think you need to worry about Drop with this, so I'm lowkey worried but idk
+            let old_is_updated = ptr::read(&raw const self.is_updated);
+
+            // During the wait, the guard is released
+            // The condvar does this temp drop thing with internal functions
+            let new_is_updated = self.node.cond.wait(old_is_updated).unwrap();
+
+            ptr::write(&raw mut self.is_updated, new_is_updated);
+        }
+    }
+
     pub fn wait_for_update(&mut self) {
         while !*self.is_updated {
             unsafe {

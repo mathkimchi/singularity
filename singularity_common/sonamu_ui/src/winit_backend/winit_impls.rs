@@ -27,7 +27,9 @@ impl winit::application::ApplicationHandler for UIDisplay {
         _window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        log::debug!("UI thread getting edge guard");
         let mut guard = self.shared_data.wait_lock(self.node.lock());
+        log::debug!("UI thread got edge guard");
         // Derefrencing this as mutable automatically registers it as an update, so only use mut ref when needed
         let UIState::Running { root_element, .. } = &*guard else {
             // UI ended, we can quit
@@ -101,5 +103,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
             }
             _ => {}
         }
+        log::debug!("UI thread dropping guard");
     }
 }

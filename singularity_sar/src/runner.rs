@@ -83,6 +83,11 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
         std::thread::spawn(move || {
             UIDisplay::run_display(ui_sync_node, ui_loop_ui_shared_data);
         });
+        // {
+        //     // Debug:
+        //     self_sync_node.lock();
+        //     dbg!(self_ui_shared_data.try_lock().is_some());
+        // }
 
         let applet = {
             // anon implementation
@@ -142,18 +147,25 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
         // Don't let any updates happen unless we are waiting
         let mut node_lock = runner.sync_node.lock();
 
-        loop {
+        // {
+        //     // Debug:
+        //     dbg!(runner.ui_shared_data.try_lock().is_some());
+        // }
+
+        for _ in 0..10 {
+            dbg!("waiting");
+            // dbg!(runner.ui_shared_data.try_lock().is_some());
             node_lock.wait_for_update();
+            // dbg!(runner.ui_shared_data.try_lock().is_some());
+            dbg!("update notified");
 
             let Some(mut ui_shared_data) = runner.ui_shared_data.try_lock() else {
                 // we just start over without marking that we processed updates
+                dbg!("Failed to get ui shared data");
                 continue;
             };
             match &mut *ui_shared_data {
-                UIState::Running {
-                    root_element,
-                    ui_event_queue,
-                } => {
+                UIState::Running { ui_event_queue, .. } => {
                     for ui_event in std::mem::take(ui_event_queue) {
                         if let UIEvent::WindowResized(window_size) = ui_event {
                             runner.window_size = window_size;
@@ -170,6 +182,7 @@ impl<Applet: BasicApplet> AppletRunner<Applet> {
             }
 
             let Some(mut root_applet_guard) = runner.root_applet_shared_data.try_lock() else {
+                dbg!("Failed to get root applet");
                 continue;
             };
             match &*root_applet_guard {
