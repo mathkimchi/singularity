@@ -9452,3 +9452,8 @@ Ok, well, I actually might need to keep runner hook how it is right now.
 I updated the basic applet and basic runner hook.
 Next is updating the initializer, then probably implementing the runner hook
 to use the event loop stuff, and then trying to get this whole thing to run.
+
+2026-07-31 10:02AM
+
+Well I don't have compile errors and it technically runs,
+though it is running a black screen.

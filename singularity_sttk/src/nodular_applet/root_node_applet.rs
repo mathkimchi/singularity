@@ -1,47 +1,100 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
     nodular_applet::{
-        AppletSpawner, NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+        AppletSpawner, NodularApplet, NodularEvent, NodularRunnerHook,
+        recursive_node_applet::RecursiveNodeApplet,
     },
 };
-use singularity_common::utils::tree::world_tree::WorldTreePath;
+use calloop::{
+    EventLoop, LoopHandle,
+    channel::{Channel, Sender, channel},
+};
+use singularity_common::{
+    sap::{
+        packets::{StandardEvent, StandardRequest},
+        raw_client_initializer::RawClientInitializer,
+    },
+    sync::EncapsulatedLock,
+    utils::tree::world_tree::WorldTreePath,
+};
 use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
     ui_element::UIElement,
 };
-use std::{collections::BTreeMap, sync::RwLock};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, RwLock},
+};
 
 /// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
 pub struct RootNodeApplet {
     /// NOTE: this could be generic
     applet: RecursiveNodeApplet,
+    // inner_event_queue: Sender<NodularEvent>,
     // window: Arc<Mutex<UIElement>>,
     // hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
     // applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
+    content: EncapsulatedLock<UIElement>,
+    content_dirty: bool,
+    request_sender: Sender<StandardRequest>,
+
+    latest_size: DisplayContainerSize,
+
+    applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
 impl RootNodeApplet {
+    // fn inner_applet_size(&self) -> DisplayContainerSize {
+    //     // TODO
+    //     self.latest_size
+    // }
+
     pub fn new(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet,
+        inner_initializer: Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet>,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
-        hook: Box<dyn BasicRunnerHook>,
+        content: EncapsulatedLock<UIElement>,
+        request_sender: Sender<StandardRequest>,
+        event_loop: &LoopHandle<'_, Self>,
     ) -> Self {
+        // let (inner_event_queue_tx, inner_event_queue_rx) = channel();
+        let (inner_request_queue_tx, inner_request_queue_rx) = channel();
+
+        event_loop
+            .insert_source(inner_request_queue_rx, |event, &mut (), applet| {
+                let calloop::channel::Event::Msg(event) = event else {
+                    return;
+                };
+
+                match event {
+                    StandardRequest::DamageSurface => {
+                        if !applet.content_dirty {
+                            applet.content.set(applet.get_window(applet.latest_size));
+                        }
+                    }
+                    StandardRequest::DamageTreeview => todo!(),
+                    StandardRequest::Quit => todo!(),
+                }
+            })
+            .unwrap();
+
         struct InnerHook {
-            outer_hook: Box<dyn BasicRunnerHook>,
-            applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
+            outer_request_queue: Sender<StandardRequest>,
+            applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
         }
         impl BasicRunnerHook for InnerHook {
-            // fn update_display(&self, display: &sonamu_ui::ui_element::UIElement) {
-            //     self.outer_hook.update_display(display);
-            // }
-
             fn close(&self) {
-                self.outer_hook.close();
+                self.outer_request_queue
+                    .send(StandardRequest::Quit)
+                    .unwrap();
+                // self.outer_hook.close();
             }
 
             fn damage_window(&self) {
                 // REVIEW
-                self.outer_hook.damage_window();
+                // self.outer_hook.damage_window();
+                self.outer_request_queue
+                    .send(StandardRequest::DamageSurface)
+                    .unwrap();
             }
         }
         impl NodularRunnerHook for InnerHook {
@@ -53,7 +106,11 @@ impl RootNodeApplet {
 
             fn damage_treeview(&self) {
                 // REVIEW
-                self.outer_hook.damage_window();
+                // self.outer_hook.damage_window();
+
+                self.outer_request_queue
+                    .send(StandardRequest::DamageSurface)
+                    .unwrap();
             }
 
             fn change_focus(
@@ -83,22 +140,96 @@ impl RootNodeApplet {
             }
         }
 
-        let applet_spawner_registry = RwLock::new(applet_spawner_registry);
+        let applet_spawner_registry = Arc::new(RwLock::new(applet_spawner_registry));
         let inner_hook = InnerHook {
-            outer_hook: hook,
-            applet_spawner_registry,
+            outer_request_queue: inner_request_queue_tx,
+            applet_spawner_registry: applet_spawner_registry.clone(),
         };
 
         Self {
             applet: inner_initializer(Box::new(inner_hook)),
+            // inner_event_queue: inner_event_queue_tx,
+            content,
+            content_dirty: false,
+            // Just making stuff up
+            latest_size: DisplayContainerSize::new(800, 600),
+            request_sender,
+            applet_spawner_registry,
         }
     }
 
     pub fn get_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet,
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet
+        + Send
+        + Sync
+        + 'static,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
-    ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
-        move |hook| Self::new(inner_initializer, applet_spawner_registry, hook)
+    ) -> Box<dyn RawClientInitializer> {
+        struct Initializer {
+            inner_initializer:
+                Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet + Send + Sync>,
+            applet_spawner_registry: BTreeMap<String, AppletSpawner>,
+        }
+        impl RawClientInitializer for Initializer {
+            fn init(
+                // smth smth box needs to know size
+                self: Box<Self>,
+                content: singularity_common::sync::EncapsulatedLock<UIElement>,
+                event_queue: Channel<singularity_common::sap::packets::StandardEvent>,
+                // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
+                // (I am really trying to convince myself this is fine, I am the strawman)
+                request_sender: Sender<singularity_common::sap::packets::StandardRequest>,
+            ) {
+                let mut event_loop = EventLoop::try_new().unwrap();
+
+                event_loop
+                    .handle()
+                    .insert_source(
+                        event_queue,
+                        |event, &mut (), applet: &mut RootNodeApplet| {
+                            let calloop::channel::Event::Msg(event) = event else {
+                                return;
+                            };
+                            match event {
+                                StandardEvent::UIEvent(ui_event) => {
+                                    // TODO: resize should be slightly different
+                                    applet.applet.handle_ui_event(ui_event);
+                                }
+                                StandardEvent::Focus => {
+                                    applet
+                                        .applet
+                                        .handle_nodular_event(NodularEvent::Focused(true));
+                                }
+                                StandardEvent::Unfocus => {
+                                    applet
+                                        .applet
+                                        .handle_nodular_event(NodularEvent::Focused(true));
+                                }
+                                StandardEvent::CloseRequest => todo!(),
+                                StandardEvent::SurfaceDamageAck => {
+                                    applet.content_dirty = false;
+                                }
+                                _ => {}
+                            }
+                        },
+                    )
+                    .unwrap();
+
+                let mut applet = RootNodeApplet::new(
+                    self.inner_initializer,
+                    self.applet_spawner_registry,
+                    content,
+                    request_sender,
+                    &event_loop.handle(),
+                );
+
+                event_loop.run(None, &mut applet, |_| {}).unwrap();
+            }
+        }
+        Box::new(Initializer {
+            inner_initializer: Box::new(inner_initializer),
+            applet_spawner_registry,
+        })
     }
 
     fn get_treeview_display(&self) -> UIElement {

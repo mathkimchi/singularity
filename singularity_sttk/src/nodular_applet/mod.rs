@@ -74,9 +74,9 @@ impl NodularApplet for Box<dyn NodularApplet> {
 }
 
 pub type NodularAppletInitializer =
-    Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>>;
+    Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> + Send + Sync>;
 
-pub trait AppletSpawnerTrait {
+pub trait AppletSpawnerTrait: Send + Sync {
     fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer>;
 
     /// Clone on its own is not dyn compatible because it outputs -> Self.
