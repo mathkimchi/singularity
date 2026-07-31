@@ -9473,3 +9473,7 @@ Like, yeah, I should fix it but I don't think it is really gonna change anything
 But anyways, I think I'm back where I started in terms of the actual app running and
 what the client can do.
 I guess the client has more ways to be implemented than before.
+
+2026-07-31 10:21AM
+
+I realized the UI looks jank because I am not doign the resize properly.

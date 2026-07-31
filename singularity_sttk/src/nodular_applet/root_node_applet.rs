@@ -44,10 +44,10 @@ pub struct RootNodeApplet {
     applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
 impl RootNodeApplet {
-    // fn inner_applet_size(&self) -> DisplayContainerSize {
-    //     // TODO
-    //     self.latest_size
-    // }
+    fn inner_applet_size(&self) -> DisplayContainerSize {
+        self.latest_size
+            .find_subsize(DisplayArea::new((0.2, 0.0), (1.0, 1.0)).size())
+    }
 
     /// Redraws if necessary/possible
     fn try_redraw(&mut self) {
@@ -202,8 +202,17 @@ impl RootNodeApplet {
                                 return;
                             };
                             match event {
+                                StandardEvent::UIEvent(
+                                    sonamu_ui::ui_event::UIEvent::WindowResized(size),
+                                ) => {
+                                    applet.latest_size = size;
+                                    applet.applet.handle_ui_event(
+                                        sonamu_ui::ui_event::UIEvent::WindowResized(
+                                            applet.inner_applet_size(),
+                                        ),
+                                    );
+                                }
                                 StandardEvent::UIEvent(ui_event) => {
-                                    // TODO: resize should be slightly different
                                     applet.applet.handle_ui_event(ui_event);
                                 }
                                 StandardEvent::Focus => {
