@@ -9371,3 +9371,22 @@ I'm going to commit then add very minor improvements.
 
 Ok, I added quitting.
 Speaking of which, I am going to retire for the day.
+
+Tomorrow, I'll try to actually get the old client code working.
+
+2026-07-31 12:25AM
+
+Ok, I took a tiny sneak peek at the err'ing clinet-side code just so I could think about it in my sleep.
+(I mean, the few times I dreamt in code or about coding, it felt more like what I imagine acid trips to feel like
+and less revalatory, and they lowkey feel suffocating but they're pretty cool and I want to have more of them.
+But I say "think about it in my sleep" in a more rhetorical sense or just that it'll be in the back of my mind.)
+
+Anyways, I'm going to set myself the challenge of having the interface be the exact same in the client side.
+The two things is having a runner hook and a traight (I'm keeping this typo) for the client.
+This might mean some suboptimal code and unnecessary complexity,
+but I'll make it work first then make it good.
+So I'll split the "Basic" vs Nodular protocols and have the hook be a boxed trait
+even though I'll know its struct for no reason other than bckwds compat.
+Now I understand first-hand why some protocols are so bad.
+
+Actually signing off, Alvin - 2026-07-36 12:31AM

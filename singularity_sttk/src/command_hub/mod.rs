@@ -8,7 +8,6 @@ use crate::{
     standard_keybinds::handle_standard_keybinds,
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sar::applet::BasicApplet;
 use sonamu_ui::{
     color::Color, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
 };
