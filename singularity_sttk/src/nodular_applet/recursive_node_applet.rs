@@ -1,6 +1,9 @@
-use crate::nodular_applet::{
-    NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
-    caching_applet::CachingApplet,
+use crate::{
+    basic_applet::{BasicApplet, BasicRunnerHook},
+    nodular_applet::{
+        NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
+        caching_applet::CachingApplet,
+    },
 };
 use singularity_common::{
     sync::EncapsulatedLock,
@@ -10,7 +13,6 @@ use singularity_common::{
         world_tree::{WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation},
     },
 };
-use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,

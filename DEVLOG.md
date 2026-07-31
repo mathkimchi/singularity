@@ -9390,3 +9390,65 @@ even though I'll know its struct for no reason other than bckwds compat.
 Now I understand first-hand why some protocols are so bad.
 
 Actually signing off, Alvin - 2026-07-36 12:31AM
+
+2026-07-31 07:38AM
+
+Early day (for vacation-mode Alvin)!
+
+I was looking into Wayland display protocol yesterday as I was poopin.
+It seems like they have the client request a frame,
+the compositor sends a frame when ready,
+and the client draws to the frame and sends a commit.
+
+Also the compositor requires clients to ack configure
+so changes like resizing.
+If client doesn't ack, it isn't rendered and may even be killed.
+
+I just learned I can do `WAYLAND_DEBUG=1 alacritty`
+to show all the wayland packets sent.
+I guess I'll see if my previous explanation was correct.
+
+I think I have isolated what happens every draw:
+
+```log
+[3458889.080] {mesa egl surface queue} wl_callback#48.done(0)
+[3458889.109] {mesa egl surface queue} wl_buffer#37.release()
+[3458889.275]  -> wl_surface#40.frame(new id wl_callback#48)
+[3458889.941] {mesa egl surface queue}  -> wl_surface#40.attach(wl_buffer#37, 0, 0)
+[3458889.951] {mesa egl surface queue}  -> wl_surface#40.damage_buffer(0, 57, 55, 92)
+[3458889.956] {mesa egl surface queue}  -> wl_surface#40.commit()
+[3458889.961] {mesa egl surface queue}  -> wl_display#1.sync(new id wl_callback#51)
+[3458890.786] {Display Queue} wl_display#1.delete_id(51)
+[3458892.357] {Display Queue} wl_display#1.delete_id(48)
+[3458892.391] wl_callback#48.done(128594666)
+```
+
+packets starting with `->` means the client is sending it to the server.
+
+Ok I was really confused because I thought the point of wl_surface.frame was to know when it's allowed to draw
+so it didn't make sense why it would draw before getting the `done` msessage.
+
+Apparently, the `wl_buffer.frame` is more like "Lmk when you process the commit I'm about to send you".
+
+For my protocol, I'm just going to always send done,
+so this frame packet won't be necessary.
+
+2026-07-31 08:41AM
+
+Time to code.
+
+I said I wanted to make this completely backwards compatible,
+but I guess I'll change things around just a teeny tiny bit.
+
+First, I'll be reorganizing the modules,
+so the import paths should change.
+And if I'm changing that anyways, I think I'll rename the runner hook
+to server handle and just make it a concrete type.
+
+Ok, well, I actually might need to keep runner hook how it is right now.
+
+2026-07-31 09:07AM
+
+I updated the basic applet and basic runner hook.
+Next is updating the initializer, then probably implementing the runner hook
+to use the event loop stuff, and then trying to get this whole thing to run.

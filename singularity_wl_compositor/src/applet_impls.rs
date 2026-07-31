@@ -1,8 +1,8 @@
 use crate::WaylandApplet;
 use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
-use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
-    nodular_applet::NodularApplet, standard_keybinds::handle_standard_keybinds,
+    basic_applet::BasicApplet, nodular_applet::NodularApplet,
+    standard_keybinds::handle_standard_keybinds,
 };
 use sonamu_ui::display_units::DisplayContainerSize;
 

@@ -1,6 +1,6 @@
 use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
+    basic_applet::BasicApplet,
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
         AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer,

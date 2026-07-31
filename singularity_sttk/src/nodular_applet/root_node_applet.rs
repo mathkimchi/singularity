@@ -1,8 +1,10 @@
-use crate::nodular_applet::{
-    AppletSpawner, NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+use crate::{
+    basic_applet::{BasicApplet, BasicRunnerHook},
+    nodular_applet::{
+        AppletSpawner, NodularApplet, NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+    },
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},

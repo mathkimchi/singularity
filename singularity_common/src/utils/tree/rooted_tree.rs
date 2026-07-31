@@ -105,11 +105,7 @@ impl<T> RootedTree<T> {
 
             let next_flat_index = current_node.children_flat_indices.get(child_number);
 
-            if let Some(next_flat_index) = next_flat_index {
-                current_flat_index = *next_flat_index;
-            } else {
-                return None;
-            }
+            current_flat_index = *next_flat_index?;
         }
 
         Some(current_flat_index)

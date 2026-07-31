@@ -1,12 +1,11 @@
 //! This is where the hierarchy stuff is implemented.
 
-use std::collections::BTreeMap;
-
+use crate::basic_applet::{BasicApplet, BasicRunnerHook};
 use singularity_common::utils::tree::world_tree::{
     WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
 };
-use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
+use std::collections::BTreeMap;
 
 pub mod caching_applet;
 pub mod recursive_node_applet;

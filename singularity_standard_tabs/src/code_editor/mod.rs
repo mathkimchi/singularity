@@ -1,6 +1,6 @@
 use ropey::Rope;
-use singularity_sar::applet::BasicApplet;
 use singularity_sttk::{
+    basic_applet::BasicApplet,
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
         AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer,

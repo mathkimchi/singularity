@@ -1,9 +1,11 @@
-use crate::nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook};
+use crate::{
+    basic_applet::{BasicApplet, BasicRunnerHook},
+    nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook},
+};
 use singularity_common::{
     sync::EncapsulatedLock,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
-use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
 use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 

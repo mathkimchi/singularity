@@ -1,3 +1,9 @@
+#![allow(
+    clippy::too_many_lines,
+    clippy::single_match_else,
+    clippy::needless_pass_by_value
+)]
+
 use std::{
     hash::{Hash, Hasher},
     str::FromStr,

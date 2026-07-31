@@ -1,6 +1,6 @@
 use image::{ImageReader, RgbaImage};
 use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sar::applet::{BasicApplet, BasicRunnerHook};
+use singularity_sttk::basic_applet::BasicApplet;
 use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,

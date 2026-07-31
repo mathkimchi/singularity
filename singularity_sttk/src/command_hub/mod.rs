@@ -1,6 +1,7 @@
 //! TODO: move to sttk
 
 use crate::{
+    basic_applet::BasicApplet,
     nodular_applet::{
         AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularEvent,
         NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
