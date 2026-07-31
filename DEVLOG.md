@@ -9238,3 +9238,39 @@ and it could also be dangerous to let them directly call each other.
 Ok, I implemented the server and client handles.
 It was actually very easy.
 I suppose the challenge will be in using them.
+
+2026-07-30 08:38PM
+
+Time to redo the runner ig.
+
+I'll start with just one applet.
+
+Looking at Niri, it seems they have like a main [`State`](https://github.com/niri-wm/niri/blob/main/src/niri.rs),
+storing the actual logic state (agnostic) + an enum for the backend.
+The event loop handle is given on initialization of the state and stored.
+
+To actually run the event loop, Niri just has:
+
+```rs
+// https://github.com/niri-wm/niri/blob/main/src/main.rs
+event_loop
+    .run(None, &mut state, |state| state.refresh_and_flush_clients())
+    .unwrap();
+```
+
+the third argument, the callback, seems to be called between each event,
+but I don't think I'll need this.
+Smallvil uses run as well and doesn't have the callback
+(it just has a trivial body).
+
+For anvil, (both [`udev`](https://github.com/Smithay/smithay/blob/5fb12b87407b3680135c45d94214c5f1b1d0fbea/anvil/src/udev.rs#L538)
+and Winit too),
+they implement a main loop manually and use
+`event_loop.dispatch(Some(Duration::from_millis(16)), &mut state)`
+which means the event loop just handles a single event.
+
+I don't know why Anvil does this, but I'm just going to use `event_loop.run`.
+
+2026-07-30 09:34PM
+
+I started on the server runner.

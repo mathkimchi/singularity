@@ -1,13 +1,6 @@
-use crate::applet::{BasicApplet, BasicRunnerHook};
-use sonamu_sync::shared_graph::{SyncEdge, SyncNode};
-use sonamu_ui::{
-    UIDisplay,
-    display_units::DisplayContainerSize,
-    ui_element::UIElement,
-    ui_event::{self, UIEvent},
-    winit_backend::UIState,
-};
-use std::{collections::VecDeque, thread};
+use calloop::{EventLoop, LoopHandle};
+use singularity_common::sap::client_handle::ClientHandle;
+use sonamu_ui::display_units::DisplayContainerSize;
 
 // /// Wrap this around an Arc
 // struct UIConnections {
@@ -31,203 +24,210 @@ pub enum RootAppletState {
 ///
 /// Using Singularity UI requires the user to be active,
 /// but using Applet Runner is passive.
-pub struct AppletRunner<Applet: BasicApplet> {
-    applet: Applet,
+pub struct AppletRunner {
+    event_loop: LoopHandle<'static, Self>,
 
-    // // fields for dealing with the UI
-    // root_window: Arc<Mutex<UIElement>>,
-    // root_window_damaged: Arc<AtomicBool>,
-
-    // /// TODO: use mpsc
-    // ui_event_queue: mpsc::Receiver<UIEvent>,
-    // is_running: Arc<AtomicBool>,
-    // ui_shared_data: SharedData<UIState>,
-    // root_applet_shared_data: SharedData<RootAppletState>,
-    /// Is like the update tracker
-    sync_node: SyncNode,
-    ui_shared_data: SyncEdge<UIState>,
-    root_applet_shared_data: SyncEdge<RootAppletState>,
+    // ui_handle: UIHandle,
+    root_client: ClientHandle,
 
     window_size: DisplayContainerSize,
 }
-impl<Applet: BasicApplet> AppletRunner<Applet> {
-    /// Returns after the applet is closed.
-    ///
-    /// The logic of this is similar to `UIDisplay::run_display` in `wayland_backend`
-    pub fn run(applet_initizer: impl FnOnce(Box<dyn BasicRunnerHook>) -> Applet) {
-        let self_sync_node = SyncNode::default();
-        let ui_sync_node = SyncNode::default();
-        let root_applet_sync_node = SyncNode::default();
-        // first is for self, second is for ui
-        let [self_ui_shared_data, ui_loop_ui_shared_data] = SyncEdge::new(
-            UIState::Running {
-                root_element: UIElement::Nothing,
-                ui_event_queue: VecDeque::new(),
-            },
-            [&self_sync_node, &ui_sync_node],
-        );
-        let [
-            self_root_applet_shared_data,
-            root_applet_shared_data_for_applet,
-        ] = SyncEdge::new(
-            RootAppletState::Running {
-                root_window_damaged: false,
-            },
-            [&self_sync_node, &root_applet_sync_node],
-        );
-        // let root_window = Arc::new(Mutex::new(UIElement::Nothing));
-        // let root_window_damaged = Arc::new(AtomicBool::new(true));
-        // let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
-        // let is_running = Arc::new(AtomicBool::new(true));
+impl AppletRunner {
+    fn new(event_loop: LoopHandle<'static, Self>) -> Self {
+        let root_client = Self::spawn_new_client();
 
-        std::thread::spawn(move || {
-            UIDisplay::run_display(ui_sync_node, ui_loop_ui_shared_data);
-        });
-        // {
-        //     // Debug:
-        //     self_sync_node.lock();
-        //     dbg!(self_ui_shared_data.try_lock().is_some());
-        // }
-
-        let applet = {
-            // anon implementation
-            struct AppletRunnerHook {
-                // // UI and root applet should NOT have any direct locks shared
-                // ui_shared_data: SharedData<UIState>,
-                sync_node: SyncNode,
-                applet_shared_data: SyncEdge<RootAppletState>,
-                // root_window_damaged: Arc<AtomicBool>,
-            }
-            impl BasicRunnerHook for AppletRunnerHook {
-                // fn update_display(&self, display: &UIElement) {
-                //     // TODO: send reminder as well
-
-                //     *self.root_ui_element.lock().unwrap() = display.clone();
-                // }
-
-                fn damage_window(&self) {
-                    // self.root_window_damaged
-                    //     .store(true, std::sync::atomic::Ordering::Relaxed);
-                    if let RootAppletState::Running {
-                        root_window_damaged,
-                    } = &mut *self.applet_shared_data.wait_lock(self.sync_node.lock())
-                    {
-                        *root_window_damaged = true;
-                    }
-                    // if it was ended, we should leave it like that
-                }
-
-                fn close(&self) {
-                    dbg!("Closing");
-                    // FIXME: Culprit: this is being called in main loop and mainloop is locking lock_state
-                    *self.applet_shared_data.wait_lock(self.sync_node.lock()) =
-                        RootAppletState::Ended;
-                    // self.applet_shared_data.notify();
-                }
-            }
-
-            applet_initizer(Box::new(AppletRunnerHook {
-                // root_window_damaged: root_window_damaged.clone(),
-                // ui_shared_data: ui_shared_data.clone(),
-                sync_node: root_applet_sync_node,
-                applet_shared_data: root_applet_shared_data_for_applet,
-            }))
-        };
-
-        let mut runner = Self {
-            applet,
-            // root_window_damaged,
-            // REVIEW
-            window_size: DisplayContainerSize::new(0, 0),
-            sync_node: self_sync_node,
-            ui_shared_data: self_ui_shared_data,
-            root_applet_shared_data: self_root_applet_shared_data,
-        };
-
-        // Don't let any updates happen unless we are waiting
-        let mut node_lock = runner.sync_node.lock();
-
-        // {
-        //     // Debug:
-        //     dbg!(runner.ui_shared_data.try_lock().is_some());
-        // }
-
-        for _ in 0..10 {
-            dbg!("waiting");
-            // dbg!(runner.ui_shared_data.try_lock().is_some());
-            node_lock.wait_for_update();
-            // dbg!(runner.ui_shared_data.try_lock().is_some());
-            dbg!("update notified");
-
-            let Some(mut ui_shared_data) = runner.ui_shared_data.try_lock() else {
-                // we just start over without marking that we processed updates
-                dbg!("Failed to get ui shared data");
-                node_lock.wait_for_notif();
-                continue;
-            };
-            dbg!("Succeed locking ui shared data");
-            match &mut *ui_shared_data {
-                UIState::Running { ui_event_queue, .. } => {
-                    dbg!("point 1");
-                    for ui_event in std::mem::take(ui_event_queue) {
-                        if let UIEvent::WindowResized(window_size) = ui_event {
-                            runner.window_size = window_size;
-                        }
-
-                        dbg!("point 2");
-
-                        thread::spawn(move || runner.applet.handle_ui_event(ui_event));
-                    }
-                    dbg!("point 3");
-                }
-                UIState::Ended => {
-                    // let the applet know we're done; do this later bc it is potentially deadlock
-                    // *runner.root_applet_shared_data.wait_lock(node_lock) = RootAppletState::Ended;
-                    break;
-                }
-            }
-
-            let Some(mut root_applet_guard) = runner.root_applet_shared_data.try_lock() else {
-                dbg!("Failed to get root applet");
-                node_lock.wait_for_notif();
-                continue;
-            };
-            dbg!("Succeed to get root applet");
-            match &*root_applet_guard {
-                RootAppletState::Running {
-                    root_window_damaged: true,
-                } => {
-                    *root_applet_guard = RootAppletState::Running {
-                        root_window_damaged: false,
-                    };
-                    // we don't need to notify root applet bc main loop is the only one who waits for this
-
-                    match &mut *ui_shared_data {
-                        UIState::Running { root_element, .. } => {
-                            *root_element = runner.applet.get_window(runner.window_size);
-                        }
-                        UIState::Ended => {
-                            *root_applet_guard = RootAppletState::Ended;
-                        }
-                    }
-                }
-                RootAppletState::Running {
-                    root_window_damaged: false,
-                } => {
-                    // no updates from root applet, don't need to do anything
-                }
-                RootAppletState::Ended => {
-                    // let the ui know we're done
-                    *ui_shared_data = UIState::Ended;
-                    break;
-                }
-            }
-
-            // I just realized if there's a lot of edges and one of them always happens to be locked before we can get through this,
-            // then we might process everything but never mark updates as processed.
-            node_lock.mark_updates_processed();
+        Self {
+            event_loop,
+            root_client,
+            window_size: todo!(),
         }
+    }
 
-        dbg!("mainloop done!");
+    /// Blocks until end.
+    pub fn run() {
+        let mut event_loop = EventLoop::try_new().unwrap();
+
+        let mut runner = Self::new(event_loop.handle());
+
+        event_loop.run(None, &mut runner, |_| {}).unwrap();
+
+        // let self_sync_node = SyncNode::default();
+        // let ui_sync_node = SyncNode::default();
+        // let root_applet_sync_node = SyncNode::default();
+        // // first is for self, second is for ui
+        // let [self_ui_shared_data, ui_loop_ui_shared_data] = SyncEdge::new(
+        //     UIState::Running {
+        //         root_element: UIElement::Nothing,
+        //         ui_event_queue: VecDeque::new(),
+        //     },
+        //     [&self_sync_node, &ui_sync_node],
+        // );
+        // let [
+        //     self_root_applet_shared_data,
+        //     root_applet_shared_data_for_applet,
+        // ] = SyncEdge::new(
+        //     RootAppletState::Running {
+        //         root_window_damaged: false,
+        //     },
+        //     [&self_sync_node, &root_applet_sync_node],
+        // );
+        // // let root_window = Arc::new(Mutex::new(UIElement::Nothing));
+        // // let root_window_damaged = Arc::new(AtomicBool::new(true));
+        // // let (ui_event_queue_tx, ui_event_queue_rx) = mpsc::channel();
+        // // let is_running = Arc::new(AtomicBool::new(true));
+
+        // std::thread::spawn(move || {
+        //     UIDisplay::run_display(ui_sync_node, ui_loop_ui_shared_data);
+        // });
+        // // {
+        // //     // Debug:
+        // //     self_sync_node.lock();
+        // //     dbg!(self_ui_shared_data.try_lock().is_some());
+        // // }
+
+        // let applet = {
+        //     // anon implementation
+        //     struct AppletRunnerHook {
+        //         // // UI and root applet should NOT have any direct locks shared
+        //         // ui_shared_data: SharedData<UIState>,
+        //         sync_node: SyncNode,
+        //         applet_shared_data: SyncEdge<RootAppletState>,
+        //         // root_window_damaged: Arc<AtomicBool>,
+        //     }
+        //     impl BasicRunnerHook for AppletRunnerHook {
+        //         // fn update_display(&self, display: &UIElement) {
+        //         //     // TODO: send reminder as well
+
+        //         //     *self.root_ui_element.lock().unwrap() = display.clone();
+        //         // }
+
+        //         fn damage_window(&self) {
+        //             // self.root_window_damaged
+        //             //     .store(true, std::sync::atomic::Ordering::Relaxed);
+        //             if let RootAppletState::Running {
+        //                 root_window_damaged,
+        //             } = &mut *self.applet_shared_data.wait_lock(self.sync_node.lock())
+        //             {
+        //                 *root_window_damaged = true;
+        //             }
+        //             // if it was ended, we should leave it like that
+        //         }
+
+        //         fn close(&self) {
+        //             dbg!("Closing");
+        //             // FIXME: Culprit: this is being called in main loop and mainloop is locking lock_state
+        //             *self.applet_shared_data.wait_lock(self.sync_node.lock()) =
+        //                 RootAppletState::Ended;
+        //             // self.applet_shared_data.notify();
+        //         }
+        //     }
+
+        //     applet_initizer(Box::new(AppletRunnerHook {
+        //         // root_window_damaged: root_window_damaged.clone(),
+        //         // ui_shared_data: ui_shared_data.clone(),
+        //         sync_node: root_applet_sync_node,
+        //         applet_shared_data: root_applet_shared_data_for_applet,
+        //     }))
+        // };
+
+        // let mut runner = Self {
+        //     applet,
+        //     // root_window_damaged,
+        //     // REVIEW
+        //     window_size: DisplayContainerSize::new(0, 0),
+        //     sync_node: self_sync_node,
+        //     ui_shared_data: self_ui_shared_data,
+        //     root_applet_shared_data: self_root_applet_shared_data,
+        // };
+
+        // // Don't let any updates happen unless we are waiting
+        // let mut node_lock = runner.sync_node.lock();
+
+        // // {
+        // //     // Debug:
+        // //     dbg!(runner.ui_shared_data.try_lock().is_some());
+        // // }
+
+        // for _ in 0..10 {
+        //     dbg!("waiting");
+        //     // dbg!(runner.ui_shared_data.try_lock().is_some());
+        //     node_lock.wait_for_update();
+        //     // dbg!(runner.ui_shared_data.try_lock().is_some());
+        //     dbg!("update notified");
+
+        //     let Some(mut ui_shared_data) = runner.ui_shared_data.try_lock() else {
+        //         // we just start over without marking that we processed updates
+        //         dbg!("Failed to get ui shared data");
+        //         node_lock.wait_for_notif();
+        //         continue;
+        //     };
+        //     dbg!("Succeed locking ui shared data");
+        //     match &mut *ui_shared_data {
+        //         UIState::Running { ui_event_queue, .. } => {
+        //             dbg!("point 1");
+        //             for ui_event in std::mem::take(ui_event_queue) {
+        //                 if let UIEvent::WindowResized(window_size) = ui_event {
+        //                     runner.window_size = window_size;
+        //                 }
+
+        //                 dbg!("point 2");
+
+        //                 thread::spawn(move || runner.applet.handle_ui_event(ui_event));
+        //             }
+        //             dbg!("point 3");
+        //         }
+        //         UIState::Ended => {
+        //             // let the applet know we're done; do this later bc it is potentially deadlock
+        //             // *runner.root_applet_shared_data.wait_lock(node_lock) = RootAppletState::Ended;
+        //             break;
+        //         }
+        //     }
+
+        //     let Some(mut root_applet_guard) = runner.root_applet_shared_data.try_lock() else {
+        //         dbg!("Failed to get root applet");
+        //         node_lock.wait_for_notif();
+        //         continue;
+        //     };
+        //     dbg!("Succeed to get root applet");
+        //     match &*root_applet_guard {
+        //         RootAppletState::Running {
+        //             root_window_damaged: true,
+        //         } => {
+        //             *root_applet_guard = RootAppletState::Running {
+        //                 root_window_damaged: false,
+        //             };
+        //             // we don't need to notify root applet bc main loop is the only one who waits for this
+
+        //             match &mut *ui_shared_data {
+        //                 UIState::Running { root_element, .. } => {
+        //                     *root_element = runner.applet.get_window(runner.window_size);
+        //                 }
+        //                 UIState::Ended => {
+        //                     *root_applet_guard = RootAppletState::Ended;
+        //                 }
+        //             }
+        //         }
+        //         RootAppletState::Running {
+        //             root_window_damaged: false,
+        //         } => {
+        //             // no updates from root applet, don't need to do anything
+        //         }
+        //         RootAppletState::Ended => {
+        //             // let the ui know we're done
+        //             *ui_shared_data = UIState::Ended;
+        //             break;
+        //         }
+        //     }
+
+        //     // I just realized if there's a lot of edges and one of them always happens to be locked before we can get through this,
+        //     // then we might process everything but never mark updates as processed.
+        //     node_lock.mark_updates_processed();
+        // }
+
+        // dbg!("mainloop done!");
+    }
+
+    fn spawn_new_client() -> ClientHandle {
+        todo!()
     }
 }

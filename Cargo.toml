@@ -37,6 +37,7 @@ image = { version = "^0.25" }
 # smithay's polling crate that I will use to replace both server and clients' mainloops
 calloop = { version = "^0.14.4", features = ["executor"] }
 
+singularity_common = { path = "./singularity_common" }
 sonamu_ui = { path = "./singularity_common/sonamu_ui" }
 sonamu_sync = { path = "./singularity_common/sonamu_sync" }
 
