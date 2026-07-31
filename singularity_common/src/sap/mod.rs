@@ -2,5 +2,6 @@
 
 pub mod client_handle;
 pub mod packets;
-pub mod server_handle;
+pub mod raw_client_initializer;
+// pub mod server_handle; // TODO: this should go in sttk
 // pub mod mediator;

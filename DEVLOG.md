@@ -9323,3 +9323,11 @@ and run it
 Everything else will just be convenience on top of that,
 including the `ServerHandle`,
 which should really belong in the sttk.
+
+2026-07-30 10:45PM
+
+Ok, just committed the idea, now I'll actually make the raw client initializer interface.
+
+I won't add things like send sync or object safety (for box)
+for the initial making of this,
+I'll add it as I need to while using it in the server in the next commit.
