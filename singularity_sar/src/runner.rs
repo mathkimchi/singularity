@@ -1,6 +1,9 @@
 use crate::client_handle::ClientHandle;
 use calloop::{EventLoop, LoopHandle};
-use singularity_common::sap::packets::{StandardEvent, StandardRequest};
+use singularity_common::sap::{
+    packets::{StandardEvent, StandardRequest},
+    raw_client_initializer::RawClientInitializer,
+};
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
     UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
@@ -85,8 +88,15 @@ pub struct AppletRunner {
     window_size: DisplayContainerSize,
 }
 impl AppletRunner {
-    fn new(event_loop: LoopHandle<'static, Self>) -> Self {
-        let root_client = ClientHandle::spawn_new_client(todo!(), UIElement::Nothing, &event_loop);
+    fn new(
+        event_loop: LoopHandle<'static, Self>,
+        root_applet_initializer: Box<dyn RawClientInitializer>,
+    ) -> Self {
+        let root_client = ClientHandle::spawn_new_client(
+            root_applet_initializer,
+            UIElement::Nothing,
+            &event_loop,
+        );
 
         Self {
             ui_handle: UIHandle::init_ui(UIElement::Nothing, &event_loop),
@@ -97,12 +107,16 @@ impl AppletRunner {
     }
 
     /// Blocks until end.
-    pub fn run() {
+    pub fn run(root_applet_initializer: Box<dyn RawClientInitializer>) {
         let mut event_loop = EventLoop::try_new().unwrap();
 
-        let mut runner = Self::new(event_loop.handle());
+        let mut runner = Self::new(event_loop.handle(), root_applet_initializer);
 
-        event_loop.run(None, &mut runner, |_| {}).unwrap();
+        event_loop
+            .run(None, &mut runner, |_| {
+                // I think this is run between events, but I don't need this rn
+            })
+            .unwrap();
 
         // let self_sync_node = SyncNode::default();
         // let ui_sync_node = SyncNode::default();

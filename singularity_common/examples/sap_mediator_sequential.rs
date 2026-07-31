@@ -1,4 +1,4 @@
-use singularity_common::sap::mediator::{
+/* use singularity_common::sap::mediator::{
     ClientInitializer, DamgeCallback, DisplayProtocolClientCallbacks, NullDamageCallback,
     NullEventCommunicator, SonamuMediator,
 };
@@ -125,4 +125,5 @@ fn main() {
         Box::new(ReactiveClientInitializer),
         // Box::new(ActiveClientInitializer),
     ]);
-}
+} */
+fn main() {}

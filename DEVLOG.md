@@ -9343,3 +9343,21 @@ Ok I made server initialize client.
 Next is I guess testing?
 
 I'll make a simple client to test?
+
+I think I'll put an example client in the sttk,
+because then, it'd be able to use the tools I make in sttk.
+I'm not putting it under standard applets,
+bc first of all, it's not an example of how to use a standard applet,
+it's an example of how to use the sttk.
+But more practically, standard applet has like 20 errors
+which means I'd have to fix them before being able to run the test.
+
+Right now, it'll just use the raw protocols tho.
+
+Wait, the errors were in sttk too.
+I'm going to make a raw applet demo inside the SAR.
+
+2026-07-30 11:45PM
+
+I made it and squashed the compile errors,
+but it immediately panics.
