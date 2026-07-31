@@ -17,3 +17,5 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 
 paste = { workspace = true }
+
+calloop = { workspace = true }

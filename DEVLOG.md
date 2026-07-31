@@ -9220,3 +9220,21 @@ client handler, and packets.
 
 Ok, to start very simple, I did some basic events and requests.
 I'll commit now bc I want to make incremental progress.
+
+I realized that I could also have a seperate event source for each packet type.
+There's not really a benefit to this I see for event and requests.
+But for queue-response maybe this could be really good.
+(I mean, I guess protocol extensions could work with this,
+but it's fine bro.)
+
+Also, I think handle makes more sense than handler.
+
+Previously, the client handle would be implemented by the client
+and the server handle was implemented by the server.
+I think both should be implemented by the protocol itself
+so I can have more of the complicated logic hidden from both sides,
+and it could also be dangerous to let them directly call each other.
+
+Ok, I implemented the server and client handles.
+It was actually very easy.
+I suppose the challenge will be in using them.
