@@ -9331,3 +9331,15 @@ Ok, just committed the idea, now I'll actually make the raw client initializer i
 I won't add things like send sync or object safety (for box)
 for the initial making of this,
 I'll add it as I need to while using it in the server in the next commit.
+
+2026-07-30 10:58PM
+
+I put the client handle in SAR and later I'll put the server handle in sttk.
+Neither of these structs are used by the other side, so it shouldn't be under common.
+
+2026-07-30 11:17PM
+
+Ok I made server initialize client.
+Next is I guess testing?
+
+I'll make a simple client to test?

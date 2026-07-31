@@ -1,13 +1,13 @@
-use std::{
-    sync::{Arc, atomic::AtomicBool},
-    thread,
-};
-
+use crate::client_handle::ClientHandle;
 use calloop::{EventLoop, LoopHandle};
-use singularity_common::sap::{client_handle::ClientHandle, packets::StandardEvent};
+use singularity_common::sap::packets::{StandardEvent, StandardRequest};
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
     UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
+use std::{
+    sync::{Arc, atomic::AtomicBool},
+    thread,
 };
 
 // /// Wrap this around an Arc
@@ -44,13 +44,8 @@ impl UIHandle {
         let ui_content = EncapsulatedLock::new(initial_content);
         let (tx, rx) = calloop::channel::channel();
 
-        {
-            let is_running = is_running.clone();
-            let ui_content = ui_content.clone();
-            thread::spawn(|| {
-                UIDisplay::run_display(is_running, tx, ui_content);
-            });
-        }
+        // I don't think order matters,
+        // but just in-case I should start listening before I make the display
         runner_event_loop
             .insert_source(rx, |event, &mut (), runner| {
                 let calloop::channel::Event::Msg(event) = event else {
@@ -60,6 +55,14 @@ impl UIHandle {
                 runner.handle_ui_event(event);
             })
             .unwrap();
+
+        {
+            let is_running = is_running.clone();
+            let ui_content = ui_content.clone();
+            thread::spawn(|| {
+                UIDisplay::run_display(is_running, tx, ui_content);
+            });
+        }
 
         Self {
             is_running,
@@ -83,7 +86,7 @@ pub struct AppletRunner {
 }
 impl AppletRunner {
     fn new(event_loop: LoopHandle<'static, Self>) -> Self {
-        let root_client = Self::spawn_new_client();
+        let root_client = ClientHandle::spawn_new_client(todo!(), UIElement::Nothing, &event_loop);
 
         Self {
             ui_handle: UIHandle::init_ui(UIElement::Nothing, &event_loop),
@@ -281,7 +284,8 @@ impl AppletRunner {
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
-    fn spawn_new_client() -> ClientHandle {
+    /// TODO: take in client id
+    pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         todo!()
     }
 }

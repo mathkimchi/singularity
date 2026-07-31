@@ -7,9 +7,10 @@ use crate::sap::packets::{StandardEvent, StandardRequest};
 /// Look at 2026-07-30 DEVLOG for initial creation
 ///
 /// Called "Raw" because expectation is to make a wrapper in sttk for less boilerplate
-pub trait RawClientInitializer {
+pub trait RawClientInitializer: Send {
     fn init(
-        self,
+        // smth smth box needs to know size
+        self: Box<Self>,
         content: EncapsulatedLock<UIElement>,
         event_queue: Channel<StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
