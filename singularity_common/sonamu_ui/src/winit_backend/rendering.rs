@@ -43,8 +43,6 @@ impl Vertex {
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
             array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -78,8 +76,6 @@ impl RoundRectInstance {
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
             array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
@@ -168,8 +164,6 @@ impl ImageInstance {
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
             array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
@@ -326,8 +320,6 @@ impl CharGridInstance {
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
             array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,

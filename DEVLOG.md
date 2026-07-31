@@ -9496,3 +9496,10 @@ I was confused why it fixed that automatically, since auto_clippy_fix
 should be set up to only fix things I manually enable,
 but I realized it's because I told it to ignore every clippy lint other than the ones I manually enable,
 but unused_qualifications is not a clippy lint.
+
+The auto fix left some weird imports so I just ran autofix again which fixed those (leadingt 31 warnings),
+and now I am also going through the remaining ones that are left over
+(I think there were two ways to fix them so autofix didn't do anything).
+(Or actually, maybe it's because it's the example.)
+
+Now I just have 15 diagnostics.

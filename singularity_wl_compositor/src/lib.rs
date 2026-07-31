@@ -21,9 +21,8 @@ use smithay::{
         calloop::{EventLoop, LoopSignal},
         pixman,
         wayland_server::{
-            Client, DisplayHandle, ListeningSocket,
-            backend::ClientData,
-            protocol::wl_surface::{self, WlSurface},
+            Client, DisplayHandle, ListeningSocket, backend::ClientData,
+            protocol::wl_surface::WlSurface,
         },
     },
     utils::{Rectangle, Serial, Size, Transform},
