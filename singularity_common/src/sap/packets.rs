@@ -1,16 +1,19 @@
-use crate::Todo;
-use sonamu_ui::ui_event::UIEvent;
+use sonamu_ui::{display_units::DisplayContainerSize, ui_event::UIEvent};
 
-pub enum StandardRequest {}
-
-pub enum StandardEvent {
-    DisplayEvent(DisplayEvent),
+/// Client to server
+pub enum StandardRequest {
+    /// Currently does the whole surface
+    DamageSurface,
+    DamageTreeview,
 }
 
-pub enum DisplayEvent {
+/// Server to client
+pub enum StandardEvent {
     UIEvent(UIEvent),
-    Focused(Todo),
-    Unfocused(Todo),
-    Resize(Todo),
-    Close(Todo),
+    Focus,
+    Unfocus,
+    Resize(DisplayContainerSize),
+    CloseRequest,
+    SurfaceDamageAck,
+    TreeviewDamageAck,
 }

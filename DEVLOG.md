@@ -9191,3 +9191,32 @@ that also supports a second type of applets that better hierarchy integration.
 
 Ok, I should sign off now bc it's 2026-07-29 02:17AM
 and I had to run to class this morning not to be late.
+
+2026-07-30 07:34PM
+
+I'm feeling kinda overwhelmed now.
+
+I think it would be best to start with the interface,
+but I honestly don't even know what a Calloop interface would look like,
+so I'll start by thinking what it should look like from the server/runner side.
+
+For each client, the server should be able to:
+- send events to client
+- react to their requests (hopefully do queue-response as well in the future)
+- read client's surface and treeview
+
+In other words, those are what the ClientHandler should provide to the server.
+
+Similarly, server handler should let clients do the converse:
+- receive server events
+- send requests (later: send queue get response)
+- set surface and treeview
+
+I'm just going to do something very basic for the shared memory
+and use an EncapsulatedLock.
+
+I guess I'll revive the old sap modules for the server handler,
+client handler, and packets.
+
+Ok, to start very simple, I did some basic events and requests.
+I'll commit now bc I want to make incremental progress.
