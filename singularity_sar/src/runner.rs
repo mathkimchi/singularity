@@ -1,6 +1,14 @@
+use std::{
+    sync::{Arc, atomic::AtomicBool},
+    thread,
+};
+
 use calloop::{EventLoop, LoopHandle};
-use singularity_common::sap::client_handle::ClientHandle;
-use sonamu_ui::display_units::DisplayContainerSize;
+use singularity_common::sap::{client_handle::ClientHandle, packets::StandardEvent};
+use sonamu_sync::EncapsulatedLock;
+use sonamu_ui::{
+    UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+};
 
 // /// Wrap this around an Arc
 // struct UIConnections {
@@ -9,14 +17,55 @@ use sonamu_ui::display_units::DisplayContainerSize;
 //     is_running: AtomicBool,
 // }
 
-/// Because of the "edge" model (look at devlog sometime before 2026-07-26),
-/// we have main runner loop share a state with UI and with root applet,
-/// but they should be different locks (ie: UI and root applet can not lock each other)
-/// so, for redundant information like whether the app runs or not,
-/// I will duplicate that information and let the middleman keep them synchronized with each other
-pub enum RootAppletState {
-    Running { root_window_damaged: bool },
-    Ended,
+// /// Because of the "edge" model (look at devlog sometime before 2026-07-26),
+// /// we have main runner loop share a state with UI and with root applet,
+// /// but they should be different locks (ie: UI and root applet can not lock each other)
+// /// so, for redundant information like whether the app runs or not,
+// /// I will duplicate that information and let the middleman keep them synchronized with each other
+// enum RootAppletState {
+//     Running { root_window_damaged: bool },
+//     Ended,
+// }
+
+/// For the runner/main app being UI'd to hold
+///
+/// Instead of storing the event receiver in here,
+/// it is registered in the calloop.
+struct UIHandle {
+    is_running: Arc<AtomicBool>,
+    ui_content: EncapsulatedLock<UIElement>,
+}
+impl UIHandle {
+    pub fn init_ui(
+        initial_content: UIElement,
+        runner_event_loop: &LoopHandle<'_, AppletRunner>,
+    ) -> Self {
+        let is_running = Arc::new(AtomicBool::new(true));
+        let ui_content = EncapsulatedLock::new(initial_content);
+        let (tx, rx) = calloop::channel::channel();
+
+        {
+            let is_running = is_running.clone();
+            let ui_content = ui_content.clone();
+            thread::spawn(|| {
+                UIDisplay::run_display(is_running, tx, ui_content);
+            });
+        }
+        runner_event_loop
+            .insert_source(rx, |event, &mut (), runner| {
+                let calloop::channel::Event::Msg(event) = event else {
+                    // Means the UI closed; haven't thought abt what to do in this case
+                    panic!()
+                };
+                runner.handle_ui_event(event);
+            })
+            .unwrap();
+
+        Self {
+            is_running,
+            ui_content,
+        }
+    }
 }
 
 /// The Singularity Applet Runner (SAR) is kind of just a wrapper around the Singularity UI.
@@ -27,7 +76,7 @@ pub enum RootAppletState {
 pub struct AppletRunner {
     event_loop: LoopHandle<'static, Self>,
 
-    // ui_handle: UIHandle,
+    ui_handle: UIHandle,
     root_client: ClientHandle,
 
     window_size: DisplayContainerSize,
@@ -37,6 +86,7 @@ impl AppletRunner {
         let root_client = Self::spawn_new_client();
 
         Self {
+            ui_handle: UIHandle::init_ui(UIElement::Nothing, &event_loop),
             event_loop,
             root_client,
             window_size: todo!(),
@@ -225,6 +275,10 @@ impl AppletRunner {
         // }
 
         // dbg!("mainloop done!");
+    }
+
+    fn handle_ui_event(&self, event: UIEvent) {
+        self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
     fn spawn_new_client() -> ClientHandle {

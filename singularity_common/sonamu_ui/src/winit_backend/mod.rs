@@ -13,14 +13,8 @@ use crate::{
 };
 use calloop::channel::Sender;
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use sonamu_sync::{
-    EncapsulatedLock,
-    shared_graph::{SyncEdge, SyncNode},
-};
-use std::{
-    collections::VecDeque,
-    sync::{Arc, atomic::AtomicBool},
-};
+use sonamu_sync::EncapsulatedLock;
+use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,

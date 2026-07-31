@@ -9290,7 +9290,15 @@ I'm going to the winit backend winit impls from the commit before where I tried 
 maybe I should use branches now, nah, I'm too lazy):
 https://github.com/mathkimchi/singularity/commit/ca9e4c7e7a2feebf34999e5d654f6445c11e9cf9.
 
+2026-07-30 09:59PM
+
 Ok, I set up the UI to hopefully be compatible with the server using Calloop.
 Next, I need to actually hook up the server and UI,
 so I will make a UI handle for the server to hold
 (should just be a bundle of the is_running, event queue, and display).
+
+...
+
+2026-07-30 10:24PM
+
+Done with that, next is the client side.
