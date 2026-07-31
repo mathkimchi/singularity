@@ -9455,5 +9455,21 @@ to use the event loop stuff, and then trying to get this whole thing to run.
 
 2026-07-31 10:02AM
 
-Well I don't have compile errors and it technically runs,
+Well, I did all o the above by just making RootNodeApplet compatible with event loop.
+I don't have compile errors and it technically runs,
 though it is running a black screen.
+
+2026-07-31 10:10AM
+
+I just had to fix the UI display logic and it works now.
+I know the edge cases in which my current code fails.
+(Eg: if applet requests redraw twice and then surface awknowledges,
+then it will stay as the old frame.)
+And I know I could fix it by storing two seperate variables for
+"last_frame_processed" and "new_frame_exists"
+but I don't think it rly matters ngl.
+Like, yeah, I should fix it but I don't think it is really gonna change anything.
+
+But anyways, I think I'm back where I started in terms of the actual app running and
+what the client can do.
+I guess the client has more ways to be implemented than before.

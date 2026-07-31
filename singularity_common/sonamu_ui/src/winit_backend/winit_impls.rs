@@ -101,6 +101,5 @@ impl winit::application::ApplicationHandler for UIDisplay {
             }
             _ => {}
         }
-        log::debug!("UI thread dropping guard");
     }
 }

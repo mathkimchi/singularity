@@ -49,6 +49,17 @@ impl RootNodeApplet {
     //     self.latest_size
     // }
 
+    /// Redraws if necessary/possible
+    fn try_redraw(&mut self) {
+        if !self.content_dirty {
+            self.content.set(self.get_window(self.latest_size));
+            self.request_sender
+                .send(StandardRequest::DamageSurface)
+                .unwrap();
+            self.content_dirty = true;
+        }
+    }
+
     pub fn new(
         inner_initializer: Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet>,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
@@ -67,11 +78,11 @@ impl RootNodeApplet {
 
                 match event {
                     StandardRequest::DamageSurface => {
-                        if !applet.content_dirty {
-                            applet.content.set(applet.get_window(applet.latest_size));
-                        }
+                        applet.try_redraw();
                     }
-                    StandardRequest::DamageTreeview => todo!(),
+                    StandardRequest::DamageTreeview => {
+                        applet.try_redraw();
+                    }
                     StandardRequest::Quit => todo!(),
                 }
             })
