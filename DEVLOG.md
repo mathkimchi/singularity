@@ -9477,3 +9477,12 @@ I guess the client has more ways to be implemented than before.
 2026-07-31 10:21AM
 
 I realized the UI looks jank because I am not doign the resize properly.
+
+2026-07-31 10:27AM
+
+Fixing redo was pretty simple.
+I'll do some house cleaning I've been meaning to do,
+with squashing some warnings.
+
+First is fixing the lint name for lints.rust.unused qualifications.
+Oh damn, that brought me from like 40 to 209 warnings.

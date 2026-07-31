@@ -79,7 +79,5 @@ struct_excessive_bools = "allow"
 struct_field_name = "allow"
 must_use_candidate = "allow"                 # having must_use everywhere is getting kinda ugly
 
-# TODO: uncomment below when you have time to fix it
-# [workspace.lints.rust]
-[workspace.lint.rustc]
+[workspace.lints.rust]
 unused_qualifications = "warn"
