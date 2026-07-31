@@ -9361,3 +9361,8 @@ I'm going to make a raw applet demo inside the SAR.
 
 I made it and squashed the compile errors,
 but it immediately panics.
+
+2026-07-31 12:02AM
+
+Ok, it runs now.
+I'm going to commit then add very minor improvements.

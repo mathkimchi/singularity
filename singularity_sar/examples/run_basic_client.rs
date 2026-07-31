@@ -36,10 +36,19 @@ impl RawClientInitializer for BasicInitializer {
                             sonamu_ui::ui_event::UIEvent::KeyPress(key, _),
                         ),
                     ) => {
-                        if let Some(key_char) = key.to_char() {
-                            app_state.content.push(key_char);
-                            content.set(CharGrid::from(app_state.content.as_str()).element());
-                            request_sender.send(singularity_common::sap::packets::StandardRequest::DamageSurface).unwrap();
+                        match key.to_char() {
+                            // \b is not supported by rust bruh
+                            Some('\x08') => {
+                                app_state.content.pop();
+                                content.set(CharGrid::from(app_state.content.as_str()).element());
+                                request_sender.send(singularity_common::sap::packets::StandardRequest::DamageSurface).unwrap();
+                            }
+                            Some(key_char) => {
+                                app_state.content.push(key_char);
+                                content.set(CharGrid::from(app_state.content.as_str()).element());
+                                request_sender.send(singularity_common::sap::packets::StandardRequest::DamageSurface).unwrap();
+                            }
+                            _ => (),
                         }
                     }
                     calloop::channel::Event::Msg(_) => {}

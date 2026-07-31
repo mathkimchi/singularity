@@ -18,6 +18,12 @@ impl winit::application::ApplicationHandler for UIDisplay {
             .with_title("Singularity");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
+        self.event_queue
+            .send(super::ui_event::UIEvent::WindowResized(
+                DisplayContainerSize::new(800, 600),
+            ))
+            .unwrap();
+
         self.winit_data = Some(pollster::block_on(WinitData::new(window)));
     }
 

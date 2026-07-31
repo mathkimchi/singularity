@@ -56,6 +56,8 @@ impl ClientHandle {
     pub fn get_surface(&self) -> UIElement {
         // this order matters; you should generally do the action first then send notification that you did it
         let surface = self.surface.get();
+        // TODO: just realized that I need to send this after the ui display confirms it too
+        // TODO: make surface damage ack a UI Event so UI display can send it too
         self.send_event(StandardEvent::SurfaceDamageAck);
         surface
     }

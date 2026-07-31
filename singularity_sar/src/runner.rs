@@ -72,6 +72,10 @@ impl UIHandle {
             ui_content,
         }
     }
+
+    pub fn set_ui_content(&self, new_content: UIElement) {
+        self.ui_content.set(new_content);
+    }
 }
 
 /// The Singularity Applet Runner (SAR) is kind of just a wrapper around the Singularity UI.
@@ -102,7 +106,11 @@ impl AppletRunner {
             ui_handle: UIHandle::init_ui(UIElement::Nothing, &event_loop),
             event_loop,
             root_client,
-            window_size: todo!(),
+            // idk if there's a way to actually get this
+            window_size: DisplayContainerSize {
+                width: 100,
+                height: 100,
+            },
         }
     }
 
@@ -300,6 +308,12 @@ impl AppletRunner {
 
     /// TODO: take in client id
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
-        todo!()
+        match request {
+            StandardRequest::DamageSurface => {
+                self.ui_handle
+                    .set_ui_content(self.root_client.get_surface());
+            }
+            StandardRequest::DamageTreeview => todo!(),
+        }
     }
 }
