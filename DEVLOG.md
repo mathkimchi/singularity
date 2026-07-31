@@ -9366,3 +9366,8 @@ but it immediately panics.
 
 Ok, it runs now.
 I'm going to commit then add very minor improvements.
+
+2026-07-31 12:22AM
+
+Ok, I added quitting.
+Speaking of which, I am going to retire for the day.

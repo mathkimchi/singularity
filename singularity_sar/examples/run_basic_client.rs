@@ -1,14 +1,53 @@
 //! an example of how to make a basic client with sttk,
 //! as well as code to actually run it
 
-use calloop::EventLoop;
-use singularity_common::sap::raw_client_initializer::RawClientInitializer;
+use calloop::{EventLoop, channel::Sender};
+use singularity_common::sap::{
+    packets::StandardRequest, raw_client_initializer::RawClientInitializer,
+};
 use singularity_sar::runner::AppletRunner;
-use sonamu_ui::{ui_element::CharGrid, ui_event::KeyTrait};
+use sonamu_sync::EncapsulatedLock;
+use sonamu_ui::{
+    ui_element::{CharGrid, UIElement},
+    ui_event::{Key, KeyModifiers, KeyTrait},
+};
 
-#[derive(Default)]
 struct BasicApp {
-    content: String,
+    content_str: String,
+    content: EncapsulatedLock<UIElement>,
+    request_sender: Sender<StandardRequest>,
+}
+impl BasicApp {
+    fn handle_key_press(&mut self, key: Key, mods: KeyModifiers) {
+        match (key, mods) {
+            (sonamu_ui::ui_event::Key::Char('Q'), KeyModifiers::CTRL_SHIFT) => {
+                self.request_sender.send(StandardRequest::Quit).unwrap();
+            }
+            (sonamu_ui::ui_event::Key::Backspace, _) => {
+                self.content_str.pop();
+                self.content
+                    .set(CharGrid::from(self.content_str.as_str()).element());
+                self.request_sender
+                    .send(singularity_common::sap::packets::StandardRequest::DamageSurface)
+                    .unwrap();
+            }
+            _ => {
+                match key.to_char() {
+                    // \b is not supported by rust bruh
+                    Some('\x08') => {}
+                    Some(key_char) => {
+                        self.content_str.push(key_char);
+                        self.content
+                            .set(CharGrid::from(self.content_str.as_str()).element());
+                        self.request_sender
+                            .send(singularity_common::sap::packets::StandardRequest::DamageSurface)
+                            .unwrap();
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
 }
 
 struct BasicInitializer;
@@ -24,7 +63,11 @@ impl RawClientInitializer for BasicInitializer {
     ) {
         let mut event_loop = EventLoop::try_new().unwrap();
 
-        let mut app = BasicApp::default();
+        let mut app = BasicApp {
+            content_str: "placeholder".to_string(),
+            content,
+            request_sender,
+        };
 
         event_loop
             .handle()
@@ -33,26 +76,15 @@ impl RawClientInitializer for BasicInitializer {
                 |event, &mut (), app_state: &mut BasicApp| match event {
                     calloop::channel::Event::Msg(
                         singularity_common::sap::packets::StandardEvent::UIEvent(
-                            sonamu_ui::ui_event::UIEvent::KeyPress(key, _),
+                            sonamu_ui::ui_event::UIEvent::KeyPress(key, mods),
                         ),
                     ) => {
-                        match key.to_char() {
-                            // \b is not supported by rust bruh
-                            Some('\x08') => {
-                                app_state.content.pop();
-                                content.set(CharGrid::from(app_state.content.as_str()).element());
-                                request_sender.send(singularity_common::sap::packets::StandardRequest::DamageSurface).unwrap();
-                            }
-                            Some(key_char) => {
-                                app_state.content.push(key_char);
-                                content.set(CharGrid::from(app_state.content.as_str()).element());
-                                request_sender.send(singularity_common::sap::packets::StandardRequest::DamageSurface).unwrap();
-                            }
-                            _ => (),
-                        }
+                        app_state.handle_key_press(key, mods);
                     }
                     calloop::channel::Event::Msg(_) => {}
-                    calloop::channel::Event::Closed => todo!(),
+                    calloop::channel::Event::Closed => {
+                        println!("Goodbye!");
+                    }
                 },
             )
             .unwrap();

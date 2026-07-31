@@ -4,7 +4,7 @@ use std::{
 };
 
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{DeriveInput, Fields};
 
 /// REVIEW: I realize that this is actually very arbitrary and unflexible for most use-cases
@@ -39,8 +39,11 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
                         .collect::<Vec<proc_macro2::TokenTree>>()
                         .as_slice()
                     {
-                        &[proc_macro2::TokenTree::Group(area_generator), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(node_renderer)] =>
-                        {
+                        &[
+                            proc_macro2::TokenTree::Group(area_generator),
+                            proc_macro2::TokenTree::Punct(seperator),
+                            proc_macro2::TokenTree::Group(node_renderer),
+                        ] => {
                             assert_eq!(seperator.as_char(), ',');
                             Some((area_generator.stream(), node_renderer.stream()))
                         }
@@ -62,28 +65,26 @@ pub fn compose_components_derive(input: TokenStream) -> TokenStream {
             for attr in &field.attrs {
                 if attr.path().is_ident("component") {
                     // just get the first thing from attr.tokens
-                    let (container_size, focus_id) = match attr
-                        .to_token_stream()
-                        .clone()
-                        .into_iter()
-                        .next()
-                        .unwrap()
-                    {
-                        proc_macro2::TokenTree::Group(group) => match &group
-                            .stream()
-                            .into_iter()
-                            .collect::<Vec<proc_macro2::TokenTree>>()
-                            .as_slice()
-                        {
-                            &[proc_macro2::TokenTree::Group(container_size), proc_macro2::TokenTree::Punct(seperator), proc_macro2::TokenTree::Group(focus_id)] =>
+                    let (container_size, focus_id) =
+                        match attr.to_token_stream().clone().into_iter().next().unwrap() {
+                            proc_macro2::TokenTree::Group(group) => match &group
+                                .stream()
+                                .into_iter()
+                                .collect::<Vec<proc_macro2::TokenTree>>()
+                                .as_slice()
                             {
-                                assert_eq!(seperator.as_char(), ',');
-                                (container_size.stream(), focus_id.stream())
-                            }
-                            _ => panic!("component attribute unparsable"),
-                        },
-                        _ => panic!("component attribute unparsable (not a group)"),
-                    };
+                                &[
+                                    proc_macro2::TokenTree::Group(container_size),
+                                    proc_macro2::TokenTree::Punct(seperator),
+                                    proc_macro2::TokenTree::Group(focus_id),
+                                ] => {
+                                    assert_eq!(seperator.as_char(), ',');
+                                    (container_size.stream(), focus_id.stream())
+                                }
+                                _ => panic!("component attribute unparsable"),
+                            },
+                            _ => panic!("component attribute unparsable (not a group)"),
+                        };
                     components.push((field.ident.clone().unwrap(), container_size, focus_id));
                 }
 

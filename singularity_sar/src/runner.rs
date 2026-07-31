@@ -52,8 +52,8 @@ impl UIHandle {
         runner_event_loop
             .insert_source(rx, |event, &mut (), runner| {
                 let calloop::channel::Event::Msg(event) = event else {
-                    // Means the UI closed; haven't thought abt what to do in this case
-                    panic!()
+                    dbg!("UI closed; haven't thought abt what to do");
+                    return;
                 };
                 runner.handle_ui_event(event);
             })
@@ -314,6 +314,11 @@ impl AppletRunner {
                     .set_ui_content(self.root_client.get_surface());
             }
             StandardRequest::DamageTreeview => todo!(),
+            StandardRequest::Quit => {
+                self.ui_handle
+                    .is_running
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ pub enum StandardRequest {
     /// Currently does the whole surface
     DamageSurface,
     DamageTreeview,
+    Quit,
 }
 
 /// Server to client
