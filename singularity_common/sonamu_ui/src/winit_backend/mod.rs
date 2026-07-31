@@ -11,9 +11,16 @@ use crate::{
         ui_event::{KeyModifiers, UIEvent},
     },
 };
+use calloop::channel::Sender;
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use sonamu_sync::shared_graph::{SyncEdge, SyncNode};
-use std::{collections::VecDeque, sync::Arc};
+use sonamu_sync::{
+    EncapsulatedLock,
+    shared_graph::{SyncEdge, SyncNode},
+};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, atomic::AtomicBool},
+};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,
@@ -214,28 +221,13 @@ impl WinitData {
     }
 }
 
-/// Look at 2026-07-25 devlog
-/// This is the "edge" data shared between UI Display and the root applet logic.
-/// Every time the state of this is changed by one of the threads, it should notify the other thread.
-pub enum UIState {
-    Running {
-        root_element: UIElement,
-        /// Individually, mpsc would be better than mutex vec dequeue, but with other things to be locked,
-        /// this is much nicer to organize and probably faster.
-        /// Same with the AtomicBool for is_running which is now just represented via the enum states
-        ui_event_queue: VecDeque<UIEvent>,
-    },
-    /// I was going to use Option instead of manually naming the running vs ended, but I think this is clearer.
-    Ended,
-}
-
 /// REVIEW: rename this
 /// REVIEW: don't even expose this to pub?
 /// I'm thinking I have the UISharedData standardized, and then it has a run function that depends on each backend
 pub struct UIDisplay {
-    /// Tracks if any shared data was updated
-    node: SyncNode,
-    shared_data: SyncEdge<UIState>,
+    is_running: Arc<AtomicBool>,
+    event_queue: Sender<UIEvent>,
+    ui_content: EncapsulatedLock<UIElement>,
 
     // width: u32,
     // height: u32,
@@ -245,22 +237,26 @@ pub struct UIDisplay {
 }
 impl UIDisplay {
     /// Returns when display is closed.
-    pub fn run_display(node: SyncNode, shared_data: SyncEdge<UIState>) {
+    pub fn run_display(
+        is_running: Arc<AtomicBool>,
+        event_queue: Sender<UIEvent>,
+        ui_content: EncapsulatedLock<UIElement>,
+    ) {
         let event_loop = EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
             .build()
             .unwrap();
-        event_loop
-            .run_app(&mut Self {
-                node,
-                shared_data,
-                // width: 256,
-                // height: 256,
-                key_modifiers: KeyModifiers::NONE,
-                winit_data: None,
-            })
-            .unwrap();
+        let mut app = Self {
+            is_running,
+            event_queue,
+            ui_content,
+            // width: 256,
+            // height: 256,
+            key_modifiers: KeyModifiers::NONE,
+            winit_data: None,
+        };
+        event_loop.run_app(&mut app).unwrap();
 
         // // All Wayland apps start by connecting the compositor (server).
         // let conn = Connection::connect_to_env().unwrap();
@@ -382,9 +378,9 @@ impl Drop for UIDisplay {
         //     }
         //     node_lock.wait_for_update();
         // }
-        *self.shared_data.wait_lock(self.node.lock()) = UIState::Ended;
+        // *self.shared_data.wait_lock(self.node.lock()) = UIState::Ended;
 
-        // self.is_running
-        //     .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.is_running
+            .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }

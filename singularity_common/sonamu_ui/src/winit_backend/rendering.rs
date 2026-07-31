@@ -1548,7 +1548,7 @@ impl UIElement {
 
 impl UIDisplay {
     /// REVIEW: move somewhere else?
-    pub(super) fn draw(winit_data: &mut Option<WinitData>, root_element: &UIElement) {
+    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &UIElement) {
         let Some(state) = winit_data else {
             return;
         };
@@ -1640,7 +1640,7 @@ impl UIDisplay {
                 // text_buffer,
             };
 
-            root_element.draw(&mut drawing_shared_data, DisplayArea::FULL);
+            content.draw(&mut drawing_shared_data, DisplayArea::FULL);
         }
 
         queue.submit(iter::once(encoder.finish()));

@@ -3350,6 +3350,7 @@ name = "sonamu_ui"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "calloop 0.14.4",
  "dejavu",
  "glyphon",
  "image",

@@ -9274,3 +9274,23 @@ I don't know why Anvil does this, but I'm just going to use `event_loop.run`.
 2026-07-30 09:34PM
 
 I started on the server runner.
+I think next, I'll need to do the UI.
+
+Bro for a second I thought the UI was already using calloop,
+but it is using Winit's own EventLoop system.
+
+I guess I'm going back to the atomic bool for is running,
+send-receive channels for event queue (but with calloop not mpsc this time),
+and encapsulated lock for display.
+I feel like I'm just reverting all of earlier this week.
+
+Good thing I hoarde dead code, but I did remove some stuff.
+I'm going to the winit backend winit impls from the commit before where I tried to refactor everything
+(maybe I should've used branches, but oh well, can't change the past;
+maybe I should use branches now, nah, I'm too lazy):
+https://github.com/mathkimchi/singularity/commit/ca9e4c7e7a2feebf34999e5d654f6445c11e9cf9.
+
+Ok, I set up the UI to hopefully be compatible with the server using Calloop.
+Next, I need to actually hook up the server and UI,
+so I will make a UI handle for the server to hold
+(should just be a bundle of the is_running, event queue, and display).
