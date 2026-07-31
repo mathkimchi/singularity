@@ -46,7 +46,7 @@ impl Vertex {
         use std::mem;
 
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
@@ -81,7 +81,7 @@ impl RoundRectInstance {
         use std::mem;
 
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
@@ -136,7 +136,7 @@ impl RectangleRenderer {
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
+            multisample: MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -171,7 +171,7 @@ impl ImageInstance {
         use std::mem;
 
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
@@ -216,7 +216,7 @@ impl ImageInstance {
 
 pub struct ImageRenderer {
     render_pipeline: RenderPipeline,
-    image_texture_bind_group_layout: wgpu::BindGroupLayout,
+    image_texture_bind_group_layout: BindGroupLayout,
 }
 impl ImageRenderer {
     pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> Self {
@@ -288,7 +288,7 @@ impl ImageRenderer {
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
+            multisample: MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -329,7 +329,7 @@ impl CharGridInstance {
         use std::mem;
 
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
@@ -411,7 +411,7 @@ impl CharGridRenderer {
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
+            multisample: MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -647,7 +647,7 @@ pub(super) struct DrawingSharedData<'a> {
     atlas: &'a mut glyphon::TextAtlas,
     // text_renderer: &'a mut glyphon::TextRenderer,
     // text_buffer: &'a mut glyphon::Buffer,
-    device: &'a wgpu::Device,
+    device: &'a Device,
     queue: &'a wgpu::Queue,
     // surface: &'a wgpu::Surface<'static>,
     surface_config: &'a SurfaceConfiguration,

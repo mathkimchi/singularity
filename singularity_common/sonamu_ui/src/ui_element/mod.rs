@@ -102,7 +102,7 @@ impl UIElement {
     }
 
     #[must_use]
-    pub fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
+    pub const fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
         DisplayContainerSize {
             // TODO: figure out all the edge cases like this
             width: container_size.width.saturating_sub(2),
@@ -112,6 +112,7 @@ impl UIElement {
 
     /// First element at bottom
     /// TODO: UI element user should give in this form
+    #[must_use]
     pub fn as_primitives(&self) -> Vec<(UIPrimitiveElement, DisplayArea)> {
         todo!()
     }

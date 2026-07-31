@@ -45,6 +45,7 @@ impl Default for SyncNode {
     }
 }
 impl SyncNode {
+    #[must_use]
     pub fn lock(&self) -> SyncNodeGuard<'_> {
         SyncNodeGuard {
             is_updated: self.inner.is_updated.lock().unwrap(),
@@ -133,6 +134,7 @@ impl<Data> SyncEdge<Data> {
         ]
     }
 
+    #[must_use]
     pub fn try_lock(&self) -> Option<SyncEdgeGuard<'_, Data>> {
         let guard = self.data.try_lock().ok()?;
 

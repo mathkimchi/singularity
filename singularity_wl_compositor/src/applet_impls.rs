@@ -39,12 +39,12 @@ impl NodularApplet for WaylandApplet {
         todo!()
     }
 
-    fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
+    fn get_treeview(&self) -> WorldTree<String> {
         // TODO: actual name
         WorldTree::Base("Wayland App".to_string())
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         WorldTreePath::new_into()
     }
 }

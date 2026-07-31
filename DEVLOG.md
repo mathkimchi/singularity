@@ -9486,3 +9486,13 @@ with squashing some warnings.
 
 First is fixing the lint name for lints.rust.unused qualifications.
 Oh damn, that brought me from like 40 to 209 warnings.
+
+Next, I'll run the classic auto clippy fix.
+It brought me back to 41 warnings, so I guess it just fixed the unused_qualifications.
+
+2026-07-31 10:34AM
+
+I was confused why it fixed that automatically, since auto_clippy_fix
+should be set up to only fix things I manually enable,
+but I realized it's because I told it to ignore every clippy lint other than the ones I manually enable,
+but unused_qualifications is not a clippy lint.

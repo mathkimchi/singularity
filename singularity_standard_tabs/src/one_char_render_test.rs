@@ -43,7 +43,7 @@ impl OneCharRenderTestApplet {
     }
 }
 impl BasicApplet for OneCharRenderTestApplet {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: UIEvent) {
         if let UIEvent::KeyPress(key, _) = ui_event
             && let Some(c) = key.to_char()
         {
@@ -71,7 +71,7 @@ impl NodularApplet for OneCharRenderTestApplet {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.0.to_string())
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         WorldTreePath::new_into()
     }
 }

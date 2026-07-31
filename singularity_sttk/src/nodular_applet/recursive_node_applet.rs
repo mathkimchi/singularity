@@ -669,7 +669,7 @@ impl NodularApplet for RecursiveNodeApplet {
         WorldTree::World(Box::new(raw_treeview))
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         // log::debug!(
         //     "My title is {} and my focus is {:?}",
         //     self.get_treeview().get_root_value(),

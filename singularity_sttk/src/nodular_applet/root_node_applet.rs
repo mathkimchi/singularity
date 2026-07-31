@@ -60,6 +60,7 @@ impl RootNodeApplet {
         }
     }
 
+    #[must_use]
     pub fn new(
         inner_initializer: Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet>,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
@@ -131,7 +132,7 @@ impl RootNodeApplet {
                 // REVIEW: do I need to do anything here?
             }
 
-            fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
+            fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner) {
                 self.applet_spawner_registry
                     .write()
                     .unwrap()
@@ -139,10 +140,10 @@ impl RootNodeApplet {
             }
             fn get_applet_spawners(
                 &self,
-            ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+            ) -> BTreeMap<String, AppletSpawner> {
                 self.applet_spawner_registry.read().unwrap().clone()
             }
-            fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+            fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
                 self.applet_spawner_registry
                     .read()
                     .unwrap()
@@ -185,11 +186,11 @@ impl RootNodeApplet {
             fn init(
                 // smth smth box needs to know size
                 self: Box<Self>,
-                content: singularity_common::sync::EncapsulatedLock<UIElement>,
-                event_queue: Channel<singularity_common::sap::packets::StandardEvent>,
+                content: EncapsulatedLock<UIElement>,
+                event_queue: Channel<StandardEvent>,
                 // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
                 // (I am really trying to convince myself this is fine, I am the strawman)
-                request_sender: Sender<singularity_common::sap::packets::StandardRequest>,
+                request_sender: Sender<StandardRequest>,
             ) {
                 let mut event_loop = EventLoop::try_new().unwrap();
 

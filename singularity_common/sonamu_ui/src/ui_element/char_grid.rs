@@ -58,15 +58,15 @@ pub struct InternalCharCell {
 impl InternalCharCell {
     pub const BYTES: usize = 16;
 
-    pub fn set_char(&mut self, c: char) -> &mut Self {
+    pub const fn set_char(&mut self, c: char) -> &mut Self {
         self.character = c as u32;
         self
     }
-    pub fn set_fg(&mut self, fg: Color) -> &mut Self {
+    pub const fn set_fg(&mut self, fg: Color) -> &mut Self {
         self.fg = fg;
         self
     }
-    pub fn set_bg(&mut self, bg: Color) -> &mut Self {
+    pub const fn set_bg(&mut self, bg: Color) -> &mut Self {
         self.bg = bg;
         self
     }
@@ -75,7 +75,7 @@ impl InternalCharCell {
         self.style += new_style;
         self
     }
-    pub fn set_style(&mut self, new_style: CharCellStyle) -> &mut Self {
+    pub const fn set_style(&mut self, new_style: CharCellStyle) -> &mut Self {
         self.style = new_style;
         self
     }
@@ -182,7 +182,7 @@ impl CharGrid {
 
     /// Returns (width, height)
     #[must_use]
-    pub fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+    pub const fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
         // log::debug!("Largest fittable size called, container size: {container_size:?}");
         (
             // Font size is height, width is twice the height

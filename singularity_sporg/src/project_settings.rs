@@ -53,7 +53,7 @@ impl Project {
     pub fn open_or_make<P>(project_directory: P) -> Self
     where
         P: AsRef<std::path::Path> + Clone,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         Self::try_from_project_directory(project_directory.clone()).unwrap_or_else(|| Self {
             project_settings: ProjectSettings {
@@ -73,7 +73,7 @@ impl Project {
     pub fn try_from_project_directory<P>(project_directory: P) -> Option<Self>
     where
         P: AsRef<std::path::Path>,
-        PathBuf: std::convert::From<P>,
+        PathBuf: From<P>,
     {
         Some(Self {
             project_settings: Self::parse_project_settings(&project_directory)?,

@@ -306,7 +306,7 @@ impl XdgShellHandler for WaylandCompositor {
         &mut self,
         _surface: smithay::wayland::shell::xdg::PopupSurface,
         _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        _serial: smithay::utils::Serial,
+        _serial: Serial,
     ) {
     }
 

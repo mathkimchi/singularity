@@ -38,7 +38,7 @@ struct WgpuData {
     font_system: FontSystem,
     swash_cache: SwashCache,
     viewport: glyphon::Viewport,
-    atlas: glyphon::TextAtlas,
+    atlas: TextAtlas,
     // text_renderer: glyphon::TextRenderer,
     // text_buffer: glyphon::Buffer,
 

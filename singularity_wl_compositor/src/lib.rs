@@ -238,7 +238,7 @@ impl WaylandCompositor {
                 // .unwrap();
 
                 // I need this bc if I quit while rendering, it doesn't work
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                thread::sleep(std::time::Duration::from_millis(100));
             }
 
             // // It is important that all events on the display have been dispatched and flushed to clients before
@@ -359,7 +359,7 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            sonamu_ui::ui_event::UIEvent::KeyPress(key, _key_modifiers) => {
+            UIEvent::KeyPress(key, _key_modifiers) => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,
@@ -387,15 +387,15 @@ impl WaylandCompositor {
                     );
                 }
             }
-            sonamu_ui::ui_event::UIEvent::WindowResized(_) => {}
-            sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
+            UIEvent::WindowResized(_) => {}
+            UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO: handle keypress in wayland applet");
             }
         }
     }
 }
 
-fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
+fn send_frames_surface_tree(surface: &WlSurface, time: u32) {
     with_surface_tree_downward(
         surface,
         (),

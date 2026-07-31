@@ -53,7 +53,7 @@ impl CommandHubApplet {
             fn create_initializer(
                 &self,
                 args: &[&str],
-            ) -> Option<crate::nodular_applet::NodularAppletInitializer> {
+            ) -> Option<NodularAppletInitializer> {
                 if !args.is_empty() {
                     println!("Warning: command hub doesn't use spawn args.");
                 }
@@ -220,7 +220,7 @@ impl NodularApplet for CommandHubApplet {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
     }
 
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
+    fn get_focus_path(&self) -> WorldTreePath {
         // WorldTreePath::new_empty()
         WorldTreePath::new_into()
     }

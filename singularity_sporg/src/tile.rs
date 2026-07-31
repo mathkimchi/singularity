@@ -37,12 +37,12 @@ pub enum Tile<Tab> {
         tab_id: Id<Tab>,
     },
 }
-impl<Tab> core::clone::Clone for Tile<Tab> {
+impl<Tab> Clone for Tile<Tab> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<Tab> core::marker::Copy for Tile<Tab> {}
+impl<Tab> Copy for Tile<Tab> {}
 impl<Tab> Tile<Tab> {
     #[must_use]
     pub const fn try_as_container(&self) -> Option<([Id<Self>; 2], Orientation, f32)> {
@@ -227,7 +227,7 @@ impl<Tab> Tiles<Tab> {
 mod tile_derive_impls {
     use super::Tiles;
 
-    impl<Tab> core::clone::Clone for Tiles<Tab> {
+    impl<Tab> Clone for Tiles<Tab> {
         fn clone(&self) -> Self {
             Self {
                 root_id: self.root_id,

@@ -35,7 +35,7 @@ impl ViewOffset {
 
     /// Positive is down
     /// Negative is up
-    fn add_scroll(&mut self, offset: isize) {
+    const fn add_scroll(&mut self, offset: isize) {
         self.scroll = self.scroll.saturating_add_signed(offset);
     }
 
@@ -75,7 +75,7 @@ pub struct CodeEditorApplet {
 impl<P> CreatableNodularApplet<P> for CodeEditorApplet
 where
     P: AsRef<std::path::Path>,
-    PathBuf: std::convert::From<P>,
+    PathBuf: From<P>,
 {
     fn new(file_path: P, hook: Box<dyn NodularRunnerHook + 'static>) -> Self {
         // Is reader overkill? Should I just have read?
