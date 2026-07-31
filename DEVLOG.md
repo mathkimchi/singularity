@@ -9302,3 +9302,24 @@ so I will make a UI handle for the server to hold
 2026-07-30 10:24PM
 
 Done with that, next is the client side.
+
+I actually need to make design choices.
+I was lowkey feeling comfortable just turning off my brain.
+
+Okay, so I'm probably going to add some wrapper type to make it easier to use
+and harder to footgun, but I'll explain the raw init interaction between client and server.
+
+Server gives the raw client initializer the shared root content holder,
+an event receiver, and a request sender.
+Client initializer is run on a seperate OS thread.
+
+Wait, that's lowkey it for the raw interaction.
+
+I imagine the client initializer will make its own event loop,
+hook up the event receiver to the event loop,
+and run it
+(so the initializer thread would block until app closes).
+
+Everything else will just be convenience on top of that,
+including the `ServerHandle`,
+which should really belong in the sttk.

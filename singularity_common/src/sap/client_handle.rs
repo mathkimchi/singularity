@@ -15,6 +15,7 @@ impl ClientHandle {
     }
 
     pub fn get_surface(&self) -> UIElement {
+        // this order matters
         let surface = self.surface.get();
         self.send_event(StandardEvent::SurfaceDamageAck);
         surface
