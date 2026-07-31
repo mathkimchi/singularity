@@ -850,6 +850,89 @@ impl UIElement {
         }
     }
 
+    /// load the actual char grid info as if it was a texture where each pixel is a char
+    fn load_char_grid_to_tex(
+        drawing_shared_data: &mut DrawingSharedData,
+        char_grid: &CharGrid,
+        width: u32,
+        height: u32,
+    ) {
+        drawing_shared_data.render_pass.set_bind_group(
+            0,
+            Some(&drawing_shared_data.char_grid_renderer.atlas_bind_group),
+            &[],
+        );
+
+        let texture_size = wgpu::Extent3d {
+            width,
+            height,
+            // All textures are stored as 3D, we represent our 2D texture
+            // by setting depth to 1.
+            depth_or_array_layers: 1,
+        };
+
+        let texture = drawing_shared_data
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                size: texture_size,
+                mip_level_count: 1, // We'll talk about this a little later
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Uint,
+                // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
+                // COPY_DST means that we want to copy data to this texture
+                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
+                label: Some("char_grid_storage"),
+                // This is the same as with the SurfaceConfig. It
+                // specifies what texture formats can be used to
+                // create TextureViews for this texture. The base
+                // texture format (Rgba8UnormSrgb in this case) is
+                // always supported. Note that using a different
+                // texture format is not supported on the WebGL2
+                // backend.
+                view_formats: &[],
+            });
+
+        drawing_shared_data.queue.write_texture(
+            // Tells wgpu where to copy the pixel data
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            // The actual pixel data
+            bytemuck::cast_slice(char_grid.content()),
+            // The layout of the texture
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(InternalCharCell::BYTES as u32 * width),
+                rows_per_image: Some(height),
+            },
+            texture_size,
+        );
+
+        // We don't need to configure the texture view much, so let's
+        // let wgpu define it.
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let bind_group = drawing_shared_data
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &drawing_shared_data
+                    .char_grid_renderer
+                    .char_grid_texture_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                }],
+                label: Some("bind_group"),
+            });
+        drawing_shared_data
+            .render_pass
+            .set_bind_group(1, Some(&bind_group), &[]);
+    }
+
     fn draw_char_grid(
         drawing_shared_data: &mut DrawingSharedData,
         char_grid: &CharGrid,
@@ -866,83 +949,7 @@ impl UIElement {
         let height = char_grid.height() as u32;
 
         // load the actual char grid info as if it was a texture where each pixel is a char
-        {
-            drawing_shared_data.render_pass.set_bind_group(
-                0,
-                Some(&drawing_shared_data.char_grid_renderer.atlas_bind_group),
-                &[],
-            );
-
-            let texture_size = wgpu::Extent3d {
-                width,
-                height,
-                // All textures are stored as 3D, we represent our 2D texture
-                // by setting depth to 1.
-                depth_or_array_layers: 1,
-            };
-
-            let texture = drawing_shared_data
-                .device
-                .create_texture(&wgpu::TextureDescriptor {
-                    size: texture_size,
-                    mip_level_count: 1, // We'll talk about this a little later
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Rgba32Uint,
-                    // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
-                    // COPY_DST means that we want to copy data to this texture
-                    usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
-                    label: Some("char_grid_storage"),
-                    // This is the same as with the SurfaceConfig. It
-                    // specifies what texture formats can be used to
-                    // create TextureViews for this texture. The base
-                    // texture format (Rgba8UnormSrgb in this case) is
-                    // always supported. Note that using a different
-                    // texture format is not supported on the WebGL2
-                    // backend.
-                    view_formats: &[],
-                });
-
-            drawing_shared_data.queue.write_texture(
-                // Tells wgpu where to copy the pixel data
-                wgpu::TexelCopyTextureInfo {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                // The actual pixel data
-                bytemuck::cast_slice(char_grid.content()),
-                // The layout of the texture
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(InternalCharCell::BYTES as u32 * width),
-                    rows_per_image: Some(height),
-                },
-                texture_size,
-            );
-
-            // We don't need to configure the texture view much, so let's
-            // let wgpu define it.
-            let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-            let bind_group =
-                drawing_shared_data
-                    .device
-                    .create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &drawing_shared_data
-                            .char_grid_renderer
-                            .char_grid_texture_bind_group_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(&texture_view),
-                        }],
-                        label: Some("bind_group"),
-                    });
-            drawing_shared_data
-                .render_pass
-                .set_bind_group(1, Some(&bind_group), &[]);
-        }
+        Self::load_char_grid_to_tex(drawing_shared_data, char_grid, width, height);
 
         // these buffers are how we pass data to the gpu
         // pass in the large triangle

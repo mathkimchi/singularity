@@ -18,7 +18,10 @@ use sonamu_ui::{
     ui_element::UIElement,
     ui_event::{KeyModifiers, KeyTrait, UIEvent},
 };
-use std::sync::{Arc, RwLock, Weak, atomic::AtomicBool};
+use std::{
+    rc::{Rc, Weak},
+    sync::{RwLock, atomic::AtomicBool},
+};
 
 #[derive(Debug, Clone, Copy)]
 enum FocusIndex {
@@ -30,7 +33,7 @@ enum FocusIndex {
 /// Information needed for the main applet and child applet hooks
 /// REVIEW: rename
 struct SharedResource {
-    children: RwLock<Vec<Arc<CachingApplet>>>,
+    children: RwLock<Vec<CachingApplet>>,
 
     focus_index: EncapsulatedLock<FocusIndex>,
     hook: Box<dyn NodularRunnerHook>,
@@ -39,14 +42,14 @@ struct SharedResource {
     treeview_damaged: AtomicBool,
 }
 impl SharedResource {
-    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Arc<Self> {
+    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Rc<Self> {
         let hook = hook;
         let children = RwLock::new(Vec::new());
         let focus_index = EncapsulatedLock::new(FocusIndex::Focusing);
         let window_damaged = AtomicBool::new(true);
         let treeview_damaged = AtomicBool::new(true);
 
-        Arc::new(Self {
+        Rc::new(Self {
             children,
             focus_index,
             hook,
@@ -55,10 +58,134 @@ impl SharedResource {
         })
     }
 
+    fn create_hold_holder(
+        shared_resource: &Rc<Self>,
+        child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+    ) -> CachingApplet {
+        let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
+        let inner_applet_treeview = EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
+
+        struct InnerHook {
+            // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
+            // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
+            // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
+            // window: EncapsulatedLock<UIElement>,
+            // treeview: EncapsulatedLock<WorldTree<String>>,
+            // outer_focused_child_index: Arc<Mutex<usize>>,
+            shared_resource: Weak<SharedResource>,
+            // the index of this hook's corresponding app in the shared resource list of applets
+            // index: usize,
+        }
+        impl BasicRunnerHook for InnerHook {
+            // fn update_display(&self, display: &UIElement) {
+            //     self.window.set(display.clone());
+
+            //     self.shared_resource
+            //         .upgrade()
+            //         .unwrap()
+            //         .hook
+            //         .update_display(&MultiAppletHolder::get_display(&self.shared_resource));
+            // }
+
+            fn damage_window(&self) {
+                if !self
+                    .shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .window_damaged
+                    .swap(true, std::sync::atomic::Ordering::Relaxed)
+                {
+                    self.shared_resource.upgrade().unwrap().hook.damage_window();
+                }
+            }
+
+            fn close(&self) {
+                // FIXME: right now, just closes the entire node including all children as well
+                self.shared_resource.upgrade().unwrap().hook.close();
+            }
+        }
+        impl NodularRunnerHook for InnerHook {
+            // fn update_treeview(&self, treeview: &UIElement) {
+            //     self.treeview.set(treeview.clone());
+
+            //     self.shared_resource
+            //         .upgrade()
+            //         .unwrap()
+            //         .hook
+            //         .update_treeview(&MultiAppletHolder::get_display(&self.shared_resource));
+            // }
+
+            fn damage_treeview(&self) {
+                if !self
+                    .shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .treeview_damaged
+                    .swap(true, std::sync::atomic::Ordering::Relaxed)
+                {
+                    self.shared_resource
+                        .upgrade()
+                        .unwrap()
+                        .hook
+                        .damage_treeview();
+                }
+            }
+
+            fn add_child(&self, initializer: NodularAppletInitializer) {
+                SharedResource::add_child(&self.shared_resource.upgrade().unwrap(), initializer);
+            }
+
+            fn change_focus(&self, operation: WorldTreeTraversalOperation) {
+                self.shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .change_focus(operation);
+            }
+
+            fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
+                self.shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .hook
+                    .register_applet_spawner(name, applet_spawner);
+            }
+            fn get_applet_spawners(
+                &self,
+            ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
+                self.shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .hook
+                    .get_applet_spawners()
+            }
+            fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
+                self.shared_resource
+                    .upgrade()
+                    .unwrap()
+                    .hook
+                    .find_applet_spawner(name)
+            }
+        }
+
+        let inner_hook = InnerHook {
+            // window: inner_applet_window.clone(),
+            // index: shared_resource.children.read().unwrap().len(),
+            shared_resource: Rc::downgrade(shared_resource),
+            // treeview: inner_applet_treeview.clone(),
+        };
+
+        CachingApplet::new(
+            child_initializer,
+            Box::new(inner_hook),
+            inner_applet_window,
+            inner_applet_treeview,
+        )
+    }
+
     /// NOTE: this can't take `&self` because we need to create a weak reference to shared resource,
     /// so we need to get this already wrapped in an Arc.
     pub fn add_child(
-        shared_resource: &Arc<Self>,
+        shared_resource: &Rc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
     ) {
         // breaks when adding the first child
@@ -69,134 +196,7 @@ impl SharedResource {
         //     .load(std::sync::atomic::Ordering::Relaxed)]
         // .immut_handle_nodular_event(NodularEvent::Focused(false));
 
-        let child_holder = {
-            let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
-            let inner_applet_treeview =
-                EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
-
-            struct InnerHook {
-                // outer_children: Arc<Mutex<Vec<SubAppletHolder>>>,
-                // // outer_hook: Arc<Mutex<Box<dyn NodularRunnerHook>>>,
-                // outer_hook: Arc<Box<dyn BasicRunnerHook>>,
-                // window: EncapsulatedLock<UIElement>,
-                // treeview: EncapsulatedLock<WorldTree<String>>,
-                // outer_focused_child_index: Arc<Mutex<usize>>,
-                shared_resource: Weak<SharedResource>,
-                // the index of this hook's corresponding app in the shared resource list of applets
-                // index: usize,
-            }
-            impl BasicRunnerHook for InnerHook {
-                // fn update_display(&self, display: &UIElement) {
-                //     self.window.set(display.clone());
-
-                //     self.shared_resource
-                //         .upgrade()
-                //         .unwrap()
-                //         .hook
-                //         .update_display(&MultiAppletHolder::get_display(&self.shared_resource));
-                // }
-
-                fn damage_window(&self) {
-                    if !self
-                        .shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .window_damaged
-                        .swap(true, std::sync::atomic::Ordering::Relaxed)
-                    {
-                        self.shared_resource.upgrade().unwrap().hook.damage_window();
-                    }
-                }
-
-                fn close(&self) {
-                    // FIXME: right now, just closes the entire node including all children as well
-                    self.shared_resource.upgrade().unwrap().hook.close();
-                }
-            }
-            impl NodularRunnerHook for InnerHook {
-                // fn update_treeview(&self, treeview: &UIElement) {
-                //     self.treeview.set(treeview.clone());
-
-                //     self.shared_resource
-                //         .upgrade()
-                //         .unwrap()
-                //         .hook
-                //         .update_treeview(&MultiAppletHolder::get_display(&self.shared_resource));
-                // }
-
-                fn damage_treeview(&self) {
-                    if !self
-                        .shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .treeview_damaged
-                        .swap(true, std::sync::atomic::Ordering::Relaxed)
-                    {
-                        self.shared_resource
-                            .upgrade()
-                            .unwrap()
-                            .hook
-                            .damage_treeview();
-                    }
-                }
-
-                fn add_child(&self, initializer: NodularAppletInitializer) {
-                    SharedResource::add_child(
-                        &self.shared_resource.upgrade().unwrap(),
-                        initializer,
-                    );
-                }
-
-                fn change_focus(&self, operation: WorldTreeTraversalOperation) {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .change_focus(operation);
-                }
-
-                fn register_applet_spawner(
-                    &self,
-                    name: String,
-                    applet_spawner: super::AppletSpawner,
-                ) {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .register_applet_spawner(name, applet_spawner);
-                }
-                fn get_applet_spawners(
-                    &self,
-                ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .get_applet_spawners()
-                }
-                fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .find_applet_spawner(name)
-                }
-            }
-
-            let inner_hook = InnerHook {
-                // window: inner_applet_window.clone(),
-                // index: shared_resource.children.read().unwrap().len(),
-                shared_resource: Arc::downgrade(shared_resource),
-                // treeview: inner_applet_treeview.clone(),
-            };
-
-            Arc::new(CachingApplet::new(
-                child_initializer,
-                Box::new(inner_hook),
-                inner_applet_window,
-                inner_applet_treeview,
-            ))
-        };
+        let child_holder = Self::create_hold_holder(shared_resource, child_initializer);
 
         shared_resource.children.write().unwrap().push(child_holder);
 
@@ -329,7 +329,7 @@ impl SharedResource {
 /// Displays the main child
 pub struct RecursiveNodeApplet {
     main_applet: CachingApplet,
-    shared_resource: Arc<SharedResource>,
+    shared_resource: Rc<SharedResource>,
 }
 impl RecursiveNodeApplet {
     fn new(
@@ -453,7 +453,7 @@ impl RecursiveNodeApplet {
 
             let inner_hook = InnerHook {
                 // window: inner_applet_window.clone(),
-                shared_resource: Arc::downgrade(&shared_resource),
+                shared_resource: Rc::downgrade(&shared_resource),
                 // treeview: inner_applet_treeview.clone(),
             };
 
