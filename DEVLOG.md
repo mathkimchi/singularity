@@ -9505,3 +9505,65 @@ and now I am also going through the remaining ones that are left over
 Now I just have 15 diagnostics.
 
 I'm not gonna narrate any more, this is quite trivial stuff.
+
+2026-08-01 04:08PM
+
+Since I'm kinda able to just work on clients again,
+I guess I could make the editor good.
+
+But I think I'd be missing the big picture,
+and wasting the whole refactor I spent the last week doing.
+
+Sonamu *needs* almost first-class Wayland support.
+It should be able to Wayland apps as well as Wayland compositors,
+but I say almost because it will give Sonamu applets even better features.
+
+Issue [#15](https://github.com/mathkimchi/singularity/issues/35) falls under this.
+I made a new issue [#44](https://github.com/mathkimchi/singularity/issues/44)
+for the general Wayland support.
+
+I lost my passkey (needed for ssh auth), but I guess I'll temporarily use a PAT until I get it back.
+Actually, I don't like PATs.
+I'm just going to pull a normie move and use a simple password protected ssh key,
+but I'll do some crazy password.
+
+Actually, I'm going to do something else but I won't say it here.
+
+I now have a merge conflict from like 24 commits ago.
+
+2026-08-01 10:23PM
+
+I had to run `git pull --rebase https://github.com/mathkimchi/singularity dev -Xours`.
+I'm pretty sure I screwed up something with the git repo.
+
+I am going to punch a wall or something;
+why did I lose my security key.
+
+I thought my projects were the only thing I could always rely on,
+and I literally lost the keys to it.
+
+I should never have come to Jersey.
+There is nothing for me here.
+
+I thought I would find things to do with my friends,
+but they're all busy or gone.
+I am disappointed to learn that,
+and I am also disappointed in myself for giving up developing for this.
+I also lost my lyrics notebook, so I can't even do that.
+
+I am just going to play the guitar and watch the Matrix.
+
+Actually, I'm going to work on the guitar practicing app I was working on.
+
+2026-08-02 10:21AM
+
+Ok, so I made a branch for this.
+I think I need to set up the multi-surface thing
+so I should let the UI draw from surfaces.
+
+I think the raw UI should only deal in primitives.
+
+2026-08-05 03:46PM
+
+I've been kinda busy, and I haven't really committed for a while despite making multiple changes.
+The last thing I did was modifying the UIElement drawer to draw primitives.

@@ -5,7 +5,7 @@
 
 use crate::{
     display_units::DisplayContainerSize,
-    ui_element::UIElement,
+    ui_element::PrimitiveScene,
     winit_backend::{
         rendering::{CharGridRenderer, ImageRenderer, RectangleRenderer, Vertex},
         ui_event::{KeyModifiers, UIEvent},
@@ -221,7 +221,7 @@ impl WinitData {
 pub struct UIDisplay {
     is_running: Arc<AtomicBool>,
     event_queue: Sender<UIEvent>,
-    ui_content: EncapsulatedLock<UIElement>,
+    ui_content: EncapsulatedLock<PrimitiveScene>,
 
     // width: u32,
     // height: u32,
@@ -234,7 +234,7 @@ impl UIDisplay {
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
-        ui_content: EncapsulatedLock<UIElement>,
+        ui_content: EncapsulatedLock<PrimitiveScene>,
     ) {
         let event_loop = EventLoop::builder()
             .with_wayland()

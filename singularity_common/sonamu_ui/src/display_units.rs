@@ -85,6 +85,11 @@ impl From<i32> for DisplayUnits {
         Self::Pixels(value)
     }
 }
+impl From<u32> for DisplayUnits {
+    fn from(value: u32) -> Self {
+        Self::Pixels(value as i32)
+    }
+}
 impl std::ops::Neg for DisplayUnits {
     type Output = Self;
     fn neg(self) -> Self::Output {
@@ -170,6 +175,41 @@ impl DisplayContainerSize {
 impl From<DisplayContainerSize> for DisplaySize {
     fn from(value: DisplayContainerSize) -> Self {
         Self::new((value.width as i32).into(), (value.height as i32).into())
+    }
+}
+
+/// In exclusively pixels.
+/// `[[left, top], [right, bot]]`
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+pub struct DisplayAreaPx(pub [[u32; 2]; 2]);
+impl DisplayAreaPx {
+    #[must_use]
+    pub const fn new(left: u32, top: u32, right: u32, bot: u32) -> Self {
+        Self([[left, top], [right, bot]])
+    }
+
+    // /// Similar to `DisplayArea::map_onto`
+    // #[must_use]
+    // pub fn find_subsize(&self, inner_size: DisplaySize) -> Self {
+    //     Self {
+    //         width: inner_size.width.pixels(self.width as i32).cast_unsigned(),
+    //         height: inner_size.height.pixels(self.height as i32).cast_unsigned(),
+    //     }
+    // }
+
+    pub fn size(&self) -> DisplayContainerSize {
+        DisplayContainerSize {
+            width: self.0[1][0] - self.0[0][0],
+            height: self.0[1][1] - self.0[0][1],
+        }
+    }
+}
+impl From<DisplayAreaPx> for DisplayArea {
+    fn from(value: DisplayAreaPx) -> Self {
+        Self::new(
+            (value.0[0][0], value.0[0][1]),
+            (value.0[1][0], value.0[1][1]),
+        )
     }
 }
 

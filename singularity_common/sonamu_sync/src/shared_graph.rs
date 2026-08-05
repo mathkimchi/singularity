@@ -143,6 +143,7 @@ impl<Data> SyncEdge<Data> {
             other_endpoint: self.other_endpoint.clone(),
         })
     }
+}
 
 pub struct SyncEdgeGuard<'a, Data> {
     data_guard: MutexGuard<'a, Data>,

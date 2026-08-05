@@ -1,12 +1,13 @@
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayContainerSize},
+    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
 };
 
 mod char_grid;
 pub use char_grid::*;
 use wgpu::TextureView;
 
+#[derive(Debug, Clone, Copy)]
 pub struct RoundRect {
     pub corner_radius: f32,
     /// Eats into content
@@ -16,12 +17,18 @@ pub struct RoundRect {
 }
 
 /// On their own, a UI Primitive fills up the whole space
+#[derive(Debug, Clone)]
 pub enum UIPrimitiveElement {
     RoundRect(RoundRect),
     Text(Vec<(String, glyphon::AttrsOwned)>),
     CharGrid(CharGrid),
     /// Just general holder
     Texture(TextureView),
+}
+
+#[derive(Debug, Clone)]
+pub struct PrimitiveScene {
+    elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
 }
 
 /// TODO: rename most everything here
@@ -50,6 +57,8 @@ pub enum UIElement {
     CharGrid(CharGrid),
 
     Image(image::RgbaImage),
+
+    Subsurface(u32),
 
     Nothing,
 }
@@ -102,7 +111,9 @@ impl UIElement {
     }
 
     #[must_use]
-    pub const fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
+    pub const fn inner_size_of_bordered(
+        container_size: DisplayContainerSize,
+    ) -> DisplayContainerSize {
         DisplayContainerSize {
             // TODO: figure out all the edge cases like this
             width: container_size.width.saturating_sub(2),
