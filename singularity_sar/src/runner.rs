@@ -6,7 +6,10 @@ use singularity_common::sap::{
 };
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
-    UIDisplay, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+    UIDisplay,
+    display_units::DisplayContainerSize,
+    ui_element::{PrimitiveScene, UIElement},
+    ui_event::UIEvent,
 };
 use std::{
     sync::{Arc, atomic::AtomicBool},
@@ -36,11 +39,11 @@ use std::{
 /// it is registered in the calloop.
 struct UIHandle {
     is_running: Arc<AtomicBool>,
-    ui_content: EncapsulatedLock<UIElement>,
+    ui_content: EncapsulatedLock<PrimitiveScene>,
 }
 impl UIHandle {
     pub fn init_ui(
-        initial_content: UIElement,
+        initial_content: PrimitiveScene,
         runner_event_loop: &LoopHandle<'_, AppletRunner>,
     ) -> Self {
         let is_running = Arc::new(AtomicBool::new(true));
@@ -73,7 +76,7 @@ impl UIHandle {
         }
     }
 
-    pub fn set_ui_content(&self, new_content: UIElement) {
+    pub fn set_ui_content(&self, new_content: PrimitiveScene) {
         self.ui_content.set(new_content);
     }
 }
@@ -103,7 +106,7 @@ impl AppletRunner {
         );
 
         Self {
-            ui_handle: UIHandle::init_ui(UIElement::Nothing, &event_loop),
+            ui_handle: UIHandle::init_ui(PrimitiveScene::new_empty(), &event_loop),
             event_loop,
             root_client,
             // idk if there's a way to actually get this
@@ -306,12 +309,17 @@ impl AppletRunner {
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
+    fn ui_element_to_primitive_scene(&self, content: &UIElement) -> PrimitiveScene {
+        PrimitiveScene::new_empty()
+    }
+
     /// TODO: take in client id
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
             StandardRequest::DamageSurface => {
-                self.ui_handle
-                    .set_ui_content(self.root_client.get_surface());
+                self.ui_handle.set_ui_content(
+                    self.ui_element_to_primitive_scene(&self.root_client.get_surface()),
+                );
             }
             StandardRequest::DamageTreeview => todo!(),
             StandardRequest::Quit => {

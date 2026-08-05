@@ -9567,3 +9567,6 @@ I think the raw UI should only deal in primitives.
 
 I've been kinda busy, and I haven't really committed for a while despite making multiple changes.
 The last thing I did was modifying the UIElement drawer to draw primitives.
+
+Next is using this code to actually render,
+and then converting UI element to primitives.

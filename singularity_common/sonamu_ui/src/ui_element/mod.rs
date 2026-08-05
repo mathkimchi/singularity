@@ -28,7 +28,14 @@ pub enum UIPrimitiveElement {
 
 #[derive(Debug, Clone)]
 pub struct PrimitiveScene {
-    elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
+    pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
+}
+impl PrimitiveScene {
+    pub fn new_empty() -> Self {
+        Self {
+            elements: Vec::new(),
+        }
+    }
 }
 
 /// TODO: rename most everything here

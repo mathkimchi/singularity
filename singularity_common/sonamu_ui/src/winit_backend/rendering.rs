@@ -5,7 +5,8 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayAreaPx, DisplayCoord, DisplayUnits},
     ui_element::{
-        CharGrid, FONT_SIZE_F, InternalCharCell, RoundRect, UIElement, UIPrimitiveElement,
+        CharGrid, FONT_SIZE_F, InternalCharCell, PrimitiveScene, RoundRect, UIElement,
+        UIPrimitiveElement,
     },
     winit_backend::{WgpuData, WinitData},
 };
@@ -1166,7 +1167,11 @@ impl DrawingSharedData<'_> {
         todo!()
     }
 
-    fn draw_primitive(&mut self, element: &UIPrimitiveElement, display_area_px: DisplayAreaPx) {
+    fn draw_primitive_element(
+        &mut self,
+        element: &UIPrimitiveElement,
+        display_area_px: DisplayAreaPx,
+    ) {
         match element {
             UIPrimitiveElement::RoundRect(round_rect) => {
                 self.draw_rect(round_rect, display_area_px);
@@ -1180,6 +1185,13 @@ impl DrawingSharedData<'_> {
             UIPrimitiveElement::Texture(texture_view) => {
                 self.draw_texture(texture_view, display_area_px);
             }
+        }
+    }
+
+    /// TODO: chunk consecutive elements of same type
+    fn draw_primitive_scene(&mut self, scene: &PrimitiveScene) {
+        for (element, display_area_px) in &scene.elements {
+            self.draw_primitive_element(element, *display_area_px);
         }
     }
 }
@@ -2089,7 +2101,7 @@ impl UIElement {
 
 impl UIDisplay {
     /// REVIEW: move somewhere else?
-    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &UIElement) {
+    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &PrimitiveScene) {
         let Some(state) = winit_data else {
             return;
         };
@@ -2181,7 +2193,7 @@ impl UIDisplay {
                 // text_buffer,
             };
 
-            content.draw(&mut drawing_shared_data, DisplayArea::FULL);
+            drawing_shared_data.draw_primitive_scene(content);
         }
 
         queue.submit(iter::once(encoder.finish()));
