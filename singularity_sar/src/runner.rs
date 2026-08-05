@@ -305,7 +305,13 @@ impl AppletRunner {
         // dbg!("mainloop done!");
     }
 
-    fn handle_ui_event(&self, event: UIEvent) {
+    fn handle_ui_event(&mut self, event: UIEvent) {
+        if let UIEvent::WindowResized(screen_size) = event {
+            self.window_size = screen_size;
+
+            self.redraw_ui();
+        }
+
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
@@ -313,11 +319,7 @@ impl AppletRunner {
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
             StandardRequest::DamageSurface => {
-                self.ui_handle
-                    .set_ui_content(PrimitiveScene::from_ui_element(
-                        self.root_client.get_surface(),
-                        self.window_size,
-                    ));
+                self.redraw_ui();
             }
             StandardRequest::DamageTreeview => todo!(),
             StandardRequest::Quit => {
@@ -326,5 +328,13 @@ impl AppletRunner {
                     .store(false, std::sync::atomic::Ordering::Relaxed);
             }
         }
+    }
+
+    fn redraw_ui(&mut self) {
+        self.ui_handle
+            .set_ui_content(PrimitiveScene::from_ui_element(
+                self.root_client.get_surface(),
+                self.window_size,
+            ));
     }
 }
