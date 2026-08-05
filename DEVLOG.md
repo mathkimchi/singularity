@@ -9570,3 +9570,7 @@ The last thing I did was modifying the UIElement drawer to draw primitives.
 
 Next is using this code to actually render,
 and then converting UI element to primitives.
+
+2026-08-05 04:49PM
+
+I have it rendering, but it's just rendering a tiny square right now.

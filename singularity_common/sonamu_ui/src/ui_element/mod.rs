@@ -1,6 +1,6 @@
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
+    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize, DisplayCoord, DisplayUnits},
 };
 
 mod char_grid;
@@ -12,6 +12,8 @@ pub struct RoundRect {
     pub corner_radius: f32,
     /// Eats into content
     pub border_width: f32,
+    /// I think this should be rgba?
+    /// REVIEW: confirm or deny above
     pub main_color: [f32; 4],
     pub border_color: [f32; 4],
 }
@@ -35,6 +37,110 @@ impl PrimitiveScene {
         Self {
             elements: Vec::new(),
         }
+    }
+
+    pub fn add_primitive(
+        &mut self,
+        primitive_element: UIPrimitiveElement,
+        container_area: DisplayArea,
+        screen_size: DisplayContainerSize,
+    ) {
+        self.elements.push((
+            primitive_element,
+            container_area.map_onto_px_size(screen_size),
+        ));
+    }
+
+    fn add_ui_element(
+        &mut self,
+        element: UIElement,
+        container_area: DisplayArea,
+        screen_size: DisplayContainerSize,
+    ) {
+        match element {
+            UIElement::Container(children) => {
+                for child_element in children {
+                    // draw the inner widget
+                    self.add_ui_element(child_element, container_area, screen_size);
+                }
+            }
+            UIElement::Contained(inner_element, area) => {
+                self.add_ui_element(*inner_element, area.map_onto(container_area), screen_size);
+            }
+            // FIXME: there are weird border lines
+            UIElement::Bordered(inner_element, border_color) => {
+                self.add_primitive(
+                    UIPrimitiveElement::RoundRect(RoundRect {
+                        corner_radius: 1.0,
+                        border_width: 1.0,
+                        main_color: Color::TRANSPARENT.to_rgba_f32_array(),
+                        border_color: border_color.to_rgba_f32_array(),
+                    }),
+                    container_area,
+                    screen_size,
+                );
+
+                let inner_area = DisplayArea(
+                    DisplayCoord::new(1.into(), 1.into()),
+                    DisplayCoord::new(
+                        DisplayUnits::from_mixed(-1, 1.0),
+                        DisplayUnits::from_mixed(-1, 1.0),
+                    ),
+                )
+                .map_onto(container_area);
+
+                // dbg!(&container_area);
+                // dbg!(&container_area.size());
+                // dbg!(&inner_area);
+
+                // draw the inner widget
+                self.add_ui_element(*inner_element, inner_area, screen_size);
+            }
+            UIElement::Backgrounded(inner_element, bg_color) => {
+                // clear the inside of the border
+                // ^^^ no idea what I meant by this, just keeping it
+                self.add_primitive(
+                    UIPrimitiveElement::RoundRect(RoundRect {
+                        corner_radius: 0.0,
+                        border_width: 0.0,
+                        main_color: bg_color.to_rgba_f32_array(),
+                        // shouldn't matter
+                        border_color: [0.; 4],
+                    }),
+                    container_area,
+                    screen_size,
+                );
+
+                // draw the inner widget
+                self.add_ui_element(*inner_element, container_area, screen_size);
+            }
+            UIElement::Text(text) => {
+                self.add_primitive(UIPrimitiveElement::Text(text), container_area, screen_size);
+            }
+            UIElement::CharGrid(char_grid) => {
+                self.add_primitive(
+                    UIPrimitiveElement::CharGrid(char_grid),
+                    container_area,
+                    screen_size,
+                );
+            }
+            UIElement::Image(_image_buffer) => {
+                todo!()
+            }
+            UIElement::Subsurface(_) => {
+                // TODO: take a function that maps subsurface ids to content or something idk
+                todo!()
+            }
+            UIElement::Nothing => {}
+        }
+    }
+
+    pub fn from_ui_element(content: UIElement, screen_size: DisplayContainerSize) -> Self {
+        let mut scene = PrimitiveScene::new_empty();
+
+        scene.add_ui_element(content, DisplayArea::FULL, screen_size);
+
+        scene
     }
 }
 

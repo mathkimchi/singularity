@@ -309,17 +309,15 @@ impl AppletRunner {
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
-    fn ui_element_to_primitive_scene(&self, content: &UIElement) -> PrimitiveScene {
-        PrimitiveScene::new_empty()
-    }
-
     /// TODO: take in client id
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
             StandardRequest::DamageSurface => {
-                self.ui_handle.set_ui_content(
-                    self.ui_element_to_primitive_scene(&self.root_client.get_surface()),
-                );
+                self.ui_handle
+                    .set_ui_content(PrimitiveScene::from_ui_element(
+                        self.root_client.get_surface(),
+                        self.window_size,
+                    ));
             }
             StandardRequest::DamageTreeview => todo!(),
             StandardRequest::Quit => {

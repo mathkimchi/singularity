@@ -327,6 +327,20 @@ impl DisplayArea {
     }
 
     #[must_use]
+    pub fn map_onto_px_size(&self, screen_size: DisplayContainerSize) -> DisplayAreaPx {
+        DisplayAreaPx([
+            [
+                self.0.x.pixels(screen_size.width as i32).cast_unsigned(),
+                self.0.y.pixels(screen_size.height as i32).cast_unsigned(),
+            ],
+            [
+                self.1.x.pixels(screen_size.width as i32).cast_unsigned(),
+                self.1.y.pixels(screen_size.height as i32).cast_unsigned(),
+            ],
+        ])
+    }
+
+    #[must_use]
     pub fn contains(&self, coord: DisplayCoord, container_pixels: [i32; 2]) -> bool {
         let coord_x = coord.x.pixels(container_pixels[0]);
         let coord_y = coord.y.pixels(container_pixels[1]);

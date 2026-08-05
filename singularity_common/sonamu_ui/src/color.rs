@@ -31,6 +31,10 @@ impl Color {
     pub const fn to_rgba_u32(self) -> u32 {
         u32::from_be_bytes(self.0)
     }
+
+    pub fn to_rgba_f32_array(self) -> [f32; 4] {
+        self.0.map(|c| f32::from(c) / f32::from(u8::MAX))
+    }
 }
 #[cfg(feature = "wayland_backend")]
 impl From<Color> for raqote::Color {
