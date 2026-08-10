@@ -5,6 +5,7 @@ use crate::{
 
 mod char_grid;
 pub use char_grid::*;
+
 use wgpu::TextureView;
 
 #[derive(Debug, Clone, Copy)]
@@ -127,6 +128,13 @@ impl PrimitiveScene {
             UIElement::Image(_image_buffer) => {
                 todo!()
             }
+            UIElement::Texture(texture_view) => {
+                self.add_primitive(
+                    UIPrimitiveElement::Texture(texture_view),
+                    container_area,
+                    screen_size,
+                );
+            }
             UIElement::Subsurface(_) => {
                 // TODO: take a function that maps subsurface ids to content or something idk
                 todo!()
@@ -169,8 +177,13 @@ pub enum UIElement {
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
 
+    #[deprecated]
     Image(image::RgbaImage),
 
+    /// TODO: replace image with this
+    Texture(TextureView),
+
+    /// Reference to an embedded UI element
     Subsurface(u32),
 
     Nothing,

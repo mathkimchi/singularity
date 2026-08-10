@@ -12,4 +12,19 @@ singularity_common = { workspace = true }
 sonamu_ui = { workspace = true }
 sonamu_sync = { workspace = true }
 
+slotmap = { workspace = true }
+
 calloop = { workspace = true }
+
+# TODO: put this behind a feature
+# Smithay doesn't post the newest version to crates.io
+# smithay = { version = "^0.7.0", features = ["wayland_frontend"] }
+smithay = { git = "https://github.com/Smithay/smithay", branch = "master", features = [
+    "wayland_frontend",
+    # "wayland-protocols",
+] }
+wayland-protocols = { version = "0.32.12", features = [
+    "unstable",
+    "staging",
+    "server",
+] }

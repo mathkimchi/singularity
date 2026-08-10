@@ -9574,3 +9574,118 @@ and then converting UI element to primitives.
 2026-08-05 04:49PM
 
 I have it rendering, but it's just rendering a tiny square right now.
+
+2026-08-05 05:41PM
+
+I don't know if I explicitly said this before,
+but the plan is for the raw runner to display whatever the root applet wants to display,
+and the root applet takes care of figuring out where to put the subapplet windows.
+
+Maybe I should just put the root applet inside of SAR.
+
+But anyways, I am going to use a slotmap for the subsurface system.
+This will mean it's easier to decouple surface and applet,
+but I won't do that yet (I'm lazy).
+
+For each surface, there will be a surface index,
+and the runner holds a slotmap of index to surface.
+Btw, a slotmap is like an IdMap which I think I got rid of and replaced with IdTree.
+The point is, you insert an element into the slotmap and it returns a key like an index,
+and you can access or remove by the key.
+The nice thing is that insert, access, and remove are all constant time (theoretically).
+
+2026-08-05 06:09PM
+
+I just realized I can just store the subsurfaces.
+So it's possible that the list of subsurfaces is just empty.
+
+I also think the UI thread might need to share the device with an Arc if I want to make Textures
+that can be passed to the UI thread.
+
+I'm just going to have it so applets can request surface texture with a size,
+then the runner thread creates the surface texture,
+
+(Also, I just realized subsurface and texture are different.
+Subsurface should hold UIElement and texture should be the wgpu thing.
+I've been meaning mostly texture this whole time,
+bc the goal is to support Wayland.)
+
+And if I use `TextureView`, I won't have to even store all the textures and map an id to texture or something.
+Remember, a `TextureView` is like a reference to a texture.
+
+I don't know if I can turn a Wl surface to Wgpu texture,
+so I should probably pause and research that (ie ask an LLM Chatbot).
+
+2026-08-08 12:01PM
+
+Freak, I've been locked out.
+I'm just gonna barge in without a plan.
+I'll make a new Smithay module inside sar and try to keep all the smithay logic in there.
+
+I'll write down some of the things I learn.
+
+Terminology alert: Buffer vs Surface (in the Wayland protocol)
+- Buffer: container of pixel data
+  - Directly modified by client
+- Surface: rectangular ui area
+  - Has an attatched buffer
+  - Has a position
+  - Can take input
+  - Ig this is modified atomically via commit systems
+
+so maybe I should really be storing buffers instead of surfaces,
+since I want to do the positioning stuff myself not with Wayland.
+
+2026-08-08 05:32PM
+
+Ugh, it's so annoying that the documentation (and the whole source code on crates.io)
+is outdated so when I search something up I might get a result like this:
+https://smithay.github.io/smithay/smithay/wayland/compositor/struct.SurfaceAttributes.html
+which is currently for smithay 0.7.0 which is super outdated.
+
+I don't wanna just ask LLMs to think for me,
+but to do something like getting the buffer from the surface,
+there just isn't a good resource.
+I can't even look at other existing compositors like Niri because Smithay is just changing so fast.
+
+I don't really have anywhere to put the code to turn a surface into a buffer,
+but I'll need it later:
+
+```rs
+let wl_buffer = with_states(surface.wl_surface(), |states| {
+    let surface_state = states
+        .data_map
+        .get::<RendererSurfaceStateUserData>()
+        .unwrap()
+        .lock()
+        .unwrap();
+    let buffer = surface_state.buffer().unwrap();
+    buffer.clone()
+});
+
+// call this later
+buffer_type(&wl_buffer);
+```
+
+With Wayland, the app is started by whatever,
+and the Wl server just listens for an app's connection.
+This is kinda incompatible with my applets that are started by the server.
+
+I'm going to deal with this (the organization of Wl applets in Sonamu hierarchy)
+by letting the focused applet deal with it.
+
+And I was also thinking more about putting the organization logic in the server.
+
+The reason why I can't just have the server manually set 3 levels of
+project tree, applet tree for each project, then content tree for each applet
+is because one of the content nodes might be a subapplet
+or one of the subprojects might make more sense under an applet
+(like "send emails" task under "get a job" project)
+(generally, I am pointing out cases where a node might be so engrossed in another node's
+internals that it would make sense to be inside the other node's inner world,
+but because those two nodes are of the same type,
+they must be in the same level and the best we can offer is making that node a child node)
+and also sunk cost.
+Maybe I should also completely decouple the project tree from this;
+I should call the outermost thing tasks or sessions
+(paralleling a virtual desktop/workspace in other DEs).
