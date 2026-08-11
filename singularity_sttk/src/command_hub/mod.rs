@@ -1,10 +1,9 @@
 //! TODO: move to sttk
 
 use crate::{
-    basic_applet::BasicApplet,
     nodular_applet::{
-        AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularEvent,
-        NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+        AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook,
+        StandardApplet, recursive_node_applet::RecursiveNodeApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -50,10 +49,7 @@ impl CommandHubApplet {
     pub fn get_applet_spawner() -> AppletSpawner {
         struct CommandHubSpawner;
         impl AppletSpawnerTrait for CommandHubSpawner {
-            fn create_initializer(
-                &self,
-                args: &[&str],
-            ) -> Option<NodularAppletInitializer> {
+            fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
                 if !args.is_empty() {
                     println!("Warning: command hub doesn't use spawn args.");
                 }
@@ -168,37 +164,61 @@ impl CommandHubApplet {
         ));
     }
 }
-impl BasicApplet for CommandHubApplet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        // println!("{ui_event:?}");
-        // self.hook.update_display(&UIElement::Backgrounded(
-        //     Box::new(UIElement::CharGrid(CharGrid::from(format!("{ui_event:?}")))),
-        //     Color::BLACK,
-        // ));
-        // self.hook.update_display(&UIElement::Text("a".to_string()));
+impl StandardApplet for CommandHubApplet {
+    fn handle_standard_event(
+        &mut self,
+        standard_event: singularity_common::sap::packets::StandardEvent,
+    ) {
+        match standard_event {
+            singularity_common::sap::packets::StandardEvent::UIEvent(ui_event) => {
+                // println!("{ui_event:?}");
+                // self.hook.update_display(&UIElement::Backgrounded(
+                //     Box::new(UIElement::CharGrid(CharGrid::from(format!("{ui_event:?}")))),
+                //     Color::BLACK,
+                // ));
+                // self.hook.update_display(&UIElement::Text("a".to_string()));
 
-        if handle_standard_keybinds(&ui_event, &self.hook) {
-            return;
-        }
+                if handle_standard_keybinds(&ui_event, &self.hook) {
+                    return;
+                }
 
-        if let UIEvent::KeyPress(key, _) = &ui_event {
-            match key {
-                sonamu_ui::ui_event::Key::Enter => self.handle_enter(),
-                sonamu_ui::ui_event::Key::Backspace => {
-                    self.current_prompt.pop();
+                if let UIEvent::KeyPress(key, _) = &ui_event {
+                    match key {
+                        sonamu_ui::ui_event::Key::Enter => self.handle_enter(),
+                        sonamu_ui::ui_event::Key::Backspace => {
+                            self.current_prompt.pop();
+                        }
+                        sonamu_ui::ui_event::Key::Char(key_char) => {
+                            self.current_prompt.push(*key_char);
+                        }
+                        _ => {}
+                    }
                 }
-                sonamu_ui::ui_event::Key::Char(key_char) => {
-                    self.current_prompt.push(*key_char);
-                }
-                _ => {}
+
+                self.hook.damage_window();
+                self.hook.damage_treeview();
+            }
+            singularity_common::sap::packets::StandardEvent::FocusChanged(_) => todo!(),
+            singularity_common::sap::packets::StandardEvent::Highlighted(_) => todo!(),
+            singularity_common::sap::packets::StandardEvent::CloseRequest => todo!(),
+            singularity_common::sap::packets::StandardEvent::SurfaceDamageAck => todo!(),
+            singularity_common::sap::packets::StandardEvent::TreeviewDamageAck => todo!(),
+            singularity_common::sap::packets::StandardEvent::WlSurfaceRegistered { .. } => {
+                todo!()
             }
         }
-
-        self.hook.damage_window();
-        self.hook.damage_treeview();
     }
 
-    fn get_window(&self, _: DisplayContainerSize) -> UIElement {
+    fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
+        singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
+    }
+
+    fn get_focus_path(&self) -> WorldTreePath {
+        // WorldTreePath::new_empty()
+        WorldTreePath::new_into()
+    }
+
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
         let mut display_string = String::new();
 
         // print the last 10 from history
@@ -209,19 +229,5 @@ impl BasicApplet for CommandHubApplet {
         writeln!(&mut display_string, "> {}", self.current_prompt).unwrap();
 
         UIElement::from(display_string).fill_bg(Color::BLACK)
-    }
-}
-impl NodularApplet for CommandHubApplet {
-    fn handle_nodular_event(&mut self, _nodular_event: NodularEvent) {
-        println!("Warning: ignorinng this for now");
-    }
-
-    fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
-        singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
-    }
-
-    fn get_focus_path(&self) -> WorldTreePath {
-        // WorldTreePath::new_empty()
-        WorldTreePath::new_into()
     }
 }

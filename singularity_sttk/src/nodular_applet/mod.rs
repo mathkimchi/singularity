@@ -1,8 +1,11 @@
 //! This is where the hierarchy stuff is implemented.
 
 use crate::basic_applet::{BasicApplet, BasicRunnerHook};
-use singularity_common::utils::tree::world_tree::{
-    WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
+use singularity_common::{
+    sap::packets::StandardEvent,
+    utils::tree::world_tree::{
+        WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
+    },
 };
 use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
 use std::collections::BTreeMap;
@@ -30,36 +33,33 @@ pub mod root_node_applet;
 //     }
 // }
 
-pub enum NodularEvent {
-    /// More or less means that the selector is over this tab but isn't actually selected
-    Highlighted(bool),
-    Focused(bool),
-}
+pub trait StandardApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent);
 
-/// Nodular applets are applets that can be in the applet hierarchy.
-pub trait NodularApplet: BasicApplet {
-    fn handle_nodular_event(&mut self, nodular_event: NodularEvent);
+    /// This should resolve damaged state
+    /// Kinda conflicts BasicApplet
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement;
 
     fn get_treeview(&self) -> WorldTree<String>;
 
     /// Assume focus updates when treeview updates
     fn get_focus_path(&self) -> WorldTreePath;
 }
-// TODO: look into Box::downcast
-impl BasicApplet for Box<dyn NodularApplet> {
+impl<T> BasicApplet for T
+where
+    T: StandardApplet,
+{
     fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-        // REVIEW: I don't know what ** does
-        (**self).handle_ui_event(ui_event);
+        self.handle_standard_event(StandardEvent::UIEvent(ui_event));
     }
 
     fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
-        (**self).get_window(container_size)
+        self.get_window_standard_applet(container_size)
     }
 }
-impl NodularApplet for Box<dyn NodularApplet> {
-    fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
-        // REVIEW: I don't know what ** does
-        (**self).handle_nodular_event(nodular_event)
+impl StandardApplet for Box<dyn StandardApplet> {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        (**self).handle_standard_event(standard_event)
     }
 
     fn get_treeview(&self) -> WorldTree<String> {
@@ -71,10 +71,14 @@ impl NodularApplet for Box<dyn NodularApplet> {
         // REVIEW: I don't know what ** does
         (**self).get_focus_path()
     }
+
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+        (**self).get_window_standard_applet(container_size)
+    }
 }
 
 pub type NodularAppletInitializer =
-    Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> + Send + Sync>;
+    Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet> + Send + Sync>;
 
 pub trait AppletSpawnerTrait: Send + Sync {
     fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer>;

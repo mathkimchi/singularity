@@ -1,9 +1,8 @@
-use singularity_common::utils::tree::world_tree::WorldTreePath;
+use singularity_common::{sap::packets::StandardEvent, utils::tree::world_tree::WorldTreePath};
 use singularity_sttk::{
-    basic_applet::BasicApplet,
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
-        AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer,
+        AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, StandardApplet,
         recursive_node_applet::RecursiveNodeApplet,
     },
 };
@@ -42,29 +41,32 @@ impl OneCharRenderTestApplet {
         Box::new(Spawner)
     }
 }
-impl BasicApplet for OneCharRenderTestApplet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        if let UIEvent::KeyPress(key, _) = ui_event
-            && let Some(c) = key.to_char()
-        {
-            self.0 = c;
-            self.1.damage_window();
-            self.1.damage_treeview();
+impl StandardApplet for OneCharRenderTestApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                if let UIEvent::KeyPress(key, _) = ui_event
+                    && let Some(c) = key.to_char()
+                {
+                    self.0 = c;
+                    self.1.damage_window();
+                    self.1.damage_treeview();
+                }
+            }
+            StandardEvent::FocusChanged(_) => todo!(),
+            StandardEvent::Highlighted(_) => todo!(),
+            StandardEvent::CloseRequest => todo!(),
+            StandardEvent::SurfaceDamageAck => todo!(),
+            StandardEvent::TreeviewDamageAck => todo!(),
+            StandardEvent::WlSurfaceRegistered { .. } => todo!(),
         }
     }
 
-    fn get_window(
+    fn get_window_standard_applet(
         &self,
         _container_size: sonamu_ui::display_units::DisplayContainerSize,
     ) -> sonamu_ui::ui_element::UIElement {
         CharGrid::from(self.0.to_string().as_str()).element()
-    }
-}
-impl NodularApplet for OneCharRenderTestApplet {
-    fn handle_nodular_event(
-        &mut self,
-        _nodular_event: singularity_sttk::nodular_applet::NodularEvent,
-    ) {
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

@@ -1,7 +1,7 @@
-use crate::nodular_applet::{NodularApplet, NodularRunnerHook};
+use crate::nodular_applet::{NodularRunnerHook, StandardApplet};
 
 pub trait CreatableNodularApplet<Args, Hook = Box<dyn NodularRunnerHook>>:
-    NodularApplet + Sized
+    StandardApplet + Sized
 where
     // idk why this is needed, something something box I think
     Self: 'static,
@@ -11,7 +11,7 @@ where
     fn get_initiator(args: Args) -> impl FnOnce(Hook) -> Self {
         |hook: Hook| Self::new(args, hook)
     }
-    fn get_boxed_initiator(args: Args) -> impl FnOnce(Hook) -> Box<dyn NodularApplet> {
+    fn get_boxed_initiator(args: Args) -> impl FnOnce(Hook) -> Box<dyn StandardApplet> {
         |hook: Hook| Box::new(Self::new(args, hook))
     }
     // fn get_applet_spawner() -> AppletSpawner {

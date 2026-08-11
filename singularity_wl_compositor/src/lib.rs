@@ -1,6 +1,6 @@
 use image::RgbaImage;
 use singularity_sttk::nodular_applet::{
-    AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
+    AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook, StandardApplet,
     recursive_node_applet::RecursiveNodeApplet,
 };
 use smithay::{
@@ -448,7 +448,7 @@ impl WaylandApplet {
     }
     pub fn get_boxed_initiator(
         program: String,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet> {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook, program))
     }
     #[must_use]

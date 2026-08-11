@@ -1,10 +1,10 @@
 use ropey::Rope;
+use singularity_common::sap::packets::StandardEvent;
 use singularity_sttk::{
-    basic_applet::BasicApplet,
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
-        AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer,
-        NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet,
+        AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook,
+        StandardApplet, recursive_node_applet::RecursiveNodeApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -248,30 +248,43 @@ impl CodeEditorApplet {
         }
     }
 }
-impl BasicApplet for CodeEditorApplet {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-        if handle_standard_keybinds(&ui_event, &self.hook) {
-            return;
+impl StandardApplet for CodeEditorApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                if handle_standard_keybinds(&ui_event, &self.hook) {
+                    return;
+                }
+
+                match ui_event {
+                    sonamu_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
+                        self.handle_keypress(key, key_modifiers);
+                    }
+                    sonamu_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
+                        let (_width, height) =
+                            CharGrid::largest_fittable_size(display_container_size);
+
+                        self.view_offset.most_recent_num_rows = Some(height);
+                    }
+                    sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
+                        log::debug!("TODO");
+                    }
+                }
+
+                self.hook.damage_window();
+            }
+            StandardEvent::FocusChanged(focus) => {
+                self.focused = focus;
+                // println!("Yay focus {focus}!");
+                // println!("The text is: {}", &self.buffer.);
+
+                self.hook.damage_window();
+            }
+            _ => {}
         }
-
-        match ui_event {
-            sonamu_ui::ui_event::UIEvent::KeyPress(key, key_modifiers) => {
-                self.handle_keypress(key, key_modifiers);
-            }
-            sonamu_ui::ui_event::UIEvent::WindowResized(display_container_size) => {
-                let (_width, height) = CharGrid::largest_fittable_size(display_container_size);
-
-                self.view_offset.most_recent_num_rows = Some(height);
-            }
-            sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
-                log::debug!("TODO");
-            }
-        }
-
-        self.hook.damage_window();
     }
 
-    fn get_window(
+    fn get_window_standard_applet(
         &self,
         container_size: sonamu_ui::display_units::DisplayContainerSize,
     ) -> sonamu_ui::ui_element::UIElement {
@@ -360,23 +373,6 @@ impl BasicApplet for CodeEditorApplet {
         //         UIElement::glyphon_attr(Color::WHITE),
         //     ),
         // ])
-    }
-}
-impl NodularApplet for CodeEditorApplet {
-    fn handle_nodular_event(
-        &mut self,
-        nodular_event: singularity_sttk::nodular_applet::NodularEvent,
-    ) {
-        match nodular_event {
-            singularity_sttk::nodular_applet::NodularEvent::Highlighted(_) => todo!(),
-            singularity_sttk::nodular_applet::NodularEvent::Focused(focus) => {
-                self.focused = focus;
-                // println!("Yay focus {focus}!");
-                // println!("The text is: {}", &self.buffer.);
-
-                self.hook.damage_window();
-            }
-        }
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

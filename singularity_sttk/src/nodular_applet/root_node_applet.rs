@@ -1,7 +1,7 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
     nodular_applet::{
-        AppletSpawner, NodularApplet, NodularEvent, NodularRunnerHook,
+        AppletSpawner, NodularRunnerHook, StandardApplet,
         recursive_node_applet::RecursiveNodeApplet,
     },
 };
@@ -138,9 +138,7 @@ impl RootNodeApplet {
                     .unwrap()
                     .insert(name, applet_spawner);
             }
-            fn get_applet_spawners(
-                &self,
-            ) -> BTreeMap<String, AppletSpawner> {
+            fn get_applet_spawners(&self) -> BTreeMap<String, AppletSpawner> {
                 self.applet_spawner_registry.read().unwrap().clone()
             }
             fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
@@ -216,21 +214,16 @@ impl RootNodeApplet {
                                 StandardEvent::UIEvent(ui_event) => {
                                     applet.applet.handle_ui_event(ui_event);
                                 }
-                                StandardEvent::Focus => {
-                                    applet
-                                        .applet
-                                        .handle_nodular_event(NodularEvent::Focused(true));
-                                }
-                                StandardEvent::Unfocus => {
-                                    applet
-                                        .applet
-                                        .handle_nodular_event(NodularEvent::Focused(true));
-                                }
                                 StandardEvent::CloseRequest => todo!(),
                                 StandardEvent::SurfaceDamageAck => {
                                     applet.content_dirty = false;
                                 }
-                                _ => {}
+                                StandardEvent::FocusChanged(..)
+                                | StandardEvent::Highlighted(..)
+                                | StandardEvent::TreeviewDamageAck
+                                | StandardEvent::WlSurfaceRegistered { .. } => {
+                                    applet.applet.handle_standard_event(event);
+                                }
                             }
                         },
                     )

@@ -1,11 +1,11 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
     nodular_applet::{
-        NodularApplet, NodularAppletInitializer, NodularEvent, NodularRunnerHook,
-        caching_applet::CachingApplet,
+        NodularAppletInitializer, NodularRunnerHook, StandardApplet, caching_applet::CachingApplet,
     },
 };
 use singularity_common::{
+    sap::packets::StandardEvent,
     sync::EncapsulatedLock,
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -60,7 +60,7 @@ impl SharedResource {
 
     fn create_hold_holder(
         shared_resource: &Rc<Self>,
-        child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+        child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
     ) -> CachingApplet {
         let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
         let inner_applet_treeview = EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
@@ -186,7 +186,7 @@ impl SharedResource {
     /// so we need to get this already wrapped in an Arc.
     pub fn add_child(
         shared_resource: &Rc<Self>,
-        child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+        child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
     ) {
         // breaks when adding the first child
         // shared_resource.upgrade().unwrap().applets.read().unwrap()[shared_resource
@@ -333,7 +333,7 @@ pub struct RecursiveNodeApplet {
 }
 impl RecursiveNodeApplet {
     fn new(
-        main_applet_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+        main_applet_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
         // hook: Box<dyn NodularRunnerHook>,
         hook: Box<dyn NodularRunnerHook>,
     ) -> Self {
@@ -473,21 +473,21 @@ impl RecursiveNodeApplet {
 
     /// Partial application
     pub fn get_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
     ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
         move |hook: Box<dyn NodularRunnerHook>| Self::new(inner_initializer, hook)
     }
 
     pub fn get_boxed_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet> {
         move |hook| Box::new(Self::new(inner_initializer, hook))
     }
 
     /// Ik, horrible name
     pub fn boxed_get_boxed_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
-    ) -> Box<impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>> {
+        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
+    ) -> Box<impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>> {
         Box::new(Self::get_boxed_initializer(inner_initializer))
     }
 
@@ -529,96 +529,90 @@ impl RecursiveNodeApplet {
         }
     }
 }
-impl BasicApplet for RecursiveNodeApplet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        match self.shared_resource.focus_index.get() {
-            FocusIndex::Focusing => {
-                // We can intercept
+impl StandardApplet for RecursiveNodeApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        // TODO: change the order of the matches and stuff; currently just closest to previous implementation
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                match self.shared_resource.focus_index.get() {
+                    FocusIndex::Focusing => {
+                        // We can intercept
 
-                if let UIEvent::KeyPress(
-                    key,
-                    KeyModifiers {
-                        ctrl: false,
-                        alt: true,
-                        shift: false,
-                        caps_lock: false,
-                        logo: false,
-                    },
-                ) = &ui_event
-                    && let Some(key_char) = key.to_char()
-                    && let Some(operation) = WorldTreeTraversalOperation::from_char(key_char)
-                {
-                    self.shared_resource.change_focus(operation);
-                } else {
-                    // if not a traversal, then just set focus to inner and forward input
-                    self.shared_resource
-                        .change_focus(WorldTreeTraversalOperation::NextLayer);
-                    self.handle_ui_event(ui_event);
+                        if let UIEvent::KeyPress(
+                            key,
+                            KeyModifiers {
+                                ctrl: false,
+                                alt: true,
+                                shift: false,
+                                caps_lock: false,
+                                logo: false,
+                            },
+                        ) = &ui_event
+                            && let Some(key_char) = key.to_char()
+                            && let Some(operation) =
+                                WorldTreeTraversalOperation::from_char(key_char)
+                        {
+                            self.shared_resource.change_focus(operation);
+                        } else {
+                            // if not a traversal, then just set focus to inner and forward input
+                            self.shared_resource
+                                .change_focus(WorldTreeTraversalOperation::NextLayer);
+                            self.handle_ui_event(ui_event);
+                        }
+
+                        // match key.to_char() {
+                        //     Some('q') => {
+                        //         self.shared_resource
+                        //             .hook
+                        //             .change_focus(WorldTreeTraversalOperation::PrevLayer);
+                        //         self.shared_resource.hook.damage_treeview();
+                        //     }
+                        //     Some('e') => {
+                        //         self.shared_resource.focus_index.set(FocusIndex::Inner);
+                        //         self.shared_resource.hook.damage_treeview();
+                        //     }
+                        //     Some('a') => {
+                        //         self
+                        //     }
+                        //     Some('s') => {
+                        //         self.shared_resource.hook.change_focus(
+                        //             WorldTreeTraversalOperation::Layerwise(
+                        //                 TreeTraverseOperation::RelShiftSibling(1),
+                        //             ),
+                        //         );
+                        //         self.shared_resource.hook.damage_treeview();
+                        //     }
+                        //     Some('d') => {
+                        //         if !self.shared_resource.children.read().unwrap().is_empty() {
+                        //             self.shared_resource.focus_index.set(FocusIndex::Child(0));
+                        //             self.shared_resource.hook.damage_treeview();
+                        //         }
+                        //     }
+                        //     Some('0'..='9') => {
+                        //         if (key.to_digit().unwrap() as usize)
+                        //             < self.shared_resource.children.read().unwrap().len()
+                        //         {
+                        //             self.shared_resource
+                        //                 .focus_index
+                        //                 .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
+                        //             self.shared_resource.hook.damage_treeview();
+                        //         }
+                        //     }
+                        //     _ => {}
+                        // }
+                    }
+                    FocusIndex::Inner => self.main_applet.immut_handle_ui_event(ui_event),
+                    FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
+                        [child_index]
+                        .immut_handle_ui_event(ui_event),
                 }
-
-                // match key.to_char() {
-                //     Some('q') => {
-                //         self.shared_resource
-                //             .hook
-                //             .change_focus(WorldTreeTraversalOperation::PrevLayer);
-                //         self.shared_resource.hook.damage_treeview();
-                //     }
-                //     Some('e') => {
-                //         self.shared_resource.focus_index.set(FocusIndex::Inner);
-                //         self.shared_resource.hook.damage_treeview();
-                //     }
-                //     Some('a') => {
-                //         self
-                //     }
-                //     Some('s') => {
-                //         self.shared_resource.hook.change_focus(
-                //             WorldTreeTraversalOperation::Layerwise(
-                //                 TreeTraverseOperation::RelShiftSibling(1),
-                //             ),
-                //         );
-                //         self.shared_resource.hook.damage_treeview();
-                //     }
-                //     Some('d') => {
-                //         if !self.shared_resource.children.read().unwrap().is_empty() {
-                //             self.shared_resource.focus_index.set(FocusIndex::Child(0));
-                //             self.shared_resource.hook.damage_treeview();
-                //         }
-                //     }
-                //     Some('0'..='9') => {
-                //         if (key.to_digit().unwrap() as usize)
-                //             < self.shared_resource.children.read().unwrap().len()
-                //         {
-                //             self.shared_resource
-                //                 .focus_index
-                //                 .set(FocusIndex::Child(key.to_digit().unwrap() as usize));
-                //             self.shared_resource.hook.damage_treeview();
-                //         }
-                //     }
-                //     _ => {}
-                // }
             }
-            FocusIndex::Inner => self.main_applet.immut_handle_ui_event(ui_event),
-            FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
-                [child_index]
-                .immut_handle_ui_event(ui_event),
-        }
-    }
-
-    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
-        // TODO: return cached if damaged is already false?
-        // REVIEW: idk why this is necessary if I already have caching browser; I'm not touching it rn
-        self.shared_resource
-            .window_damaged
-            .store(false, std::sync::atomic::Ordering::Relaxed);
-
-        self.get_display(container_size)
-    }
-}
-impl NodularApplet for RecursiveNodeApplet {
-    fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
-        match nodular_event {
-            NodularEvent::Highlighted(_) => todo!(),
-            NodularEvent::Focused(state) => {
+            StandardEvent::WlSurfaceRegistered { surface_id: _ } => todo!(),
+            StandardEvent::FocusChanged(..)
+            | StandardEvent::Highlighted(..)
+            | StandardEvent::CloseRequest
+            | StandardEvent::SurfaceDamageAck
+            | StandardEvent::TreeviewDamageAck => {
                 // self.shared_resource.applets.read().unwrap()[self
                 //     .shared_resource
                 //     .focus_index
@@ -631,15 +625,26 @@ impl NodularApplet for RecursiveNodeApplet {
                 // );
 
                 match self.shared_resource.focus_index.get() {
-                    FocusIndex::Focusing | FocusIndex::Inner => self
-                        .main_applet
-                        .immut_handle_nodular_event(NodularEvent::Focused(state)),
+                    // REVIEW: should focusing just auto go to inner?
+                    FocusIndex::Focusing | FocusIndex::Inner => {
+                        self.main_applet.immut_handle_standard_event(standard_event)
+                    }
                     FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                         [child_index]
-                        .immut_handle_nodular_event(NodularEvent::Focused(state)),
+                        .immut_handle_standard_event(standard_event),
                 }
             }
         }
+    }
+
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+        // TODO: return cached if damaged is already false?
+        // REVIEW: idk why this is necessary if I already have caching browser; I'm not touching it rn
+        self.shared_resource
+            .window_damaged
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+
+        self.get_display(container_size)
     }
 
     fn get_treeview(&self) -> WorldTree<String> {

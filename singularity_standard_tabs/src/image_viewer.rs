@@ -1,14 +1,14 @@
 use image::{ImageReader, RgbaImage};
+use singularity_common::sap::packets::StandardEvent;
 use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sttk::basic_applet::BasicApplet;
 use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,
 };
-use singularity_sttk::nodular_applet::{NodularApplet, NodularRunnerHook};
+use singularity_sttk::nodular_applet::{NodularRunnerHook, StandardApplet};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
 use sonamu_ui::display_units::DisplayContainerSize;
-use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::ui_element::UIElement;
 use std::path::PathBuf;
 
 pub struct ImageViewerApplet {
@@ -47,7 +47,7 @@ impl ImageViewerApplet {
     }
     pub fn get_boxed_initiator<P>(
         image_path: P,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>
     where
         P: AsRef<std::path::Path>,
         PathBuf: From<P>,
@@ -82,34 +82,29 @@ impl ImageViewerApplet {
             .to_string()
     }
 }
-impl BasicApplet for ImageViewerApplet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        if handle_standard_keybinds(&ui_event, &self.hook) {
-            return;
-        }
+impl StandardApplet for ImageViewerApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                if handle_standard_keybinds(&ui_event, &self.hook) {
+                    return;
+                }
 
-        self.hook.damage_window();
-        // self.hook.damage_treeview();
-    }
-
-    fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
-        UIElement::Image(self.image.clone())
-    }
-}
-impl NodularApplet for ImageViewerApplet {
-    fn handle_nodular_event(
-        &mut self,
-        nodular_event: singularity_sttk::nodular_applet::NodularEvent,
-    ) {
-        match nodular_event {
-            singularity_sttk::nodular_applet::NodularEvent::Highlighted(_) => todo!(),
-            singularity_sttk::nodular_applet::NodularEvent::Focused(focus) => {
+                self.hook.damage_window();
+                // self.hook.damage_treeview();
+            }
+            StandardEvent::FocusChanged(focus) => {
                 self.focused = focus;
                 println!("Yay focus {focus}!");
 
                 self.hook.damage_window();
             }
+            _ => {}
         }
+    }
+
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
+        UIElement::Image(self.image.clone())
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

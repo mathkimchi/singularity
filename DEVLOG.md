@@ -9711,3 +9711,31 @@ event router to the applet that is listening for it.
 doesn't listen to traversal shortcuts, it can be sent to the ancestor that does,
 and there can be some global.)
 But, that is not an MVP feature.
+
+2026-08-10 11:30PM
+
+I think I can just treat the surface spawned event very similarly to
+spawn child request inside the nodular applets.
+For demo, I don't care how they are placed organizationally,
+but for the actual thing, I'll probably combine this with a check for focus and pass down to focused child.
+
+I think I should have a sonamu client for each wl surface.
+I mean, that's what the old really slow system was already doing,
+so the difference is that the old system had a wl server per each sonamu wayland applet
+but now the bulk of processing is done centrally and the sonamu applet is just a wrapper
+so wl apps can be in hierarchies and stuff.
+
+2026-08-11 05:40PM
+
+Right now, nodular applet is doing it's own thing,
+so I might have to redo it.
+Previously, I treated the nodular events as a seperate set of events and requests than the UI ones.
+But the standard events system (which I am basing the new protocol for)
+is an extension of the UI events.
+
+I think it's time to make applets actually use the event loop and the new system.
+
+2026-08-11 06:25PM
+
+I made the applets actually use standard events and resolved errors,
+but now I'm getting a panic instantly.

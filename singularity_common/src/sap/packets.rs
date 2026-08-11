@@ -17,8 +17,8 @@ slotmap::new_key_type! {
 #[derive(Clone, Copy, Debug)]
 pub enum StandardEvent {
     UIEvent(UIEvent),
-    Focus,
-    Unfocus,
+    FocusChanged(bool),
+    Highlighted(bool),
     // // Is a UI event already
     // Resize(DisplayContainerSize),
     CloseRequest,
