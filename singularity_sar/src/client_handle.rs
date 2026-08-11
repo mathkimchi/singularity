@@ -1,13 +1,11 @@
-use std::thread;
-
+use crate::runner::AppletRunner;
 use calloop::LoopHandle;
 use singularity_common::sap::{
     packets::StandardEvent, raw_client_initializer::RawClientInitializer,
 };
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::ui_element::UIElement;
-
-use crate::runner::AppletRunner;
+use std::thread;
 
 /// ~~Implemented by Applet,~~ used by SDE/server.
 pub(crate) struct ClientHandle {
