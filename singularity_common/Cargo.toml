@@ -15,6 +15,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 uuid = { workspace = true }
+# just replace id tree with this?
+slotmap = { workspace = true }
 
 paste = { workspace = true }
 

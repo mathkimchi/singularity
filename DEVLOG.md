@@ -9689,3 +9689,25 @@ and also sunk cost.
 Maybe I should also completely decouple the project tree from this;
 I should call the outermost thing tasks or sessions
 (paralleling a virtual desktop/workspace in other DEs).
+
+2026-08-10 11:04PM
+
+I've been busy meeting friends before heading off to the middle of nowhere.
+I'm on the train now.
+Babies should not be allowed on trains bro.
+They (the parents) should be fined each time they cry or something.
+
+So I need to make it so the root applet can organize (and display)
+wl applets.
+I already decided to do this with events.
+I'll do this by surface instead of by Wl client.
+
+2026-08-10 11:26PM
+
+I implemented the code for letting the root applet know.
+By the way, I am still down for having events be sent directly from a central
+event router to the applet that is listening for it.
+(Ex, most can be sent directly to focused, maybe if focused applet
+doesn't listen to traversal shortcuts, it can be sent to the ancestor that does,
+and there can be some global.)
+But, that is not an MVP feature.

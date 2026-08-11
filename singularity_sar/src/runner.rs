@@ -10,10 +10,6 @@ use sonamu_ui::{
     ui_event::UIEvent,
 };
 
-slotmap::new_key_type! {
-    pub struct TextureId;
-}
-
 /// The Singularity Applet Runner (SAR) is kind of just a wrapper around the Singularity UI.
 /// The reason I want to abstract the UI is to make the recursive applet runners easier.
 ///
@@ -23,11 +19,11 @@ pub struct AppletRunner {
     event_loop: LoopHandle<'static, Self>,
 
     ui_handle: UIHandle,
-    root_client: ClientHandle,
+    pub(crate) root_client: ClientHandle,
 
     // // TODO: later
     // subsurfaces: SlotMap<TextureId, EncapsulatedLock<UIElement>>,
-    smithay_state: SmithayState,
+    pub(crate) smithay_state: SmithayState,
 
     window_size: DisplayContainerSize,
 }

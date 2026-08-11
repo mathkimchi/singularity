@@ -3077,6 +3077,7 @@ dependencies = [
  "serde",
  "serde_json",
  "singularity_macros",
+ "slotmap",
  "sonamu_sync",
  "sonamu_ui",
  "uuid",

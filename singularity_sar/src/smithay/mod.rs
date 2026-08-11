@@ -1,5 +1,7 @@
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
+use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
+use slotmap::SlotMap;
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
     input::{Seat, SeatHandler, SeatState},
@@ -34,6 +36,7 @@ impl ClientData for ClientState {
     }
 }
 
+/// TODO: rename to smithay client handle (adds consistency w/ ui handle and client handle)
 pub struct SmithayState {
     // start_time: std::time::Instant,
     _display_handle: DisplayHandle,
@@ -44,14 +47,14 @@ pub struct SmithayState {
     compositor_state: CompositorState,
     xdg_shell_state: XdgShellState,
     shm_state: ShmState,
-    seat_state: SeatState<Self>,
+    seat_state: SeatState<AppletRunner>,
 
-    seat: Seat<Self>,
+    seat: Seat<AppletRunner>,
     // _socket_name: OsString,
 
     // _main_client: Option<Client>,
     // surface: Option<WlSurface>,
-    surfaces: Vec<WlSurface>,
+    surfaces: SlotMap<WlSurfaceId, WlSurface>,
     // image: Arc<Mutex<Option<RgbaImage>>>,
     // // I think it might be more efficient to share the seat
     // // but this is easier for me to implement
@@ -64,9 +67,9 @@ impl SmithayState {
         let display: Display<Self> = Display::new().unwrap();
         let display_handle = display.handle();
 
-        let compositor_state = CompositorState::new::<Self>(&display_handle);
-        let xdg_shell_state = XdgShellState::new::<Self>(&display_handle);
-        let shm_state = ShmState::new::<Self>(&display_handle, Vec::new());
+        let compositor_state = CompositorState::new::<AppletRunner>(&display_handle);
+        let xdg_shell_state = XdgShellState::new::<AppletRunner>(&display_handle);
+        let shm_state = ShmState::new::<AppletRunner>(&display_handle, Vec::new());
         let mut seat_state = SeatState::new();
 
         let mut seat = seat_state.new_wl_seat(&display_handle, "hello");
@@ -82,21 +85,21 @@ impl SmithayState {
             shm_state,
             seat_state,
             seat,
-            surfaces: Vec::new(),
+            surfaces: SlotMap::with_key(),
         }
     }
 }
 
-// smithay::delegate_dispatch2!(AppletRunner);
-smithay::delegate_dispatch2!(SmithayState);
+smithay::delegate_dispatch2!(AppletRunner);
+// smithay::delegate_dispatch2!(SmithayState);
 
-impl SeatHandler for SmithayState {
+impl SeatHandler for AppletRunner {
     type KeyboardFocus = WlSurface;
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
     fn seat_state(&mut self) -> &mut SeatState<Self> {
-        &mut self.seat_state
+        &mut self.smithay_state.seat_state
     }
 
     fn cursor_image(
@@ -108,9 +111,9 @@ impl SeatHandler for SmithayState {
 
     fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
 }
-impl CompositorHandler for SmithayState {
+impl CompositorHandler for AppletRunner {
     fn compositor_state(&mut self) -> &mut CompositorState {
-        &mut self.compositor_state
+        &mut self.smithay_state.compositor_state
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
@@ -122,7 +125,7 @@ impl CompositorHandler for SmithayState {
     }
 }
 
-impl BufferHandler for SmithayState {
+impl BufferHandler for AppletRunner {
     fn buffer_destroyed(
         &mut self,
         _buffer: &smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer,
@@ -130,20 +133,18 @@ impl BufferHandler for SmithayState {
     }
 }
 
-impl ShmHandler for SmithayState {
+impl ShmHandler for AppletRunner {
     fn shm_state(&self) -> &ShmState {
-        &self.shm_state
+        &self.smithay_state.shm_state
     }
 }
 
-impl XdgShellHandler for SmithayState {
+impl XdgShellHandler for AppletRunner {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
-        &mut self.xdg_shell_state
+        &mut self.smithay_state.xdg_shell_state
     }
 
     fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
-        self.surfaces.push(surface.wl_surface().clone());
-
         surface.with_pending_state(|state| {
             state.size = Some((800, 600).into());
             state
@@ -152,12 +153,22 @@ impl XdgShellHandler for SmithayState {
         });
         surface.send_configure();
 
-        self.seat.get_keyboard().unwrap().set_focus(
+        self.smithay_state.seat.get_keyboard().unwrap().set_focus(
             self,
             Some(surface.wl_surface().clone()),
             // Idk what serial should be
             Serial::from(42),
         );
+
+        // add surface to list of surfaces
+        let surface_id = self
+            .smithay_state
+            .surfaces
+            .insert(surface.wl_surface().clone());
+
+        // let root applet know abt new surface
+        self.root_client
+            .send_event(StandardEvent::WlSurfaceRegistered { surface_id });
 
         println!("New toplevel surface registered");
     }
@@ -186,4 +197,4 @@ impl XdgShellHandler for SmithayState {
     }
 }
 
-impl OutputHandler for SmithayState {}
+impl OutputHandler for AppletRunner {}

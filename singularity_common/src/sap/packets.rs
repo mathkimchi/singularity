@@ -9,6 +9,10 @@ pub enum StandardRequest {
     Quit,
 }
 
+slotmap::new_key_type! {
+    pub struct WlSurfaceId;
+}
+
 /// Server to client
 #[derive(Clone, Copy, Debug)]
 pub enum StandardEvent {
@@ -20,4 +24,10 @@ pub enum StandardEvent {
     CloseRequest,
     SurfaceDamageAck,
     TreeviewDamageAck,
+
+    /// NOTE: ts is kinda niche; dk if it belongs here
+    /// Currently doing by surface instead of by wl client
+    WlSurfaceRegistered {
+        surface_id: WlSurfaceId,
+    },
 }
