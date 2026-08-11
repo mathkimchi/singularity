@@ -64,7 +64,7 @@ pub struct SmithayState {
 }
 impl SmithayState {
     pub fn new(_event_loop: &LoopHandle<AppletRunner>) -> Self {
-        let display: Display<Self> = Display::new().unwrap();
+        let display: Display<AppletRunner> = Display::new().unwrap();
         let display_handle = display.handle();
 
         let compositor_state = CompositorState::new::<AppletRunner>(&display_handle);

@@ -9739,3 +9739,14 @@ I think it's time to make applets actually use the event loop and the new system
 
 I made the applets actually use standard events and resolved errors,
 but now I'm getting a panic instantly.
+
+...
+
+2026-08-11 06:34PM
+
+I just had to change the
+`let display: Display<Self> = Display::new().unwrap();`
+to
+`let display: Display<AppletRunner> = Display::new().unwrap();`
+in `SmithayState::new`.
+Weird that this isn't a compile-time error.
