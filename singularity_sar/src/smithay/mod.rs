@@ -1,5 +1,5 @@
 use crate::runner::AppletRunner;
-use calloop::LoopHandle;
+use calloop::{LoopHandle, PostAction};
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
@@ -112,6 +112,25 @@ impl SmithayState {
             // }
         }
 
+        event_handle
+            .insert_source(
+                calloop::generic::Generic::new(
+                    display,
+                    calloop::Interest::READ,
+                    calloop::Mode::Level,
+                ),
+                |_, display, data| {
+                    // profiling::scope!("dispatch_clients");
+                    // Safety: we don't drop the display
+                    let display = unsafe { display.get_mut() };
+                    display.dispatch_clients(data).unwrap();
+                    display.flush_clients().unwrap();
+
+                    Ok(PostAction::Continue)
+                },
+            )
+            .unwrap();
+
         Self {
             display_handle,
             compositor_state,
@@ -155,6 +174,7 @@ impl CompositorHandler for AppletRunner {
     }
 
     fn commit(&mut self, surface: &WlSurface) {
+        dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
     }
 }
@@ -179,6 +199,7 @@ impl XdgShellHandler for AppletRunner {
     }
 
     fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+        dbg!("Handling new toplevel surface");
         surface.with_pending_state(|state| {
             state.size = Some((800, 600).into());
             state

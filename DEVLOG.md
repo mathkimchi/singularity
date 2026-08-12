@@ -9821,3 +9821,39 @@ I think I assumed winit would not be impacted by the set WAYLAND_DISPLAY.
 
 For the purposes of the demo, I'll just not set the env variable for the Sonamu process,
 and when I spawn wl children, I'll just make them spawn with the WL display variable hard-coded to `wayland-2`.
+
+2026-08-12 02:16PM
+
+I updated the `test wl` command to spawn alacritty natively,
+and it is currently being registered.
+I just have to display the surface now.
+
+For some reason, it isn't registering a new top-level surface though.
+
+2026-08-12 05:13PM
+
+Adding this at least causes an error:
+
+```rs
+event_handle
+    .insert_source(
+        calloop::generic::Generic::new(
+            display,
+            calloop::Interest::READ,
+            calloop::Mode::Level,
+        ),
+        |_, display, data| {
+            // profiling::scope!("dispatch_clients");
+            // Safety: we don't drop the display
+            let display = unsafe { display.get_mut() };
+            display.dispatch_clients(data).unwrap();
+            display.flush_clients().unwrap();
+
+            Ok(PostAction::Continue)
+        },
+    )
+    .unwrap();
+```
+
+anvil doesn't have the flush_clients, but without the flush_clients,
+nothing changes from before I insert the source.
