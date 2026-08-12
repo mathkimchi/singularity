@@ -1,5 +1,3 @@
-use std::{env::set_var, sync::Arc};
-
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
@@ -21,6 +19,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
+use std::sync::Arc;
 
 #[derive(Debug, Default)]
 pub struct ClientState {
@@ -93,27 +92,24 @@ impl SmithayState {
 
             event_handle
                 .insert_source(listening_socket, |client_stream, (), state| {
-                    let client = state
+                    let _client = state
                         .smithay_state
                         .display_handle
                         .insert_client(client_stream, Arc::new(ClientState::default()))
                         .unwrap();
 
                     dbg!("Inserted new client!");
-
-                    dbg!(client);
-                    dbg!(&state.smithay_state);
                 })
                 .unwrap();
 
-            dbg!("Hi");
+            dbg!(&socket_name);
 
-            unsafe {
-                set_var("WAYLAND_DISPLAY", socket_name);
-                // // Firefox just spawns in normal compositor with this unset
-                // // Whoop dee doo, it still doesn't work
-                // set_var("MOZ_ENABLE_WAYLAND", "1");
-            }
+            // unsafe {
+            //     set_var("WAYLAND_DISPLAY", socket_name);
+            //     // // Firefox just spawns in normal compositor with this unset
+            //     // // Whoop dee doo, it still doesn't work
+            //     // set_var("MOZ_ENABLE_WAYLAND", "1");
+            // }
         }
 
         Self {

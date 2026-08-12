@@ -9801,3 +9801,23 @@ Wait, I might be tweaking.
 I'm still gonna commit these dbg prints,
 but I just realized that if I scrolled up, the "Hi" was printed...
 Might be a goon.
+
+2026-08-12 01:08AM
+
+Just committed the full dbg, but the fact that "Inserted new client" is printed at all is still
+inconsistent with my expectations of what the code should be doing.
+I haven't written any code for spawning clients yet.
+Also, I don't know why suddenly the normal window just stopped running either.
+
+Commenting out the insert_source makes the normal window run.
+Commenting out just the set env var part makes the normal window show up.
+
+... waaaiittt, this seems obvious in hindsight.
+The sonamu wl server was cannibalizing its own window.
+Idk why I used that word, but I just mean that when the main Sonamu window was spawning,
+it was spawning under the sonamu wl server I created.
+That explains both inconsistencies.
+I think I assumed winit would not be impacted by the set WAYLAND_DISPLAY.
+
+For the purposes of the demo, I'll just not set the env variable for the Sonamu process,
+and when I spawn wl children, I'll just make them spawn with the WL display variable hard-coded to `wayland-2`.
