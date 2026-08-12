@@ -117,7 +117,16 @@ impl CommandHubApplet {
                 Some(&"image") => {
                     self.execute_command("add_child image_viewer examples/sonamu.jpg")
                 }
-                Some(&"wl") => self.execute_command("add_child wl_app"),
+                // Some(&"wl") => self.execute_command("add_child wl_app"),
+                Some(&"wl") => {
+                    std::process::Command::new("alacritty")
+                        // NOTE: currently hardcoced
+                        .env("WAYLAND_DISPLAY", "wayland-2")
+                        .spawn()
+                        .ok();
+
+                    Ok("Spawned alacritty".to_owned())
+                }
                 Some(&"editor") => self.execute_command(
                     "add_child code_editor examples/root-project/file_to_edit.txt",
                 ),
