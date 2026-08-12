@@ -58,6 +58,8 @@ impl AppletRunner {
 
         let mut runner = Self::new(event_loop.handle(), root_applet_initializer);
 
+        dbg!("Will run event loop");
+
         event_loop
             .run(None, &mut runner, |_| {
                 // I think this is run between events, but I don't need this rn

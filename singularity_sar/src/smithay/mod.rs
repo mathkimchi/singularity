@@ -1,3 +1,5 @@
+use std::{env::set_var, sync::Arc};
+
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
@@ -16,6 +18,7 @@ use smithay::{
         security_context::SecurityContext,
         shell::xdg::{XdgShellHandler, XdgShellState},
         shm::{ShmHandler, ShmState},
+        socket::ListeningSocketSource,
     },
 };
 
@@ -37,9 +40,10 @@ impl ClientData for ClientState {
 }
 
 /// TODO: rename to smithay client handle (adds consistency w/ ui handle and client handle)
+#[derive(Debug)]
 pub struct SmithayState {
     // start_time: std::time::Instant,
-    _display_handle: DisplayHandle,
+    display_handle: DisplayHandle,
 
     // _loop_signal: LoopSignal,
 
@@ -63,7 +67,7 @@ pub struct SmithayState {
     // hook: Box<dyn NodularRunnerHook>,
 }
 impl SmithayState {
-    pub fn new(_event_loop: &LoopHandle<AppletRunner>) -> Self {
+    pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
         let display: Display<AppletRunner> = Display::new().unwrap();
         let display_handle = display.handle();
 
@@ -78,8 +82,42 @@ impl SmithayState {
             .unwrap();
         seat.add_pointer();
 
+        // set up socket
+        {
+            // Creates a new listening socket, automatically choosing the next available `wayland` socket name.
+            let listening_socket = ListeningSocketSource::new_auto().unwrap();
+
+            // Get the name of the listening socket.
+            // Clients will connect to this socket.
+            let socket_name = listening_socket.socket_name().to_os_string();
+
+            event_handle
+                .insert_source(listening_socket, |client_stream, (), state| {
+                    let client = state
+                        .smithay_state
+                        .display_handle
+                        .insert_client(client_stream, Arc::new(ClientState::default()))
+                        .unwrap();
+
+                    dbg!("Inserted new client!");
+
+                    dbg!(client);
+                    dbg!(&state.smithay_state);
+                })
+                .unwrap();
+
+            dbg!("Hi");
+
+            unsafe {
+                set_var("WAYLAND_DISPLAY", socket_name);
+                // // Firefox just spawns in normal compositor with this unset
+                // // Whoop dee doo, it still doesn't work
+                // set_var("MOZ_ENABLE_WAYLAND", "1");
+            }
+        }
+
         Self {
-            _display_handle: display_handle,
+            display_handle,
             compositor_state,
             xdg_shell_state,
             shm_state,

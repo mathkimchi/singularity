@@ -9750,3 +9750,54 @@ to
 `let display: Display<AppletRunner> = Display::new().unwrap();`
 in `SmithayState::new`.
 Weird that this isn't a compile-time error.
+
+2026-08-11 06:49PM
+
+Bro, I thought this was a good stopping place,
+but the librarian has my card and she's been gone for like 10 minutes.
+
+I'll start planning the demo for the centralized WL apps.
+
+2026-08-12 12:59AM
+
+I don't know why in the code I'm about to commit,
+running `insert_source` on calloop's LoopHandle blocks
+but the dbg calls inside of it are being printed.
+
+The AppletRunner state shouldn't even exist and event_loop.run hasn't been called.
+
+For context, the code is:
+
+```rs
+event_handle
+    .insert_source(listening_socket, |client_stream, (), state| {
+        let client = state
+            .smithay_state
+            .display_handle
+            .insert_client(client_stream, Arc::new(ClientState::default()))
+            .unwrap();
+
+        dbg!("Inserted new client!");
+
+        dbg!(client);
+        dbg!(&state.smithay_state);
+    })
+    .unwrap();
+
+dbg!("Hi");
+```
+
+Prints the "Inserted new client!" and the client and smithay state
+but then the whole program freezes without printing "Hi".
+
+`state` shouldn't even exist, which is the largest problem.
+But also, the callback shouldn't be run until I call run on event_loop
+and also I'm not spawning any clients so this shouldn't be called ever right now.
+Plus, insert_source shouldn't be a blocking call.
+
+...
+
+Wait, I might be tweaking.
+I'm still gonna commit these dbg prints,
+but I just realized that if I scrolled up, the "Hi" was printed...
+Might be a goon.
