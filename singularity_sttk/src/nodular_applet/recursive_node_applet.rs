@@ -607,7 +607,10 @@ impl StandardApplet for RecursiveNodeApplet {
                         .immut_handle_ui_event(ui_event),
                 }
             }
-            StandardEvent::WlSurfaceRegistered { surface_id: _ } => todo!(),
+            StandardEvent::WlSurfaceRegistered { surface_id: _ } => {
+                // self.shared_resource.children;
+                todo!()
+            }
             StandardEvent::FocusChanged(..)
             | StandardEvent::Highlighted(..)
             | StandardEvent::CloseRequest

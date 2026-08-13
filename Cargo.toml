@@ -35,6 +35,8 @@ log = { version = "^0.4" }
 
 image = { version = "^0.25" }
 
+wgpu = "^29.0.3"
+
 # smithay's polling crate that I will use to replace both server and clients' mainloops
 calloop = { version = "^0.14.4", features = ["executor"] }
 

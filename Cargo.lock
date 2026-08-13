@@ -3103,6 +3103,7 @@ dependencies = [
  "sonamu_sync",
  "sonamu_ui",
  "wayland-protocols",
+ "wgpu 29.0.3",
 ]
 
 [[package]]

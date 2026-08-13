@@ -9857,3 +9857,16 @@ event_handle
 
 anvil doesn't have the flush_clients, but without the flush_clients,
 nothing changes from before I insert the source.
+
+And reading the logs, it looks like the top level surface is actually handled,
+and the surface might just be from the fact I'm not dealing with it in the clients,
+which is, unexpectedly, expected behavior.
+
+2026-08-13 11:10AM
+
+Google might just be thinking again.
+I got two potentially useful results for turning a Smithay surface into wgpu:
+- [Lamco wgpu](github.com/lamco-admin/lamco-wgpu) which provides "wgpu integration for Smithay-based Wayland compositors."
+- [This Reddit thread](https://www.reddit.com/r/rust/comments/1ojfg29/initialising_a_wgpu_context_from_a_wayland/) which points to [`create_surface_unsafe`](https://docs.rs/wgpu/27.0.1/wgpu/struct.Instance.html#method.create_surface_unsafe) but I don't know how to use it.
+
+Ideally, I'd like to just use `create_surface_unsafe`.

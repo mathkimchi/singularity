@@ -2,11 +2,10 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize, DisplayCoord, DisplayUnits},
 };
+use wgpu::TextureView;
 
 mod char_grid;
 pub use char_grid::*;
-
-use wgpu::TextureView;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RoundRect {
@@ -57,16 +56,22 @@ impl PrimitiveScene {
         element: UIElement,
         container_area: DisplayArea,
         screen_size: DisplayContainerSize,
+        subsurfaces: &impl Fn(u64) -> UIElement,
     ) {
         match element {
             UIElement::Container(children) => {
                 for child_element in children {
                     // draw the inner widget
-                    self.add_ui_element(child_element, container_area, screen_size);
+                    self.add_ui_element(child_element, container_area, screen_size, subsurfaces);
                 }
             }
             UIElement::Contained(inner_element, area) => {
-                self.add_ui_element(*inner_element, area.map_onto(container_area), screen_size);
+                self.add_ui_element(
+                    *inner_element,
+                    area.map_onto(container_area),
+                    screen_size,
+                    subsurfaces,
+                );
             }
             // FIXME: there are weird border lines
             UIElement::Bordered(inner_element, border_color) => {
@@ -95,7 +100,7 @@ impl PrimitiveScene {
                 // dbg!(&inner_area);
 
                 // draw the inner widget
-                self.add_ui_element(*inner_element, inner_area, screen_size);
+                self.add_ui_element(*inner_element, inner_area, screen_size, subsurfaces);
             }
             UIElement::Backgrounded(inner_element, bg_color) => {
                 // clear the inside of the border
@@ -113,7 +118,7 @@ impl PrimitiveScene {
                 );
 
                 // draw the inner widget
-                self.add_ui_element(*inner_element, container_area, screen_size);
+                self.add_ui_element(*inner_element, container_area, screen_size, subsurfaces);
             }
             UIElement::Text(text) => {
                 self.add_primitive(UIPrimitiveElement::Text(text), container_area, screen_size);
@@ -135,18 +140,26 @@ impl PrimitiveScene {
                     screen_size,
                 );
             }
-            UIElement::Subsurface(_) => {
-                // TODO: take a function that maps subsurface ids to content or something idk
-                todo!()
+            UIElement::Subsurface(surface_id) => {
+                self.add_ui_element(
+                    subsurfaces(surface_id),
+                    container_area,
+                    screen_size,
+                    subsurfaces,
+                );
             }
             UIElement::Nothing => {}
         }
     }
 
-    pub fn from_ui_element(content: UIElement, screen_size: DisplayContainerSize) -> Self {
+    pub fn from_ui_element(
+        content: UIElement,
+        screen_size: DisplayContainerSize,
+        subsurfaces: impl Fn(u64) -> UIElement,
+    ) -> Self {
         let mut scene = PrimitiveScene::new_empty();
 
-        scene.add_ui_element(content, DisplayArea::FULL, screen_size);
+        scene.add_ui_element(content, DisplayArea::FULL, screen_size, &subsurfaces);
 
         scene
     }
@@ -184,7 +197,7 @@ pub enum UIElement {
     Texture(TextureView),
 
     /// Reference to an embedded UI element
-    Subsurface(u32),
+    Subsurface(u64),
 
     Nothing,
 }

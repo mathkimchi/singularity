@@ -3,7 +3,7 @@ use calloop::{LoopHandle, PostAction};
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
-    backend::renderer::utils::on_commit_buffer_handler,
+    backend::renderer::utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
         Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
@@ -11,7 +11,7 @@ use smithay::{
     utils::Serial,
     wayland::{
         buffer::BufferHandler,
-        compositor::{CompositorClientState, CompositorHandler, CompositorState},
+        compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states},
         output::OutputHandler,
         security_context::SecurityContext,
         shell::xdg::{XdgShellHandler, XdgShellState},
@@ -20,6 +20,7 @@ use smithay::{
     },
 };
 use std::sync::Arc;
+use wgpu::TextureView;
 
 #[derive(Debug, Default)]
 pub struct ClientState {
@@ -140,6 +141,23 @@ impl SmithayState {
             seat,
             surfaces: SlotMap::with_key(),
         }
+    }
+
+    pub fn get_wl_surface_as_element(&self, surface_id: WlSurfaceId) -> TextureView {
+        let surface = self.surfaces.get(surface_id).unwrap();
+        let _wl_buffer = with_states(surface, |states| {
+            let surface_state = states
+                .data_map
+                .get::<RendererSurfaceStateUserData>()
+                .unwrap()
+                .lock()
+                .unwrap();
+            let buffer = surface_state.buffer().unwrap();
+            buffer.clone()
+        });
+
+        // wgpu::Instance::create_surface_unsafe(todo!(), surface.raw);
+        todo!()
     }
 }
 

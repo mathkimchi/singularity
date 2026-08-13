@@ -1,7 +1,7 @@
 use crate::{client_handle::ClientHandle, smithay::SmithayState, ui_handle::UIHandle};
 use calloop::{EventLoop, LoopHandle};
 use singularity_common::sap::{
-    packets::{StandardEvent, StandardRequest},
+    packets::{StandardEvent, StandardRequest, WlSurfaceId},
     raw_client_initializer::RawClientInitializer,
 };
 use sonamu_ui::{
@@ -97,6 +97,11 @@ impl AppletRunner {
             .set_ui_content(PrimitiveScene::from_ui_element(
                 self.root_client.get_surface(),
                 self.window_size,
+                |surface_id| {
+                    // NOTE: currently only handles subsurfaces being the wl surfaces
+                    let wl_surface_id = WlSurfaceId::from_u64(surface_id);
+                    UIElement::Texture(self.smithay_state.get_wl_surface_as_element(wl_surface_id))
+                },
             ));
     }
 }

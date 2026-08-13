@@ -1,3 +1,4 @@
+use slotmap::KeyData;
 use sonamu_ui::ui_event::UIEvent;
 
 /// Client to server
@@ -11,6 +12,16 @@ pub enum StandardRequest {
 
 slotmap::new_key_type! {
     pub struct WlSurfaceId;
+}
+impl WlSurfaceId {
+    pub fn as_u64(self) -> u64 {
+        self.0.as_ffi()
+    }
+
+    /// Not doing `impl From ...` bc I'm lazy and it lowkey looks ugly
+    pub fn from_u64(data: u64) -> Self {
+        Self(KeyData::from_ffi(data))
+    }
 }
 
 /// Server to client
