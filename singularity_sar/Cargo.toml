@@ -19,15 +19,5 @@ calloop = { workspace = true }
 wgpu.workspace = true
 
 # TODO: put this behind a feature
-# TODO: put this as workspace dependency
-# Smithay doesn't post the newest version to crates.io
-# smithay = { version = "^0.7.0", features = ["wayland_frontend"] }
-smithay = { git = "https://github.com/Smithay/smithay", branch = "master", features = [
-    "wayland_frontend",
-    # "wayland-protocols",
-] }
-wayland-protocols = { version = "0.32.12", features = [
-    "unstable",
-    "staging",
-    "server",
-] }
+smithay.workspace = true
+wayland-protocols.workspace = true

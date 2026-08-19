@@ -1,3 +1,5 @@
+use smithay::reexports::winit;
+
 use crate::display_units::{DisplayArea, DisplayContainerSize};
 
 /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.

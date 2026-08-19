@@ -9870,3 +9870,35 @@ I got two potentially useful results for turning a Smithay surface into wgpu:
 - [This Reddit thread](https://www.reddit.com/r/rust/comments/1ojfg29/initialising_a_wgpu_context_from_a_wayland/) which points to [`create_surface_unsafe`](https://docs.rs/wgpu/27.0.1/wgpu/struct.Instance.html#method.create_surface_unsafe) but I don't know how to use it.
 
 Ideally, I'd like to just use `create_surface_unsafe`.
+
+2026-08-13 01:22PM
+
+I think I should make the winit backend use calloop so I can share the wgpu stuff between the ui handle and everythign else.
+I tried looking at Anvil's winit loop handle, but I think Niri is much more understandable.
+
+This kinda means I have to put the Winit backend stuff inside SAR,
+since the event loop holds a generic which refers to the SAR state.
+
+2026-08-14 09:32PM
+
+I'm doing like a service trip with manual labor tmrw apparently.
+I guess I'll try to squeeze in Singularity development,
+but I doubt I'll even make a commit until the 18th (when the trip ends).
+There's like 40 people sleeping in one large gym,
+some typa plague-maxxing.
+
+I was thinking about it, and I don't actually know if it's good to put the UI handle in the same event loop.
+The pro is simplicity, and this sence of one large structure,
+but the con is that then, the UI handling and the other handlings must run in the same thread.
+
+The alternative I thought of was just putting the threads in their own loops (like before),
+and sharing the device stuff as Mutex.
+
+I don't want to think about this too hard, so I'll just finish what I started in this commit
+and only consider splitting the threads if/once performance becomes the priority.
+
+2026-08-19 07:43AM
+
+I just realized that the `wgpu` types like Device internally use `Arc`,
+so I didn't have to worry about Mutex overhead.
+I'm going to commit the "switch UI thread to eventloop" which is unfinished and just share the stuff.

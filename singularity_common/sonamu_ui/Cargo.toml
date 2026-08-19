@@ -29,7 +29,8 @@ image = { workspace = true }
 # just for winit backend
 glyphon = "^0.11"
 wgpu.workspace = true
-winit = "^0.30.13"
+# winit = "^0.30.13" # get this from smithay
+smithay.workspace = true
 pollster = "^0.4.0"
 bytemuck = { version = "^1.25.0", features = ["derive"] }
 wgpu_canvas = { version = "^5.0.8" }

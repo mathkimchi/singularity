@@ -11,15 +11,21 @@ use crate::{
         ui_event::{KeyModifiers, UIEvent},
     },
 };
-use calloop::channel::Sender;
+use calloop::{LoopHandle, channel::Sender};
 use glyphon::{FontSystem, SwashCache, TextAtlas};
+use smithay::{
+    backend::{renderer::gles::GlesRenderer, winit},
+    reexports::winit::{
+        platform::wayland::EventLoopBuilderExtWayland as _,
+        window::{Window, WindowAttributes},
+    },
+};
 use sonamu_sync::EncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
     CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
     TextureFormat, TextureUsages, util::DeviceExt as _,
 };
-use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
 mod rendering;
 pub mod ui_event;
@@ -230,13 +236,45 @@ pub struct UIDisplay {
     winit_data: Option<WinitData>,
 }
 impl UIDisplay {
+    pub fn new<State: AsMut<Self>>(
+        // TODO: with event loop, these don't need to be mutex and stuff
+        is_running: Arc<AtomicBool>,
+        event_queue: Sender<UIEvent>,
+        ui_content: EncapsulatedLock<PrimitiveScene>,
+        event_loop: &LoopHandle<State>,
+    ) -> Self {
+        let builder = WindowAttributes::default()
+            // .with_surface_size(LogicalSize::new(1280.0, 800.0))
+            // .with_resizable(false)
+            .with_title("sonamu");
+        let (backend, winit_event_loop) =
+            winit::init_from_attributes::<GlesRenderer>(builder).unwrap();
+
+        event_loop
+            .insert_source(winit_event_loop, |event, (), state| {
+                let ui_display = state.as_mut();
+                todo!();
+            })
+            .unwrap();
+
+        Self {
+            is_running,
+            event_queue,
+            ui_content,
+            // width: 256,
+            // height: 256,
+            key_modifiers: KeyModifiers::NONE,
+            winit_data: None,
+        }
+    }
+
     /// Returns when display is closed.
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
         ui_content: EncapsulatedLock<PrimitiveScene>,
     ) {
-        let event_loop = EventLoop::builder()
+        let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
             .build()

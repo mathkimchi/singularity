@@ -37,6 +37,18 @@ image = { version = "^0.25" }
 
 wgpu = "^29.0.3"
 
+# Smithay doesn't post the newest version to crates.io
+# smithay = { version = "^0.7.0", features = ["wayland_frontend"] }
+smithay = { git = "https://github.com/Smithay/smithay", branch = "master", features = [
+    "wayland_frontend",
+    # "wayland-protocols",
+] }
+wayland-protocols = { version = "0.32.12", features = [
+    "unstable",
+    "staging",
+    "server",
+] }
+
 # smithay's polling crate that I will use to replace both server and clients' mainloops
 calloop = { version = "^0.14.4", features = ["executor"] }
 

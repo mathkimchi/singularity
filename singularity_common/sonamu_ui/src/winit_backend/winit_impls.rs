@@ -3,6 +3,7 @@ use crate::{
     ui_event::Key,
     winit_backend::{UIDisplay, WgpuData, WinitData},
 };
+use smithay::reexports::winit;
 use std::sync::Arc;
 use winit::{dpi::LogicalSize, window::Window};
 
