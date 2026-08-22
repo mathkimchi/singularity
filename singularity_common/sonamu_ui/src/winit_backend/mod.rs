@@ -17,10 +17,10 @@ use smithay::reexports::winit::{
     platform::wayland::EventLoopBuilderExtWayland as _, window::Window,
 };
 use sonamu_sync::EncapsulatedLock;
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
-    TextureFormat, TextureUsages, util::DeviceExt as _,
+    CompositeAlphaMode, PresentMode, SurfaceConfiguration, SurfaceTarget, TextureFormat,
+    TextureUsages, util::DeviceExt as _,
 };
 
 mod rendering;
@@ -55,10 +55,14 @@ struct WgpuData {
     // instance_buffer: wgpu::Buffer,
 }
 impl WgpuData {
-    fn new(target: impl Into<SurfaceTarget<'static>>, physical_size: DisplayContainerSize) -> Self {
+    fn new(
+        target: impl Into<SurfaceTarget<'static>>,
+        physical_size: DisplayContainerSize,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: wgpu::Instance,
+    ) -> Self {
         // Set up surface
-        let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
-
         let surface = instance.create_surface(target).expect("Create surface");
         let swapchain_format = TextureFormat::Bgra8UnormSrgb;
         let surface_config = SurfaceConfiguration {
@@ -72,28 +76,6 @@ impl WgpuData {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }))
-        .unwrap();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: None,
-            required_features: wgpu::Features::empty(),
-            experimental_features: wgpu::ExperimentalFeatures::disabled(),
-            // WebGL doesn't support all of wgpu's features, so if
-            // we're building for the web we'll have to disable some.
-            required_limits: if cfg!(target_arch = "wasm32") {
-                wgpu::Limits::downlevel_webgl2_defaults()
-            } else {
-                wgpu::Limits::default()
-            },
-            memory_hints: wgpu::MemoryHints::default(),
-            trace: wgpu::Trace::Off, // Trace path
-        }))
-        .unwrap();
 
         surface.configure(&device, &surface_config);
 
@@ -195,7 +177,12 @@ pub struct WinitData {
     window: Arc<Window>,
 }
 impl WinitData {
-    fn new(window: Arc<Window>) -> Self {
+    fn new(
+        window: Arc<Window>,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: wgpu::Instance,
+    ) -> Self {
         let physical_size = window.inner_size();
         // let scale_factor = window.scale_factor();
 
@@ -203,6 +190,9 @@ impl WinitData {
             wgpu_data: WgpuData::new(
                 window.clone(),
                 DisplayContainerSize::new(physical_size.width, physical_size.height),
+                device,
+                queue,
+                instance,
             ),
             window,
         }
@@ -225,7 +215,11 @@ pub struct UIDisplay {
     // height: u32,
     key_modifiers: KeyModifiers,
 
-    winit_data: Arc<Mutex<Option<WinitData>>>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    instance: wgpu::Instance,
+
+    winit_data: Option<WinitData>,
 }
 impl UIDisplay {
     // pub fn new<State: AsMut<Self>>(
@@ -375,7 +369,9 @@ impl UIDisplay {
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
         ui_content: EncapsulatedLock<PrimitiveScene>,
-        winit_data: Arc<Mutex<Option<WinitData>>>,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: wgpu::Instance,
     ) {
         let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
@@ -389,7 +385,10 @@ impl UIDisplay {
             // width: 256,
             // height: 256,
             key_modifiers: KeyModifiers::NONE,
-            winit_data,
+            winit_data: None,
+            device,
+            queue,
+            instance,
         };
         event_loop.run_app(&mut app).unwrap();
 

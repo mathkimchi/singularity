@@ -3,9 +3,10 @@ use calloop::LoopHandle;
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{UIDisplay, ui_element::PrimitiveScene};
 use std::{
-    sync::{Arc, Mutex, atomic::AtomicBool},
+    sync::{Arc, atomic::AtomicBool},
     thread,
 };
+use wgpu::InstanceDescriptor;
 
 /// For the runner/main app being UI'd to hold
 ///
@@ -39,26 +40,40 @@ impl UIHandle {
             })
             .unwrap();
 
-        let winit_data = Arc::new(Mutex::new(None));
+        let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: None,
+            force_fallback_adapter: false,
+        }))
+        .unwrap();
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: None,
+            required_features: wgpu::Features::empty(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
+            // WebGL doesn't support all of wgpu's features, so if
+            // we're building for the web we'll have to disable some.
+            required_limits: if cfg!(target_arch = "wasm32") {
+                wgpu::Limits::downlevel_webgl2_defaults()
+            } else {
+                wgpu::Limits::default()
+            },
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::Off, // Trace path
+        }))
+        .unwrap();
 
         {
             let is_running = is_running.clone();
             let ui_content = ui_content.clone();
-            let winit_data = winit_data.clone();
+            let device = device.clone();
+            let queue = queue.clone();
             thread::spawn(|| {
-                UIDisplay::run_display(is_running, tx, ui_content, winit_data);
+                UIDisplay::run_display(is_running, tx, ui_content, device, queue, instance);
             });
 
             dbg!("Started UI thread");
         }
-
-        let (device, queue) = loop {
-            if let Some(winit_data) = &*winit_data.lock().unwrap() {
-                break winit_data.get_wgpu_data();
-            }
-
-            std::hint::spin_loop();
-        };
 
         Self {
             is_running,
