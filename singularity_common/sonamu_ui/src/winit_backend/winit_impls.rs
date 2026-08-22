@@ -9,14 +9,14 @@ use winit::{dpi::LogicalSize, window::Window};
 
 impl winit::application::ApplicationHandler for UIDisplay {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.winit_data.is_some() {
+        if self.winit_data.lock().unwrap().is_some() {
             return;
         }
 
         // Set up window
         let window_attributes = Window::default_attributes()
             .with_inner_size(LogicalSize::new(800, 600))
-            .with_title("Singularity");
+            .with_title("Sonamu");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
         self.event_queue
@@ -25,7 +25,8 @@ impl winit::application::ApplicationHandler for UIDisplay {
             ))
             .unwrap();
 
-        self.winit_data = Some(pollster::block_on(WinitData::new(window)));
+        let winit_data = WinitData::new(window);
+        *self.winit_data.lock().unwrap() = Some(winit_data);
     }
 
     fn window_event(
@@ -39,7 +40,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             return;
         }
 
-        let Some(state) = &mut self.winit_data else {
+        let Some(state) = &mut *self.winit_data.lock().unwrap() else {
             return;
         };
 
@@ -98,7 +99,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             //     println!("TODO: mouse press");
             // }
             winit::event::WindowEvent::RedrawRequested => {
-                Self::draw(&mut self.winit_data, &self.ui_content.get());
+                Self::draw(&mut self.winit_data.lock().unwrap(), &self.ui_content.get());
             }
             _ => {}
         }

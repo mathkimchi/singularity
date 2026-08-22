@@ -9902,3 +9902,23 @@ and only consider splitting the threads if/once performance becomes the priority
 I just realized that the `wgpu` types like Device internally use `Arc`,
 so I didn't have to worry about Mutex overhead.
 I'm going to commit the "switch UI thread to eventloop" which is unfinished and just share the stuff.
+
+...
+
+2026-08-19 02:36PM
+
+I hate winit, why does it force its event loop system on everyone?
+
+Whatever, I'm just going to use a Mutex of a Some,
+but if I do it on the WinitData (currently the Some is of winit data),
+then I pretty much won't get the benefit of multithreading.
+I considered having the UI thread send the wgpu stuff to the main thread,
+but winit sucks so that would require me to add a rx,
+but I think I got my current solution:
+
+I use a once lock (which is kinda like a mutex of some) for the overall winit data then,
+idk I think that's it actually.
+
+2026-08-22 02:54PM
+
+Might need to do arc mutex option bruh.

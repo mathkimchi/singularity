@@ -3,7 +3,7 @@ use calloop::LoopHandle;
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{UIDisplay, ui_element::PrimitiveScene};
 use std::{
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     thread,
 };
 
@@ -14,6 +14,9 @@ use std::{
 pub(crate) struct UIHandle {
     pub is_running: Arc<AtomicBool>,
     pub ui_content: EncapsulatedLock<PrimitiveScene>,
+
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
 }
 impl UIHandle {
     pub fn init_ui(
@@ -36,17 +39,33 @@ impl UIHandle {
             })
             .unwrap();
 
+        let winit_data = Arc::new(Mutex::new(None));
+
         {
             let is_running = is_running.clone();
             let ui_content = ui_content.clone();
+            let winit_data = winit_data.clone();
             thread::spawn(|| {
-                UIDisplay::run_display(is_running, tx, ui_content);
+                UIDisplay::run_display(is_running, tx, ui_content, winit_data);
             });
+
+            dbg!("Started UI thread");
         }
+
+        let (device, queue) = loop {
+            if let Some(winit_data) = &*winit_data.lock().unwrap() {
+                break winit_data.get_wgpu_data();
+            }
+
+            std::hint::spin_loop();
+        };
 
         Self {
             is_running,
             ui_content,
+
+            device,
+            queue,
         }
     }
 
