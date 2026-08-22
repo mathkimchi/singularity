@@ -9922,3 +9922,10 @@ idk I think that's it actually.
 2026-08-22 02:54PM
 
 Might need to do arc mutex option bruh.
+
+2026-08-22 04:08PM
+
+I got it to work by making the device and queue in the main thread.
+I forgor why I did all this.
+
+Oh, I need to make the wayland smithay surfaces into wgpu textures.

@@ -29,7 +29,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             window,
             self.device.clone(),
             self.queue.clone(),
-            self.instance.clone(),
+            &self.instance,
         );
         self.winit_data = Some(winit_data);
     }

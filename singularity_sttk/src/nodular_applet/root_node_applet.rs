@@ -9,6 +9,7 @@ use calloop::{
     EventLoop, LoopHandle,
     channel::{Channel, Sender, channel},
 };
+use log::debug;
 use singularity_common::{
     sap::{
         packets::{StandardEvent, StandardRequest},
@@ -113,7 +114,7 @@ impl RootNodeApplet {
             // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
 
             fn add_child(&self, _initializer: super::NodularAppletInitializer) {
-                todo!()
+                unimplemented!()
             }
 
             fn damage_treeview(&self) {

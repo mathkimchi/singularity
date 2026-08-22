@@ -60,7 +60,7 @@ impl WgpuData {
         physical_size: DisplayContainerSize,
         device: wgpu::Device,
         queue: wgpu::Queue,
-        instance: wgpu::Instance,
+        instance: &wgpu::Instance,
     ) -> Self {
         // Set up surface
         let surface = instance.create_surface(target).expect("Create surface");
@@ -181,7 +181,7 @@ impl WinitData {
         window: Arc<Window>,
         device: wgpu::Device,
         queue: wgpu::Queue,
-        instance: wgpu::Instance,
+        instance: &wgpu::Instance,
     ) -> Self {
         let physical_size = window.inner_size();
         // let scale_factor = window.scale_factor();

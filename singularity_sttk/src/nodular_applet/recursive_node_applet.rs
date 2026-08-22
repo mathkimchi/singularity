@@ -1,8 +1,10 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
+    creatable_applet::CreatableNodularApplet,
     nodular_applet::{
         NodularAppletInitializer, NodularRunnerHook, StandardApplet, caching_applet::CachingApplet,
     },
+    wl_surface_applet::WlSurfaceApplet,
 };
 use singularity_common::{
     sap::packets::StandardEvent,
@@ -607,9 +609,13 @@ impl StandardApplet for RecursiveNodeApplet {
                         .immut_handle_ui_event(ui_event),
                 }
             }
-            StandardEvent::WlSurfaceRegistered { surface_id: _ } => {
-                // self.shared_resource.children;
-                todo!()
+            StandardEvent::WlSurfaceRegistered { surface_id } => {
+                SharedResource::add_child(
+                    &self.shared_resource,
+                    RecursiveNodeApplet::boxed_get_boxed_initializer(
+                        WlSurfaceApplet::get_boxed_initiator(surface_id),
+                    ),
+                );
             }
             StandardEvent::FocusChanged(..)
             | StandardEvent::Highlighted(..)
