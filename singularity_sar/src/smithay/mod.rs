@@ -3,10 +3,14 @@ use calloop::{LoopHandle, PostAction};
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
-    backend::renderer::utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
+    backend::renderer::{
+        BufferType, buffer_type,
+        utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
+    },
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
-        Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
+        Client, Display, DisplayHandle, Resource as _, backend::ClientData,
+        protocol::wl_surface::WlSurface,
     },
     utils::Serial,
     wayland::{
@@ -19,8 +23,8 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use std::sync::Arc;
-use wgpu::TextureView;
+use std::{ffi::c_void, ptr::NonNull, sync::Arc};
+use wgpu::{TextureView, TextureViewDescriptor, rwh::WaylandWindowHandle};
 
 #[derive(Debug, Default)]
 pub struct ClientState {
@@ -143,9 +147,14 @@ impl SmithayState {
         }
     }
 
-    pub fn get_wl_surface_as_element(&self, surface_id: WlSurfaceId) -> TextureView {
+    pub fn get_wl_surface_as_element(
+        &self,
+        surface_id: WlSurfaceId,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> TextureView {
         let surface = self.surfaces.get(surface_id).unwrap();
-        let _wl_buffer = with_states(surface, |states| {
+        let wl_buffer = with_states(surface, |states| {
             let surface_state = states
                 .data_map
                 .get::<RendererSurfaceStateUserData>()
@@ -156,8 +165,76 @@ impl SmithayState {
             buffer.clone()
         });
 
-        // wgpu::Instance::create_surface_unsafe(todo!(), surface.raw);
-        todo!()
+        match buffer_type(&wl_buffer) {
+            Some(BufferType::Shm) => {
+                dbg!("shm");
+
+                let (data, metadata) = smithay::wayland::shm::with_buffer_contents(
+                    &wl_buffer,
+                    |content_ptr, length, metadata| {
+                        (
+                            unsafe { std::slice::from_raw_parts(content_ptr, length) },
+                            metadata,
+                        )
+                    },
+                )
+                .unwrap();
+
+                let texture_size = wgpu::Extent3d {
+                    width: metadata.width.cast_unsigned(),
+                    height: metadata.height.cast_unsigned(),
+                    // All textures are stored as 3D
+                    depth_or_array_layers: 1,
+                };
+
+                let texture = device.create_texture(&wgpu::TextureDescriptor {
+                    size: texture_size,
+                    mip_level_count: 1, // We'll talk about this a little later
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    // COPY_DST means that we want to copy data to this texture
+                    // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    label: Some("atlas_texture"),
+                    // This is the same as with the SurfaceConfig. It
+                    // specifies what texture formats can be used to
+                    // create TextureViews for this texture. The base
+                    // texture format (Rgba8UnormSrgb in this case) is
+                    // always supported. Note that using a different
+                    // texture format is not supported on the WebGL2
+                    // backend.
+                    view_formats: &[],
+                });
+
+                queue.write_texture(
+                    // Tells wgpu where to copy the pixel data
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    // The actual pixel data
+                    data,
+                    // The layout of the texture
+                    wgpu::TexelCopyBufferLayout {
+                        // NOTE: Idk why this is 1
+                        offset: u64::from(metadata.offset.cast_unsigned()),
+                        bytes_per_row: Some(metadata.stride.cast_unsigned()),
+                        rows_per_image: Some(metadata.height.cast_unsigned()),
+                    },
+                    texture_size,
+                );
+
+                texture.create_view(&TextureViewDescriptor::default())
+            }
+            Some(BufferType::Dma) => {
+                dbg!("Dma");
+                todo!()
+            }
+            Some(BufferType::SinglePixel | _) | None => todo!(),
+        }
     }
 }
 

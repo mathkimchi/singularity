@@ -18,6 +18,7 @@ pub(crate) struct UIHandle {
 
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+    pub instance: wgpu::Instance,
 }
 impl UIHandle {
     pub fn init_ui(
@@ -68,6 +69,7 @@ impl UIHandle {
             let ui_content = ui_content.clone();
             let device = device.clone();
             let queue = queue.clone();
+            let instance = instance.clone();
             thread::spawn(|| {
                 UIDisplay::run_display(is_running, tx, ui_content, device, queue, instance);
             });
@@ -81,6 +83,7 @@ impl UIHandle {
 
             device,
             queue,
+            instance,
         }
     }
 

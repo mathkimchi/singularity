@@ -610,6 +610,7 @@ impl StandardApplet for RecursiveNodeApplet {
                 }
             }
             StandardEvent::WlSurfaceRegistered { surface_id } => {
+                // TODO: change behavior based on `match self.shared_resource.focus_index.get()`
                 SharedResource::add_child(
                     &self.shared_resource,
                     RecursiveNodeApplet::boxed_get_boxed_initializer(
