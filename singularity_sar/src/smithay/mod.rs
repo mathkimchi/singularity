@@ -9,8 +9,7 @@ use smithay::{
     },
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{
-        Client, Display, DisplayHandle, Resource as _, backend::ClientData,
-        protocol::wl_surface::WlSurface,
+        Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
     },
     utils::Serial,
     wayland::{
@@ -23,8 +22,8 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use std::{ffi::c_void, ptr::NonNull, sync::Arc};
-use wgpu::{TextureView, TextureViewDescriptor, rwh::WaylandWindowHandle};
+use std::sync::Arc;
+use wgpu::{TextureView, TextureViewDescriptor};
 
 #[derive(Debug, Default)]
 pub struct ClientState {
@@ -180,6 +179,24 @@ impl SmithayState {
                 )
                 .unwrap();
 
+                let data = &data
+                    .chunks_exact(4)
+                    .flat_map(|x| [x[0], x[1], x[2], 0xFF])
+                    .collect::<Vec<_>>();
+
+                // let data = &data
+                //     .iter()
+                //     .enumerate()
+                //     .map(|(i, _)| match i % 4 {
+                //         0 => (i % 256) as _,
+                //         1 => (i % 256) as _,
+                //         2 => (i % 256) as _,
+                //         // Alpha
+                //         3 => 255,
+                //         _ => unreachable!(),
+                //     })
+                //     .collect::<Vec<_>>();
+
                 let texture_size = wgpu::Extent3d {
                     width: metadata.width.cast_unsigned(),
                     height: metadata.height.cast_unsigned(),
@@ -187,14 +204,30 @@ impl SmithayState {
                     depth_or_array_layers: 1,
                 };
 
+                dbg!(metadata.format);
+                let format = match metadata.format {
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Argb8888 => {
+                        wgpu::TextureFormat::Rgba8UnormSrgb
+                    }
+                    _ => todo!(),
+                };
+
+                image::save_buffer(
+                    "./examples/smithay.png",
+                    data,
+                    metadata.width.try_into().unwrap(),
+                    metadata.height.try_into().unwrap(),
+                    image::ColorType::Rgba8,
+                )
+                .unwrap();
+
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     size: texture_size,
                     mip_level_count: 1, // We'll talk about this a little later
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    format,
                     // COPY_DST means that we want to copy data to this texture
-                    // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
                     usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                     label: Some("wayland_buffer_texture"),
                     // This is the same as with the SurfaceConfig. It

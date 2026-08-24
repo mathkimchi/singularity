@@ -9,7 +9,6 @@ use calloop::{
     EventLoop, LoopHandle,
     channel::{Channel, Sender, channel},
 };
-use log::debug;
 use singularity_common::{
     sap::{
         packets::{StandardEvent, StandardRequest},

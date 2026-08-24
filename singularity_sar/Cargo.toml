@@ -23,3 +23,5 @@ wgpu.workspace = true
 # TODO: put this behind a feature
 smithay.workspace = true
 wayland-protocols.workspace = true
+
+image.workspace = true

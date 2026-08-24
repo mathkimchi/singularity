@@ -1,11 +1,10 @@
-use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
-use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
-
 use crate::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{NodularRunnerHook, StandardApplet},
     standard_keybinds::handle_standard_keybinds,
 };
+use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
+use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
 
 pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,

@@ -9940,3 +9940,11 @@ I'm going to try to repurpose the image renderer code to work on all textures ge
 ...
 
 Bruh, it's like kinda working but nah.
+
+2026-08-24 12:37AM
+
+Hmm, I've been just messing around with formats for a while and I think it looks like the chargrid shader might be being used.
+
+But even when I directly draw the image, it's weird, so I don't think I'm accidently using the chargrid shader.
+
+Claude is suggesting maybe Alacritty thinks it isn't actually being shown so it's not rendering anything.

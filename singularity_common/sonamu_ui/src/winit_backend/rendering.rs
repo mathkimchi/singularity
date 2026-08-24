@@ -2,7 +2,7 @@
 
 use super::UIDisplay;
 use crate::{
-    display_units::{DisplayArea, DisplayAreaPx},
+    display_units::DisplayAreaPx,
     ui_element::{
         CharGrid, FONT_SIZE_F, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
     },
@@ -631,7 +631,7 @@ pub(super) struct DrawingSharedData<'a> {
     device: &'a Device,
     queue: &'a wgpu::Queue,
     // surface: &'a wgpu::Surface<'static>,
-    surface_config: &'a SurfaceConfiguration,
+    _surface_config: &'a SurfaceConfiguration,
 }
 impl DrawingSharedData<'_> {
     fn draw_rect(&mut self, round_rect: &RoundRect, display_area_px: DisplayAreaPx) {
@@ -1072,7 +1072,7 @@ impl DrawingSharedData<'_> {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture_view),
+                        resource: wgpu::BindingResource::TextureView(texture_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
@@ -1312,7 +1312,7 @@ impl UIDisplay {
                 atlas,
                 device,
                 queue,
-                surface_config,
+                _surface_config: surface_config,
                 // text_renderer,
                 // text_buffer,
             };

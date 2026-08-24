@@ -3053,6 +3053,7 @@ name = "singularity_sar"
 version = "0.1.0"
 dependencies = [
  "calloop 0.14.4",
+ "image",
  "pollster",
  "singularity_common",
  "slotmap",
