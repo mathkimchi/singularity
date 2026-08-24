@@ -196,7 +196,7 @@ impl SmithayState {
                     // COPY_DST means that we want to copy data to this texture
                     // I guess texture_2d_array is also storage binding, even though google says it uses texture binding (grrr)
                     usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                    label: Some("atlas_texture"),
+                    label: Some("wayland_buffer_texture"),
                     // This is the same as with the SurfaceConfig. It
                     // specifies what texture formats can be used to
                     // create TextureViews for this texture. The base

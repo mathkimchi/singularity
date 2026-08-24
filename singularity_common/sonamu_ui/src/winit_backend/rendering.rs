@@ -171,24 +171,13 @@ impl ImageInstance {
         }
     }
 
-    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayArea) {
+    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayAreaPx) {
         let instances = vec![Self {
             // this currently takes in top left
-            origin: [
-                area.0
-                    .x
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.0
-                    .y
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
-            ],
+            origin: [area.0[0][0] as f32, area.0[0][1] as f32],
             size: [
-                area.size()
-                    .width
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.size()
-                    .height
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+                (area.0[1][0] - area.0[0][0]) as f32,
+                (area.0[1][1] - area.0[0][1]) as f32,
             ],
         }];
 
@@ -1063,6 +1052,48 @@ impl DrawingSharedData<'_> {
     }
 
     fn draw_texture(&mut self, texture_view: &TextureView, display_area_px: DisplayAreaPx) {
+        self.render_pass
+            .set_pipeline(&self.image_renderer.render_pipeline);
+
+        // set bind group (which holds the image texture)
+        {
+            let diffuse_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            });
+
+            let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.image_renderer.image_texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            self.render_pass
+                .set_bind_group(0, Some(&diffuse_bind_group), &[]);
+        }
+
+        // these buffers are how we pass data to the gpu
+        // pass in the large triangle
+        self.render_pass
+            .set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+        ImageInstance::set_instance_buffer(self, display_area_px);
+
+        self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+
         /*
         self.render_pass
             .set_pipeline(&self.image_renderer.render_pipeline);
@@ -1161,7 +1192,6 @@ impl DrawingSharedData<'_> {
 
         self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
         */
-        todo!()
     }
 
     fn draw_primitive_element(

@@ -4,6 +4,7 @@ use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
 use crate::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{NodularRunnerHook, StandardApplet},
+    standard_keybinds::handle_standard_keybinds,
 };
 
 pub struct WlSurfaceApplet {
@@ -16,8 +17,20 @@ impl CreatableNodularApplet<WlSurfaceId> for WlSurfaceApplet {
     }
 }
 impl StandardApplet for WlSurfaceApplet {
-    fn handle_standard_event(&mut self, _standard_event: StandardEvent) {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
         dbg!("TODO: handle event wl surface applet");
+
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                handle_standard_keybinds(&ui_event, &self.hook);
+            }
+            StandardEvent::FocusChanged(_) => {}
+            StandardEvent::Highlighted(_) => {}
+            StandardEvent::CloseRequest => {}
+            StandardEvent::SurfaceDamageAck => {}
+            StandardEvent::TreeviewDamageAck => {}
+            StandardEvent::WlSurfaceRegistered { surface_id: _ } => {}
+        }
     }
 
     fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {

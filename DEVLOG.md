@@ -9929,3 +9929,14 @@ I got it to work by making the device and queue in the main thread.
 I forgor why I did all this.
 
 Oh, I need to make the wayland smithay surfaces into wgpu textures.
+
+2026-08-23 10:39PM
+
+I finally got uploading to wgpu to work, but I think there is a CPU copy when I use write_texture.
+Now I just need to write the code to write the texture.
+
+I'm going to try to repurpose the image renderer code to work on all textures generally.
+
+...
+
+Bruh, it's like kinda working but nah.
