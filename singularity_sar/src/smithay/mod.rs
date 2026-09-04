@@ -14,7 +14,10 @@ use smithay::{
     utils::Serial,
     wayland::{
         buffer::BufferHandler,
-        compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states},
+        compositor::{
+            CompositorClientState, CompositorHandler, CompositorState, SurfaceAttributes,
+            TraversalAction, with_states, with_surface_tree_downward,
+        },
         output::OutputHandler,
         security_context::SecurityContext,
         shell::xdg::{XdgShellHandler, XdgShellState},
@@ -273,6 +276,30 @@ impl SmithayState {
     }
 }
 
+/// NOTE: Disclosure: from by GitHub Copilot
+/// Fixes the Alacritty problem.
+/// See 2026-09-04 DEVLOG
+/// I think this is just going through the entire tree and telling all the frame callbacks that the request was done
+fn send_frames_surface_tree(surface: &WlSurface, time: u32) {
+    with_surface_tree_downward(
+        surface,
+        (),
+        |_, _, &()| TraversalAction::DoChildren(()),
+        |_surf, states, &()| {
+            for callback in states
+                .cached_state
+                .get::<SurfaceAttributes>()
+                .current()
+                .frame_callbacks
+                .drain(..)
+            {
+                callback.done(time);
+            }
+        },
+        |_, _, &()| true,
+    );
+}
+
 smithay::delegate_dispatch2!(AppletRunner);
 // smithay::delegate_dispatch2!(SmithayState);
 
@@ -306,6 +333,8 @@ impl CompositorHandler for AppletRunner {
     fn commit(&mut self, surface: &WlSurface) {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
+
+        send_frames_surface_tree(surface, 0);
 
         dbg!("TODO: make this redraw request");
         self.redraw_ui();

@@ -9962,3 +9962,28 @@ I think the problem is that Alacritty uses GPU rendering so it is DMA instead of
 But right now, I shoud run into a todo panic when encountering that, so I am a bit confused.
 
 I'm going to commit and start using LLMs more tactically from now on.
+
+2026-09-04 06:36PM
+
+Uhh, it read a bunch of files and didn't actually fix anything.
+Maybe I should try to prompt it more specifically.
+
+2026-09-04 06:45PM
+
+What the freak bro.
+After discarding the trash changes, I decided to prompt it with stronger guidance:
+
+```txt
+No it doesn't fix the gray square.
+I don't think the rendering is the problem so I undid the changes.
+The BufferType::Dma path should've paniced in the original restored code,
+so changing that shouldn't have any impact.
+I think Alacritty never actually renders to the shm because
+it doesn't realize it is being displayed at the moment.
+Perhaps it is waiting for the server to send it something first.
+```
+
+This sounds meaner than I realized, but the point is,
+it actually fixed it with a surprisingly consise fix
+(one new function `send_frames_surface_tree` defined and just call it once,
+and the function itself is also like 20 lines.)
