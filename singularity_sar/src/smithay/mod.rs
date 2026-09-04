@@ -32,7 +32,9 @@ pub struct ClientState {
 }
 impl ClientData for ClientState {
     /// Notification that a client was initialized
-    fn initialized(&self, _client_id: smithay::reexports::wayland_server::backend::ClientId) {}
+    fn initialized(&self, _client_id: smithay::reexports::wayland_server::backend::ClientId) {
+        dbg!("Client initialized");
+    }
     /// Notification that a client is disconnected
     fn disconnected(
         &self,
@@ -304,6 +306,9 @@ impl CompositorHandler for AppletRunner {
     fn commit(&mut self, surface: &WlSurface) {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
+
+        dbg!("TODO: make this redraw request");
+        self.redraw_ui();
     }
 }
 

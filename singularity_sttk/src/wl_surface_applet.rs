@@ -21,7 +21,11 @@ impl StandardApplet for WlSurfaceApplet {
 
         match standard_event {
             StandardEvent::UIEvent(ui_event) => {
-                handle_standard_keybinds(&ui_event, &self.hook);
+                if handle_standard_keybinds(&ui_event, &self.hook) {
+                    return;
+                }
+
+                // self.hook.
             }
             StandardEvent::FocusChanged(_) => {}
             StandardEvent::Highlighted(_) => {}

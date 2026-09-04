@@ -16,7 +16,7 @@ use sonamu_ui::{
 /// Using Singularity UI requires the user to be active,
 /// but using Applet Runner is passive.
 pub struct AppletRunner {
-    event_loop: LoopHandle<'static, Self>,
+    pub(crate) event_loop: LoopHandle<'static, Self>,
 
     ui_handle: UIHandle,
     pub(crate) root_client: ClientHandle,
@@ -92,7 +92,7 @@ impl AppletRunner {
         }
     }
 
-    fn redraw_ui(&mut self) {
+    pub(crate) fn redraw_ui(&mut self) {
         self.ui_handle
             .set_ui_content(PrimitiveScene::from_ui_element(
                 self.root_client.get_surface(),

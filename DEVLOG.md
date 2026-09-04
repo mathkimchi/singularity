@@ -9948,3 +9948,17 @@ Hmm, I've been just messing around with formats for a while and I think it looks
 But even when I directly draw the image, it's weird, so I don't think I'm accidently using the chargrid shader.
 
 Claude is suggesting maybe Alacritty thinks it isn't actually being shown so it's not rendering anything.
+
+2026-08-24 06:10PM
+
+Wait bruh, it works when I run kitty.
+I think Kitty is more liberal with it's commits.
+
+I'll still have to fix the Alacritty though.
+
+2026-09-04 06:11PM
+
+I think the problem is that Alacritty uses GPU rendering so it is DMA instead of SHM.
+But right now, I shoud run into a todo panic when encountering that, so I am a bit confused.
+
+I'm going to commit and start using LLMs more tactically from now on.

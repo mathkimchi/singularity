@@ -119,9 +119,11 @@ impl CommandHubApplet {
                 }
                 // Some(&"wl") => self.execute_command("add_child wl_app"),
                 Some(&"wl") => {
+                    // std::process::Command::new("kitty")
                     std::process::Command::new("alacritty")
                         // NOTE: currently hardcoced
                         .env("WAYLAND_DISPLAY", "wayland-2")
+                        .env("WAYLAND_DEBUG", "1")
                         .spawn()
                         .ok();
 
