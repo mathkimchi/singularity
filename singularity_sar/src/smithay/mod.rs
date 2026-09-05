@@ -3,11 +3,14 @@ use calloop::{LoopHandle, PostAction};
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
-    backend::renderer::{
-        BufferType, buffer_type,
-        utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
+    backend::{
+        input::Keycode,
+        renderer::{
+            BufferType, buffer_type,
+            utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
+        },
     },
-    input::{Seat, SeatHandler, SeatState},
+    input::{Seat, SeatHandler, SeatState, keyboard::FilterResult},
     reexports::wayland_server::{
         Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
     },
@@ -73,6 +76,12 @@ pub struct SmithayState {
     // input_queue: mpsc::Receiver<UIEvent>,
     // // Singularity stuff
     // hook: Box<dyn NodularRunnerHook>,
+    /// keypress events that need to be sent to a surface
+    /// represented by (target surface id, keycode)
+    /// Works by first setting key seat's focus to the target surface,
+    /// then sending a quick pressed then unpressed event
+    /// Ignores things like holding, timestamp, serial, ...
+    key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
 }
 impl SmithayState {
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
@@ -128,16 +137,68 @@ impl SmithayState {
                     calloop::Interest::READ,
                     calloop::Mode::Level,
                 ),
-                |_, display, data| {
+                |_, display, state| {
                     // profiling::scope!("dispatch_clients");
                     // Safety: we don't drop the display
                     let display = unsafe { display.get_mut() };
-                    display.dispatch_clients(data).unwrap();
+                    display.dispatch_clients(state).unwrap();
                     display.flush_clients().unwrap();
 
                     Ok(PostAction::Continue)
                 },
             )
+            .unwrap();
+
+        let (key_event_queue_sender, key_event_queue_reciever) = calloop::channel::channel();
+
+        event_handle
+            .insert_source(key_event_queue_reciever, |event, &mut (), state| {
+                let calloop::channel::Event::Msg((target_surface_id, keycode)) = event else {
+                    return;
+                };
+
+                state.smithay_state.seat.get_keyboard().unwrap().set_focus(
+                    state,
+                    Some(state.smithay_state.surfaces[target_surface_id].clone()),
+                    Serial::from(42),
+                );
+                state
+                    .smithay_state
+                    .seat
+                    .get_keyboard()
+                    .unwrap()
+                    .input::<(), _>(
+                        state,
+                        Keycode::new(keycode),
+                        smithay::backend::input::KeyState::Pressed,
+                        // dk bro
+                        Serial::from(42),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u32,
+                        |_, _, _| FilterResult::Forward,
+                    );
+                state
+                    .smithay_state
+                    .seat
+                    .get_keyboard()
+                    .unwrap()
+                    .input::<(), _>(
+                        state,
+                        Keycode::new(keycode),
+                        smithay::backend::input::KeyState::Released,
+                        // dk bro
+                        Serial::from(43),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u32,
+                        |_, _, _| FilterResult::Forward,
+                    );
+
+                dbg!("Sent keypress with keycode", keycode);
+            })
             .unwrap();
 
         Self {
@@ -148,6 +209,7 @@ impl SmithayState {
             seat_state,
             seat,
             surfaces: SlotMap::with_key(),
+            key_event_queue: key_event_queue_sender,
         }
     }
 
@@ -385,7 +447,10 @@ impl XdgShellHandler for AppletRunner {
 
         // let root applet know abt new surface
         self.root_client
-            .send_event(StandardEvent::WlSurfaceRegistered { surface_id });
+            .send_event(StandardEvent::WlSurfaceRegistered {
+                surface_id,
+                key_event_queue: self.smithay_state.key_event_queue.clone(),
+            });
 
         println!("New toplevel surface registered");
     }

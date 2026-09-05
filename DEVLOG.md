@@ -9987,3 +9987,23 @@ This sounds meaner than I realized, but the point is,
 it actually fixed it with a surprisingly consise fix
 (one new function `send_frames_surface_tree` defined and just call it once,
 and the function itself is also like 20 lines.)
+
+2026-09-04 07:15PM
+
+I asked AI how I would best do the event forwarding to the wl app from the
+wl surface applet,
+and it said to make a new event.
+But I realized this is something I already know how to do on my own,
+(as opposed to with some of the other smithay problems which stems from lack of documentation)
+there's really no reason to ask AI.
+
+I decided on something rly jank,
+which is to include a key event queue going from the singularity applet to smithay app
+on registering.
+It sets the keyboard focus to the place, then does a press then unpress.
+
+2026-09-04 10:04PM
+
+...huh, it is pretty much not working,
+but in my testing (consisting of mashing a bunch of buttons),
+suddenly, all the stuff I typed in was processed then nothing happened again.

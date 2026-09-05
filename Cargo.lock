@@ -3117,6 +3117,7 @@ version = "0.1.0"
 dependencies = [
  "calloop 0.14.4",
  "log",
+ "regex",
  "serde",
  "serde_json",
  "singularity_common",
