@@ -10007,3 +10007,12 @@ It sets the keyboard focus to the place, then does a press then unpress.
 ...huh, it is pretty much not working,
 but in my testing (consisting of mashing a bunch of buttons),
 suddenly, all the stuff I typed in was processed then nothing happened again.
+
+2026-09-22 11:28AM
+
+Just used claude to fix panic on keypress (suddenly appeared on new setup)
+and to actually show changes with the wl.
+But, it's really slow.
+
+I might refactor the whole codebase with Claude to render like a normal Smithay client.
+The custom renderer was fun, but I don't know if it will scale very well.

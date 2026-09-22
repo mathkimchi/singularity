@@ -198,6 +198,12 @@ impl SmithayState {
                     );
 
                 dbg!("Sent keypress with keycode", keycode);
+
+                // Events queued above only land in wayland-server's internal
+                // per-client buffers; this source isn't triggered by client
+                // socket activity like the display dispatch source is, so we
+                // have to flush explicitly or the bytes never hit the wire.
+                state.smithay_state.display_handle.flush_clients().unwrap();
             })
             .unwrap();
 
