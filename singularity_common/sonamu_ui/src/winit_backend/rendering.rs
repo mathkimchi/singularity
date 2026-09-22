@@ -1252,9 +1252,26 @@ impl UIDisplay {
             ..
         } = &mut state.wgpu_data;
 
-        let wgpu::CurrentSurfaceTexture::Success(output) = surface.get_current_texture() else {
-            // TODO
-            panic!()
+        let output = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(output) => output,
+            wgpu::CurrentSurfaceTexture::Suboptimal(output) => {
+                // still usable this frame; reconfiguring must wait until `output` is
+                // presented/dropped, so just render as-is and let the next acquire
+                // (which will report `Outdated` if still mismatched) trigger reconfigure
+                output
+            }
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                // skip this frame and try again later
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                surface.configure(device, surface_config);
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                log::error!("wgpu surface validation error while acquiring frame");
+                return;
+            }
         };
         let view = output
             .texture
