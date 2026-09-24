@@ -53,7 +53,7 @@ impl ClientData for ClientState {
 /// TODO: rename to smithay client handle (adds consistency w/ ui handle and client handle)
 #[derive(Debug)]
 pub struct SmithayState {
-    // start_time: std::time::Instant,
+    start_time: std::time::Instant,
     display_handle: DisplayHandle,
 
     // _loop_signal: LoopSignal,
@@ -85,6 +85,8 @@ pub struct SmithayState {
 }
 impl SmithayState {
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
+        let start_time = std::time::Instant::now();
+
         let display: Display<AppletRunner> = Display::new().unwrap();
         let display_handle = display.handle();
 
@@ -208,6 +210,7 @@ impl SmithayState {
             .unwrap();
 
         Self {
+            start_time,
             display_handle,
             compositor_state,
             xdg_shell_state,
@@ -253,7 +256,9 @@ impl SmithayState {
                 .unwrap();
 
                 let data = &data
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .flat_map(|x| [x[0], x[1], x[2], 0xFF])
                     .collect::<Vec<_>>();
 
@@ -402,7 +407,10 @@ impl CompositorHandler for AppletRunner {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
 
-        send_frames_surface_tree(surface, 0);
+        send_frames_surface_tree(
+            surface,
+            self.smithay_state.start_time.elapsed().as_millis() as u32,
+        );
 
         dbg!("TODO: make this redraw request");
         self.redraw_ui();
