@@ -285,14 +285,14 @@ impl SmithayState {
                     _ => todo!(),
                 };
 
-                image::save_buffer(
-                    "./examples/smithay.png",
-                    data,
-                    metadata.width.try_into().unwrap(),
-                    metadata.height.try_into().unwrap(),
-                    image::ColorType::Rgba8,
-                )
-                .unwrap();
+                // image::save_buffer(
+                //     "./examples/smithay.png",
+                //     data,
+                //     metadata.width.try_into().unwrap(),
+                //     metadata.height.try_into().unwrap(),
+                //     image::ColorType::Rgba8,
+                // )
+                // .unwrap();
 
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     size: texture_size,

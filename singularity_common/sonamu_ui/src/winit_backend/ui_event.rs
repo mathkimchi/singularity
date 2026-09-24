@@ -190,9 +190,10 @@ impl TryFrom<winit::event::KeyEvent> for Key {
                     Ok(Self::ArrowKeyUp)
                 }
 
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => {
-                    Ok(Self::Enter)
-                }
+                winit::keyboard::PhysicalKey::Code(
+                    winit::keyboard::KeyCode::Enter | winit::keyboard::KeyCode::NumpadEnter,
+                    // NOTE: my laptop says enter is numpad enter for some reason.
+                ) => Ok(Self::Enter),
 
                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
                     Ok(Self::PageDown)

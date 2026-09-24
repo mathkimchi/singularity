@@ -10016,3 +10016,29 @@ But, it's really slow.
 
 I might refactor the whole codebase with Claude to render like a normal Smithay client.
 The custom renderer was fun, but I don't know if it will scale very well.
+
+2026-09-22 04:53PM
+
+I am considering fully managing the hierarchy in the Server by default.
+This would also help a lot with the Wayland integration aspect of everything.
+
+Maybe apps could do special stuff like embedding via "interceptions".
+In either case, embedding other subapps is a part of my vision but it doesn't need to be a part of the MVP.
+
+2026-09-23 08:30PM
+
+Hmm, Claude is saying that I should keep the current architecture but add an optional
+direct hook for when an wayland applet is in focus.
+I think this is just interceptions.
+But it wouldn't make sense to only do interceptions for Wayland applets like Claude suggests
+because they can't handle the tree traversal stuff.
+
+I'm actually going to ignore the general architecture problem for now and
+focus on getting rid of the latency from copying display.
+(This was another thing Claude suggested.)
+
+2026-09-23 09:32PM
+
+Ok, I started out by adding Numpad Enter keyboard for Enter bc my keyboard on this laptop is weird.
+That's just for testing, and I was testing removing the `image::save_buffer` that Claude caught.
+It didn't speed things up as much as I wished though.

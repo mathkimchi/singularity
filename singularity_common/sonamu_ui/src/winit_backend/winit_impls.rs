@@ -88,6 +88,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 event,
                 is_synthetic: _,
             } => {
+                // log::debug!("{event:?}");
                 if let Ok(key) = Key::try_from(event) {
                     self.event_queue
                         .send(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers))
