@@ -255,12 +255,12 @@ impl SmithayState {
                 )
                 .unwrap();
 
-                let data = &data
-                    .as_chunks::<4>()
-                    .0
-                    .iter()
-                    .flat_map(|x| [x[0], x[1], x[2], 0xFF])
-                    .collect::<Vec<_>>();
+                // let data = &data
+                //     .as_chunks::<4>()
+                //     .0
+                //     .iter()
+                //     .flat_map(|x| [x[0], x[1], x[2], 0xFF])
+                //     .collect::<Vec<_>>();
 
                 // let data = &data
                 //     .iter()

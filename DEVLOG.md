@@ -10042,3 +10042,11 @@ focus on getting rid of the latency from copying display.
 Ok, I started out by adding Numpad Enter keyboard for Enter bc my keyboard on this laptop is weird.
 That's just for testing, and I was testing removing the `image::save_buffer` that Claude caught.
 It didn't speed things up as much as I wished though.
+
+2026-09-23 09:45PM
+
+Woah, I was swizzling in the CPU, and taking that out as Claude suggested makes this like instant.
+The colors are wrong, but I should definitely just have an extra case in the GPU
+or just switch the rest of the code to use the same format as Smithay.
+
+I don't even think I need to do the UI rehaul anymore.
