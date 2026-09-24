@@ -153,6 +153,28 @@ impl SmithayState {
             )
             .unwrap();
 
+        let (key_event_queue, resize_event_queue) = Self::get_event_queues(event_handle);
+
+        Self {
+            start_time,
+            display_handle,
+            compositor_state,
+            xdg_shell_state,
+            shm_state,
+            seat_state,
+            seat,
+            surfaces: SlotMap::with_key(),
+            key_event_queue,
+            resize_event_queue,
+        }
+    }
+
+    fn get_event_queues(
+        event_handle: &LoopHandle<AppletRunner>,
+    ) -> (
+        calloop::channel::Sender<(WlSurfaceId, u32)>,
+        calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+    ) {
         let (key_event_queue_sender, key_event_queue_reciever) = calloop::channel::channel();
 
         event_handle
@@ -268,18 +290,7 @@ impl SmithayState {
             )
             .unwrap();
 
-        Self {
-            start_time,
-            display_handle,
-            compositor_state,
-            xdg_shell_state,
-            shm_state,
-            seat_state,
-            seat,
-            surfaces: SlotMap::with_key(),
-            key_event_queue: key_event_queue_sender,
-            resize_event_queue: resize_event_queue_sender,
-        }
+        (key_event_queue_sender, resize_event_queue_sender)
     }
 
     /// Returns `None` when the surface has nothing displayable yet
