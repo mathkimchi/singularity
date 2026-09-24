@@ -10050,3 +10050,8 @@ The colors are wrong, but I should definitely just have an extra case in the GPU
 or just switch the rest of the code to use the same format as Smithay.
 
 I don't even think I need to do the UI rehaul anymore.
+
+You know what, I'm going to just ask Claude to make more of these small changes.
+
+I would also ask it to remove unused code, but I am a bit of a hoarder...
+I promise I'll remove it when someone else has to work on this codebase.

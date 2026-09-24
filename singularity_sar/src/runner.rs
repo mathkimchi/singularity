@@ -100,11 +100,16 @@ impl AppletRunner {
                 |surface_id| {
                     // NOTE: currently only handles subsurfaces being the wl surfaces
                     let wl_surface_id = WlSurfaceId::from_u64(surface_id);
-                    UIElement::Texture(self.smithay_state.get_wl_surface_as_element(
-                        wl_surface_id,
-                        &self.ui_handle.device,
-                        &self.ui_handle.queue,
-                    ))
+                    self.smithay_state
+                        .get_wl_surface_as_element(
+                            wl_surface_id,
+                            &self.ui_handle.device,
+                            &self.ui_handle.queue,
+                        )
+                        .map_or(
+                            UIElement::Nothing.fill_bg(sonamu_ui::color::Color::RED),
+                            UIElement::Texture,
+                        )
                 },
             ));
     }

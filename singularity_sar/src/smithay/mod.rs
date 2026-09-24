@@ -159,9 +159,17 @@ impl SmithayState {
                     return;
                 };
 
+                // the surface may already be gone (client quit between the applet
+                // queueing this and us handling it)
+                let Some(target_surface) =
+                    state.smithay_state.surfaces.get(target_surface_id).cloned()
+                else {
+                    return;
+                };
+
                 state.smithay_state.seat.get_keyboard().unwrap().set_focus(
                     state,
-                    Some(state.smithay_state.surfaces[target_surface_id].clone()),
+                    Some(target_surface),
                     Serial::from(42),
                 );
                 state
@@ -222,123 +230,98 @@ impl SmithayState {
         }
     }
 
+    /// Returns `None` when the surface has nothing displayable yet
+    /// (eg the initial xdg_surface commit carries no buffer by protocol)
+    /// or when the surface id is stale.
     pub fn get_wl_surface_as_element(
         &self,
         surface_id: WlSurfaceId,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> TextureView {
-        let surface = self.surfaces.get(surface_id).unwrap();
+    ) -> Option<TextureView> {
+        let surface = self.surfaces.get(surface_id)?;
         let wl_buffer = with_states(surface, |states| {
             let surface_state = states
                 .data_map
-                .get::<RendererSurfaceStateUserData>()
-                .unwrap()
+                .get::<RendererSurfaceStateUserData>()?
                 .lock()
                 .unwrap();
-            let buffer = surface_state.buffer().unwrap();
-            buffer.clone()
-        });
+            surface_state.buffer().cloned()
+        })?;
 
         match buffer_type(&wl_buffer) {
             Some(BufferType::Shm) => {
-                dbg!("shm");
-
-                let (data, metadata) = smithay::wayland::shm::with_buffer_contents(
+                // NOTE: everything touching the mapped pool has to stay inside this
+                // closure: the pointer is only valid while it runs, and smithay only
+                // installs its SIGBUS guard for that duration.
+                smithay::wayland::shm::with_buffer_contents(
                     &wl_buffer,
                     |content_ptr, length, metadata| {
-                        (
-                            unsafe { std::slice::from_raw_parts(content_ptr, length) },
-                            metadata,
-                        )
+                        // SAFETY: valid for the body of this closure only. The client
+                        // may mutate the pool concurrently, so don't hold this anywhere.
+                        let data = unsafe { std::slice::from_raw_parts(content_ptr, length) };
+
+                        let texture_size = wgpu::Extent3d {
+                            width: metadata.width.cast_unsigned(),
+                            height: metadata.height.cast_unsigned(),
+                            // All textures are stored as 3D
+                            depth_or_array_layers: 1,
+                        };
+
+                        use smithay::reexports::wayland_server::protocol::wl_shm::Format;
+                        let format = match metadata.format {
+                            // Both are little-endian 0xAARRGGBB / 0xXXRRGGBB,
+                            // ie B,G,R,A in byte order. Xrgb's X byte is ignored
+                            // by the shader, so the two map to the same wgpu format.
+                            Format::Argb8888 | Format::Xrgb8888 => {
+                                wgpu::TextureFormat::Bgra8UnormSrgb
+                            }
+                            unsupported => {
+                                // log::warn!("unsupported wl_shm format: {unsupported:?}");
+                                dbg!("unsupported wl_shm format:", unsupported);
+                                return None;
+                            }
+                        };
+
+                        let texture = device.create_texture(&wgpu::TextureDescriptor {
+                            size: texture_size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: wgpu::TextureDimension::D2,
+                            format,
+                            // COPY_DST means that we want to copy data to this texture
+                            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                                | wgpu::TextureUsages::COPY_DST,
+                            label: Some("wayland_buffer_texture"),
+                            view_formats: &[],
+                        });
+
+                        queue.write_texture(
+                            // Tells wgpu where to copy the pixel data
+                            wgpu::TexelCopyTextureInfo {
+                                texture: &texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d::ZERO,
+                                aspect: wgpu::TextureAspect::All,
+                            },
+                            // The actual pixel data
+                            // NOTE: this is the whole pool; `offset` below picks
+                            // out this buffer's region of it.
+                            data,
+                            // The layout of the texture
+                            wgpu::TexelCopyBufferLayout {
+                                offset: u64::from(metadata.offset.cast_unsigned()),
+                                bytes_per_row: Some(metadata.stride.cast_unsigned()),
+                                rows_per_image: Some(metadata.height.cast_unsigned()),
+                            },
+                            texture_size,
+                        );
+
+                        Some(texture.create_view(&TextureViewDescriptor::default()))
                     },
                 )
-                .unwrap();
-
-                // let data = &data
-                //     .as_chunks::<4>()
-                //     .0
-                //     .iter()
-                //     .flat_map(|x| [x[0], x[1], x[2], 0xFF])
-                //     .collect::<Vec<_>>();
-
-                // let data = &data
-                //     .iter()
-                //     .enumerate()
-                //     .map(|(i, _)| match i % 4 {
-                //         0 => (i % 256) as _,
-                //         1 => (i % 256) as _,
-                //         2 => (i % 256) as _,
-                //         // Alpha
-                //         3 => 255,
-                //         _ => unreachable!(),
-                //     })
-                //     .collect::<Vec<_>>();
-
-                let texture_size = wgpu::Extent3d {
-                    width: metadata.width.cast_unsigned(),
-                    height: metadata.height.cast_unsigned(),
-                    // All textures are stored as 3D
-                    depth_or_array_layers: 1,
-                };
-
-                dbg!(metadata.format);
-                let format = match metadata.format {
-                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Argb8888 => {
-                        wgpu::TextureFormat::Rgba8UnormSrgb
-                    }
-                    _ => todo!(),
-                };
-
-                // image::save_buffer(
-                //     "./examples/smithay.png",
-                //     data,
-                //     metadata.width.try_into().unwrap(),
-                //     metadata.height.try_into().unwrap(),
-                //     image::ColorType::Rgba8,
-                // )
-                // .unwrap();
-
-                let texture = device.create_texture(&wgpu::TextureDescriptor {
-                    size: texture_size,
-                    mip_level_count: 1, // We'll talk about this a little later
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format,
-                    // COPY_DST means that we want to copy data to this texture
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                    label: Some("wayland_buffer_texture"),
-                    // This is the same as with the SurfaceConfig. It
-                    // specifies what texture formats can be used to
-                    // create TextureViews for this texture. The base
-                    // texture format (Rgba8UnormSrgb in this case) is
-                    // always supported. Note that using a different
-                    // texture format is not supported on the WebGL2
-                    // backend.
-                    view_formats: &[],
-                });
-
-                queue.write_texture(
-                    // Tells wgpu where to copy the pixel data
-                    wgpu::TexelCopyTextureInfo {
-                        texture: &texture,
-                        mip_level: 0,
-                        origin: wgpu::Origin3d::ZERO,
-                        aspect: wgpu::TextureAspect::All,
-                    },
-                    // The actual pixel data
-                    data,
-                    // The layout of the texture
-                    wgpu::TexelCopyBufferLayout {
-                        // NOTE: Idk why this is 1
-                        offset: u64::from(metadata.offset.cast_unsigned()),
-                        bytes_per_row: Some(metadata.stride.cast_unsigned()),
-                        rows_per_image: Some(metadata.height.cast_unsigned()),
-                    },
-                    texture_size,
-                );
-
-                texture.create_view(&TextureViewDescriptor::default())
+                .ok()
+                .flatten()
             }
             Some(BufferType::Dma) => {
                 dbg!("Dma");
@@ -467,6 +450,18 @@ impl XdgShellHandler for AppletRunner {
             });
 
         println!("New toplevel surface registered");
+    }
+
+    fn toplevel_destroyed(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+        // Without this the slotmap keeps a dead `WlSurface` forever and the
+        // applet holding its id renders a stale/absent buffer.
+        // TODO: also tell the owning applet so it can remove itself from the tree
+        let wl_surface = surface.wl_surface();
+        self.smithay_state
+            .surfaces
+            .retain(|_, registered| registered != wl_surface);
+
+        self.redraw_ui();
     }
 
     fn new_popup(
