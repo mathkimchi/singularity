@@ -28,6 +28,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
+use sonamu_ui::display_units::DisplayContainerSize;
 use std::sync::Arc;
 use wgpu::{TextureView, TextureViewDescriptor};
 
@@ -82,6 +83,7 @@ pub struct SmithayState {
     /// then sending a quick pressed then unpressed event
     /// Ignores things like holding, timestamp, serial, ...
     key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
+    resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
 }
 impl SmithayState {
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
@@ -167,6 +169,7 @@ impl SmithayState {
                     return;
                 };
 
+                // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
                 state.smithay_state.seat.get_keyboard().unwrap().set_focus(
                     state,
                     Some(target_surface),
@@ -217,6 +220,54 @@ impl SmithayState {
             })
             .unwrap();
 
+        let (resize_event_queue_sender, resize_event_queue_reciever) = calloop::channel::channel();
+
+        event_handle
+            .insert_source(
+                resize_event_queue_reciever,
+                |event: calloop::channel::Event<(WlSurfaceId, DisplayContainerSize)>,
+                 &mut (),
+                 state| {
+                    let calloop::channel::Event::Msg((target_surface_id, new_size)) = event else {
+                        return;
+                    };
+
+                    // the surface may already be gone (client quit between the applet
+                    // queueing this and us handling it)
+                    let Some(target_surface) =
+                        state.smithay_state.surfaces.get(target_surface_id).cloned()
+                    else {
+                        dbg!("Event sent to unknown surface");
+                        return;
+                    };
+
+                    let Some(toplevel) = state
+                        .smithay_state
+                        .xdg_shell_state
+                        .toplevel_surfaces()
+                        .iter()
+                        .find(|toplevel| toplevel.wl_surface() == &target_surface)
+                        .cloned()
+                    else {
+                        dbg!("Resize sent to surface with no toplevel");
+                        return;
+                    };
+
+                    toplevel.with_pending_state(|toplevel_state| {
+                        toplevel_state.size =
+                            Some((new_size.width as i32, new_size.height as i32).into());
+                    });
+                    toplevel.send_configure();
+
+                    // Events queued above only land in wayland-server's internal
+                    // per-client buffers; this source isn't triggered by client
+                    // socket activity like the display dispatch source is, so we
+                    // have to flush explicitly or the bytes never hit the wire.
+                    state.smithay_state.display_handle.flush_clients().unwrap();
+                },
+            )
+            .unwrap();
+
         Self {
             start_time,
             display_handle,
@@ -227,6 +278,7 @@ impl SmithayState {
             seat,
             surfaces: SlotMap::with_key(),
             key_event_queue: key_event_queue_sender,
+            resize_event_queue: resize_event_queue_sender,
         }
     }
 
@@ -447,6 +499,7 @@ impl XdgShellHandler for AppletRunner {
             .send_event(StandardEvent::WlSurfaceRegistered {
                 surface_id,
                 key_event_queue: self.smithay_state.key_event_queue.clone(),
+                resize_event_queue: self.smithay_state.resize_event_queue.clone(),
             });
 
         println!("New toplevel surface registered");

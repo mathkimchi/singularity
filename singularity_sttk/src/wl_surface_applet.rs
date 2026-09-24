@@ -20,18 +20,29 @@ fn key_to_keycode(key: Key) -> Option<u32> {
 pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,
     key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
+    /// TODO: merge all the event queues going back to the WL compositor
+    resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
     hook: Box<dyn NodularRunnerHook + 'static>,
 }
-impl CreatableNodularApplet<(WlSurfaceId, calloop::channel::Sender<(WlSurfaceId, u32)>)>
-    for WlSurfaceApplet
+impl
+    CreatableNodularApplet<(
+        WlSurfaceId,
+        calloop::channel::Sender<(WlSurfaceId, u32)>,
+        calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+    )> for WlSurfaceApplet
 {
     fn new(
-        (surface_id, key_event_queue): (WlSurfaceId, calloop::channel::Sender<(WlSurfaceId, u32)>),
+        (surface_id, key_event_queue, resize_event_queue): (
+            WlSurfaceId,
+            calloop::channel::Sender<(WlSurfaceId, u32)>,
+            calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+        ),
         hook: Box<dyn NodularRunnerHook + 'static>,
     ) -> Self {
         Self {
             surface_id,
             key_event_queue,
+            resize_event_queue,
             hook,
         }
     }
@@ -55,7 +66,11 @@ impl StandardApplet for WlSurfaceApplet {
                         }
                     }
                     UIEvent::MousePress(_, _) => {}
-                    UIEvent::WindowResized(_) => {}
+                    UIEvent::WindowResized(new_size) => {
+                        self.resize_event_queue
+                            .send((self.surface_id, new_size))
+                            .unwrap();
+                    }
                 }
             }
             StandardEvent::FocusChanged(_) => {}
@@ -66,6 +81,7 @@ impl StandardApplet for WlSurfaceApplet {
             StandardEvent::WlSurfaceRegistered {
                 surface_id: _,
                 key_event_queue: _,
+                resize_event_queue: _,
             } => {}
         }
     }

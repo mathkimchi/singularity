@@ -10055,3 +10055,22 @@ You know what, I'm going to just ask Claude to make more of these small changes.
 
 I would also ask it to remove unused code, but I am a bit of a hoarder...
 I promise I'll remove it when someone else has to work on this codebase.
+
+2026-09-24 10:15AM
+
+I think I should expand the scope of events.
+First, I'll just make it so every keypress is forwarded.
+Then, I'll do mouse clicks.
+
+Actually, I'll first make the buffer size for wayland match the screen size.
+This should be easy to handcode by just changing a few variables.
+
+By the way, I've been using 800x600 or sometimes something w/ 400 for my placeholder screen sizes.
+
+I'm just going to do a jank fix for now by adding a resize event queue.
+I already have a key_event_queue, and I'll need to add another channel for mouse later,
+but wtv.
+
+I realized that I should actually be using Claude for these easy changes
+more than anything.
+I think that's what I should trust it most for.

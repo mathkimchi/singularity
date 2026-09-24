@@ -1,5 +1,5 @@
 use slotmap::KeyData;
-use sonamu_ui::ui_event::UIEvent;
+use sonamu_ui::{display_units::DisplayContainerSize, ui_event::UIEvent};
 
 /// Client to server
 #[derive(Clone, Copy, Debug)]
@@ -42,5 +42,7 @@ pub enum StandardEvent {
         surface_id: WlSurfaceId,
         /// REVIEW: this field prevents standard event from being Copy, I feel like I should avoid that
         key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
+        /// TODO: merge all the queue stuff
+        resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
     },
 }
