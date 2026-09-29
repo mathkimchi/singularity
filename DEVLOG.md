@@ -9505,3 +9505,641 @@ and now I am also going through the remaining ones that are left over
 Now I just have 15 diagnostics.
 
 I'm not gonna narrate any more, this is quite trivial stuff.
+
+2026-08-01 04:08PM
+
+Since I'm kinda able to just work on clients again,
+I guess I could make the editor good.
+
+But I think I'd be missing the big picture,
+and wasting the whole refactor I spent the last week doing.
+
+Sonamu *needs* almost first-class Wayland support.
+It should be able to Wayland apps as well as Wayland compositors,
+but I say almost because it will give Sonamu applets even better features.
+
+Issue [#15](https://github.com/mathkimchi/singularity/issues/35) falls under this.
+I made a new issue [#44](https://github.com/mathkimchi/singularity/issues/44)
+for the general Wayland support.
+
+I lost my passkey (needed for ssh auth), but I guess I'll temporarily use a PAT until I get it back.
+Actually, I don't like PATs.
+I'm just going to pull a normie move and use a simple password protected ssh key,
+but I'll do some crazy password.
+
+Actually, I'm going to do something else but I won't say it here.
+
+I now have a merge conflict from like 24 commits ago.
+
+2026-08-01 10:23PM
+
+I had to run `git pull --rebase https://github.com/mathkimchi/singularity dev -Xours`.
+I'm pretty sure I screwed up something with the git repo.
+
+I am going to punch a wall or something;
+why did I lose my security key.
+
+I thought my projects were the only thing I could always rely on,
+and I literally lost the keys to it.
+
+I should never have come to Jersey.
+There is nothing for me here.
+
+I thought I would find things to do with my friends,
+but they're all busy or gone.
+I am disappointed to learn that,
+and I am also disappointed in myself for giving up developing for this.
+I also lost my lyrics notebook, so I can't even do that.
+
+I am just going to play the guitar and watch the Matrix.
+
+Actually, I'm going to work on the guitar practicing app I was working on.
+
+2026-08-02 10:21AM
+
+Ok, so I made a branch for this.
+I think I need to set up the multi-surface thing
+so I should let the UI draw from surfaces.
+
+I think the raw UI should only deal in primitives.
+
+2026-08-05 03:46PM
+
+I've been kinda busy, and I haven't really committed for a while despite making multiple changes.
+The last thing I did was modifying the UIElement drawer to draw primitives.
+
+Next is using this code to actually render,
+and then converting UI element to primitives.
+
+2026-08-05 04:49PM
+
+I have it rendering, but it's just rendering a tiny square right now.
+
+2026-08-05 05:41PM
+
+I don't know if I explicitly said this before,
+but the plan is for the raw runner to display whatever the root applet wants to display,
+and the root applet takes care of figuring out where to put the subapplet windows.
+
+Maybe I should just put the root applet inside of SAR.
+
+But anyways, I am going to use a slotmap for the subsurface system.
+This will mean it's easier to decouple surface and applet,
+but I won't do that yet (I'm lazy).
+
+For each surface, there will be a surface index,
+and the runner holds a slotmap of index to surface.
+Btw, a slotmap is like an IdMap which I think I got rid of and replaced with IdTree.
+The point is, you insert an element into the slotmap and it returns a key like an index,
+and you can access or remove by the key.
+The nice thing is that insert, access, and remove are all constant time (theoretically).
+
+2026-08-05 06:09PM
+
+I just realized I can just store the subsurfaces.
+So it's possible that the list of subsurfaces is just empty.
+
+I also think the UI thread might need to share the device with an Arc if I want to make Textures
+that can be passed to the UI thread.
+
+I'm just going to have it so applets can request surface texture with a size,
+then the runner thread creates the surface texture,
+
+(Also, I just realized subsurface and texture are different.
+Subsurface should hold UIElement and texture should be the wgpu thing.
+I've been meaning mostly texture this whole time,
+bc the goal is to support Wayland.)
+
+And if I use `TextureView`, I won't have to even store all the textures and map an id to texture or something.
+Remember, a `TextureView` is like a reference to a texture.
+
+I don't know if I can turn a Wl surface to Wgpu texture,
+so I should probably pause and research that (ie ask an LLM Chatbot).
+
+2026-08-08 12:01PM
+
+Freak, I've been locked out.
+I'm just gonna barge in without a plan.
+I'll make a new Smithay module inside sar and try to keep all the smithay logic in there.
+
+I'll write down some of the things I learn.
+
+Terminology alert: Buffer vs Surface (in the Wayland protocol)
+- Buffer: container of pixel data
+  - Directly modified by client
+- Surface: rectangular ui area
+  - Has an attatched buffer
+  - Has a position
+  - Can take input
+  - Ig this is modified atomically via commit systems
+
+so maybe I should really be storing buffers instead of surfaces,
+since I want to do the positioning stuff myself not with Wayland.
+
+2026-08-08 05:32PM
+
+Ugh, it's so annoying that the documentation (and the whole source code on crates.io)
+is outdated so when I search something up I might get a result like this:
+https://smithay.github.io/smithay/smithay/wayland/compositor/struct.SurfaceAttributes.html
+which is currently for smithay 0.7.0 which is super outdated.
+
+I don't wanna just ask LLMs to think for me,
+but to do something like getting the buffer from the surface,
+there just isn't a good resource.
+I can't even look at other existing compositors like Niri because Smithay is just changing so fast.
+
+I don't really have anywhere to put the code to turn a surface into a buffer,
+but I'll need it later:
+
+```rs
+let wl_buffer = with_states(surface.wl_surface(), |states| {
+    let surface_state = states
+        .data_map
+        .get::<RendererSurfaceStateUserData>()
+        .unwrap()
+        .lock()
+        .unwrap();
+    let buffer = surface_state.buffer().unwrap();
+    buffer.clone()
+});
+
+// call this later
+buffer_type(&wl_buffer);
+```
+
+With Wayland, the app is started by whatever,
+and the Wl server just listens for an app's connection.
+This is kinda incompatible with my applets that are started by the server.
+
+I'm going to deal with this (the organization of Wl applets in Sonamu hierarchy)
+by letting the focused applet deal with it.
+
+And I was also thinking more about putting the organization logic in the server.
+
+The reason why I can't just have the server manually set 3 levels of
+project tree, applet tree for each project, then content tree for each applet
+is because one of the content nodes might be a subapplet
+or one of the subprojects might make more sense under an applet
+(like "send emails" task under "get a job" project)
+(generally, I am pointing out cases where a node might be so engrossed in another node's
+internals that it would make sense to be inside the other node's inner world,
+but because those two nodes are of the same type,
+they must be in the same level and the best we can offer is making that node a child node)
+and also sunk cost.
+Maybe I should also completely decouple the project tree from this;
+I should call the outermost thing tasks or sessions
+(paralleling a virtual desktop/workspace in other DEs).
+
+2026-08-10 11:04PM
+
+I've been busy meeting friends before heading off to the middle of nowhere.
+I'm on the train now.
+Babies should not be allowed on trains bro.
+They (the parents) should be fined each time they cry or something.
+
+So I need to make it so the root applet can organize (and display)
+wl applets.
+I already decided to do this with events.
+I'll do this by surface instead of by Wl client.
+
+2026-08-10 11:26PM
+
+I implemented the code for letting the root applet know.
+By the way, I am still down for having events be sent directly from a central
+event router to the applet that is listening for it.
+(Ex, most can be sent directly to focused, maybe if focused applet
+doesn't listen to traversal shortcuts, it can be sent to the ancestor that does,
+and there can be some global.)
+But, that is not an MVP feature.
+
+2026-08-10 11:30PM
+
+I think I can just treat the surface spawned event very similarly to
+spawn child request inside the nodular applets.
+For demo, I don't care how they are placed organizationally,
+but for the actual thing, I'll probably combine this with a check for focus and pass down to focused child.
+
+I think I should have a sonamu client for each wl surface.
+I mean, that's what the old really slow system was already doing,
+so the difference is that the old system had a wl server per each sonamu wayland applet
+but now the bulk of processing is done centrally and the sonamu applet is just a wrapper
+so wl apps can be in hierarchies and stuff.
+
+2026-08-11 05:40PM
+
+Right now, nodular applet is doing it's own thing,
+so I might have to redo it.
+Previously, I treated the nodular events as a seperate set of events and requests than the UI ones.
+But the standard events system (which I am basing the new protocol for)
+is an extension of the UI events.
+
+I think it's time to make applets actually use the event loop and the new system.
+
+2026-08-11 06:25PM
+
+I made the applets actually use standard events and resolved errors,
+but now I'm getting a panic instantly.
+
+...
+
+2026-08-11 06:34PM
+
+I just had to change the
+`let display: Display<Self> = Display::new().unwrap();`
+to
+`let display: Display<AppletRunner> = Display::new().unwrap();`
+in `SmithayState::new`.
+Weird that this isn't a compile-time error.
+
+2026-08-11 06:49PM
+
+Bro, I thought this was a good stopping place,
+but the librarian has my card and she's been gone for like 10 minutes.
+
+I'll start planning the demo for the centralized WL apps.
+
+2026-08-12 12:59AM
+
+I don't know why in the code I'm about to commit,
+running `insert_source` on calloop's LoopHandle blocks
+but the dbg calls inside of it are being printed.
+
+The AppletRunner state shouldn't even exist and event_loop.run hasn't been called.
+
+For context, the code is:
+
+```rs
+event_handle
+    .insert_source(listening_socket, |client_stream, (), state| {
+        let client = state
+            .smithay_state
+            .display_handle
+            .insert_client(client_stream, Arc::new(ClientState::default()))
+            .unwrap();
+
+        dbg!("Inserted new client!");
+
+        dbg!(client);
+        dbg!(&state.smithay_state);
+    })
+    .unwrap();
+
+dbg!("Hi");
+```
+
+Prints the "Inserted new client!" and the client and smithay state
+but then the whole program freezes without printing "Hi".
+
+`state` shouldn't even exist, which is the largest problem.
+But also, the callback shouldn't be run until I call run on event_loop
+and also I'm not spawning any clients so this shouldn't be called ever right now.
+Plus, insert_source shouldn't be a blocking call.
+
+...
+
+Wait, I might be tweaking.
+I'm still gonna commit these dbg prints,
+but I just realized that if I scrolled up, the "Hi" was printed...
+Might be a goon.
+
+2026-08-12 01:08AM
+
+Just committed the full dbg, but the fact that "Inserted new client" is printed at all is still
+inconsistent with my expectations of what the code should be doing.
+I haven't written any code for spawning clients yet.
+Also, I don't know why suddenly the normal window just stopped running either.
+
+Commenting out the insert_source makes the normal window run.
+Commenting out just the set env var part makes the normal window show up.
+
+... waaaiittt, this seems obvious in hindsight.
+The sonamu wl server was cannibalizing its own window.
+Idk why I used that word, but I just mean that when the main Sonamu window was spawning,
+it was spawning under the sonamu wl server I created.
+That explains both inconsistencies.
+I think I assumed winit would not be impacted by the set WAYLAND_DISPLAY.
+
+For the purposes of the demo, I'll just not set the env variable for the Sonamu process,
+and when I spawn wl children, I'll just make them spawn with the WL display variable hard-coded to `wayland-2`.
+
+2026-08-12 02:16PM
+
+I updated the `test wl` command to spawn alacritty natively,
+and it is currently being registered.
+I just have to display the surface now.
+
+For some reason, it isn't registering a new top-level surface though.
+
+2026-08-12 05:13PM
+
+Adding this at least causes an error:
+
+```rs
+event_handle
+    .insert_source(
+        calloop::generic::Generic::new(
+            display,
+            calloop::Interest::READ,
+            calloop::Mode::Level,
+        ),
+        |_, display, data| {
+            // profiling::scope!("dispatch_clients");
+            // Safety: we don't drop the display
+            let display = unsafe { display.get_mut() };
+            display.dispatch_clients(data).unwrap();
+            display.flush_clients().unwrap();
+
+            Ok(PostAction::Continue)
+        },
+    )
+    .unwrap();
+```
+
+anvil doesn't have the flush_clients, but without the flush_clients,
+nothing changes from before I insert the source.
+
+And reading the logs, it looks like the top level surface is actually handled,
+and the surface might just be from the fact I'm not dealing with it in the clients,
+which is, unexpectedly, expected behavior.
+
+2026-08-13 11:10AM
+
+Google might just be thinking again.
+I got two potentially useful results for turning a Smithay surface into wgpu:
+- [Lamco wgpu](github.com/lamco-admin/lamco-wgpu) which provides "wgpu integration for Smithay-based Wayland compositors."
+- [This Reddit thread](https://www.reddit.com/r/rust/comments/1ojfg29/initialising_a_wgpu_context_from_a_wayland/) which points to [`create_surface_unsafe`](https://docs.rs/wgpu/27.0.1/wgpu/struct.Instance.html#method.create_surface_unsafe) but I don't know how to use it.
+
+Ideally, I'd like to just use `create_surface_unsafe`.
+
+2026-08-13 01:22PM
+
+I think I should make the winit backend use calloop so I can share the wgpu stuff between the ui handle and everythign else.
+I tried looking at Anvil's winit loop handle, but I think Niri is much more understandable.
+
+This kinda means I have to put the Winit backend stuff inside SAR,
+since the event loop holds a generic which refers to the SAR state.
+
+2026-08-14 09:32PM
+
+I'm doing like a service trip with manual labor tmrw apparently.
+I guess I'll try to squeeze in Singularity development,
+but I doubt I'll even make a commit until the 18th (when the trip ends).
+There's like 40 people sleeping in one large gym,
+some typa plague-maxxing.
+
+I was thinking about it, and I don't actually know if it's good to put the UI handle in the same event loop.
+The pro is simplicity, and this sence of one large structure,
+but the con is that then, the UI handling and the other handlings must run in the same thread.
+
+The alternative I thought of was just putting the threads in their own loops (like before),
+and sharing the device stuff as Mutex.
+
+I don't want to think about this too hard, so I'll just finish what I started in this commit
+and only consider splitting the threads if/once performance becomes the priority.
+
+2026-08-19 07:43AM
+
+I just realized that the `wgpu` types like Device internally use `Arc`,
+so I didn't have to worry about Mutex overhead.
+I'm going to commit the "switch UI thread to eventloop" which is unfinished and just share the stuff.
+
+...
+
+2026-08-19 02:36PM
+
+I hate winit, why does it force its event loop system on everyone?
+
+Whatever, I'm just going to use a Mutex of a Some,
+but if I do it on the WinitData (currently the Some is of winit data),
+then I pretty much won't get the benefit of multithreading.
+I considered having the UI thread send the wgpu stuff to the main thread,
+but winit sucks so that would require me to add a rx,
+but I think I got my current solution:
+
+I use a once lock (which is kinda like a mutex of some) for the overall winit data then,
+idk I think that's it actually.
+
+2026-08-22 02:54PM
+
+Might need to do arc mutex option bruh.
+
+2026-08-22 04:08PM
+
+I got it to work by making the device and queue in the main thread.
+I forgor why I did all this.
+
+Oh, I need to make the wayland smithay surfaces into wgpu textures.
+
+2026-08-23 10:39PM
+
+I finally got uploading to wgpu to work, but I think there is a CPU copy when I use write_texture.
+Now I just need to write the code to write the texture.
+
+I'm going to try to repurpose the image renderer code to work on all textures generally.
+
+...
+
+Bruh, it's like kinda working but nah.
+
+2026-08-24 12:37AM
+
+Hmm, I've been just messing around with formats for a while and I think it looks like the chargrid shader might be being used.
+
+But even when I directly draw the image, it's weird, so I don't think I'm accidently using the chargrid shader.
+
+Claude is suggesting maybe Alacritty thinks it isn't actually being shown so it's not rendering anything.
+
+2026-08-24 06:10PM
+
+Wait bruh, it works when I run kitty.
+I think Kitty is more liberal with it's commits.
+
+I'll still have to fix the Alacritty though.
+
+2026-09-04 06:11PM
+
+I think the problem is that Alacritty uses GPU rendering so it is DMA instead of SHM.
+But right now, I shoud run into a todo panic when encountering that, so I am a bit confused.
+
+I'm going to commit and start using LLMs more tactically from now on.
+
+2026-09-04 06:36PM
+
+Uhh, it read a bunch of files and didn't actually fix anything.
+Maybe I should try to prompt it more specifically.
+
+2026-09-04 06:45PM
+
+What the freak bro.
+After discarding the trash changes, I decided to prompt it with stronger guidance:
+
+```txt
+No it doesn't fix the gray square.
+I don't think the rendering is the problem so I undid the changes.
+The BufferType::Dma path should've paniced in the original restored code,
+so changing that shouldn't have any impact.
+I think Alacritty never actually renders to the shm because
+it doesn't realize it is being displayed at the moment.
+Perhaps it is waiting for the server to send it something first.
+```
+
+This sounds meaner than I realized, but the point is,
+it actually fixed it with a surprisingly consise fix
+(one new function `send_frames_surface_tree` defined and just call it once,
+and the function itself is also like 20 lines.)
+
+2026-09-04 07:15PM
+
+I asked AI how I would best do the event forwarding to the wl app from the
+wl surface applet,
+and it said to make a new event.
+But I realized this is something I already know how to do on my own,
+(as opposed to with some of the other smithay problems which stems from lack of documentation)
+there's really no reason to ask AI.
+
+I decided on something rly jank,
+which is to include a key event queue going from the singularity applet to smithay app
+on registering.
+It sets the keyboard focus to the place, then does a press then unpress.
+
+2026-09-04 10:04PM
+
+...huh, it is pretty much not working,
+but in my testing (consisting of mashing a bunch of buttons),
+suddenly, all the stuff I typed in was processed then nothing happened again.
+
+2026-09-22 11:28AM
+
+Just used claude to fix panic on keypress (suddenly appeared on new setup)
+and to actually show changes with the wl.
+But, it's really slow.
+
+I might refactor the whole codebase with Claude to render like a normal Smithay client.
+The custom renderer was fun, but I don't know if it will scale very well.
+
+2026-09-22 04:53PM
+
+I am considering fully managing the hierarchy in the Server by default.
+This would also help a lot with the Wayland integration aspect of everything.
+
+Maybe apps could do special stuff like embedding via "interceptions".
+In either case, embedding other subapps is a part of my vision but it doesn't need to be a part of the MVP.
+
+2026-09-23 08:30PM
+
+Hmm, Claude is saying that I should keep the current architecture but add an optional
+direct hook for when an wayland applet is in focus.
+I think this is just interceptions.
+But it wouldn't make sense to only do interceptions for Wayland applets like Claude suggests
+because they can't handle the tree traversal stuff.
+
+I'm actually going to ignore the general architecture problem for now and
+focus on getting rid of the latency from copying display.
+(This was another thing Claude suggested.)
+
+2026-09-23 09:32PM
+
+Ok, I started out by adding Numpad Enter keyboard for Enter bc my keyboard on this laptop is weird.
+That's just for testing, and I was testing removing the `image::save_buffer` that Claude caught.
+It didn't speed things up as much as I wished though.
+
+2026-09-23 09:45PM
+
+Woah, I was swizzling in the CPU, and taking that out as Claude suggested makes this like instant.
+The colors are wrong, but I should definitely just have an extra case in the GPU
+or just switch the rest of the code to use the same format as Smithay.
+
+I don't even think I need to do the UI rehaul anymore.
+
+You know what, I'm going to just ask Claude to make more of these small changes.
+
+I would also ask it to remove unused code, but I am a bit of a hoarder...
+I promise I'll remove it when someone else has to work on this codebase.
+
+2026-09-24 10:15AM
+
+I think I should expand the scope of events.
+First, I'll just make it so every keypress is forwarded.
+Then, I'll do mouse clicks.
+
+Actually, I'll first make the buffer size for wayland match the screen size.
+This should be easy to handcode by just changing a few variables.
+
+By the way, I've been using 800x600 or sometimes something w/ 400 for my placeholder screen sizes.
+
+I'm just going to do a jank fix for now by adding a resize event queue.
+I already have a key_event_queue, and I'll need to add another channel for mouse later,
+but wtv.
+
+I realized that I should actually be using Claude for these easy changes
+more than anything.
+I think that's what I should trust it most for.
+
+2026-09-28 10:50PM
+
+I think I'll try to kill a few birds with one stone
+by figuring out the best way to do inputs generally.
+
+I remembered that Smithay's smallvil example was run on winit,
+which means it should contain an example of converting
+winit events into Wayland events.
+
+I guess there are two places I found:
+- https://github.com/Smithay/smithay/blob/master/smallvil/src/input.rs#L17 for input events
+  - Smithay provides an `InputBackend` trait, which is fair, but I'm gonna just come up with something reasonable to handle everything
+- https://github.com/Smithay/smithay/blob/master/smallvil/src/winit.rs
+  - For general winit events, including resize, input, redraw, and close
+
+I might just take the lazy route of least change
+by just representing input events with
+my current representation + the smithay/winit one.
+(Smithay would be `InputEvent<WinitInput>` and
+winit should be WindowEvent)
+
+Looking through Smithay's code,
+the libinput (the most low-level one, and the one actual compositors use)
+backedn uses the `input` crate developed by smithay.
+I could probably convert winit events to the events in input.
+
+You know what, I am just going to make Claude figure it out.
+
+...
+
+2026-09-28 11:49PM
+
+Claude decided to make its own RawInput thing,
+but I didn't like that window resize wasn't a raw input,
+and I just realized I could just include the raw key code in the
+existing UIEvent::KeyPress and also just have a bool for press or not.
+So, I reverted all its changes and manually changed UIEvent.
+
+I'm gonna commit this and then make claude fix all the little associated bugs.
+
+2026-09-29 12:36AM
+
+I manually figured out why recursive node applet was breaking.
+
+The one bug I'm noticing now is that the smithay app doesn't know if a modifier is lifted if it is lifted after switching.
+
+2026-09-29 11:37AM
+
+I thought I had a shared boolean for `was_updated` for the UI between the ui thread and main server thread,
+but it looks like I don't,
+which is currently leading to both unnecessary updates as well as updates that aren't processed.
+
+I'm going to add a modified `EncapsulatedLock` that tracks updates,
+I'll call it `TrackedEncapsulatedLock`.
+
+...
+
+2026-09-29 12:02PM
+
+Ok, it was actually fairly simple, and running `dolphin` shows that it is actually surprisingly smooth.
+I handwrote this because I was making a new type with a new interface and that is fun to do.
+
+Using a queue based system would probably be even better, but the goal isn't performance right now.
+
+To be honest, I think this qualifies as reasonable wayland support.
+
+My next task will be figuring out how to run things like firefox,
+which open up in the outer compositor for some reason.

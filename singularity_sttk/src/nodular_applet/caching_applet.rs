@@ -1,8 +1,9 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
-    nodular_applet::{NodularApplet, NodularEvent, NodularRunnerHook},
+    nodular_applet::{NodularRunnerHook, StandardApplet},
 };
 use singularity_common::{
+    sap::packets::StandardEvent,
     sync::EncapsulatedLock,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
@@ -11,7 +12,7 @@ use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
 pub struct CachingApplet {
-    applet: Mutex<Box<dyn NodularApplet>>,
+    applet: Mutex<Box<dyn StandardApplet>>,
     window: EncapsulatedLock<UIElement>,
     window_damaged: Arc<AtomicBool>,
     window_size: EncapsulatedLock<DisplayContainerSize>,
@@ -20,7 +21,7 @@ pub struct CachingApplet {
 }
 impl CachingApplet {
     pub fn new(
-        inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet>,
+        inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
         outer_hook: Box<dyn NodularRunnerHook>,
         window: EncapsulatedLock<UIElement>,
         // window_damaged: Arc<AtomicBool>,
@@ -113,11 +114,11 @@ impl CachingApplet {
         self.applet.lock().unwrap().handle_ui_event(ui_event);
     }
 
-    pub fn immut_handle_nodular_event(&self, nodular_event: NodularEvent) {
+    pub fn immut_handle_standard_event(&self, standard_event: StandardEvent) {
         self.applet
             .lock()
             .unwrap()
-            .handle_nodular_event(nodular_event);
+            .handle_standard_event(standard_event);
     }
 
     #[deprecated]
@@ -128,25 +129,23 @@ impl CachingApplet {
         /// so I am going to make this placeholder first then make the holder
         /// then make the actual applet.
         struct PlaceholderApp;
-        impl BasicApplet for PlaceholderApp {
-            fn handle_ui_event(&mut self, _ui_event: UIEvent) {
-                panic!("Placeholder app's functions should not be called")
-            }
-
-            fn get_window(&self, _container_size: DisplayContainerSize) -> UIElement {
-                panic!("Placeholder app's functions should not be called")
-            }
-        }
-        impl NodularApplet for PlaceholderApp {
-            fn handle_nodular_event(&mut self, _nodular_event: NodularEvent) {
-                panic!("Placeholder app's functions should not be called")
-            }
-
+        impl StandardApplet for PlaceholderApp {
             fn get_treeview(&self) -> WorldTree<String> {
                 panic!("Placeholder app's functions should not be called")
             }
 
             fn get_focus_path(&self) -> WorldTreePath {
+                panic!("Placeholder app's functions should not be called")
+            }
+
+            fn handle_standard_event(&mut self, _standard_event: StandardEvent) {
+                panic!("Placeholder app's functions should not be called")
+            }
+
+            fn get_window_standard_applet(
+                &self,
+                _container_size: DisplayContainerSize,
+            ) -> UIElement {
                 panic!("Placeholder app's functions should not be called")
             }
         }
@@ -161,28 +160,9 @@ impl CachingApplet {
         }
     }
 }
-impl BasicApplet for CachingApplet {
-    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
-        if self
-            .window_damaged
-            .swap(false, std::sync::atomic::Ordering::Relaxed)
-            || self.window_size.get() != container_size
-        {
-            self.window
-                .set(self.applet.lock().unwrap().get_window(container_size));
-            self.window_size.set(container_size);
-        }
-
-        self.window.get()
-    }
-
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        self.immut_handle_ui_event(ui_event);
-    }
-}
-impl NodularApplet for CachingApplet {
-    fn handle_nodular_event(&mut self, nodular_event: NodularEvent) {
-        self.immut_handle_nodular_event(nodular_event);
+impl StandardApplet for CachingApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        self.immut_handle_standard_event(standard_event);
     }
 
     fn get_treeview(&self) -> WorldTree<String> {
@@ -200,5 +180,19 @@ impl NodularApplet for CachingApplet {
     /// TODO: cache this
     fn get_focus_path(&self) -> WorldTreePath {
         self.applet.lock().unwrap().get_focus_path()
+    }
+
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+        if self
+            .window_damaged
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+            || self.window_size.get() != container_size
+        {
+            self.window
+                .set(self.applet.lock().unwrap().get_window(container_size));
+            self.window_size.set(container_size);
+        }
+
+        self.window.get()
     }
 }

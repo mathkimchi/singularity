@@ -5,7 +5,7 @@
 
 use crate::{
     display_units::DisplayContainerSize,
-    ui_element::UIElement,
+    ui_element::PrimitiveScene,
     winit_backend::{
         rendering::{CharGridRenderer, ImageRenderer, RectangleRenderer, Vertex},
         ui_event::{KeyModifiers, UIEvent},
@@ -13,13 +13,15 @@ use crate::{
 };
 use calloop::channel::Sender;
 use glyphon::{FontSystem, SwashCache, TextAtlas};
-use sonamu_sync::EncapsulatedLock;
+use smithay::reexports::winit::{
+    platform::wayland::EventLoopBuilderExtWayland as _, window::Window,
+};
+use sonamu_sync::TrackedEncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, InstanceDescriptor, PresentMode, SurfaceConfiguration, SurfaceTarget,
-    TextureFormat, TextureUsages, util::DeviceExt as _,
+    CompositeAlphaMode, PresentMode, SurfaceConfiguration, SurfaceTarget, TextureFormat,
+    TextureUsages, util::DeviceExt as _,
 };
-use winit::{event_loop::EventLoop, platform::wayland::EventLoopBuilderExtWayland, window::Window};
 
 mod rendering;
 pub mod ui_event;
@@ -53,13 +55,14 @@ struct WgpuData {
     // instance_buffer: wgpu::Buffer,
 }
 impl WgpuData {
-    async fn new(
+    fn new(
         target: impl Into<SurfaceTarget<'static>>,
         physical_size: DisplayContainerSize,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: &wgpu::Instance,
     ) -> Self {
         // Set up surface
-        let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
-
         let surface = instance.create_surface(target).expect("Create surface");
         let swapchain_format = TextureFormat::Bgra8UnormSrgb;
         let surface_config = SurfaceConfiguration {
@@ -73,32 +76,6 @@ impl WgpuData {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web we'll have to disable some.
-                required_limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_webgl2_defaults()
-                } else {
-                    wgpu::Limits::default()
-                },
-                memory_hints: wgpu::MemoryHints::default(),
-                trace: wgpu::Trace::Off, // Trace path
-            })
-            .await
-            .unwrap();
 
         surface.configure(&device, &surface_config);
 
@@ -191,7 +168,7 @@ impl WgpuData {
 
 /// Data needed to connect to winit.
 /// It comes from https://github.com/grovesNL/glyphon/blob/main/examples/hello-world.rs
-struct WinitData {
+pub struct WinitData {
     wgpu_data: WgpuData,
 
     // Make sure that the winit window is last in the struct so that
@@ -200,7 +177,12 @@ struct WinitData {
     window: Arc<Window>,
 }
 impl WinitData {
-    async fn new(window: Arc<Window>) -> Self {
+    fn new(
+        window: Arc<Window>,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: &wgpu::Instance,
+    ) -> Self {
         let physical_size = window.inner_size();
         // let scale_factor = window.scale_factor();
 
@@ -208,10 +190,16 @@ impl WinitData {
             wgpu_data: WgpuData::new(
                 window.clone(),
                 DisplayContainerSize::new(physical_size.width, physical_size.height),
-            )
-            .await,
+                device,
+                queue,
+                instance,
+            ),
             window,
         }
+    }
+
+    pub fn get_wgpu_data(&self) -> (wgpu::Device, wgpu::Queue) {
+        (self.wgpu_data.device.clone(), self.wgpu_data.queue.clone())
     }
 }
 
@@ -221,22 +209,173 @@ impl WinitData {
 pub struct UIDisplay {
     is_running: Arc<AtomicBool>,
     event_queue: Sender<UIEvent>,
-    ui_content: EncapsulatedLock<UIElement>,
+    ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
 
     // width: u32,
     // height: u32,
     key_modifiers: KeyModifiers,
+    /// Last known cursor position, since winit's button and scroll events don't carry one
+    cursor_position: [f64; 2],
+
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    instance: wgpu::Instance,
 
     winit_data: Option<WinitData>,
 }
 impl UIDisplay {
+    // pub fn new<State: AsMut<Self>>(
+    //     // TODO: with event loop, these don't need to be mutex and stuff
+    //     is_running: Arc<AtomicBool>,
+    //     event_queue: Sender<UIEvent>,
+    //     ui_content: EncapsulatedLock<PrimitiveScene>,
+    //     event_loop: &LoopHandle<State>,
+    //     dh: &mut DisplayHandle,
+    // ) -> Self {
+    //     let builder = WindowAttributes::default()
+    //         // .with_surface_size(LogicalSize::new(1280.0, 800.0))
+    //         // .with_resizable(false)
+    //         .with_title("sonamu");
+    //     let (mut backend, winit_event_loop) =
+    //         smithay::backend::winit::init_from_attributes::<GlesRenderer>(builder).unwrap();
+
+    //     event_loop
+    //         .insert_source(winit_event_loop, |event, (), state| {
+    //             let ui_display = state.as_mut();
+    //             ui_display.process_winit_event(event);
+    //         })
+    //         .unwrap();
+
+    //     // backend.renderer().bind_wl_display(dh).unwrap();
+
+    //     Self {
+    //         is_running,
+    //         event_queue,
+    //         ui_content,
+    //         // width: 256,
+    //         // height: 256,
+    //         key_modifiers: KeyModifiers::NONE,
+    //         winit_data: None,
+    //     }
+    // }
+
+    // fn process_winit_event(&mut self, event: WinitEvent) {
+    //     if !self.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+    //         // event_loop.exit();
+    //         return;
+    //     }
+
+    //     let Some(state) = &mut self.winit_data else {
+    //         return;
+    //     };
+
+    //     let WinitData {
+    //         window,
+    //         wgpu_data:
+    //             WgpuData {
+    //                 device,
+    //                 // queue,
+    //                 surface,
+    //                 surface_config,
+    //                 ..
+    //             },
+    //     } = state;
+
+    //     match event {
+    //         WinitEvent::Resized { size, .. } => {
+    //             surface_config.width = size.w.cast_unsigned();
+    //             surface_config.height = size.h.cast_unsigned();
+    //             surface.configure(device, surface_config);
+    //             window.request_redraw();
+
+    //             self.event_queue
+    //                 .send(UIEvent::WindowResized(DisplayContainerSize::new(
+    //                     size.w.cast_unsigned(),
+    //                     size.h.cast_unsigned(),
+    //                 )))
+    //                 .unwrap();
+    //         }
+    //         WinitEvent::CloseRequested => {
+    //             self.is_running
+    //                 .store(false, std::sync::atomic::Ordering::Relaxed);
+    //             // event_loop.exit();
+    //         }
+    //         WinitEvent::Focus(_) => {
+    //             // self.ui_event_queue
+    //             //     .lock()
+    //             //     .unwrap()
+    //             //     .push(crate::ui_event::UIEvent::Focused);
+    //         }
+    //         WinitEvent::Input(input_event) => match input_event {
+    //             // smithay::backend::input::InputEvent::DeviceAdded { device } => todo!(),
+    //             // smithay::backend::input::InputEvent::DeviceRemoved { device } => todo!(),
+    //             smithay::backend::input::InputEvent::Keyboard { event } => {
+    //                 dbg!(event.key_code());
+    //             }
+    //             // smithay::backend::input::InputEvent::PointerMotion { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::PointerMotionAbsolute { event } => todo!(),
+    //             smithay::backend::input::InputEvent::PointerButton { event: _ } => {}
+    //             // smithay::backend::input::InputEvent::PointerAxis { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GestureSwipeBegin { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GestureSwipeUpdate { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GestureSwipeEnd { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GesturePinchBegin { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GesturePinchUpdate { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GesturePinchEnd { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GestureHoldBegin { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::GestureHoldEnd { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TouchDown { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TouchMotion { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TouchUp { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TouchCancel { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TouchFrame { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TabletToolAxis { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TabletToolProximity { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TabletToolTip { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::TabletToolButton { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::SwitchToggle { event } => todo!(),
+    //             // smithay::backend::input::InputEvent::Special(_) => todo!(),
+    //             _ => {}
+    //         },
+    //         // WinitEvent::ModifiersChanged(modifiers) => {
+    //         //     self.key_modifiers = modifiers.into();
+    //         // }
+    //         // WinitEvent::KeyboardInput {
+    //         //     device_id: _,
+    //         //     event,
+    //         //     is_synthetic: _,
+    //         // } => {
+    //         //     if let Ok(key) = Key::try_from(event) {
+    //         //         self.event_queue
+    //         //             .send(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers))
+    //         //             .unwrap();
+    //         //     }
+
+    //         //     window.request_redraw();
+    //         // }
+    //         // winit::event::WindowEvent::MouseInput {
+    //         //     device_id,
+    //         //     state,
+    //         //     button,
+    //         // } => {
+    //         //     println!("TODO: mouse press");
+    //         // }
+    //         WinitEvent::Redraw => {
+    //             Self::draw(&mut self.winit_data, &self.ui_content.get());
+    //         }
+    //     }
+    // }
+
     /// Returns when display is closed.
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
-        ui_content: EncapsulatedLock<UIElement>,
+        ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        instance: wgpu::Instance,
     ) {
-        let event_loop = EventLoop::builder()
+        let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
             .build()
@@ -248,7 +387,11 @@ impl UIDisplay {
             // width: 256,
             // height: 256,
             key_modifiers: KeyModifiers::NONE,
+            cursor_position: [0.0, 0.0],
             winit_data: None,
+            device,
+            queue,
+            instance,
         };
         event_loop.run_app(&mut app).unwrap();
 

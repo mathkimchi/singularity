@@ -2,18 +2,18 @@
 
 use super::UIDisplay;
 use crate::{
-    color::Color,
-    display_units::{DisplayArea, DisplayCoord, DisplayUnits},
-    ui_element::{CharGrid, FONT_SIZE_F, InternalCharCell, UIElement},
+    display_units::DisplayAreaPx,
+    ui_element::{
+        CharGrid, FONT_SIZE_F, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
+    },
     winit_backend::{WgpuData, WinitData},
 };
 use glyphon::{AttrsOwned, Metrics, TextRenderer};
-use image::RgbaImage;
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
 use std::iter;
 use wgpu::{
     BindGroup, BindGroupLayout, Device, MultisampleState, PipelineCompilationOptions,
-    RenderPipeline, SurfaceConfiguration, include_wgsl, util::DeviceExt as _,
+    RenderPipeline, SurfaceConfiguration, TextureView, include_wgsl, util::DeviceExt as _,
 };
 
 #[repr(C)]
@@ -171,24 +171,13 @@ impl ImageInstance {
         }
     }
 
-    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayArea) {
+    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayAreaPx) {
         let instances = vec![Self {
             // this currently takes in top left
-            origin: [
-                area.0
-                    .x
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.0
-                    .y
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
-            ],
+            origin: [area.0[0][0] as f32, area.0[0][1] as f32],
             size: [
-                area.size()
-                    .width
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.size()
-                    .height
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+                (area.0[1][0] - area.0[0][0]) as f32,
+                (area.0[1][1] - area.0[0][1]) as f32,
             ],
         }];
 
@@ -642,69 +631,47 @@ pub(super) struct DrawingSharedData<'a> {
     device: &'a Device,
     queue: &'a wgpu::Queue,
     // surface: &'a wgpu::Surface<'static>,
-    surface_config: &'a SurfaceConfiguration,
+    _surface_config: &'a SurfaceConfiguration,
 }
-
-impl UIElement {
-    fn fill_rect(
-        drawing_shared_data: &mut DrawingSharedData,
-        area: DisplayArea,
-        radius: f32,
-        border_dist: f32,
-        inner_color: Color,
-        border_color: Color,
-    ) {
-        drawing_shared_data
-            .render_pass
-            .set_pipeline(&drawing_shared_data.rectangle_renderer.render_pipeline);
+impl DrawingSharedData<'_> {
+    fn draw_rect(&mut self, round_rect: &RoundRect, display_area_px: DisplayAreaPx) {
+        self.render_pass
+            .set_pipeline(&self.rectangle_renderer.render_pipeline);
         // these buffers are how we pass data to the gpu
-        drawing_shared_data
-            .render_pass
-            .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
+        self.render_pass
+            .set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
         let instances = vec![RoundRectInstance {
             // this currently takes in top left
             origin: [
-                area.0
-                    .x
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.0
-                    .y
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+                display_area_px.0[0][0] as f32,
+                display_area_px.0[0][1] as f32,
             ],
             size: [
-                area.size()
-                    .width
-                    .pixels(drawing_shared_data.surface_config.width as _) as _,
-                area.size()
-                    .height
-                    .pixels(drawing_shared_data.surface_config.height as _) as _,
+                display_area_px.size().width as f32,
+                display_area_px.size().height as f32,
             ],
-            corner_radius: radius,
-            border_dist,
-            main_color: inner_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
-            // shouldn't matter
-            border_color: border_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
+            corner_radius: round_rect.corner_radius,
+            border_dist: round_rect.border_width,
+            // main_color: inner_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
+            main_color: round_rect.main_color,
+            border_color: round_rect.border_color,
         }];
 
-        let instance_buffer =
-            drawing_shared_data
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Instance Buffer"),
-                    contents: bytemuck::cast_slice(&instances),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
+        let instance_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&instances),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
 
-        drawing_shared_data
-            .render_pass
+        self.render_pass
             .set_vertex_buffer(1, instance_buffer.slice(..));
         // render_pass
         //     .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         // render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
-        drawing_shared_data
-            .render_pass
-            .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 rect at a time (which I am not happy about)
+        self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 rect at a time (which I am not happy about)
 
         // let mut pb = raqote::PathBuilder::new();
         // pb.rect(
@@ -717,151 +684,82 @@ impl UIElement {
         // dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
     }
 
-    fn draw_image(
-        drawing_shared_data: &mut DrawingSharedData,
-        image_buffer: &RgbaImage,
-        area: DisplayArea,
-    ) {
-        drawing_shared_data
-            .render_pass
-            .set_pipeline(&drawing_shared_data.image_renderer.render_pipeline);
-
-        // set bind group (which holds the image texture)
-        {
-            let width = image_buffer.width();
-            let height = image_buffer.height();
-
-            let texture_size = wgpu::Extent3d {
-                width,
-                height,
-                // All textures are stored as 3D, we represent our 2D texture
-                // by setting depth to 1.
-                depth_or_array_layers: 1,
-            };
-
-            let diffuse_texture =
-                drawing_shared_data
-                    .device
-                    .create_texture(&wgpu::TextureDescriptor {
-                        size: texture_size,
-                        mip_level_count: 1, // We'll talk about this a little later
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        // Most images are stored using sRGB, so we need to reflect that here.
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                        // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
-                        // COPY_DST means that we want to copy data to this texture
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                        label: Some("diffuse_texture"),
-                        // This is the same as with the SurfaceConfig. It
-                        // specifies what texture formats can be used to
-                        // create TextureViews for this texture. The base
-                        // texture format (Rgba8UnormSrgb in this case) is
-                        // always supported. Note that using a different
-                        // texture format is not supported on the WebGL2
-                        // backend.
-                        view_formats: &[],
-                    });
-
-            drawing_shared_data.queue.write_texture(
-                // Tells wgpu where to copy the pixel data
-                wgpu::TexelCopyTextureInfo {
-                    texture: &diffuse_texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                // The actual pixel data
-                image_buffer,
-                // The layout of the texture
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4 * width),
-                    rows_per_image: Some(height),
-                },
-                texture_size,
-            );
-
-            // We don't need to configure the texture view much, so let's
-            // let wgpu define it.
-            let diffuse_texture_view =
-                diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-            let diffuse_sampler =
-                drawing_shared_data
-                    .device
-                    .create_sampler(&wgpu::SamplerDescriptor {
-                        address_mode_u: wgpu::AddressMode::ClampToEdge,
-                        address_mode_v: wgpu::AddressMode::ClampToEdge,
-                        address_mode_w: wgpu::AddressMode::ClampToEdge,
-                        mag_filter: wgpu::FilterMode::Linear,
-                        min_filter: wgpu::FilterMode::Nearest,
-                        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-                        ..Default::default()
-                    });
-
-            let diffuse_bind_group =
-                drawing_shared_data
-                    .device
-                    .create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &drawing_shared_data
-                            .image_renderer
-                            .image_texture_bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
-                            },
-                        ],
-                        label: Some("diffuse_bind_group"),
-                    });
-            drawing_shared_data
-                .render_pass
-                .set_bind_group(0, Some(&diffuse_bind_group), &[]);
-        }
-
-        // these buffers are how we pass data to the gpu
-        // pass in the large triangle
-        drawing_shared_data
-            .render_pass
-            .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
-
-        ImageInstance::set_instance_buffer(drawing_shared_data, area);
-
-        drawing_shared_data
-            .render_pass
-            .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
-    }
-
-    // Surface config used just for the width
-    fn display_area_to_text_bounds(
-        area: DisplayArea,
-        surface_config: &SurfaceConfiguration,
-    ) -> glyphon::TextBounds {
+    fn display_area_to_text_bounds(display_area_px: DisplayAreaPx) -> glyphon::TextBounds {
         glyphon::TextBounds {
-            left: area.0.x.pixels(surface_config.width as _),
-            top: area.0.y.pixels(surface_config.height as _),
-            // TODO
-            right: area.1.x.pixels(surface_config.width as _),
-            bottom: area.1.y.pixels(surface_config.height as _),
+            left: display_area_px.0[0][0] as i32,
+            top: display_area_px.0[0][1] as i32,
+            right: display_area_px.0[1][0] as i32,
+            bottom: display_area_px.0[1][1] as i32,
         }
+    }
+    fn draw_text_with_glyphon(
+        &mut self,
+        text: &[(String, AttrsOwned)],
+        display_area_px: DisplayAreaPx,
+    ) {
+        let mut text_buffer =
+            glyphon::Buffer::new(self.font_system, Metrics::new(FONT_SIZE_F, FONT_SIZE_F));
+        text_buffer.set_rich_text(
+            self.font_system,
+            text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
+            &glyphon::Attrs::new().family(glyphon::Family::Monospace),
+            glyphon::Shaping::Advanced,
+            None,
+        );
+
+        text_buffer.shape_until_scroll(self.font_system, false);
+
+        let mut text_renderer =
+            TextRenderer::new(self.atlas, self.device, MultisampleState::default(), None);
+
+        text_renderer
+            .prepare(
+                self.device,
+                self.queue,
+                self.font_system,
+                self.atlas,
+                self.viewport,
+                [glyphon::TextArea {
+                    buffer: &text_buffer,
+                    left: display_area_px.0[0][0] as f32,
+                    top: display_area_px.0[0][1] as f32,
+                    scale: 1.0,
+                    bounds: Self::display_area_to_text_bounds(display_area_px),
+                    default_color: glyphon::Color::rgb(255, 255, 255),
+                    custom_glyphs: &[],
+                }],
+                self.swash_cache,
+            )
+            .unwrap();
+
+        text_renderer
+            .render(self.atlas, self.viewport, &mut self.render_pass)
+            .unwrap();
+
+        // // FIXME: doesn't work with space
+        // dt.draw_text(
+        //     font,
+        //     FONT_SIZE as f32,
+        //     text,
+        //     DisplayCoord::new(
+        //         container_area.0.x,
+        //         container_area.0.y + FONT_SIZE.into(),
+        //     )
+        //     .into_raqote_point(dt),
+        //     &Source::Solid(SolidSource {
+        //         r: 0,
+        //         g: 0xFF,
+        //         b: 0xFF,
+        //         a: 0xFF,
+        //     }),
+        //     &DrawOptions::new(),
+        // );
     }
 
     /// load the actual char grid info as if it was a texture where each pixel is a char
-    fn load_char_grid_to_tex(
-        drawing_shared_data: &mut DrawingSharedData,
-        char_grid: &CharGrid,
-        width: u32,
-        height: u32,
-    ) {
-        drawing_shared_data.render_pass.set_bind_group(
-            0,
-            Some(&drawing_shared_data.char_grid_renderer.atlas_bind_group),
-            &[],
-        );
+    fn load_char_grid_to_tex(&mut self, char_grid: &CharGrid, width: u32, height: u32) {
+        self.render_pass
+            .set_bind_group(0, Some(&self.char_grid_renderer.atlas_bind_group), &[]);
 
         let texture_size = wgpu::Extent3d {
             width,
@@ -871,29 +769,27 @@ impl UIElement {
             depth_or_array_layers: 1,
         };
 
-        let texture = drawing_shared_data
-            .device
-            .create_texture(&wgpu::TextureDescriptor {
-                size: texture_size,
-                mip_level_count: 1, // We'll talk about this a little later
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba32Uint,
-                // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
-                // COPY_DST means that we want to copy data to this texture
-                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
-                label: Some("char_grid_storage"),
-                // This is the same as with the SurfaceConfig. It
-                // specifies what texture formats can be used to
-                // create TextureViews for this texture. The base
-                // texture format (Rgba8UnormSrgb in this case) is
-                // always supported. Note that using a different
-                // texture format is not supported on the WebGL2
-                // backend.
-                view_formats: &[],
-            });
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1, // We'll talk about this a little later
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba32Uint,
+            // STORAGE_BINDING instead of TEXTURE_BINDING because we are using a storage_texture instead of normal texture
+            // COPY_DST means that we want to copy data to this texture
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("char_grid_storage"),
+            // This is the same as with the SurfaceConfig. It
+            // specifies what texture formats can be used to
+            // create TextureViews for this texture. The base
+            // texture format (Rgba8UnormSrgb in this case) is
+            // always supported. Note that using a different
+            // texture format is not supported on the WebGL2
+            // backend.
+            view_formats: &[],
+        });
 
-        drawing_shared_data.queue.write_texture(
+        self.queue.write_texture(
             // Tells wgpu where to copy the pixel data
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
@@ -916,46 +812,33 @@ impl UIElement {
         // let wgpu define it.
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let bind_group = drawing_shared_data
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &drawing_shared_data
-                    .char_grid_renderer
-                    .char_grid_texture_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-                label: Some("bind_group"),
-            });
-        drawing_shared_data
-            .render_pass
-            .set_bind_group(1, Some(&bind_group), &[]);
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.char_grid_renderer.char_grid_texture_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&texture_view),
+            }],
+            label: Some("bind_group"),
+        });
+        self.render_pass.set_bind_group(1, Some(&bind_group), &[]);
     }
-
-    fn draw_char_grid(
-        drawing_shared_data: &mut DrawingSharedData,
-        char_grid: &CharGrid,
-        area: DisplayArea,
-    ) {
+    fn draw_char_grid(&mut self, char_grid: &CharGrid, display_area_px: DisplayAreaPx) {
         // NOTE: rn, the area is just auto-computed from the bounds,
         // TODO: let apps customize bounds
 
-        drawing_shared_data
-            .render_pass
-            .set_pipeline(&drawing_shared_data.char_grid_renderer.render_pipeline);
+        self.render_pass
+            .set_pipeline(&self.char_grid_renderer.render_pipeline);
 
         let width = char_grid.width() as u32;
         let height = char_grid.height() as u32;
 
         // load the actual char grid info as if it was a texture where each pixel is a char
-        Self::load_char_grid_to_tex(drawing_shared_data, char_grid, width, height);
+        self.load_char_grid_to_tex(char_grid, width, height);
 
         // these buffers are how we pass data to the gpu
         // pass in the large triangle
-        drawing_shared_data
-            .render_pass
-            .set_vertex_buffer(0, drawing_shared_data.vertex_buffer.slice(..));
+        self.render_pass
+            .set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
         // set instance buffer
         {
@@ -971,31 +854,18 @@ impl UIElement {
             let instances = vec![CharGridInstance {
                 // this currently takes in top left
                 origin: [
-                    area.0
-                        .x
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.0
-                        .y
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
+                    display_area_px.0[0][0] as f32,
+                    display_area_px.0[0][1] as f32,
                 ],
                 size: [
-                    area.size()
-                        .width
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    area.size()
-                        .height
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
+                    display_area_px.size().width as f32,
+                    display_area_px.size().height as f32,
                 ],
                 grid_size: [width, height],
             }];
 
             let instance_buffer =
-                drawing_shared_data
-                    .device
+                self.device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Instance Buffer"),
                         contents: bytemuck::cast_slice(&instances),
@@ -1003,14 +873,11 @@ impl UIElement {
                     });
 
             // vertex buffer slot 1 is actually the instance buffer
-            drawing_shared_data
-                .render_pass
+            self.render_pass
                 .set_vertex_buffer(1, instance_buffer.slice(..));
         }
 
-        drawing_shared_data
-            .render_pass
-            .draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+        self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
 
         /*
         let mut text_buffer = glyphon::Buffer::new(
@@ -1184,370 +1051,181 @@ impl UIElement {
         */
     }
 
-    fn draw_text_with_glyphon(
-        drawing_shared_data: &mut DrawingSharedData,
-        text: &[(String, AttrsOwned)],
-        container_area: DisplayArea,
+    fn draw_texture(&mut self, texture_view: &TextureView, display_area_px: DisplayAreaPx) {
+        self.render_pass
+            .set_pipeline(&self.image_renderer.render_pipeline);
+
+        // set bind group (which holds the image texture)
+        {
+            let diffuse_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            });
+
+            let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.image_renderer.image_texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            self.render_pass
+                .set_bind_group(0, Some(&diffuse_bind_group), &[]);
+        }
+
+        // these buffers are how we pass data to the gpu
+        // pass in the large triangle
+        self.render_pass
+            .set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+        ImageInstance::set_instance_buffer(self, display_area_px);
+
+        self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+
+        /*
+        self.render_pass
+            .set_pipeline(&self.image_renderer.render_pipeline);
+
+        // set bind group (which holds the image texture)
+        {
+            let width = image_buffer.width();
+            let height = image_buffer.height();
+
+            let texture_size = wgpu::Extent3d {
+                width,
+                height,
+                // All textures are stored as 3D, we represent our 2D texture
+                // by setting depth to 1.
+                depth_or_array_layers: 1,
+            };
+
+            let diffuse_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+                size: texture_size,
+                mip_level_count: 1, // We'll talk about this a little later
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                // Most images are stored using sRGB, so we need to reflect that here.
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
+                // COPY_DST means that we want to copy data to this texture
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                label: Some("diffuse_texture"),
+                // This is the same as with the SurfaceConfig. It
+                // specifies what texture formats can be used to
+                // create TextureViews for this texture. The base
+                // texture format (Rgba8UnormSrgb in this case) is
+                // always supported. Note that using a different
+                // texture format is not supported on the WebGL2
+                // backend.
+                view_formats: &[],
+            });
+
+            self.queue.write_texture(
+                // Tells wgpu where to copy the pixel data
+                wgpu::TexelCopyTextureInfo {
+                    texture: &diffuse_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                // The actual pixel data
+                image_buffer,
+                // The layout of the texture
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                texture_size,
+            );
+
+            // We don't need to configure the texture view much, so let's
+            // let wgpu define it.
+            let diffuse_texture_view =
+                diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let diffuse_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            });
+
+            let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.image_renderer.image_texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            self.render_pass
+                .set_bind_group(0, Some(&diffuse_bind_group), &[]);
+        }
+
+        // these buffers are how we pass data to the gpu
+        // pass in the large triangle
+        self.render_pass
+            .set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+        ImageInstance::set_instance_buffer(self, area);
+
+        self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
+        */
+    }
+
+    fn draw_primitive_element(
+        &mut self,
+        element: &UIPrimitiveElement,
+        display_area_px: DisplayAreaPx,
     ) {
-        let mut text_buffer = glyphon::Buffer::new(
-            drawing_shared_data.font_system,
-            Metrics::new(FONT_SIZE_F, FONT_SIZE_F),
-        );
-        text_buffer.set_rich_text(
-            drawing_shared_data.font_system,
-            text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
-            &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-            glyphon::Shaping::Advanced,
-            None,
-        );
-
-        text_buffer.shape_until_scroll(drawing_shared_data.font_system, false);
-
-        let mut text_renderer = TextRenderer::new(
-            drawing_shared_data.atlas,
-            drawing_shared_data.device,
-            MultisampleState::default(),
-            None,
-        );
-
-        text_renderer
-            .prepare(
-                drawing_shared_data.device,
-                drawing_shared_data.queue,
-                drawing_shared_data.font_system,
-                drawing_shared_data.atlas,
-                drawing_shared_data.viewport,
-                [glyphon::TextArea {
-                    buffer: &text_buffer,
-                    left: container_area
-                        .0
-                        .x
-                        .pixels(drawing_shared_data.surface_config.width as _)
-                        as _,
-                    top: container_area
-                        .0
-                        .y
-                        .pixels(drawing_shared_data.surface_config.height as _)
-                        as _,
-                    scale: 1.0,
-                    bounds: Self::display_area_to_text_bounds(
-                        container_area,
-                        drawing_shared_data.surface_config,
-                    ),
-                    default_color: glyphon::Color::rgb(255, 255, 255),
-                    custom_glyphs: &[],
-                }],
-                drawing_shared_data.swash_cache,
-            )
-            .unwrap();
-
-        text_renderer
-            .render(
-                drawing_shared_data.atlas,
-                drawing_shared_data.viewport,
-                &mut drawing_shared_data.render_pass,
-            )
-            .unwrap();
-
-        // // FIXME: doesn't work with space
-        // dt.draw_text(
-        //     font,
-        //     FONT_SIZE as f32,
-        //     text,
-        //     DisplayCoord::new(
-        //         container_area.0.x,
-        //         container_area.0.y + FONT_SIZE.into(),
-        //     )
-        //     .into_raqote_point(dt),
-        //     &Source::Solid(SolidSource {
-        //         r: 0,
-        //         g: 0xFF,
-        //         b: 0xFF,
-        //         a: 0xFF,
-        //     }),
-        //     &DrawOptions::new(),
-        // );
-    }
-
-    fn draw(&self, drawing_shared_data: &mut DrawingSharedData, container_area: DisplayArea) {
-        match self {
-            Self::Container(children) => {
-                for ui_element in children {
-                    // draw the inner widget
-                    ui_element.draw(drawing_shared_data, container_area);
-                }
+        match element {
+            UIPrimitiveElement::RoundRect(round_rect) => {
+                self.draw_rect(round_rect, display_area_px);
             }
-            Self::Contained(inner_element, area) => {
-                inner_element.draw(drawing_shared_data, area.map_onto(container_area));
+            UIPrimitiveElement::Text(items) => {
+                self.draw_text_with_glyphon(items, display_area_px);
             }
-            // FIXME: there are weird border lines
-            Self::Bordered(inner_element, border_color) => {
-                // // draw the border
-                // let border_path = {
-                //     let mut pb = raqote::PathBuilder::new();
-                //     // top
-                //     pb.rect(
-                //         container_area.0.x.pixels(dt.width()) as f32,
-                //         container_area.0.y.pixels(dt.height()) as f32,
-                //         container_area.size().width.pixels(dt.width()) as f32,
-                //         1.,
-                //     );
-                //     // bot
-                //     pb.rect(
-                //         container_area.0.x.pixels(dt.width()) as f32 - 1.,
-                //         container_area.1.y.pixels(dt.height()) as f32 - 1.,
-                //         container_area.size().width.pixels(dt.width()) as f32 + 1.,
-                //         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                //         1.,
-                //     );
-                //     // left
-                //     pb.rect(
-                //         container_area.0.x.pixels(dt.width()) as f32,
-                //         container_area.0.y.pixels(dt.height()) as f32,
-                //         1.,
-                //         container_area.size().height.pixels(dt.height()) as f32,
-                //     );
-                //     // right
-                //     pb.rect(
-                //         container_area.1.x.pixels(dt.width()) as f32 - 1.,
-                //         container_area.0.y.pixels(dt.height()) as f32 - 1.,
-                //         1.,
-                //         container_area.size().height.pixels(dt.height()) as f32 + 1.,
-                //         // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                //     );
-                //     pb.finish()
-                // };
-                // dt.fill(
-                //     &border_path,
-                //     &Source::Solid((*border_color).into()),
-                //     &DrawOptions::new(),
-                // );
-
-                Self::fill_rect(
-                    drawing_shared_data,
-                    container_area,
-                    1.0,
-                    1.0,
-                    Color::TRANSPARENT,
-                    *border_color,
-                );
-
-                let inner_area = DisplayArea(
-                    DisplayCoord::new(1.into(), 1.into()),
-                    DisplayCoord::new(
-                        DisplayUnits::from_mixed(-1, 1.0),
-                        DisplayUnits::from_mixed(-1, 1.0),
-                    ),
-                )
-                .map_onto(container_area);
-
-                // dbg!(&container_area);
-                // dbg!(&container_area.size());
-                // dbg!(&inner_area);
-
-                // draw the inner widget
-                inner_element.draw(drawing_shared_data, inner_area);
+            UIPrimitiveElement::CharGrid(char_grid) => {
+                self.draw_char_grid(char_grid, display_area_px);
             }
-            Self::Backgrounded(inner_element, bg_color) => {
-                // clear the inside of the border
-                Self::fill_rect(
-                    drawing_shared_data,
-                    container_area,
-                    0.,
-                    0.,
-                    *bg_color,
-                    // shouldn't matter
-                    Color::BLACK,
-                );
-
-                // draw the inner widget
-                inner_element.draw(drawing_shared_data, container_area);
+            UIPrimitiveElement::Texture(texture_view) => {
+                self.draw_texture(texture_view, display_area_px);
             }
-            Self::Text(text) => {
-                Self::draw_text_with_glyphon(drawing_shared_data, text, container_area);
-            }
-            Self::CharGrid(char_grid) => {
-                Self::draw_char_grid(drawing_shared_data, char_grid, container_area);
-            }
-            Self::Image(image_buffer) => {
-                Self::draw_image(drawing_shared_data, image_buffer, container_area);
-            }
-            Self::Nothing => {}
         }
     }
 
-    /*
-    fn fill_rect(dt: &mut DrawTarget, area: DisplayArea, color: Color) {
-        let mut pb = raqote::PathBuilder::new();
-        pb.rect(
-            area.0.x.pixels(dt.width()) as f32,
-            area.0.y.pixels(dt.height()) as f32,
-            area.size().width.pixels(dt.width()) as f32,
-            area.size().height.pixels(dt.height()) as f32,
-        );
-        let path = pb.finish();
-        dt.fill(&path, &Source::Solid(color.into()), &DrawOptions::new());
-    }
-
-    fn draw(&self, dt: &mut DrawTarget, container_area: DisplayArea, font: &Font) {
-        /// think this is height in pixels
-        const FONT_SIZE: i32 = 12;
-
-        match self {
-            UIElement::Container(children) => {
-                for ui_element in children {
-                    // draw the inner widget
-                    ui_element.draw(dt, container_area, font);
-                }
-            }
-            UIElement::Contained(inner_element, area) => {
-                inner_element.draw(dt, area.map_onto(container_area), font);
-            }
-            // FIXME: there are weird border lines
-            UIElement::Bordered(inner_element, border_color) => {
-                // draw the border
-                let border_path = {
-                    let mut pb = raqote::PathBuilder::new();
-                    // top
-                    pb.rect(
-                        container_area.0.x.pixels(dt.width()) as f32,
-                        container_area.0.y.pixels(dt.height()) as f32,
-                        container_area.size().width.pixels(dt.width()) as f32,
-                        1.,
-                    );
-                    // bot
-                    pb.rect(
-                        container_area.0.x.pixels(dt.width()) as f32 - 1.,
-                        container_area.1.y.pixels(dt.height()) as f32 - 1.,
-                        container_area.size().width.pixels(dt.width()) as f32 + 1.,
-                        // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                        1.,
-                    );
-                    // left
-                    pb.rect(
-                        container_area.0.x.pixels(dt.width()) as f32,
-                        container_area.0.y.pixels(dt.height()) as f32,
-                        1.,
-                        container_area.size().height.pixels(dt.height()) as f32,
-                    );
-                    // right
-                    pb.rect(
-                        container_area.1.x.pixels(dt.width()) as f32 - 1.,
-                        container_area.0.y.pixels(dt.height()) as f32 - 1.,
-                        1.,
-                        container_area.size().height.pixels(dt.height()) as f32 + 1.,
-                        // NOTE: ^ the bottom right pixel is gone without this + 1. (both are needed for some reason)
-                    );
-                    pb.finish()
-                };
-                dt.fill(
-                    &border_path,
-                    &Source::Solid((*border_color).into()),
-                    &DrawOptions::new(),
-                );
-
-                let inner_area = DisplayArea(
-                    DisplayCoord::new(1.into(), 1.into()),
-                    DisplayCoord::new(
-                        DisplayUnits::from_mixed(-1, 1.0),
-                        DisplayUnits::from_mixed(-1, 1.0),
-                    ),
-                )
-                .map_onto(container_area);
-
-                // dbg!(&container_area);
-                // dbg!(&container_area.size());
-                // dbg!(&inner_area);
-
-                // draw the inner widget
-                inner_element.draw(dt, inner_area, font);
-            }
-            UIElement::Backgrounded(inner_element, bg_color) => {
-                // clear the inside of the border
-                Self::fill_rect(dt, container_area, *bg_color);
-
-                // draw the inner widget
-                inner_element.draw(dt, container_area, font);
-            }
-            UIElement::Text(text) => {
-                // FIXME: doesn't work with space
-                dt.draw_text(
-                    font,
-                    FONT_SIZE as f32,
-                    text,
-                    DisplayCoord::new(
-                        container_area.0.x,
-                        container_area.0.y + FONT_SIZE.into(),
-                    )
-                    .into_raqote_point(dt),
-                    &Source::Solid(SolidSource {
-                        r: 0,
-                        g: 0xFF,
-                        b: 0xFF,
-                        a: 0xFF,
-                    }),
-                    &DrawOptions::new(),
-                );
-            }
-            UIElement::CharGrid(char_grid) => {
-                for (line_index, line) in char_grid.content.iter().enumerate() {
-                    for (col_index, CharCell { character, fg, bg }) in line.iter().enumerate() {
-                        let top_left = DisplayCoord::new(
-                            container_area.0.x
-                                + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                            container_area.0.y
-                                + DisplayUnits::Pixels(FONT_SIZE * (line_index as i32) + 1),
-                        );
-
-                        if !container_area.contains(top_left, [dt.width(), dt.height()]) {
-                            // FIXME: not completely foolproof -- main purpose is just optimization
-                            continue;
-                        }
-
-                        let bot_left = DisplayCoord::new(
-                            container_area.0.x
-                                + DisplayUnits::Pixels(FONT_SIZE / 2 * (col_index as i32)),
-                            container_area.0.y
-                                + DisplayUnits::Pixels(FONT_SIZE * (line_index + 1) as i32),
-                        );
-
-                        Self::fill_rect(
-                            dt,
-                            DisplayArea::from_corner_size(
-                                top_left,
-                                DisplaySize::new(
-                                    (FONT_SIZE / 2 + 1).into(),
-                                    (FONT_SIZE + 2).into(),
-                                ),
-                            ),
-                            *bg,
-                        );
-
-                        if character == &' ' {
-                            continue;
-                        }
-
-                        dt.draw_text(
-                            font,
-                            FONT_SIZE as f32,
-                            &character.to_string(),
-                            // `start` is actually bottom left corner
-                            bot_left.into_raqote_point(dt),
-                            &raqote::Source::Solid((*fg).into()),
-                            &DrawOptions::new(),
-                        );
-                    }
-                }
-            }
-            UIElement::Nothing => {}
+    /// TODO: chunk consecutive elements of same type
+    fn draw_primitive_scene(&mut self, scene: &PrimitiveScene) {
+        for (element, display_area_px) in &scene.elements {
+            self.draw_primitive_element(element, *display_area_px);
         }
     }
-    */
 }
 
 impl UIDisplay {
     /// REVIEW: move somewhere else?
-    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &UIElement) {
+    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &PrimitiveScene) {
         let Some(state) = winit_data else {
             return;
         };
@@ -1574,9 +1252,26 @@ impl UIDisplay {
             ..
         } = &mut state.wgpu_data;
 
-        let wgpu::CurrentSurfaceTexture::Success(output) = surface.get_current_texture() else {
-            // TODO
-            panic!()
+        let output = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(output) => output,
+            wgpu::CurrentSurfaceTexture::Suboptimal(output) => {
+                // still usable this frame; reconfiguring must wait until `output` is
+                // presented/dropped, so just render as-is and let the next acquire
+                // (which will report `Outdated` if still mismatched) trigger reconfigure
+                output
+            }
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                // skip this frame and try again later
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                surface.configure(device, surface_config);
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                log::error!("wgpu surface validation error while acquiring frame");
+                return;
+            }
         };
         let view = output
             .texture
@@ -1634,12 +1329,12 @@ impl UIDisplay {
                 atlas,
                 device,
                 queue,
-                surface_config,
+                _surface_config: surface_config,
                 // text_renderer,
                 // text_buffer,
             };
 
-            content.draw(&mut drawing_shared_data, DisplayArea::FULL);
+            drawing_shared_data.draw_primitive_scene(content);
         }
 
         queue.submit(iter::once(encoder.finish()));

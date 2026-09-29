@@ -64,6 +64,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // There's gotta be a way to check all at once
     if (0. <= tex_coords.x && tex_coords.x <= 1.) &&
         (0. <= tex_coords.y && tex_coords.y <= 1.) {
+        // // turn ARGB => RGBA for wl stuff
+        // return textureSample(t_diffuse, s_diffuse, tex_coords).yzwx;
         return textureSample(t_diffuse, s_diffuse, tex_coords);
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);

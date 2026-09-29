@@ -12,4 +12,16 @@ singularity_common = { workspace = true }
 sonamu_ui = { workspace = true }
 sonamu_sync = { workspace = true }
 
+slotmap = { workspace = true }
+
 calloop = { workspace = true }
+
+pollster.workspace = true
+
+wgpu.workspace = true
+
+# TODO: put this behind a feature
+smithay.workspace = true
+wayland-protocols.workspace = true
+
+image.workspace = true

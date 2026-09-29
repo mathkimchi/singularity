@@ -1,24 +1,36 @@
 use crate::WaylandApplet;
-use singularity_common::utils::tree::world_tree::{WorldTree, WorldTreePath};
+use singularity_common::{
+    sap::packets::StandardEvent,
+    utils::tree::world_tree::{WorldTree, WorldTreePath},
+};
 use singularity_sttk::{
-    basic_applet::BasicApplet, nodular_applet::NodularApplet,
-    standard_keybinds::handle_standard_keybinds,
+    nodular_applet::StandardApplet, standard_keybinds::handle_standard_keybinds,
 };
 use sonamu_ui::display_units::DisplayContainerSize;
 
-impl BasicApplet for WaylandApplet {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-        if handle_standard_keybinds(&ui_event, &self.hook) {
-            return;
+impl StandardApplet for WaylandApplet {
+    fn handle_standard_event(&mut self, standard_event: StandardEvent) {
+        match standard_event {
+            StandardEvent::UIEvent(ui_event) => {
+                if handle_standard_keybinds(&ui_event, &self.hook) {
+                    return;
+                }
+
+                self.input_sender.send(ui_event).unwrap();
+
+                self.hook.damage_window();
+                // self.hook.damage_treeview();
+            }
+            StandardEvent::FocusChanged(_) => todo!(),
+            StandardEvent::Highlighted(_) => todo!(),
+            StandardEvent::CloseRequest => todo!(),
+            StandardEvent::SurfaceDamageAck => todo!(),
+            StandardEvent::TreeviewDamageAck => todo!(),
+            StandardEvent::WlSurfaceRegistered { .. } => todo!(),
         }
-
-        self.input_sender.send(ui_event).unwrap();
-
-        self.hook.damage_window();
-        // self.hook.damage_treeview();
     }
 
-    fn get_window(
+    fn get_window_standard_applet(
         &self,
         _container_size: DisplayContainerSize,
     ) -> sonamu_ui::ui_element::UIElement {
@@ -29,14 +41,6 @@ impl BasicApplet for WaylandApplet {
         } else {
             sonamu_ui::ui_element::UIElement::from("Wayland app loading...".to_string())
         }
-    }
-}
-impl NodularApplet for WaylandApplet {
-    fn handle_nodular_event(
-        &mut self,
-        _nodular_event: singularity_sttk::nodular_applet::NodularEvent,
-    ) {
-        todo!()
     }
 
     fn get_treeview(&self) -> WorldTree<String> {

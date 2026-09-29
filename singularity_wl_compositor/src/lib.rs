@@ -1,6 +1,6 @@
 use image::RgbaImage;
 use singularity_sttk::nodular_applet::{
-    AppletSpawner, AppletSpawnerTrait, NodularApplet, NodularAppletInitializer, NodularRunnerHook,
+    AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook, StandardApplet,
     recursive_node_applet::RecursiveNodeApplet,
 };
 use smithay::{
@@ -36,7 +36,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use sonamu_ui::ui_event::{Key, UIEvent};
+use sonamu_ui::ui_event::{KeySymbol, UIEvent};
 use std::{
     env::set_var,
     ffi::{OsStr, OsString},
@@ -350,7 +350,7 @@ impl WaylandCompositor {
     /// NOTE: ignores modifiers
     /// I'm too tired for ts
     /// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-    fn key_to_keycode(key: Key) -> Option<Keycode> {
+    fn key_to_keycode(key: KeySymbol) -> Option<Keycode> {
         Some(Keycode::new(
             include!(concat!(env!("OUT_DIR"), "/keycode_matches.rs")) + 8,
         ))
@@ -358,7 +358,11 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            UIEvent::KeyPress(key, _key_modifiers) => {
+            UIEvent::Key {
+                symbol: Some(key),
+                pressed: true,
+                ..
+            } => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,
@@ -386,8 +390,9 @@ impl WaylandCompositor {
                     );
                 }
             }
+            UIEvent::Key { .. } => {}
             UIEvent::WindowResized(_) => {}
-            UIEvent::MousePress(_, _display_area) => {
+            UIEvent::Mouse(_) => {
                 log::debug!("TODO: handle keypress in wayland applet");
             }
         }
@@ -448,7 +453,7 @@ impl WaylandApplet {
     }
     pub fn get_boxed_initiator(
         program: String,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn NodularApplet> {
+    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet> {
         |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook, program))
     }
     #[must_use]

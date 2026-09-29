@@ -1,4 +1,6 @@
-use crate::display_units::{DisplayArea, DisplayContainerSize};
+use smithay::reexports::winit;
+
+use crate::display_units::DisplayContainerSize;
 
 /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
 /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
@@ -8,15 +10,33 @@ use crate::display_units::{DisplayArea, DisplayContainerSize};
 /// TODO: figure out a standard way of "forwarding" events to child
 #[derive(Debug, Clone, Copy)]
 pub enum UIEvent {
-    KeyPress(Key, KeyModifiers),
+    Key {
+        symbol: Option<KeySymbol>,
+        modifiers: KeyModifiers,
+        raw_keycode: u32,
+        /// TODO: also have a repeat
+        pressed: bool,
+    },
     WindowResized(DisplayContainerSize),
-    /// ([mouse location [x, y], window size [w h]], container)
-    ///
-    /// REVIEW: definitely redundant, but might be helpful?
-    ///
-    /// NOTE: container should always be FULL for the outermost, but is helpful when trying to forward it to children:
-    /// the forwarded area should be: `child_area.map_onto(parent_area)`
-    MousePress([[u32; 2]; 2], DisplayArea),
+    Mouse(MouseEvent),
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MouseEvent {
+    /// Cursor position in physical pixels, relative to the window
+    pub position: [f64; 2],
+    pub kind: MouseEventKind,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MouseEventKind {
+    Motion,
+    /// `button` is an evdev code (e.g. `BTN_LEFT` = 0x110)
+    Button { button: u32, pressed: bool },
+    /// Positive scrolls down/right (Wayland convention).
+    /// `v120` is set for discrete (wheel) scrolling, in 1/120ths of a notch.
+    Scroll {
+        delta: [f64; 2],
+        v120: Option<[i32; 2]>,
+    },
 }
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct KeyModifiers {
@@ -28,7 +48,7 @@ pub struct KeyModifiers {
     // pub num_lock: bool,
 }
 #[derive(Debug, Clone, Copy)]
-pub enum Key {
+pub enum KeySymbol {
     ArrowKeyUp,
     ArrowKeyDown,
     ArrowKeyLeft,
@@ -47,7 +67,7 @@ pub trait KeyTrait {
     fn to_digit(&self) -> Option<u8>;
     fn to_char(&self) -> Option<char>;
 }
-impl KeyTrait for Key {
+impl KeyTrait for KeySymbol {
     fn to_alphabet(&self) -> Option<char> {
         let c = self.to_char()?;
         if c.is_ascii() { Some(c) } else { None }
@@ -169,53 +189,50 @@ impl std::ops::BitAnd for KeyModifiers {
     }
 }
 
-impl TryFrom<winit::event::KeyEvent> for Key {
+impl TryFrom<winit::event::KeyEvent> for KeySymbol {
     type Error = ();
 
     fn try_from(value: winit::event::KeyEvent) -> Result<Self, Self::Error> {
-        if value.state.is_pressed() {
-            match value.physical_key {
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                    Ok(Self::ArrowKeyLeft)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                    Ok(Self::ArrowKeyRight)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                    Ok(Self::ArrowKeyDown)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                    Ok(Self::ArrowKeyUp)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => {
-                    Ok(Self::Enter)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
-                    Ok(Self::PageDown)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageUp) => {
-                    Ok(Self::PageUp)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
-                    Ok(Self::Backspace)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                    Ok(Self::Escape)
-                }
-
-                _ => value
-                    .logical_key
-                    .to_text()
-                    .and_then(|s| s.chars().next())
-                    .map(Key::Char)
-                    .ok_or(()),
+        match value.physical_key {
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                Ok(Self::ArrowKeyLeft)
             }
-        } else {
-            Err(())
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                Ok(Self::ArrowKeyRight)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                Ok(Self::ArrowKeyDown)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                Ok(Self::ArrowKeyUp)
+            }
+
+            winit::keyboard::PhysicalKey::Code(
+                winit::keyboard::KeyCode::Enter | winit::keyboard::KeyCode::NumpadEnter,
+                // NOTE: my laptop says enter is numpad enter for some reason.
+            ) => Ok(Self::Enter),
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
+                Ok(Self::PageDown)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageUp) => {
+                Ok(Self::PageUp)
+            }
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
+                Ok(Self::Backspace)
+            }
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
+                Ok(Self::Escape)
+            }
+
+            _ => value
+                .logical_key
+                .to_text()
+                .and_then(|s| s.chars().next())
+                .map(KeySymbol::Char)
+                .ok_or(()),
         }
     }
 }

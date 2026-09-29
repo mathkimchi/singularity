@@ -1,27 +1,168 @@
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayContainerSize},
+    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize, DisplayCoord, DisplayUnits},
 };
+use wgpu::TextureView;
 
 mod char_grid;
 pub use char_grid::*;
-use wgpu::TextureView;
 
+#[derive(Debug, Clone, Copy)]
 pub struct RoundRect {
     pub corner_radius: f32,
     /// Eats into content
     pub border_width: f32,
+    /// I think this should be rgba?
+    /// REVIEW: confirm or deny above
     pub main_color: [f32; 4],
     pub border_color: [f32; 4],
 }
 
 /// On their own, a UI Primitive fills up the whole space
+#[derive(Debug, Clone)]
 pub enum UIPrimitiveElement {
     RoundRect(RoundRect),
     Text(Vec<(String, glyphon::AttrsOwned)>),
     CharGrid(CharGrid),
     /// Just general holder
     Texture(TextureView),
+}
+
+#[derive(Debug, Clone)]
+pub struct PrimitiveScene {
+    pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
+}
+impl PrimitiveScene {
+    pub fn new_empty() -> Self {
+        Self {
+            elements: Vec::new(),
+        }
+    }
+
+    pub fn add_primitive(
+        &mut self,
+        primitive_element: UIPrimitiveElement,
+        container_area: DisplayArea,
+        screen_size: DisplayContainerSize,
+    ) {
+        self.elements.push((
+            primitive_element,
+            container_area.map_onto_px_size(screen_size),
+        ));
+    }
+
+    fn add_ui_element(
+        &mut self,
+        element: UIElement,
+        container_area: DisplayArea,
+        screen_size: DisplayContainerSize,
+        subsurfaces: &impl Fn(u64) -> UIElement,
+    ) {
+        match element {
+            UIElement::Container(children) => {
+                for child_element in children {
+                    // draw the inner widget
+                    self.add_ui_element(child_element, container_area, screen_size, subsurfaces);
+                }
+            }
+            UIElement::Contained(inner_element, area) => {
+                self.add_ui_element(
+                    *inner_element,
+                    area.map_onto(container_area),
+                    screen_size,
+                    subsurfaces,
+                );
+            }
+            // FIXME: there are weird border lines
+            UIElement::Bordered(inner_element, border_color) => {
+                self.add_primitive(
+                    UIPrimitiveElement::RoundRect(RoundRect {
+                        corner_radius: 1.0,
+                        border_width: 1.0,
+                        main_color: Color::TRANSPARENT.to_rgba_f32_array(),
+                        border_color: border_color.to_rgba_f32_array(),
+                    }),
+                    container_area,
+                    screen_size,
+                );
+
+                let inner_area = DisplayArea(
+                    DisplayCoord::new(1.into(), 1.into()),
+                    DisplayCoord::new(
+                        DisplayUnits::from_mixed(-1, 1.0),
+                        DisplayUnits::from_mixed(-1, 1.0),
+                    ),
+                )
+                .map_onto(container_area);
+
+                // dbg!(&container_area);
+                // dbg!(&container_area.size());
+                // dbg!(&inner_area);
+
+                // draw the inner widget
+                self.add_ui_element(*inner_element, inner_area, screen_size, subsurfaces);
+            }
+            UIElement::Backgrounded(inner_element, bg_color) => {
+                // clear the inside of the border
+                // ^^^ no idea what I meant by this, just keeping it
+                self.add_primitive(
+                    UIPrimitiveElement::RoundRect(RoundRect {
+                        corner_radius: 0.0,
+                        border_width: 0.0,
+                        main_color: bg_color.to_rgba_f32_array(),
+                        // shouldn't matter
+                        border_color: [0.; 4],
+                    }),
+                    container_area,
+                    screen_size,
+                );
+
+                // draw the inner widget
+                self.add_ui_element(*inner_element, container_area, screen_size, subsurfaces);
+            }
+            UIElement::Text(text) => {
+                self.add_primitive(UIPrimitiveElement::Text(text), container_area, screen_size);
+            }
+            UIElement::CharGrid(char_grid) => {
+                self.add_primitive(
+                    UIPrimitiveElement::CharGrid(char_grid),
+                    container_area,
+                    screen_size,
+                );
+            }
+            UIElement::Image(_image_buffer) => {
+                todo!()
+            }
+            UIElement::Texture(texture_view) => {
+                self.add_primitive(
+                    UIPrimitiveElement::Texture(texture_view),
+                    container_area,
+                    screen_size,
+                );
+            }
+            UIElement::Subsurface(surface_id) => {
+                self.add_ui_element(
+                    subsurfaces(surface_id),
+                    container_area,
+                    screen_size,
+                    subsurfaces,
+                );
+            }
+            UIElement::Nothing => {}
+        }
+    }
+
+    pub fn from_ui_element(
+        content: UIElement,
+        screen_size: DisplayContainerSize,
+        subsurfaces: impl Fn(u64) -> UIElement,
+    ) -> Self {
+        let mut scene = PrimitiveScene::new_empty();
+
+        scene.add_ui_element(content, DisplayArea::FULL, screen_size, &subsurfaces);
+
+        scene
+    }
 }
 
 /// TODO: rename most everything here
@@ -49,7 +190,14 @@ pub enum UIElement {
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
 
+    #[deprecated]
     Image(image::RgbaImage),
+
+    /// TODO: replace image with this
+    Texture(TextureView),
+
+    /// Reference to an embedded UI element
+    Subsurface(u64),
 
     Nothing,
 }
@@ -102,7 +250,9 @@ impl UIElement {
     }
 
     #[must_use]
-    pub const fn inner_size_of_bordered(container_size: DisplayContainerSize) -> DisplayContainerSize {
+    pub const fn inner_size_of_bordered(
+        container_size: DisplayContainerSize,
+    ) -> DisplayContainerSize {
         DisplayContainerSize {
             // TODO: figure out all the edge cases like this
             width: container_size.width.saturating_sub(2),

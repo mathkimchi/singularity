@@ -19,3 +19,6 @@ serde_json = { workspace = true }
 calloop = { workspace = true }
 
 log = { workspace = true }
+
+[build-dependencies]
+regex = "1.12"

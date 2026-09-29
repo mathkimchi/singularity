@@ -1,7 +1,7 @@
 use crate::{
     basic_applet::{BasicApplet, BasicRunnerHook},
     nodular_applet::{
-        AppletSpawner, NodularApplet, NodularEvent, NodularRunnerHook,
+        AppletSpawner, NodularRunnerHook, StandardApplet,
         recursive_node_applet::RecursiveNodeApplet,
     },
 };
@@ -21,6 +21,7 @@ use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
     ui_element::UIElement,
+    ui_event::UIEvent,
 };
 use std::{
     collections::BTreeMap,
@@ -44,9 +45,11 @@ pub struct RootNodeApplet {
     applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
 impl RootNodeApplet {
+    const INNER_APPLET_AREA: DisplayArea = DisplayArea::new_proportional([[0.2, 0.0], [1.0, 1.0]]);
+
     fn inner_applet_size(&self) -> DisplayContainerSize {
         self.latest_size
-            .find_subsize(DisplayArea::new((0.2, 0.0), (1.0, 1.0)).size())
+            .find_subsize(Self::INNER_APPLET_AREA.size())
     }
 
     /// Redraws if necessary/possible
@@ -113,7 +116,7 @@ impl RootNodeApplet {
             // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
 
             fn add_child(&self, _initializer: super::NodularAppletInitializer) {
-                todo!()
+                unimplemented!()
             }
 
             fn damage_treeview(&self) {
@@ -138,9 +141,7 @@ impl RootNodeApplet {
                     .unwrap()
                     .insert(name, applet_spawner);
             }
-            fn get_applet_spawners(
-                &self,
-            ) -> BTreeMap<String, AppletSpawner> {
+            fn get_applet_spawners(&self) -> BTreeMap<String, AppletSpawner> {
                 self.applet_spawner_registry.read().unwrap().clone()
             }
             fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
@@ -203,34 +204,35 @@ impl RootNodeApplet {
                                 return;
                             };
                             match event {
-                                StandardEvent::UIEvent(
-                                    sonamu_ui::ui_event::UIEvent::WindowResized(size),
-                                ) => {
+                                StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
                                     applet.latest_size = size;
-                                    applet.applet.handle_ui_event(
-                                        sonamu_ui::ui_event::UIEvent::WindowResized(
-                                            applet.inner_applet_size(),
-                                        ),
-                                    );
+                                    applet.applet.handle_ui_event(UIEvent::WindowResized(
+                                        applet.inner_applet_size(),
+                                    ));
+                                }
+                                StandardEvent::UIEvent(UIEvent::Mouse(mut mouse_event)) => {
+                                    // remap window coords -> inner applet coords
+                                    // TODO: there's also the 1px border on every side
+                                    let [left, top] = RootNodeApplet::INNER_APPLET_AREA
+                                        .map_onto_px_size(applet.latest_size)
+                                        .0[0];
+                                    mouse_event.position[0] -= f64::from(left);
+                                    mouse_event.position[1] -= f64::from(top);
+                                    applet.applet.handle_ui_event(UIEvent::Mouse(mouse_event));
                                 }
                                 StandardEvent::UIEvent(ui_event) => {
                                     applet.applet.handle_ui_event(ui_event);
-                                }
-                                StandardEvent::Focus => {
-                                    applet
-                                        .applet
-                                        .handle_nodular_event(NodularEvent::Focused(true));
-                                }
-                                StandardEvent::Unfocus => {
-                                    applet
-                                        .applet
-                                        .handle_nodular_event(NodularEvent::Focused(true));
                                 }
                                 StandardEvent::CloseRequest => todo!(),
                                 StandardEvent::SurfaceDamageAck => {
                                     applet.content_dirty = false;
                                 }
-                                _ => {}
+                                StandardEvent::FocusChanged(..)
+                                | StandardEvent::Highlighted(..)
+                                | StandardEvent::TreeviewDamageAck
+                                | StandardEvent::WlSurfaceRegistered { .. } => {
+                                    applet.applet.handle_standard_event(event);
+                                }
                             }
                         },
                     )
@@ -284,7 +286,7 @@ impl RootNodeApplet {
     }
 }
 impl BasicApplet for RootNodeApplet {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
+    fn handle_ui_event(&mut self, ui_event: UIEvent) {
         self.applet.handle_ui_event(ui_event);
     }
 
@@ -295,7 +297,7 @@ impl BasicApplet for RootNodeApplet {
             self.applet
                 .layout_builder()
                 .bordered(Color::LIGHT_GREEN)
-                .contained(DisplayArea::new((0.2, 0.0), (1.0, 1.0)))
+                .contained(Self::INNER_APPLET_AREA)
                 .get_ui_element(container_size),
         ])
     }
