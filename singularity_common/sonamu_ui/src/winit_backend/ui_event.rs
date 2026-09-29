@@ -10,7 +10,13 @@ use crate::display_units::{DisplayArea, DisplayContainerSize};
 /// TODO: figure out a standard way of "forwarding" events to child
 #[derive(Debug, Clone, Copy)]
 pub enum UIEvent {
-    KeyPress(Key, KeyModifiers),
+    Key {
+        symbol: Option<KeySymbol>,
+        modifiers: KeyModifiers,
+        raw_keycode: u32,
+        /// TODO: also have a repeat
+        pressed: bool,
+    },
     WindowResized(DisplayContainerSize),
     /// ([mouse location [x, y], window size [w h]], container)
     ///
@@ -30,7 +36,7 @@ pub struct KeyModifiers {
     // pub num_lock: bool,
 }
 #[derive(Debug, Clone, Copy)]
-pub enum Key {
+pub enum KeySymbol {
     ArrowKeyUp,
     ArrowKeyDown,
     ArrowKeyLeft,
@@ -49,7 +55,7 @@ pub trait KeyTrait {
     fn to_digit(&self) -> Option<u8>;
     fn to_char(&self) -> Option<char>;
 }
-impl KeyTrait for Key {
+impl KeyTrait for KeySymbol {
     fn to_alphabet(&self) -> Option<char> {
         let c = self.to_char()?;
         if c.is_ascii() { Some(c) } else { None }
@@ -171,7 +177,7 @@ impl std::ops::BitAnd for KeyModifiers {
     }
 }
 
-impl TryFrom<winit::event::KeyEvent> for Key {
+impl TryFrom<winit::event::KeyEvent> for KeySymbol {
     type Error = ();
 
     fn try_from(value: winit::event::KeyEvent) -> Result<Self, Self::Error> {
@@ -214,7 +220,7 @@ impl TryFrom<winit::event::KeyEvent> for Key {
                     .logical_key
                     .to_text()
                     .and_then(|s| s.chars().next())
-                    .map(Key::Char)
+                    .map(KeySymbol::Char)
                     .ok_or(()),
             }
         } else {

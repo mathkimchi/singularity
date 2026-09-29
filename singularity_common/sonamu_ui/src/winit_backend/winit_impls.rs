@@ -1,6 +1,6 @@
 use crate::{
     display_units::DisplayContainerSize,
-    ui_event::Key,
+    ui_event::KeySymbol,
     winit_backend::{UIDisplay, WgpuData, WinitData},
 };
 use smithay::reexports::winit;
@@ -89,9 +89,14 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 is_synthetic: _,
             } => {
                 // log::debug!("{event:?}");
-                if let Ok(key) = Key::try_from(event) {
+                if let Ok(key_symbol) = KeySymbol::try_from(&event) {
                     self.event_queue
-                        .send(super::ui_event::UIEvent::KeyPress(key, self.key_modifiers))
+                        .send(super::ui_event::UIEvent::Key {
+                            symbol: key_symbol,
+                            modifiers: self.key_modifiers,
+                            raw_keycode: 0,
+                            pressed: event.state.is_pressed(),
+                        })
                         .unwrap();
                 }
 

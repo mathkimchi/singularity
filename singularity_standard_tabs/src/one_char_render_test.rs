@@ -45,7 +45,7 @@ impl StandardApplet for OneCharRenderTestApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
         match standard_event {
             StandardEvent::UIEvent(ui_event) => {
-                if let UIEvent::KeyPress(key, _) = ui_event
+                if let UIEvent::Key(key, _) = ui_event
                     && let Some(c) = key.to_char()
                 {
                     self.0 = c;

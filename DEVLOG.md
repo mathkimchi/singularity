@@ -10074,3 +10074,43 @@ but wtv.
 I realized that I should actually be using Claude for these easy changes
 more than anything.
 I think that's what I should trust it most for.
+
+2026-09-28 10:50PM
+
+I think I'll try to kill a few birds with one stone
+by figuring out the best way to do inputs generally.
+
+I remembered that Smithay's smallvil example was run on winit,
+which means it should contain an example of converting
+winit events into Wayland events.
+
+I guess there are two places I found:
+- https://github.com/Smithay/smithay/blob/master/smallvil/src/input.rs#L17 for input events
+  - Smithay provides an `InputBackend` trait, which is fair, but I'm gonna just come up with something reasonable to handle everything
+- https://github.com/Smithay/smithay/blob/master/smallvil/src/winit.rs
+  - For general winit events, including resize, input, redraw, and close
+
+I might just take the lazy route of least change
+by just representing input events with
+my current representation + the smithay/winit one.
+(Smithay would be `InputEvent<WinitInput>` and
+winit should be WindowEvent)
+
+Looking through Smithay's code,
+the libinput (the most low-level one, and the one actual compositors use)
+backedn uses the `input` crate developed by smithay.
+I could probably convert winit events to the events in input.
+
+You know what, I am just going to make Claude figure it out.
+
+...
+
+2026-09-28 11:49PM
+
+Claude decided to make its own RawInput thing,
+but I didn't like that window resize wasn't a raw input,
+and I just realized I could just include the raw key code in the
+existing UIEvent::KeyPress and also just have a bool for press or not.
+So, I reverted all its changes and manually changed UIEvent.
+
+I'm gonna commit this and then make claude fix all the little associated bugs.

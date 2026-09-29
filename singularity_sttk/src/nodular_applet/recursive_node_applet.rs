@@ -540,7 +540,7 @@ impl StandardApplet for RecursiveNodeApplet {
                     FocusIndex::Focusing => {
                         // We can intercept
 
-                        if let UIEvent::KeyPress(
+                        if let UIEvent::Key(
                             key,
                             KeyModifiers {
                                 ctrl: false,

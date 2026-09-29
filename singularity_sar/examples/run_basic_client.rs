@@ -9,7 +9,7 @@ use singularity_sar::runner::AppletRunner;
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
     ui_element::{CharGrid, UIElement},
-    ui_event::{self, Key, KeyModifiers, KeyTrait},
+    ui_event::{self, KeyModifiers, KeySymbol, KeyTrait},
 };
 
 struct BasicApp {
@@ -18,12 +18,12 @@ struct BasicApp {
     request_sender: Sender<StandardRequest>,
 }
 impl BasicApp {
-    fn handle_key_press(&mut self, key: Key, mods: KeyModifiers) {
+    fn handle_key_press(&mut self, key: KeySymbol, mods: KeyModifiers) {
         match (key, mods) {
-            (Key::Char('Q'), KeyModifiers::CTRL_SHIFT) => {
+            (KeySymbol::Char('Q'), KeyModifiers::CTRL_SHIFT) => {
                 self.request_sender.send(StandardRequest::Quit).unwrap();
             }
-            (Key::Backspace, _) => {
+            (KeySymbol::Backspace, _) => {
                 self.content_str.pop();
                 self.content
                     .set(CharGrid::from(self.content_str.as_str()).element());
@@ -76,7 +76,7 @@ impl RawClientInitializer for BasicInitializer {
                 |event, &mut (), app_state: &mut BasicApp| match event {
                     calloop::channel::Event::Msg(
                         singularity_common::sap::packets::StandardEvent::UIEvent(
-                            ui_event::UIEvent::KeyPress(key, mods),
+                            ui_event::UIEvent::Key(key, mods),
                         ),
                     ) => {
                         app_state.handle_key_press(key, mods);

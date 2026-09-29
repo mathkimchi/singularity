@@ -7,13 +7,13 @@ use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
 use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,
-    ui_event::{Key, UIEvent},
+    ui_event::{KeySymbol, UIEvent},
 };
 
 /// NOTE: ignores modifiers
 /// I'm too tired for ts
 /// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-fn key_to_keycode(key: Key) -> Option<u32> {
+fn key_to_keycode(key: KeySymbol) -> Option<u32> {
     Some(include!(concat!(env!("OUT_DIR"), "/keycode_matches.rs")) + 8)
 }
 
@@ -56,7 +56,7 @@ impl StandardApplet for WlSurfaceApplet {
                 }
 
                 match ui_event {
-                    UIEvent::KeyPress(key, _key_modifiers) => {
+                    UIEvent::Key(key, _key_modifiers) => {
                         if let Some(keycode) = key_to_keycode(key) {
                             self.key_event_queue
                                 .send((self.surface_id, keycode))

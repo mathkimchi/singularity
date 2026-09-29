@@ -36,7 +36,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use sonamu_ui::ui_event::{Key, UIEvent};
+use sonamu_ui::ui_event::{KeySymbol, UIEvent};
 use std::{
     env::set_var,
     ffi::{OsStr, OsString},
@@ -350,7 +350,7 @@ impl WaylandCompositor {
     /// NOTE: ignores modifiers
     /// I'm too tired for ts
     /// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-    fn key_to_keycode(key: Key) -> Option<Keycode> {
+    fn key_to_keycode(key: KeySymbol) -> Option<Keycode> {
         Some(Keycode::new(
             include!(concat!(env!("OUT_DIR"), "/keycode_matches.rs")) + 8,
         ))
@@ -358,7 +358,7 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            UIEvent::KeyPress(key, _key_modifiers) => {
+            UIEvent::Key(key, _key_modifiers) => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,

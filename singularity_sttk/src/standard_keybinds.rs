@@ -19,14 +19,14 @@ use crate::{
 /// TODO: have an enum or something more generic for a keybind system
 /// (could use abstraction similar to what I did with packets).
 pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHook) -> bool {
-    if let UIEvent::KeyPress(key, KeyModifiers::CTRL_SHIFT) = &ui_event
+    if let UIEvent::Key(key, KeyModifiers::CTRL_SHIFT) = &ui_event
         && key.to_char() == Some('Q')
     {
         // Ctrl+Shift+Q -> Quit
         hook.close();
 
         true
-    } else if let UIEvent::KeyPress(key, KeyModifiers::CTRL_SHIFT) = &ui_event
+    } else if let UIEvent::Key(key, KeyModifiers::CTRL_SHIFT) = &ui_event
         && key.to_char() == Some('+')
     {
         // Ctrl+Shift+Plus -> spawn CommandHub as child
@@ -35,7 +35,7 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         ));
 
         true
-    } else if let UIEvent::KeyPress(key, KeyModifiers::ALT) = &ui_event
+    } else if let UIEvent::Key(key, KeyModifiers::ALT) = &ui_event
         && key.to_char() == Some('q')
     {
         // Alt+q -> exit focus

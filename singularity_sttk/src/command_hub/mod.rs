@@ -193,13 +193,13 @@ impl StandardApplet for CommandHubApplet {
                     return;
                 }
 
-                if let UIEvent::KeyPress(key, _) = &ui_event {
+                if let UIEvent::Key(key, _) = &ui_event {
                     match key {
-                        sonamu_ui::ui_event::Key::Enter => self.handle_enter(),
-                        sonamu_ui::ui_event::Key::Backspace => {
+                        sonamu_ui::ui_event::KeySymbol::Enter => self.handle_enter(),
+                        sonamu_ui::ui_event::KeySymbol::Backspace => {
                             self.current_prompt.pop();
                         }
-                        sonamu_ui::ui_event::Key::Char(key_char) => {
+                        sonamu_ui::ui_event::KeySymbol::Char(key_char) => {
                             self.current_prompt.push(*key_char);
                         }
                         _ => {}
