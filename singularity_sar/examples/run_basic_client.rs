@@ -76,10 +76,14 @@ impl RawClientInitializer for BasicInitializer {
                 |event, &mut (), app_state: &mut BasicApp| match event {
                     calloop::channel::Event::Msg(
                         singularity_common::sap::packets::StandardEvent::UIEvent(
-                            ui_event::UIEvent::Key(key, mods),
+                            ui_event::UIEvent::Key {
+                                symbol: Some(key),
+                                modifiers,
+                                ..
+                            },
                         ),
                     ) => {
-                        app_state.handle_key_press(key, mods);
+                        app_state.handle_key_press(key, modifiers);
                     }
                     calloop::channel::Event::Msg(_) => {}
                     calloop::channel::Event::Closed => {

@@ -56,7 +56,11 @@ impl StandardApplet for WlSurfaceApplet {
                 }
 
                 match ui_event {
-                    UIEvent::Key(key, _key_modifiers) => {
+                    UIEvent::Key {
+                        symbol: Some(key),
+                        pressed: true,
+                        ..
+                    } => {
                         if let Some(keycode) = key_to_keycode(key) {
                             self.key_event_queue
                                 .send((self.surface_id, keycode))
@@ -65,6 +69,7 @@ impl StandardApplet for WlSurfaceApplet {
                             // self.hook.damage_window();
                         }
                     }
+                    UIEvent::Key { .. } => {}
                     UIEvent::MousePress(_, _) => {}
                     UIEvent::WindowResized(new_size) => {
                         self.resize_event_queue

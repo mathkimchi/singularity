@@ -193,7 +193,12 @@ impl StandardApplet for CommandHubApplet {
                     return;
                 }
 
-                if let UIEvent::Key(key, _) = &ui_event {
+                if let UIEvent::Key {
+                    symbol: Some(key),
+                    pressed: true,
+                    ..
+                } = &ui_event
+                {
                     match key {
                         sonamu_ui::ui_event::KeySymbol::Enter => self.handle_enter(),
                         sonamu_ui::ui_event::KeySymbol::Backspace => {

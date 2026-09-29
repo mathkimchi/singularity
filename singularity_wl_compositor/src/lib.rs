@@ -358,7 +358,11 @@ impl WaylandCompositor {
 
     fn process_ui_event(&mut self, ui_event: UIEvent) {
         match ui_event {
-            UIEvent::Key(key, _key_modifiers) => {
+            UIEvent::Key {
+                symbol: Some(key),
+                pressed: true,
+                ..
+            } => {
                 if let Some(keycode) = Self::key_to_keycode(key) {
                     self.seat.get_keyboard().unwrap().input::<(), _>(
                         self,
@@ -386,6 +390,7 @@ impl WaylandCompositor {
                     );
                 }
             }
+            UIEvent::Key { .. } => {}
             UIEvent::WindowResized(_) => {}
             UIEvent::MousePress(_, _display_area) => {
                 log::debug!("TODO: handle keypress in wayland applet");

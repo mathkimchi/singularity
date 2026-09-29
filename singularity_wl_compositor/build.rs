@@ -49,7 +49,7 @@ fn main() {
             let key_char = captures[1].chars().next()?.to_lowercase();
             let keycode: u32 = captures[2].parse().ok()?;
 
-            Some(format!("Key::Char('{key_char}') => {keycode}"))
+            Some(format!("KeySymbol::Char('{key_char}') => {keycode}"))
         })
         .collect::<Vec<_>>()
         .join(",\n");
@@ -57,16 +57,16 @@ fn main() {
     let content = format!(
         r"
             match key {{
-                Key::ArrowKeyUp => 103,
-                Key::ArrowKeyDown => 108,
-                Key::ArrowKeyLeft => 105,
-                Key::ArrowKeyRight => 106,
-                Key::Enter => 28,
-                Key::Backspace => 14,
-                Key::Char(' ') => 57,
-                Key::Char('0') => 11,
+                KeySymbol::ArrowKeyUp => 103,
+                KeySymbol::ArrowKeyDown => 108,
+                KeySymbol::ArrowKeyLeft => 105,
+                KeySymbol::ArrowKeyRight => 106,
+                KeySymbol::Enter => 28,
+                KeySymbol::Backspace => 14,
+                KeySymbol::Char(' ') => 57,
+                KeySymbol::Char('0') => 11,
                 // KEY_1 = 2 and etc
-                Key::Char(c @ '1'..='9') => c.to_digit(10)? + 1,
+                KeySymbol::Char(c @ '1'..='9') => c.to_digit(10)? + 1,
                 {match_arms},
                 _ => None?,
             }}

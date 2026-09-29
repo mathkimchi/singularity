@@ -1,3 +1,5 @@
+use winit::platform::scancode::PhysicalKeyExtScancode;
+
 use crate::{
     display_units::DisplayContainerSize,
     ui_event::KeySymbol,
@@ -89,12 +91,12 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 is_synthetic: _,
             } => {
                 // log::debug!("{event:?}");
-                if let Ok(key_symbol) = KeySymbol::try_from(&event) {
+                if let Ok(key_symbol) = KeySymbol::try_from(event.clone()) {
                     self.event_queue
                         .send(super::ui_event::UIEvent::Key {
-                            symbol: key_symbol,
+                            symbol: Some(key_symbol),
                             modifiers: self.key_modifiers,
-                            raw_keycode: 0,
+                            raw_keycode: event.physical_key.to_scancode().unwrap_or(0),
                             pressed: event.state.is_pressed(),
                         })
                         .unwrap();

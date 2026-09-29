@@ -540,16 +540,19 @@ impl StandardApplet for RecursiveNodeApplet {
                     FocusIndex::Focusing => {
                         // We can intercept
 
-                        if let UIEvent::Key(
-                            key,
-                            KeyModifiers {
-                                ctrl: false,
-                                alt: true,
-                                shift: false,
-                                caps_lock: false,
-                                logo: false,
-                            },
-                        ) = &ui_event
+                        if let UIEvent::Key {
+                            symbol: Some(key),
+                            modifiers:
+                                KeyModifiers {
+                                    ctrl: false,
+                                    alt: true,
+                                    shift: false,
+                                    caps_lock: false,
+                                    logo: false,
+                                },
+                            pressed: true,
+                            ..
+                        } = &ui_event
                             && let Some(key_char) = key.to_char()
                             && let Some(operation) =
                                 WorldTreeTraversalOperation::from_char(key_char)
