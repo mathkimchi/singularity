@@ -392,7 +392,7 @@ impl WaylandCompositor {
             }
             UIEvent::Key { .. } => {}
             UIEvent::WindowResized(_) => {}
-            UIEvent::MousePress(_, _display_area) => {
+            UIEvent::Mouse(_) => {
                 log::debug!("TODO: handle keypress in wayland applet");
             }
         }

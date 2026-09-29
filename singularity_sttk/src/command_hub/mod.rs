@@ -123,7 +123,7 @@ impl CommandHubApplet {
                     std::process::Command::new("alacritty")
                         // NOTE: currently hardcoced
                         .env("WAYLAND_DISPLAY", "wayland-2")
-                        .env("WAYLAND_DEBUG", "1")
+                        // .env("WAYLAND_DEBUG", "1")
                         .spawn()
                         .ok();
 

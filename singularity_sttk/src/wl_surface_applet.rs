@@ -49,7 +49,7 @@ impl StandardApplet for WlSurfaceApplet {
                         keycode: raw_keycode + 8,
                         pressed,
                     },
-                    UIEvent::MousePress(_, _) => return,
+                    UIEvent::Mouse(mouse_event) => WlSurfaceEvent::Mouse(mouse_event),
                     UIEvent::WindowResized(new_size) => WlSurfaceEvent::Resize(new_size),
                 };
                 self.wl_event_queue

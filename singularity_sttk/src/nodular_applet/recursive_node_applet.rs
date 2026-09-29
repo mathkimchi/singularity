@@ -18,7 +18,7 @@ use singularity_common::{
 use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,
-    ui_event::{KeyTrait, UIEvent},
+    ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
     rc::{Rc, Weak},
@@ -560,15 +560,18 @@ impl StandardApplet for RecursiveNodeApplet {
                                 }
                             }
                             UIEvent::Key { pressed: false, .. } => {}
-                            UIEvent::WindowResized(_) => {
-                                // forward window resize
-                                self.main_applet.handle_ui_event(ui_event);
-                            }
-                            UIEvent::MousePress(..) => {
+                            UIEvent::Mouse(MouseEvent {
+                                kind: MouseEventKind::Button { pressed: true, .. },
+                                ..
+                            }) => {
                                 // set focus to inner and forward mouse press
                                 self.shared_resource
                                     .change_focus(WorldTreeTraversalOperation::NextLayer);
                                 self.handle_ui_event(ui_event);
+                            }
+                            UIEvent::WindowResized(_) | UIEvent::Mouse(_) => {
+                                // forward without changing focus (otherwise hovering would steal focus)
+                                self.main_applet.handle_ui_event(ui_event);
                             }
                         }
 

@@ -1,5 +1,8 @@
 use slotmap::KeyData;
-use sonamu_ui::{display_units::DisplayContainerSize, ui_event::UIEvent};
+use sonamu_ui::{
+    display_units::DisplayContainerSize,
+    ui_event::{MouseEvent, UIEvent},
+};
 
 /// Client to server
 #[derive(Clone, Copy, Debug)]
@@ -54,4 +57,5 @@ pub enum WlSurfaceEvent {
         pressed: bool,
     },
     Resize(DisplayContainerSize),
+    Mouse(MouseEvent),
 }

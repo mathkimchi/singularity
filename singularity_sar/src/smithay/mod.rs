@@ -4,17 +4,21 @@ use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceI
 use slotmap::SlotMap;
 use smithay::{
     backend::{
-        input::Keycode,
+        input::{Axis, AxisSource, ButtonState, Keycode},
         renderer::{
             BufferType, buffer_type,
             utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
         },
     },
-    input::{Seat, SeatHandler, SeatState, keyboard::FilterResult},
+    input::{
+        Seat, SeatHandler, SeatState,
+        keyboard::FilterResult,
+        pointer::{AxisFrame, ButtonEvent, MotionEvent},
+    },
     reexports::wayland_server::{
         Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
     },
-    utils::Serial,
+    utils::{SERIAL_COUNTER, Serial},
     wayland::{
         buffer::BufferHandler,
         compositor::{
@@ -28,6 +32,7 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
+use sonamu_ui::ui_event::{MouseEvent, MouseEventKind};
 use std::sync::Arc;
 use wgpu::{TextureView, TextureViewDescriptor};
 
@@ -234,6 +239,64 @@ impl SmithayState {
                                     Some((new_size.width as i32, new_size.height as i32).into());
                             });
                             toplevel.send_configure();
+                        }
+                        WlSurfaceEvent::Mouse(MouseEvent { position, kind }) => {
+                            let pointer = state.smithay_state.seat.get_pointer().unwrap();
+                            let time = state.smithay_state.start_time.elapsed().as_millis() as u32;
+
+                            // Motion first so the pointer is focused on the target surface.
+                            // TODO: the surface is assumed to be at the window's origin;
+                            // use where it is actually drawn once that is tracked
+                            pointer.motion(
+                                state,
+                                Some((target_surface, (0., 0.).into())),
+                                &MotionEvent {
+                                    location: (position[0], position[1]).into(),
+                                    serial: SERIAL_COUNTER.next_serial(),
+                                    time,
+                                },
+                            );
+                            match kind {
+                                MouseEventKind::Motion => {}
+                                MouseEventKind::Button { button, pressed } => {
+                                    pointer.button(
+                                        state,
+                                        &ButtonEvent {
+                                            serial: SERIAL_COUNTER.next_serial(),
+                                            time,
+                                            button,
+                                            state: if pressed {
+                                                ButtonState::Pressed
+                                            } else {
+                                                ButtonState::Released
+                                            },
+                                        },
+                                    );
+                                }
+                                MouseEventKind::Scroll {
+                                    delta: [dx, dy],
+                                    v120,
+                                } => {
+                                    let mut frame = AxisFrame::new(time).source(if v120.is_some() {
+                                        AxisSource::Wheel
+                                    } else {
+                                        AxisSource::Finger
+                                    });
+                                    if dx != 0. {
+                                        frame = frame.value(Axis::Horizontal, dx);
+                                    }
+                                    if dy != 0. {
+                                        frame = frame.value(Axis::Vertical, dy);
+                                    }
+                                    if let Some([h, v]) = v120 {
+                                        frame = frame
+                                            .v120(Axis::Horizontal, h)
+                                            .v120(Axis::Vertical, v);
+                                    }
+                                    pointer.axis(state, frame);
+                                }
+                            }
+                            pointer.frame(state);
                         }
                     }
 

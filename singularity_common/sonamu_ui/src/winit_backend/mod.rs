@@ -214,6 +214,8 @@ pub struct UIDisplay {
     // width: u32,
     // height: u32,
     key_modifiers: KeyModifiers,
+    /// Last known cursor position, since winit's button and scroll events don't carry one
+    cursor_position: [f64; 2],
 
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -385,6 +387,7 @@ impl UIDisplay {
             // width: 256,
             // height: 256,
             key_modifiers: KeyModifiers::NONE,
+            cursor_position: [0.0, 0.0],
             winit_data: None,
             device,
             queue,

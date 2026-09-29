@@ -273,7 +273,7 @@ impl StandardApplet for CodeEditorApplet {
 
                         self.view_offset.most_recent_num_rows = Some(height);
                     }
-                    sonamu_ui::ui_event::UIEvent::MousePress(_, _display_area) => {
+                    sonamu_ui::ui_event::UIEvent::Mouse(_) => {
                         log::debug!("TODO");
                     }
                 }

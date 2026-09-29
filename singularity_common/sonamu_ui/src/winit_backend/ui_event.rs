@@ -1,6 +1,6 @@
 use smithay::reexports::winit;
 
-use crate::display_units::{DisplayArea, DisplayContainerSize};
+use crate::display_units::DisplayContainerSize;
 
 /// TODO: not great that I am reexporting smithay's event, given that the goal is to be backend agnostic.
 /// I am doing it right now because I'd rather get something working sooner, even if I have to compromise a bit
@@ -18,13 +18,25 @@ pub enum UIEvent {
         pressed: bool,
     },
     WindowResized(DisplayContainerSize),
-    /// ([mouse location [x, y], window size [w h]], container)
-    ///
-    /// REVIEW: definitely redundant, but might be helpful?
-    ///
-    /// NOTE: container should always be FULL for the outermost, but is helpful when trying to forward it to children:
-    /// the forwarded area should be: `child_area.map_onto(parent_area)`
-    MousePress([[u32; 2]; 2], DisplayArea),
+    Mouse(MouseEvent),
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MouseEvent {
+    /// Cursor position in physical pixels, relative to the window
+    pub position: [f64; 2],
+    pub kind: MouseEventKind,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MouseEventKind {
+    Motion,
+    /// `button` is an evdev code (e.g. `BTN_LEFT` = 0x110)
+    Button { button: u32, pressed: bool },
+    /// Positive scrolls down/right (Wayland convention).
+    /// `v120` is set for discrete (wheel) scrolling, in 1/120ths of a notch.
+    Scroll {
+        delta: [f64; 2],
+        v120: Option<[i32; 2]>,
+    },
 }
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct KeyModifiers {
