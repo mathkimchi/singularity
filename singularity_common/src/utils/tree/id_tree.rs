@@ -478,10 +478,7 @@ mod derive_macro_impls {
                 ) -> serde::__private228::fmt::Result {
                     serde::__private228::Formatter::write_str(__formatter, "field identifier")
                 }
-                fn visit_u64<__E>(
-                    self,
-                    __value: u64,
-                ) -> Result<Self::Value, __E>
+                fn visit_u64<__E>(self, __value: u64) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
@@ -491,10 +488,7 @@ mod derive_macro_impls {
                         _ => Ok(__Field::__ignore),
                     }
                 }
-                fn visit_str<__E>(
-                    self,
-                    __value: &str,
-                ) -> Result<Self::Value, __E>
+                fn visit_str<__E>(self, __value: &str) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
@@ -504,10 +498,7 @@ mod derive_macro_impls {
                         _ => Ok(__Field::__ignore),
                     }
                 }
-                fn visit_bytes<__E>(
-                    self,
-                    __value: &[u8],
-                ) -> Result<Self::Value, __E>
+                fn visit_bytes<__E>(self, __value: &[u8]) -> Result<Self::Value, __E>
                 where
                     __E: serde::de::Error,
                 {
@@ -520,9 +511,7 @@ mod derive_macro_impls {
             }
             impl<'de> serde::Deserialize<'de> for __Field {
                 #[inline]
-                fn deserialize<__D>(
-                    __deserializer: __D,
-                ) -> Result<Self, __D::Error>
+                fn deserialize<__D>(__deserializer: __D) -> Result<Self, __D::Error>
                 where
                     __D: serde::Deserializer<'de>,
                 {
@@ -543,10 +532,7 @@ mod derive_macro_impls {
                     serde::__private228::Formatter::write_str(__formatter, "struct IdTree")
                 }
                 #[inline]
-                fn visit_seq<__A>(
-                    self,
-                    mut __seq: __A,
-                ) -> Result<Self::Value, __A::Error>
+                fn visit_seq<__A>(self, mut __seq: __A) -> Result<Self::Value, __A::Error>
                 where
                     __A: serde::de::SeqAccess<'de>,
                 {
@@ -577,48 +563,32 @@ mod derive_macro_impls {
                     })
                 }
                 #[inline]
-                fn visit_map<__A>(
-                    self,
-                    mut __map: __A,
-                ) -> Result<Self::Value, __A::Error>
+                fn visit_map<__A>(self, mut __map: __A) -> Result<Self::Value, __A::Error>
                 where
                     __A: serde::de::MapAccess<'de>,
                 {
-                    let mut __field0: Option<Id<T>> =
-                        None;
-                    let mut __field1: Option<BTreeMap<Id<T>, Node<T>>> =
-                        None;
-                    while let Some(__key) =
-                        serde::de::MapAccess::next_key::<__Field>(&mut __map)?
-                    {
+                    let mut __field0: Option<Id<T>> = None;
+                    let mut __field1: Option<BTreeMap<Id<T>, Node<T>>> = None;
+                    while let Some(__key) = serde::de::MapAccess::next_key::<__Field>(&mut __map)? {
                         match __key {
                             __Field::__field0 => {
                                 if Option::is_some(&__field0) {
-                                    return Err(
-                                        <__A::Error as serde::de::Error>::duplicate_field(
-                                            "root_id",
-                                        ),
-                                    );
+                                    return Err(<__A::Error as serde::de::Error>::duplicate_field(
+                                        "root_id",
+                                    ));
                                 }
                                 __field0 =
-                                    Some(serde::de::MapAccess::next_value::<
-                                        Id<T>,
-                                    >(
-                                        &mut __map
-                                    )?);
+                                    Some(serde::de::MapAccess::next_value::<Id<T>>(&mut __map)?);
                             }
                             __Field::__field1 => {
                                 if Option::is_some(&__field1) {
-                                    return Err(
-                                        <__A::Error as serde::de::Error>::duplicate_field("nodes"),
-                                    );
+                                    return Err(<__A::Error as serde::de::Error>::duplicate_field(
+                                        "nodes",
+                                    ));
                                 }
-                                __field1 =
-                                    Some(serde::de::MapAccess::next_value::<
-                                        BTreeMap<Id<T>, Node<T>>,
-                                    >(
-                                        &mut __map
-                                    )?);
+                                __field1 = Some(serde::de::MapAccess::next_value::<
+                                    BTreeMap<Id<T>, Node<T>>,
+                                >(&mut __map)?);
                             }
                             _ => {
                                 let _ = serde::de::MapAccess::next_value::<serde::de::IgnoredAny>(
@@ -629,15 +599,11 @@ mod derive_macro_impls {
                     }
                     let __field0 = match __field0 {
                         Some(__field0) => __field0,
-                        None => {
-                            serde::__private228::de::missing_field("root_id")?
-                        }
+                        None => serde::__private228::de::missing_field("root_id")?,
                     };
                     let __field1 = match __field1 {
                         Some(__field1) => __field1,
-                        None => {
-                            serde::__private228::de::missing_field("nodes")?
-                        }
+                        None => serde::__private228::de::missing_field("nodes")?,
                     };
                     Ok(IdTree {
                         root_id: __field0,

@@ -558,12 +558,15 @@ impl StandardApplet for RecursiveNodeApplet {
                                 WorldTreeTraversalOperation::from_char(key_char)
                         {
                             self.shared_resource.change_focus(operation);
-                        } else {
-                            // if not a traversal, then just set focus to inner and forward input
-                            self.shared_resource
-                                .change_focus(WorldTreeTraversalOperation::NextLayer);
-                            self.handle_ui_event(ui_event);
                         }
+                        // TODO: this got to sensitive ever since modifiers and key release became an event
+                        // bruh, commenting below breaks the entire program for some reason
+                        // else {
+                        //     // if not a traversal, then just set focus to inner and forward input
+                        //     self.shared_resource
+                        //         .change_focus(WorldTreeTraversalOperation::NextLayer);
+                        //     self.handle_ui_event(ui_event);
+                        // }
 
                         // match key.to_char() {
                         //     Some('q') => {
@@ -614,18 +617,13 @@ impl StandardApplet for RecursiveNodeApplet {
             }
             StandardEvent::WlSurfaceRegistered {
                 surface_id,
-                key_event_queue,
-                resize_event_queue,
+                wl_event_queue,
             } => {
                 // TODO: change behavior based on `match self.shared_resource.focus_index.get()`
                 SharedResource::add_child(
                     &self.shared_resource,
                     RecursiveNodeApplet::boxed_get_boxed_initializer(
-                        WlSurfaceApplet::get_boxed_initiator((
-                            surface_id,
-                            key_event_queue,
-                            resize_event_queue,
-                        )),
+                        WlSurfaceApplet::get_boxed_initiator((surface_id, wl_event_queue)),
                     ),
                 );
             }

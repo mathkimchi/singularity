@@ -3,46 +3,30 @@ use crate::{
     nodular_applet::{NodularRunnerHook, StandardApplet},
     standard_keybinds::handle_standard_keybinds,
 };
-use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
-use sonamu_ui::{
-    display_units::DisplayContainerSize,
-    ui_element::UIElement,
-    ui_event::{KeySymbol, UIEvent},
-};
-
-/// NOTE: ignores modifiers
-/// I'm too tired for ts
-/// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-fn key_to_keycode(key: KeySymbol) -> Option<u32> {
-    Some(include!(concat!(env!("OUT_DIR"), "/keycode_matches.rs")) + 8)
-}
+use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId};
+use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent};
 
 pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,
-    key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
-    /// TODO: merge all the event queues going back to the WL compositor
-    resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+    wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
     hook: Box<dyn NodularRunnerHook + 'static>,
 }
 impl
     CreatableNodularApplet<(
         WlSurfaceId,
-        calloop::channel::Sender<(WlSurfaceId, u32)>,
-        calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+        calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
     )> for WlSurfaceApplet
 {
     fn new(
-        (surface_id, key_event_queue, resize_event_queue): (
+        (surface_id, wl_event_queue): (
             WlSurfaceId,
-            calloop::channel::Sender<(WlSurfaceId, u32)>,
-            calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+            calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
         ),
         hook: Box<dyn NodularRunnerHook + 'static>,
     ) -> Self {
         Self {
             surface_id,
-            key_event_queue,
-            resize_event_queue,
+            wl_event_queue,
             hook,
         }
     }
@@ -55,28 +39,22 @@ impl StandardApplet for WlSurfaceApplet {
                     return;
                 }
 
-                match ui_event {
+                let wl_event = match ui_event {
                     UIEvent::Key {
-                        symbol: Some(key),
-                        pressed: true,
+                        raw_keycode,
+                        pressed,
                         ..
-                    } => {
-                        if let Some(keycode) = key_to_keycode(key) {
-                            self.key_event_queue
-                                .send((self.surface_id, keycode))
-                                .unwrap();
-
-                            // self.hook.damage_window();
-                        }
-                    }
-                    UIEvent::Key { .. } => {}
-                    UIEvent::MousePress(_, _) => {}
-                    UIEvent::WindowResized(new_size) => {
-                        self.resize_event_queue
-                            .send((self.surface_id, new_size))
-                            .unwrap();
-                    }
-                }
+                    } => WlSurfaceEvent::Key {
+                        // evdev -> xkb
+                        keycode: raw_keycode + 8,
+                        pressed,
+                    },
+                    UIEvent::MousePress(_, _) => return,
+                    UIEvent::WindowResized(new_size) => WlSurfaceEvent::Resize(new_size),
+                };
+                self.wl_event_queue
+                    .send((self.surface_id, wl_event))
+                    .unwrap();
             }
             StandardEvent::FocusChanged(_) => {}
             StandardEvent::Highlighted(_) => {}
@@ -85,8 +63,7 @@ impl StandardApplet for WlSurfaceApplet {
             StandardEvent::TreeviewDamageAck => {}
             StandardEvent::WlSurfaceRegistered {
                 surface_id: _,
-                key_event_queue: _,
-                resize_event_queue: _,
+                wl_event_queue: _,
             } => {}
         }
     }

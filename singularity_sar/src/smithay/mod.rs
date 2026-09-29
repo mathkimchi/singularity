@@ -1,6 +1,6 @@
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
-use singularity_common::sap::packets::{StandardEvent, WlSurfaceId};
+use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
     backend::{
@@ -28,7 +28,6 @@ use smithay::{
         socket::ListeningSocketSource,
     },
 };
-use sonamu_ui::display_units::DisplayContainerSize;
 use std::sync::Arc;
 use wgpu::{TextureView, TextureViewDescriptor};
 
@@ -77,13 +76,10 @@ pub struct SmithayState {
     // input_queue: mpsc::Receiver<UIEvent>,
     // // Singularity stuff
     // hook: Box<dyn NodularRunnerHook>,
-    /// keypress events that need to be sent to a surface
-    /// represented by (target surface id, keycode)
-    /// Works by first setting key seat's focus to the target surface,
-    /// then sending a quick pressed then unpressed event
-    /// Ignores things like holding, timestamp, serial, ...
-    key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
-    resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+    /// events from wl surface applets that need to be sent to their surface
+    /// Key events work by first setting key seat's focus to the target surface
+    /// Ignores things like timestamp, serial, ...
+    wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
 }
 impl SmithayState {
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
@@ -153,7 +149,7 @@ impl SmithayState {
             )
             .unwrap();
 
-        let (key_event_queue, resize_event_queue) = Self::get_event_queues(event_handle);
+        let wl_event_queue = Self::get_event_queue(event_handle);
 
         Self {
             start_time,
@@ -164,93 +160,20 @@ impl SmithayState {
             seat_state,
             seat,
             surfaces: SlotMap::with_key(),
-            key_event_queue,
-            resize_event_queue,
+            wl_event_queue,
         }
     }
 
-    fn get_event_queues(
+    fn get_event_queue(
         event_handle: &LoopHandle<AppletRunner>,
-    ) -> (
-        calloop::channel::Sender<(WlSurfaceId, u32)>,
-        calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
-    ) {
-        let (key_event_queue_sender, key_event_queue_reciever) = calloop::channel::channel();
-
-        event_handle
-            .insert_source(key_event_queue_reciever, |event, &mut (), state| {
-                let calloop::channel::Event::Msg((target_surface_id, keycode)) = event else {
-                    return;
-                };
-
-                // the surface may already be gone (client quit between the applet
-                // queueing this and us handling it)
-                let Some(target_surface) =
-                    state.smithay_state.surfaces.get(target_surface_id).cloned()
-                else {
-                    return;
-                };
-
-                // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
-                state.smithay_state.seat.get_keyboard().unwrap().set_focus(
-                    state,
-                    Some(target_surface),
-                    Serial::from(42),
-                );
-                state
-                    .smithay_state
-                    .seat
-                    .get_keyboard()
-                    .unwrap()
-                    .input::<(), _>(
-                        state,
-                        Keycode::new(keycode),
-                        smithay::backend::input::KeyState::Pressed,
-                        // dk bro
-                        Serial::from(42),
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u32,
-                        |_, _, _| FilterResult::Forward,
-                    );
-                state
-                    .smithay_state
-                    .seat
-                    .get_keyboard()
-                    .unwrap()
-                    .input::<(), _>(
-                        state,
-                        Keycode::new(keycode),
-                        smithay::backend::input::KeyState::Released,
-                        // dk bro
-                        Serial::from(43),
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u32,
-                        |_, _, _| FilterResult::Forward,
-                    );
-
-                dbg!("Sent keypress with keycode", keycode);
-
-                // Events queued above only land in wayland-server's internal
-                // per-client buffers; this source isn't triggered by client
-                // socket activity like the display dispatch source is, so we
-                // have to flush explicitly or the bytes never hit the wire.
-                state.smithay_state.display_handle.flush_clients().unwrap();
-            })
-            .unwrap();
-
-        let (resize_event_queue_sender, resize_event_queue_reciever) = calloop::channel::channel();
+    ) -> calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)> {
+        let (wl_event_queue_sender, wl_event_queue_reciever) = calloop::channel::channel();
 
         event_handle
             .insert_source(
-                resize_event_queue_reciever,
-                |event: calloop::channel::Event<(WlSurfaceId, DisplayContainerSize)>,
-                 &mut (),
-                 state| {
-                    let calloop::channel::Event::Msg((target_surface_id, new_size)) = event else {
+                wl_event_queue_reciever,
+                |event: calloop::channel::Event<(WlSurfaceId, WlSurfaceEvent)>, &mut (), state| {
+                    let calloop::channel::Event::Msg((target_surface_id, wl_event)) = event else {
                         return;
                     };
 
@@ -263,23 +186,56 @@ impl SmithayState {
                         return;
                     };
 
-                    let Some(toplevel) = state
-                        .smithay_state
-                        .xdg_shell_state
-                        .toplevel_surfaces()
-                        .iter()
-                        .find(|toplevel| toplevel.wl_surface() == &target_surface)
-                        .cloned()
-                    else {
-                        dbg!("Resize sent to surface with no toplevel");
-                        return;
-                    };
+                    match wl_event {
+                        WlSurfaceEvent::Key { keycode, pressed } => {
+                            // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
+                            state.smithay_state.seat.get_keyboard().unwrap().set_focus(
+                                state,
+                                Some(target_surface),
+                                Serial::from(42),
+                            );
+                            state
+                                .smithay_state
+                                .seat
+                                .get_keyboard()
+                                .unwrap()
+                                .input::<(), _>(
+                                    state,
+                                    Keycode::new(keycode),
+                                    if pressed {
+                                        smithay::backend::input::KeyState::Pressed
+                                    } else {
+                                        smithay::backend::input::KeyState::Released
+                                    },
+                                    // dk bro
+                                    Serial::from(42),
+                                    std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_millis() as u32,
+                                    |_, _, _| FilterResult::Forward,
+                                );
+                        }
+                        WlSurfaceEvent::Resize(new_size) => {
+                            let Some(toplevel) = state
+                                .smithay_state
+                                .xdg_shell_state
+                                .toplevel_surfaces()
+                                .iter()
+                                .find(|toplevel| toplevel.wl_surface() == &target_surface)
+                                .cloned()
+                            else {
+                                dbg!("Resize sent to surface with no toplevel");
+                                return;
+                            };
 
-                    toplevel.with_pending_state(|toplevel_state| {
-                        toplevel_state.size =
-                            Some((new_size.width as i32, new_size.height as i32).into());
-                    });
-                    toplevel.send_configure();
+                            toplevel.with_pending_state(|toplevel_state| {
+                                toplevel_state.size =
+                                    Some((new_size.width as i32, new_size.height as i32).into());
+                            });
+                            toplevel.send_configure();
+                        }
+                    }
 
                     // Events queued above only land in wayland-server's internal
                     // per-client buffers; this source isn't triggered by client
@@ -290,7 +246,7 @@ impl SmithayState {
             )
             .unwrap();
 
-        (key_event_queue_sender, resize_event_queue_sender)
+        wl_event_queue_sender
     }
 
     /// Returns `None` when the surface has nothing displayable yet
@@ -509,8 +465,7 @@ impl XdgShellHandler for AppletRunner {
         self.root_client
             .send_event(StandardEvent::WlSurfaceRegistered {
                 surface_id,
-                key_event_queue: self.smithay_state.key_event_queue.clone(),
-                resize_event_queue: self.smithay_state.resize_event_queue.clone(),
+                wl_event_queue: self.smithay_state.wl_event_queue.clone(),
             });
 
         println!("New toplevel surface registered");

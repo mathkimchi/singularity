@@ -181,50 +181,46 @@ impl TryFrom<winit::event::KeyEvent> for KeySymbol {
     type Error = ();
 
     fn try_from(value: winit::event::KeyEvent) -> Result<Self, Self::Error> {
-        if value.state.is_pressed() {
-            match value.physical_key {
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                    Ok(Self::ArrowKeyLeft)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                    Ok(Self::ArrowKeyRight)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                    Ok(Self::ArrowKeyDown)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                    Ok(Self::ArrowKeyUp)
-                }
-
-                winit::keyboard::PhysicalKey::Code(
-                    winit::keyboard::KeyCode::Enter | winit::keyboard::KeyCode::NumpadEnter,
-                    // NOTE: my laptop says enter is numpad enter for some reason.
-                ) => Ok(Self::Enter),
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
-                    Ok(Self::PageDown)
-                }
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageUp) => {
-                    Ok(Self::PageUp)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
-                    Ok(Self::Backspace)
-                }
-
-                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                    Ok(Self::Escape)
-                }
-
-                _ => value
-                    .logical_key
-                    .to_text()
-                    .and_then(|s| s.chars().next())
-                    .map(KeySymbol::Char)
-                    .ok_or(()),
+        match value.physical_key {
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                Ok(Self::ArrowKeyLeft)
             }
-        } else {
-            Err(())
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                Ok(Self::ArrowKeyRight)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                Ok(Self::ArrowKeyDown)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                Ok(Self::ArrowKeyUp)
+            }
+
+            winit::keyboard::PhysicalKey::Code(
+                winit::keyboard::KeyCode::Enter | winit::keyboard::KeyCode::NumpadEnter,
+                // NOTE: my laptop says enter is numpad enter for some reason.
+            ) => Ok(Self::Enter),
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageDown) => {
+                Ok(Self::PageDown)
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::PageUp) => {
+                Ok(Self::PageUp)
+            }
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => {
+                Ok(Self::Backspace)
+            }
+
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
+                Ok(Self::Escape)
+            }
+
+            _ => value
+                .logical_key
+                .to_text()
+                .and_then(|s| s.chars().next())
+                .map(KeySymbol::Char)
+                .ok_or(()),
         }
     }
 }

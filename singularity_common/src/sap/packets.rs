@@ -41,8 +41,17 @@ pub enum StandardEvent {
     WlSurfaceRegistered {
         surface_id: WlSurfaceId,
         /// REVIEW: this field prevents standard event from being Copy, I feel like I should avoid that
-        key_event_queue: calloop::channel::Sender<(WlSurfaceId, u32)>,
-        /// TODO: merge all the queue stuff
-        resize_event_queue: calloop::channel::Sender<(WlSurfaceId, DisplayContainerSize)>,
+        wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
     },
+}
+
+/// Wl surface applet to compositor
+#[derive(Clone, Copy, Debug)]
+pub enum WlSurfaceEvent {
+    /// `keycode` is an xkb keycode (evdev + 8)
+    Key {
+        keycode: u32,
+        pressed: bool,
+    },
+    Resize(DisplayContainerSize),
 }

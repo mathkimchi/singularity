@@ -91,16 +91,14 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 is_synthetic: _,
             } => {
                 // log::debug!("{event:?}");
-                if let Ok(key_symbol) = KeySymbol::try_from(event.clone()) {
-                    self.event_queue
-                        .send(super::ui_event::UIEvent::Key {
-                            symbol: Some(key_symbol),
-                            modifiers: self.key_modifiers,
-                            raw_keycode: event.physical_key.to_scancode().unwrap_or(0),
-                            pressed: event.state.is_pressed(),
-                        })
-                        .unwrap();
-                }
+                self.event_queue
+                    .send(super::ui_event::UIEvent::Key {
+                        symbol: KeySymbol::try_from(event.clone()).ok(),
+                        modifiers: self.key_modifiers,
+                        raw_keycode: event.physical_key.to_scancode().unwrap_or(0),
+                        pressed: event.state.is_pressed(),
+                    })
+                    .unwrap();
 
                 window.request_redraw();
             }
