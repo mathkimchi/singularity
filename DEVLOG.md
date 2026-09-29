@@ -10120,3 +10120,26 @@ I'm gonna commit this and then make claude fix all the little associated bugs.
 I manually figured out why recursive node applet was breaking.
 
 The one bug I'm noticing now is that the smithay app doesn't know if a modifier is lifted if it is lifted after switching.
+
+2026-09-29 11:37AM
+
+I thought I had a shared boolean for `was_updated` for the UI between the ui thread and main server thread,
+but it looks like I don't,
+which is currently leading to both unnecessary updates as well as updates that aren't processed.
+
+I'm going to add a modified `EncapsulatedLock` that tracks updates,
+I'll call it `TrackedEncapsulatedLock`.
+
+...
+
+2026-09-29 12:02PM
+
+Ok, it was actually fairly simple, and running `dolphin` shows that it is actually surprisingly smooth.
+I handwrote this because I was making a new type with a new interface and that is fun to do.
+
+Using a queue based system would probably be even better, but the goal isn't performance right now.
+
+To be honest, I think this qualifies as reasonable wayland support.
+
+My next task will be figuring out how to run things like firefox,
+which open up in the outer compositor for some reason.

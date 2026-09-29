@@ -1,6 +1,6 @@
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
-use sonamu_sync::EncapsulatedLock;
+use sonamu_sync::TrackedEncapsulatedLock;
 use sonamu_ui::{UIDisplay, ui_element::PrimitiveScene};
 use std::{
     sync::{Arc, atomic::AtomicBool},
@@ -14,7 +14,7 @@ use wgpu::InstanceDescriptor;
 /// it is registered in the calloop.
 pub(crate) struct UIHandle {
     pub is_running: Arc<AtomicBool>,
-    pub ui_content: EncapsulatedLock<PrimitiveScene>,
+    pub ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
 
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -26,7 +26,7 @@ impl UIHandle {
         runner_event_loop: &LoopHandle<'_, AppletRunner>,
     ) -> Self {
         let is_running = Arc::new(AtomicBool::new(true));
-        let ui_content = EncapsulatedLock::new(initial_content);
+        let ui_content = TrackedEncapsulatedLock::new(initial_content);
         let (tx, rx) = calloop::channel::channel();
 
         // I don't think order matters,

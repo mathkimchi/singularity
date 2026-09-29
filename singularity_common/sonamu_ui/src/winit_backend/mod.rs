@@ -16,7 +16,7 @@ use glyphon::{FontSystem, SwashCache, TextAtlas};
 use smithay::reexports::winit::{
     platform::wayland::EventLoopBuilderExtWayland as _, window::Window,
 };
-use sonamu_sync::EncapsulatedLock;
+use sonamu_sync::TrackedEncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
     CompositeAlphaMode, PresentMode, SurfaceConfiguration, SurfaceTarget, TextureFormat,
@@ -209,7 +209,7 @@ impl WinitData {
 pub struct UIDisplay {
     is_running: Arc<AtomicBool>,
     event_queue: Sender<UIEvent>,
-    ui_content: EncapsulatedLock<PrimitiveScene>,
+    ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
 
     // width: u32,
     // height: u32,
@@ -370,7 +370,7 @@ impl UIDisplay {
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
-        ui_content: EncapsulatedLock<PrimitiveScene>,
+        ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
         device: wgpu::Device,
         queue: wgpu::Queue,
         instance: wgpu::Instance,

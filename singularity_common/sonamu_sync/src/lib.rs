@@ -1,6 +1,6 @@
 use std::{
     ops::Deref,
-    sync::{Arc, RwLock, atomic::AtomicUsize},
+    sync::{Arc, Mutex, RwLock, atomic::AtomicUsize},
 };
 
 // pub mod shared_graph;
@@ -36,6 +36,51 @@ impl<T: Clone> EncapsulatedLock<T> {
 
     pub fn set(&self, object: T) {
         *self.inner.write().unwrap() = object;
+    }
+}
+
+/// Like [`EncapsulatedLock`] but tracks whether there has been an update that hasn't been pulled.
+/// TODO: Would be safer to have seperate sender and reciever like an event queue
+#[derive(Clone)]
+pub struct TrackedEncapsulatedLock<T: Clone> {
+    inner: Arc<Mutex<(T, bool)>>,
+}
+impl<T: Clone> TrackedEncapsulatedLock<T> {
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new((inner, true))),
+        }
+    }
+
+    /// Return clone of held object and is_dirty
+    ///
+    /// marks is_dirty as false
+    pub fn get(&self) -> (T, bool) {
+        let mut lock = self.inner.lock().unwrap();
+
+        // clone old values before setting dirty to false
+        let old_values = lock.clone();
+
+        lock.1 = false;
+
+        old_values
+    }
+
+    /// Returns Some of a clone of the held object if dirty, otherwise returns None
+    ///
+    /// marks is dirty as false
+    pub fn get_if_dirty(&self) -> Option<T> {
+        let mut lock = self.inner.lock().unwrap();
+        if lock.1 {
+            lock.1 = false;
+            Some(lock.0.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn set(&self, object: T) {
+        *self.inner.lock().unwrap() = (object, true);
     }
 }
 

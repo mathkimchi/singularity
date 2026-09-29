@@ -22,9 +22,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
         self.event_queue
-            .send(UIEvent::WindowResized(
-                DisplayContainerSize::new(800, 600),
-            ))
+            .send(UIEvent::WindowResized(DisplayContainerSize::new(800, 600)))
             .unwrap();
 
         let winit_data = WinitData::new(
@@ -68,13 +66,15 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 surface_config.width = size.width;
                 surface_config.height = size.height;
                 surface.configure(device, surface_config);
-                window.request_redraw();
 
                 self.event_queue
-                    .send(UIEvent::WindowResized(
-                        DisplayContainerSize::new(size.width, size.height),
-                    ))
+                    .send(UIEvent::WindowResized(DisplayContainerSize::new(
+                        size.width,
+                        size.height,
+                    )))
                     .unwrap();
+
+                window.request_redraw();
             }
             winit::event::WindowEvent::CloseRequested => {
                 self.is_running
@@ -84,6 +84,8 @@ impl winit::application::ApplicationHandler for UIDisplay {
             // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {
                 self.key_modifiers = modifiers.into();
+
+                window.request_redraw();
             }
             winit::event::WindowEvent::KeyboardInput {
                 device_id: _,
@@ -104,7 +106,13 @@ impl winit::application::ApplicationHandler for UIDisplay {
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = [position.x, position.y];
-                self.send_mouse_event(MouseEventKind::Motion);
+                Self::send_mouse_event(
+                    &self.event_queue,
+                    self.cursor_position,
+                    MouseEventKind::Motion,
+                );
+
+                window.request_redraw();
             }
             winit::event::WindowEvent::MouseInput { state, button, .. } => {
                 // REVIEW: (claude) evdev codes from linux/input-event-codes.h
@@ -116,10 +124,16 @@ impl winit::application::ApplicationHandler for UIDisplay {
                     winit::event::MouseButton::Back => 0x116,
                     winit::event::MouseButton::Other(_) => return,
                 };
-                self.send_mouse_event(MouseEventKind::Button {
-                    button,
-                    pressed: state.is_pressed(),
-                });
+                Self::send_mouse_event(
+                    &self.event_queue,
+                    self.cursor_position,
+                    MouseEventKind::Button {
+                        button,
+                        pressed: state.is_pressed(),
+                    },
+                );
+
+                window.request_redraw();
             }
             winit::event::WindowEvent::MouseWheel { delta, .. } => {
                 // REVIEW: (claude) winit's positive is up/left while Wayland's is down/right, so negate
@@ -134,20 +148,28 @@ impl winit::application::ApplicationHandler for UIDisplay {
                         v120: None,
                     },
                 };
-                self.send_mouse_event(kind);
+                Self::send_mouse_event(&self.event_queue, self.cursor_position, kind);
+
+                window.request_redraw();
             }
             winit::event::WindowEvent::RedrawRequested => {
-                Self::draw(&mut self.winit_data, &self.ui_content.get());
+                if let Some(content) = self.ui_content.get_if_dirty() {
+                    Self::draw(&mut self.winit_data, &content);
+                }
             }
             _ => {}
         }
     }
 }
 impl UIDisplay {
-    fn send_mouse_event(&self, kind: MouseEventKind) {
-        self.event_queue
+    fn send_mouse_event(
+        event_queue: &calloop::channel::Sender<UIEvent>,
+        cursor_position: [f64; 2],
+        kind: MouseEventKind,
+    ) {
+        event_queue
             .send(UIEvent::Mouse(MouseEvent {
-                position: self.cursor_position,
+                position: cursor_position,
                 kind,
             }))
             .unwrap();
