@@ -18,7 +18,7 @@ use singularity_common::{
 use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::UIElement,
-    ui_event::{KeyModifiers, KeyTrait, UIEvent},
+    ui_event::{KeyTrait, UIEvent},
 };
 use std::{
     rc::{Rc, Weak},
@@ -540,33 +540,37 @@ impl StandardApplet for RecursiveNodeApplet {
                     FocusIndex::Focusing => {
                         // We can intercept
 
-                        if let UIEvent::Key {
-                            symbol: Some(key),
-                            modifiers:
-                                KeyModifiers {
-                                    ctrl: false,
-                                    alt: true,
-                                    shift: false,
-                                    caps_lock: false,
-                                    logo: false,
-                                },
-                            pressed: true,
-                            ..
-                        } = &ui_event
-                            && let Some(key_char) = key.to_char()
-                            && let Some(operation) =
-                                WorldTreeTraversalOperation::from_char(key_char)
-                        {
-                            self.shared_resource.change_focus(operation);
+                        match &ui_event {
+                            UIEvent::Key {
+                                symbol,
+                                pressed: true,
+                                ..
+                            } => {
+                                if let Some(key) = symbol
+                                    && let Some(key_char) = key.to_char()
+                                    && let Some(operation) =
+                                        WorldTreeTraversalOperation::from_char(key_char)
+                                {
+                                    self.shared_resource.change_focus(operation);
+                                } else {
+                                    // if key press not a traversal, then just set focus to inner and forward input
+                                    self.shared_resource
+                                        .change_focus(WorldTreeTraversalOperation::NextLayer);
+                                    self.handle_ui_event(ui_event);
+                                }
+                            }
+                            UIEvent::Key { pressed: false, .. } => {}
+                            UIEvent::WindowResized(_) => {
+                                // forward window resize
+                                self.main_applet.handle_ui_event(ui_event);
+                            }
+                            UIEvent::MousePress(..) => {
+                                // set focus to inner and forward mouse press
+                                self.shared_resource
+                                    .change_focus(WorldTreeTraversalOperation::NextLayer);
+                                self.handle_ui_event(ui_event);
+                            }
                         }
-                        // TODO: this got to sensitive ever since modifiers and key release became an event
-                        // bruh, commenting below breaks the entire program for some reason
-                        // else {
-                        //     // if not a traversal, then just set focus to inner and forward input
-                        //     self.shared_resource
-                        //         .change_focus(WorldTreeTraversalOperation::NextLayer);
-                        //     self.handle_ui_event(ui_event);
-                        // }
 
                         // match key.to_char() {
                         //     Some('q') => {

@@ -10114,3 +10114,9 @@ existing UIEvent::KeyPress and also just have a bool for press or not.
 So, I reverted all its changes and manually changed UIEvent.
 
 I'm gonna commit this and then make claude fix all the little associated bugs.
+
+2026-09-29 12:36AM
+
+I manually figured out why recursive node applet was breaking.
+
+The one bug I'm noticing now is that the smithay app doesn't know if a modifier is lifted if it is lifted after switching.
