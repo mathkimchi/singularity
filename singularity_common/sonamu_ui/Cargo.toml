@@ -22,22 +22,17 @@ calloop = { workspace = true }
 # pathfinder_geometry = { version = "^0.5.1", optional = true }
 
 serde = { workspace = true }
-serde_json = { workspace = true }
+# serde_json = { workspace = true }
 
 image = { workspace = true }
 
 # just for winit backend
 glyphon = "^0.11"
 wgpu.workspace = true
-# winit = "^0.30.13" # get this from smithay
 smithay.workspace = true
-pollster.workspace = true
+# pollster.workspace = true
 bytemuck = { version = "^1.25.0", features = ["derive"] }
-wgpu_canvas = { version = "^5.0.8" }
-# fdsm = "^0.8"
-# fdsm-ttf-parser = "^0.2"
-# ttf-parser = "^0.25.1"
-ttf-parser = "0.18" # is what msdf uses
+ttf-parser = "0.18"                                       # is what msdf uses
 msdfgen = "^0.2.1"
 dejavu = "^2.37.0"
 

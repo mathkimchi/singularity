@@ -1,8 +1,5 @@
 [workspace]
 members = [
-    # "singularity_ui",
-    # "singularity_sap",
-
     "singularity_common",
     "singularity_common/sonamu_ui",
     "singularity_common/singularity_macros",
@@ -12,7 +9,7 @@ members = [
     "singularity_sttk",
     "singularity_standard_tabs",
     # "singularity_standard_tabs/*", # TODO: make the asterisk work
-    "singularity_standard_tabs/dylib_math_game",
+    # "singularity_standard_tabs/dylib_math_game",
     "singularity_sar",
 ]
 resolver = "2"
@@ -96,3 +93,4 @@ must_use_candidate = "allow"                 # having must_use everywhere is get
 
 [workspace.lints.rust]
 unused_qualifications = "warn"
+# unused_crate_dependencies = "warn"
