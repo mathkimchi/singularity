@@ -28,7 +28,7 @@ impl WlSurfaceId {
 }
 
 /// Server to client
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum StandardEvent {
     UIEvent(UIEvent),
     FocusChanged(bool),
@@ -45,6 +45,7 @@ pub enum StandardEvent {
         surface_id: WlSurfaceId,
         /// REVIEW: this field prevents standard event from being Copy, I feel like I should avoid that
         wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+        // surface_updated: calloop::channel::Channel<()>,
     },
 }
 

@@ -28,7 +28,6 @@ use singularity_sttk::{
         recursive_node_applet::RecursiveNodeApplet, root_node_applet::RootNodeApplet,
     },
 };
-use singularity_wl_compositor::WaylandApplet;
 use std::collections::BTreeMap;
 use tracing_subscriber::EnvFilter;
 
@@ -54,7 +53,6 @@ fn main() {
                 "image_viewer".to_string(),
                 ImageViewerApplet::get_applet_spawner(),
             ),
-            ("wl_app".to_string(), WaylandApplet::get_applet_spawner()),
             (
                 "char_render_test".to_string(),
                 OneCharRenderTestApplet::get_applet_spawner(),

@@ -3077,7 +3077,6 @@ dependencies = [
  "singularity_sporg",
  "singularity_standard_tabs",
  "singularity_sttk",
- "singularity_wl_compositor",
  "sonamu_ui",
  "tracing-subscriber",
  "uuid",
@@ -3124,24 +3123,6 @@ dependencies = [
  "singularity_macros",
  "singularity_sar",
  "sonamu_ui",
-]
-
-[[package]]
-name = "singularity_wl_compositor"
-version = "0.1.0"
-dependencies = [
- "image",
- "log",
- "regex",
- "singularity_common",
- "singularity_macros",
- "singularity_sar",
- "singularity_sporg",
- "singularity_sttk",
- "smithay",
- "sonamu_ui",
- "tracing-subscriber",
- "wayland-protocols",
 ]
 
 [[package]]

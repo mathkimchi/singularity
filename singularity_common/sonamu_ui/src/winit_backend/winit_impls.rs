@@ -61,6 +61,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 },
         } = state;
 
+        // TODO: request redraw only when needed
         match event {
             winit::event::WindowEvent::Resized(size) => {
                 surface_config.width = size.width;
