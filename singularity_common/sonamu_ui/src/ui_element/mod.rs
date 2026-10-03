@@ -130,9 +130,6 @@ impl PrimitiveScene {
                     screen_size,
                 );
             }
-            UIElement::Image(_image_buffer) => {
-                todo!()
-            }
             UIElement::Texture(texture_view) => {
                 self.add_primitive(
                     UIPrimitiveElement::Texture(texture_view),
@@ -189,9 +186,6 @@ pub enum UIElement {
     ///
     /// most important feature is that each character is the same size
     CharGrid(CharGrid),
-
-    #[deprecated]
-    Image(image::RgbaImage),
 
     /// TODO: replace image with this
     Texture(TextureView),

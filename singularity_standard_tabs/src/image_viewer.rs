@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 pub struct ImageViewerApplet {
     image_path: PathBuf,
-    image: RgbaImage,
+    _image: RgbaImage,
 
     focused: bool,
 
@@ -33,7 +33,7 @@ impl ImageViewerApplet {
 
         Self {
             image_path: image_path.into(),
-            image,
+            _image: image,
             focused: true,
             hook,
         }
@@ -104,7 +104,8 @@ impl StandardApplet for ImageViewerApplet {
     }
 
     fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
-        UIElement::Image(self.image.clone())
+        // UIElement::Image(self.image.clone())
+        todo!("Didn't think abt giving wgpu to applets, ImageViewer isn't used anyways")
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
