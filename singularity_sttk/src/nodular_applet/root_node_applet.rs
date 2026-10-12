@@ -20,7 +20,7 @@ use singularity_common::{
 use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
-    ui_element::{UIElement, UITree},
+    ui_element::{TrackSize, UIElement, UITree},
     ui_event::UIEvent,
 };
 use std::{
@@ -45,7 +45,9 @@ pub struct RootNodeApplet {
     applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
 impl RootNodeApplet {
-    const INNER_APPLET_AREA: DisplayArea = DisplayArea::new_proportional([[0.2, 0.0], [1.0, 1.0]]);
+    const TREEVIEW_SPLIT: f32 = 0.2;
+    const INNER_APPLET_AREA: DisplayArea =
+        DisplayArea::new_proportional([[Self::TREEVIEW_SPLIT, 0.0], [1.0, 1.0]]);
 
     fn inner_applet_size(&self) -> DisplayContainerSize {
         self.latest_size
@@ -268,7 +270,7 @@ impl RootNodeApplet {
 
         // This is the horizontal split
         // UIElement::combine_displays((0..(focused_path.0.len() + 1)).map(|world_level_index| {
-        UIElement::combine_displays((0..focused_path.0.len()).map(|world_level_index| {
+        UITree::combine_displays((0..focused_path.0.len()).map(|world_level_index| {
             let world_path = WorldTreePath(
                 focused_path.0[0..world_level_index]
                     .to_vec()
@@ -280,6 +282,7 @@ impl RootNodeApplet {
                     .unwrap()
                     .outer_world_to_string(focused_path.0.get(world_level_index).cloned()),
             )
+            .as_tree()
             .bordered(Color::LIGHT_GREEN)
         }))
         .fill_bg(Color::BLACK)
@@ -291,15 +294,23 @@ impl BasicApplet for RootNodeApplet {
     }
 
     fn get_window(&self, container_size: DisplayContainerSize) -> UITree {
-        UIElement::Container(vec![
-            self.get_treeview_display()
-                .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),
-            self.applet
-                .layout_builder()
-                .bordered(Color::LIGHT_GREEN)
-                .contained(Self::INNER_APPLET_AREA)
-                .get_ui_element(container_size),
-        ])
+        UITree::new_container_styled(
+            sonamu_ui::ui_element::Style {
+                display: sonamu_ui::ui_element::Display::Grid,
+                grid_template_columns: vec![
+                    TrackSize::Percent(Self::TREEVIEW_SPLIT),
+                    TrackSize::Fr(1.0),
+                ],
+                grid_template_rows: vec![TrackSize::Fr(1.0)],
+                ..sonamu_ui::ui_element::Style::full_size()
+            },
+            vec![
+                self.get_treeview_display(),
+                self.applet
+                    .get_window(container_size) // TODO: major actually calculate size
+                    .bordered(Color::LIGHT_GREEN),
+            ],
+        )
     }
 }
 

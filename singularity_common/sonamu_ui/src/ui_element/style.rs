@@ -1,6 +1,8 @@
 //! Own version of `taffy::Style` because taffy's lengths are `!Send` (they store a `*const ()`).
 //! Taffy's plain enums and generic containers are `Send`, so those are reused.
 
+pub use taffy::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Length {
     Px(f32),
@@ -50,6 +52,34 @@ impl From<Dimension> for taffy::Dimension {
     }
 }
 
+/// Size of a single grid track (row or column)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TrackSize {
+    Px(f32),
+    /// 0 to 1
+    Percent(f32),
+    /// Fraction of the remaining space (CSS `fr`)
+    Fr(f32),
+    Auto,
+    MinContent,
+    MaxContent,
+}
+impl From<TrackSize> for taffy::TrackSizingFunction {
+    fn from(value: TrackSize) -> Self {
+        use taffy::{MaxTrackSizingFunction as Max, MinTrackSizingFunction as Min};
+        let (min, max) = match value {
+            TrackSize::Px(px) => (Min::length(px), Max::length(px)),
+            TrackSize::Percent(percent) => (Min::percent(percent), Max::percent(percent)),
+            // same as CSS: `1fr` is `minmax(auto, 1fr)`
+            TrackSize::Fr(fr) => (Min::auto(), Max::fr(fr)),
+            TrackSize::Auto => (Min::auto(), Max::auto()),
+            TrackSize::MinContent => (Min::min_content(), Max::min_content()),
+            TrackSize::MaxContent => (Min::max_content(), Max::max_content()),
+        };
+        Self { min, max }
+    }
+}
+
 fn map_size<T, U: From<T>>(size: taffy::Size<T>) -> taffy::Size<U> {
     taffy::Size {
         width: size.width.into(),
@@ -65,10 +95,17 @@ fn map_rect<T, U: From<T>>(rect: taffy::Rect<T>) -> taffy::Rect<U> {
     }
 }
 
+fn map_tracks<U: From<taffy::TrackSizingFunction>>(tracks: &[TrackSize]) -> Vec<U> {
+    tracks
+        .iter()
+        .map(|&track| taffy::TrackSizingFunction::from(track).into())
+        .collect()
+}
+
 /// Subset of `taffy::Style`, look at taffy docs for what each field does.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
-    pub display: taffy::Display,
+    pub display: Display,
     pub position: taffy::Position,
     pub inset: taffy::Rect<LengthAuto>,
     pub size: taffy::Size<Dimension>,
@@ -76,6 +113,16 @@ pub struct Style {
     // pub border: taffy::Rect<Length>,
     pub flex_direction: taffy::FlexDirection,
     pub flex_grow: f32,
+
+    // grid container
+    pub grid_template_rows: Vec<TrackSize>,
+    pub grid_template_columns: Vec<TrackSize>,
+    pub grid_auto_rows: Vec<TrackSize>,
+    pub grid_auto_columns: Vec<TrackSize>,
+    pub grid_auto_flow: taffy::GridAutoFlow,
+    // grid child
+    pub grid_row: taffy::Line<taffy::GridPlacement>,
+    pub grid_column: taffy::Line<taffy::GridPlacement>,
 }
 impl Style {
     /// Takes up the full size of the container
@@ -94,7 +141,7 @@ impl Style {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            display: taffy::Display::default(),
+            display: Display::default(),
             position: taffy::Position::default(),
             inset: taffy::Rect {
                 left: LengthAuto::Auto,
@@ -108,6 +155,13 @@ impl Default for Style {
             },
             flex_direction: taffy::FlexDirection::default(),
             flex_grow: 0.0,
+            grid_template_rows: Vec::new(),
+            grid_template_columns: Vec::new(),
+            grid_auto_rows: Vec::new(),
+            grid_auto_columns: Vec::new(),
+            grid_auto_flow: taffy::GridAutoFlow::default(),
+            grid_row: taffy::Line::default(),
+            grid_column: taffy::Line::default(),
         }
     }
 }
@@ -120,6 +174,13 @@ impl From<&Style> for taffy::Style {
             size: map_size(style.size),
             flex_direction: style.flex_direction,
             flex_grow: style.flex_grow,
+            grid_template_rows: map_tracks(&style.grid_template_rows),
+            grid_template_columns: map_tracks(&style.grid_template_columns),
+            grid_auto_rows: map_tracks(&style.grid_auto_rows),
+            grid_auto_columns: map_tracks(&style.grid_auto_columns),
+            grid_auto_flow: style.grid_auto_flow,
+            grid_row: style.grid_row.clone(),
+            grid_column: style.grid_column.clone(),
             ..Self::DEFAULT
         }
     }

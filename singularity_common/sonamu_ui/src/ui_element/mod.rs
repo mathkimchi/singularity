@@ -1,6 +1,6 @@
 use crate::{
     color::Color,
-    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize, DisplayCoord, DisplayUnits},
+    display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
 };
 use wgpu::TextureView;
 
@@ -224,6 +224,48 @@ impl UITree {
     pub fn add_child(&mut self, child: Self) {
         self.children.push(child);
     }
+
+    /// Wraps self in a full-size bordered node
+    #[must_use]
+    pub fn bordered(self, border: Color) -> Self {
+        Self::new(UIElement::Bordered(border), vec![self])
+    }
+
+    /// Wraps self in a full-size backgrounded node
+    #[must_use]
+    pub fn fill_bg(self, bg: Color) -> Self {
+        Self::new(UIElement::Backgrounded(bg), vec![self])
+    }
+
+    /// No node content, just children
+    pub fn new_container(children: Vec<Self>) -> Self {
+        Self::new(UIElement::Nothing, children)
+    }
+
+    /// No node content, just children
+    pub fn new_container_styled(style: Style, children: Vec<Self>) -> Self {
+        Self::new_styled(UIElement::Nothing, style, children)
+    }
+
+    /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
+    /// across the horizontal axis and take full height.
+    /// TODO: take in horizontal vs vertical as input or make this into two functions
+    pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = Self>) -> Self {
+        Self::new_container_styled(
+            Style {
+                display: taffy::Display::Grid,
+                // one equal column per subdisplay, one full-height row
+                grid_template_columns: vec![TrackSize::Fr(1.0); subdisplays.len()],
+                grid_template_rows: vec![TrackSize::Fr(1.0)],
+                ..Style::full_size()
+            },
+            subdisplays
+                .map(|subdisplay| {
+                    Self::new(UIElement::Bordered(Color::LIGHT_GREEN), vec![subdisplay])
+                })
+                .collect(),
+        )
+    }
 }
 impl From<UIElement> for UITree {
     fn from(node: UIElement) -> Self {
@@ -237,29 +279,6 @@ impl From<String> for UITree {
 }
 
 impl UIElement {
-    // TODO: redo with UITree and taffy::Style
-    // /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
-    // /// across the horizontal axis and take full height.
-    // /// TODO: take in horizontal vs vertical as input or make this into two functions
-    // pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = Self>) -> Self {
-    //     // proportional units so widths out of 1
-    //     let widths = 1. / subdisplays.len() as f32;
-    //     Self::Container(
-    //         subdisplays
-    //             .into_iter()
-    //             .enumerate()
-    //             .map(|(i, subdisplay)| {
-    //                 subdisplay
-    //                     .bordered(Color::LIGHT_GREEN)
-    //                     .contain(DisplayArea::new(
-    //                         (widths * (i as f32), 0.),
-    //                         (widths * ((i + 1) as f32), 1.),
-    //                     ))
-    //             })
-    //             .collect(),
-    //     )
-    // }
-
     /// For background, you must draw a rectangle
     #[must_use]
     pub fn glyphon_attr(fg: Color) -> glyphon::AttrsOwned {
@@ -281,11 +300,26 @@ impl UIElement {
         }
     }
 
-    /// First element at bottom
-    /// TODO: UI element user should give in this form
+    pub fn as_tree(self) -> UITree {
+        self.into()
+    }
+
+    /// Taffy equivalent of the old `Contained(DisplayArea)`:
+    /// absolutely positioned, with each side's distance from the matching side of the parent.
+    /// Size is determined by the insets.
+    ///
+    /// Ex: area `[[0.2, 0.0], [1.0, 1.0]]` is
+    /// `left: Percent(0.2), right: Percent(0.0), top: Percent(0.0), bottom: Percent(0.0)`.
     #[must_use]
-    pub fn as_primitives(&self) -> Vec<(UIPrimitiveElement, DisplayArea)> {
-        todo!()
+    pub fn contained(self, inset: taffy::Rect<LengthAuto>) -> UITree {
+        UITree::leaf_styled(
+            self,
+            Style {
+                position: taffy::Position::Absolute,
+                inset,
+                ..Default::default()
+            },
+        )
     }
 }
 impl From<Option<Self>> for UIElement {
