@@ -86,6 +86,7 @@ impl AppletRunner {
 
         if let UIEvent::WindowResized(screen_size) = event {
             self.window_size = screen_size;
+            self.smithay_state.resize_output(screen_size);
 
             self.needs_redraw = true;
         }

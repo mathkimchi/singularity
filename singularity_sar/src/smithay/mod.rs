@@ -15,6 +15,7 @@ use smithay::{
         keyboard::FilterResult,
         pointer::{AxisFrame, ButtonEvent, MotionEvent},
     },
+    output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
     reexports::wayland_server::{
         Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
     },
@@ -25,14 +26,17 @@ use smithay::{
             CompositorClientState, CompositorHandler, CompositorState, SurfaceAttributes,
             TraversalAction, with_states, with_surface_tree_downward,
         },
-        output::OutputHandler,
+        output::{OutputHandler, OutputManagerState},
         security_context::SecurityContext,
         shell::xdg::{XdgShellHandler, XdgShellState},
         shm::{ShmHandler, ShmState},
         socket::ListeningSocketSource,
     },
 };
-use sonamu_ui::ui_event::{MouseEvent, MouseEventKind};
+use sonamu_ui::{
+    display_units::DisplayContainerSize,
+    ui_event::{MouseEvent, MouseEventKind},
+};
 use std::sync::Arc;
 use wgpu::{TextureView, TextureViewDescriptor};
 
@@ -68,8 +72,10 @@ pub struct SmithayState {
     xdg_shell_state: XdgShellState,
     shm_state: ShmState,
     seat_state: SeatState<AppletRunner>,
+    _output_manager_state: OutputManagerState,
 
     seat: Seat<AppletRunner>,
+    output: Output,
     // _socket_name: OsString,
 
     // _main_client: Option<Client>,
@@ -87,6 +93,18 @@ pub struct SmithayState {
     wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
 }
 impl SmithayState {
+    /// The single output represents the whole Sonamu window
+    pub fn resize_output(&self, size: DisplayContainerSize) {
+        let mode = Mode {
+            size: (size.width as i32, size.height as i32).into(),
+            // TODO: use the real refresh rate (mHz)
+            refresh: 60_000,
+        };
+        self.output
+            .change_current_state(Some(mode), None, None, None);
+        self.output.set_preferred(mode);
+    }
+
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
         let start_time = std::time::Instant::now();
 
@@ -103,6 +121,22 @@ impl SmithayState {
         seat.add_keyboard(smithay::input::keyboard::XkbConfig::default(), 200, 25)
             .unwrap();
         seat.add_pointer();
+
+        let output_manager_state =
+            OutputManagerState::new_with_xdg_output::<AppletRunner>(&display_handle);
+        let output = Output::new(
+            String::from("sonamu"),
+            PhysicalProperties {
+                size: (0, 0).into(),
+                subpixel: Subpixel::Unknown,
+                make: String::from("Sonamu"),
+                model: String::from("Sonamu"),
+                serial_number: String::from("Unknown"),
+            },
+        );
+        // TODO: advertise the real scale (forward winit's scale factor)
+        output.change_current_state(None, None, Some(Scale::Integer(1)), Some((0, 0).into()));
+        output.create_global::<AppletRunner>(&display_handle);
 
         // set up socket
         {
@@ -163,7 +197,9 @@ impl SmithayState {
             xdg_shell_state,
             shm_state,
             seat_state,
+            _output_manager_state: output_manager_state,
             seat,
+            output,
             surfaces: SlotMap::with_key(),
             wl_event_queue,
         }
@@ -524,6 +560,7 @@ impl XdgShellHandler for AppletRunner {
                 .set(wayland_protocols::xdg::shell::server::xdg_toplevel::State::Activated);
         });
         surface.send_configure();
+        self.smithay_state.output.enter(surface.wl_surface());
 
         self.smithay_state.seat.get_keyboard().unwrap().set_focus(
             self,
