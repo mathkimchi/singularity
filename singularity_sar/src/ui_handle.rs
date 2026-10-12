@@ -1,9 +1,10 @@
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
+use smithay::reexports::winit::event_loop::EventLoopProxy;
 use sonamu_sync::TrackedEncapsulatedLock;
 use sonamu_ui::{UIDisplay, ui_element::PrimitiveScene};
 use std::{
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, atomic::AtomicBool, mpsc},
     thread,
 };
 use wgpu::InstanceDescriptor;
@@ -15,6 +16,8 @@ use wgpu::InstanceDescriptor;
 pub(crate) struct UIHandle {
     pub is_running: Arc<AtomicBool>,
     pub ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
+    /// Wakes the display to redraw
+    display_proxy: EventLoopProxy<()>,
 
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -64,6 +67,7 @@ impl UIHandle {
         }))
         .unwrap();
 
+        let (proxy_tx, proxy_rx) = mpsc::channel();
         {
             let is_running = is_running.clone();
             let ui_content = ui_content.clone();
@@ -71,7 +75,9 @@ impl UIHandle {
             let queue = queue.clone();
             let instance = instance.clone();
             thread::spawn(|| {
-                UIDisplay::run_display(is_running, tx, ui_content, device, queue, instance);
+                UIDisplay::run_display(
+                    is_running, tx, ui_content, device, queue, instance, proxy_tx,
+                );
             });
 
             dbg!("Started UI thread");
@@ -80,6 +86,7 @@ impl UIHandle {
         Self {
             is_running,
             ui_content,
+            display_proxy: proxy_rx.recv().unwrap(),
 
             device,
             queue,
@@ -89,5 +96,7 @@ impl UIHandle {
 
     pub fn set_ui_content(&self, new_content: PrimitiveScene) {
         self.ui_content.set(new_content);
+        // errs only if the display already closed
+        let _ = self.display_proxy.send_event(());
     }
 }

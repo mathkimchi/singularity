@@ -34,6 +34,13 @@ impl winit::application::ApplicationHandler for UIDisplay {
         self.winit_data = Some(winit_data);
     }
 
+    /// Sent when the ui content is updated
+    fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, (): ()) {
+        if let Some(winit_data) = &self.winit_data {
+            winit_data.window.request_redraw();
+        }
+    }
+
     fn window_event(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
@@ -61,7 +68,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
                 },
         } = state;
 
-        // TODO: request redraw only when needed
+        // Other redraws are requested through `user_event` when content changes
         match event {
             winit::event::WindowEvent::Resized(size) => {
                 surface_config.width = size.width;
@@ -85,8 +92,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
             // winit::event::WindowEvent::Focused(focus) => self.ui_event_queue.lock().unwrap().push(crate::ui_event::UIEvent::Focused),
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {
                 self.key_modifiers = modifiers.into();
-
-                window.request_redraw();
             }
             winit::event::WindowEvent::KeyboardInput {
                 device_id: _,
@@ -102,8 +107,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
                         pressed: event.state.is_pressed(),
                     })
                     .unwrap();
-
-                window.request_redraw();
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = [position.x, position.y];
@@ -112,8 +115,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
                     self.cursor_position,
                     MouseEventKind::Motion,
                 );
-
-                window.request_redraw();
             }
             winit::event::WindowEvent::MouseInput { state, button, .. } => {
                 // REVIEW: (claude) evdev codes from linux/input-event-codes.h
@@ -133,8 +134,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
                         pressed: state.is_pressed(),
                     },
                 );
-
-                window.request_redraw();
             }
             winit::event::WindowEvent::MouseWheel { delta, .. } => {
                 // REVIEW: (claude) winit's positive is up/left while Wayland's is down/right, so negate
@@ -150,8 +149,6 @@ impl winit::application::ApplicationHandler for UIDisplay {
                     },
                 };
                 Self::send_mouse_event(&self.event_queue, self.cursor_position, kind);
-
-                window.request_redraw();
             }
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(content) = self.ui_content.get_if_dirty() {

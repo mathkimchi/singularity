@@ -477,8 +477,7 @@ impl CompositorHandler for AppletRunner {
             self.smithay_state.start_time.elapsed().as_millis() as u32,
         );
 
-        dbg!("TODO: make this redraw request");
-        self.redraw_ui();
+        self.needs_redraw = true;
     }
 }
 
@@ -543,7 +542,7 @@ impl XdgShellHandler for AppletRunner {
             .surfaces
             .retain(|_, registered| registered != wl_surface);
 
-        self.redraw_ui();
+        self.needs_redraw = true;
     }
 
     fn new_popup(

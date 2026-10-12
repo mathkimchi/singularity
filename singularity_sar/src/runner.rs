@@ -26,6 +26,8 @@ pub struct AppletRunner {
     pub(crate) smithay_state: SmithayState,
 
     window_size: DisplayContainerSize,
+    /// Set by damage; the redraw happens once per event loop iteration
+    pub(crate) needs_redraw: bool,
 }
 impl AppletRunner {
     fn new(
@@ -49,6 +51,7 @@ impl AppletRunner {
                 width: 100,
                 height: 100,
             },
+            needs_redraw: true,
         }
     }
 
@@ -61,8 +64,11 @@ impl AppletRunner {
         dbg!("Will run event loop");
 
         event_loop
-            .run(None, &mut runner, |_| {
-                // I think this is run between events, but I don't need this rn
+            .run(None, &mut runner, |runner| {
+                // Run after each batch of events, so multiple damages become one redraw
+                if std::mem::take(&mut runner.needs_redraw) {
+                    runner.redraw_ui();
+                }
             })
             .unwrap();
     }
@@ -71,7 +77,7 @@ impl AppletRunner {
         if let UIEvent::WindowResized(screen_size) = event {
             self.window_size = screen_size;
 
-            self.redraw_ui();
+            self.needs_redraw = true;
         }
 
         self.root_client.send_event(StandardEvent::UIEvent(event));
@@ -81,7 +87,7 @@ impl AppletRunner {
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
             StandardRequest::DamageSurface => {
-                self.redraw_ui();
+                self.needs_redraw = true;
             }
             StandardRequest::DamageTreeview => todo!(),
             StandardRequest::Quit => {
@@ -92,7 +98,7 @@ impl AppletRunner {
         }
     }
 
-    pub(crate) fn redraw_ui(&mut self) {
+    fn redraw_ui(&mut self) {
         self.ui_handle
             .set_ui_content(PrimitiveScene::from_ui_tree(
                 self.root_client.get_surface(),

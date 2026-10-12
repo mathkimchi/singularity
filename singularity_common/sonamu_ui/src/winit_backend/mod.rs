@@ -14,7 +14,8 @@ use crate::{
 use calloop::channel::Sender;
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use smithay::reexports::winit::{
-    platform::wayland::EventLoopBuilderExtWayland as _, window::Window,
+    event_loop::EventLoopProxy, platform::wayland::EventLoopBuilderExtWayland as _,
+    window::Window,
 };
 use sonamu_sync::TrackedEncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
@@ -367,6 +368,8 @@ impl UIDisplay {
     // }
 
     /// Returns when display is closed.
+    ///
+    /// Sends back a proxy through `proxy_tx`; send `()` through it to request a redraw.
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
@@ -374,12 +377,14 @@ impl UIDisplay {
         device: wgpu::Device,
         queue: wgpu::Queue,
         instance: wgpu::Instance,
+        proxy_tx: std::sync::mpsc::Sender<EventLoopProxy<()>>,
     ) {
         let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
             .build()
             .unwrap();
+        proxy_tx.send(event_loop.create_proxy()).unwrap();
         let mut app = Self {
             is_running,
             event_queue,

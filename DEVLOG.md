@@ -10214,3 +10214,7 @@ I should lowkey turn this into a skill or put it into the claude md file.
 
 Apparently Style is not Send or Sync bc it holds a raw pointer or something.
 So I'll have Claude make a new Style with only a useful subset of fields.
+
+2026-10-12 07:05PM
+
+Yk what bro, I'm just going to make Claude fix the updating problem.
