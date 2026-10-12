@@ -10143,3 +10143,74 @@ To be honest, I think this qualifies as reasonable wayland support.
 
 My next task will be figuring out how to run things like firefox,
 which open up in the outer compositor for some reason.
+
+2026-10-11 10:47PM
+
+I was asking Claude if there are ways to make my UI Element protocol better,
+and it found the [`taffy`](https://crates.io/crates/taffy) crate.
+Bevy, Servo, and GPUI all use it, and those are all projects I mad respect.
+
+So `taffy` is just the layout library, which is actually ideal for me.
+(I have sunk too much into the renderer, I wouldn't be ready to part with it.)
+
+This will probably make it much harder to do the ZUI I envisioned,
+but I really need to remember what is important.
+
+I can replace `DisplayUnits` with Taffy's `Dimension`.
+Uhh, there's 91 references to just `DisplayUnits`,
+and I'll replace all the other stuff as well.
+I'm going to make claude do this, as it is quite trivial.
+
+...
+
+Never mind, it wasn't a one-to-one thing.
+They allow storing length (which would be pixels for me) and percent,
+but those can't mix.
+
+So it looks like this will be more annoying.
+
+I don't want to just ask Claude to decide how to actually implement this,
+because I want to learn how this algorithm works.
+I am fine with letting it write code, but I want to be making the choices,
+even the technical ones.
+
+Looking at the taffy docs and examples,
+it looks like the best way would be to associate each primitive with a `Style`
+then build the `TaffyTree`, then get each primitive's `Size`.
+
+(TODO: look into CacheTree.)
+
+Well the time is 2026-10-11 11:33PM and I've been waking up at 6 so I'll go to sleep.
+
+2026-10-12 10:24AM
+
+I slept at 12 and woke up at 10.
+
+Anyways, I don't need seperate cases for contained and container.
+I'm going to redo UIElement to resemble a Taffy Node
+(conceptually, it is represented in code differently but the idea is the same).
+So every node just comes with the style (like size and constraints)
+and a vector of children.
+
+I decided to have `UIElement` for like the actual UI nodes
+and then a `UITree` for an actual UI with multiple elements.
+This is similar to UIPrimitive vs PrimitiveScene.
+
+I also made it so that the Border and Background doesn't contain anything.
+
+This is my prompt by the way:
+
+```rs
+Ok, I implemented the UITree and changed UIElement.
+Use UITree to represent content instead of UIElement.
+Make all the trivial changes you can and when all the changes are non-trivial, wait for my permission.
+Or, if you forsee non-trivial changes already, ask me first.
+(It is fine if you stop while there are errors, that is to be expected.)
+```
+
+I should lowkey turn this into a skill or put it into the claude md file.
+
+...
+
+Apparently Style is not Send or Sync bc it holds a raw pointer or something.
+So I'll have Claude make a new Style with only a useful subset of fields.

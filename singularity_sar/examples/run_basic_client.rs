@@ -8,13 +8,13 @@ use singularity_common::sap::{
 use singularity_sar::runner::AppletRunner;
 use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
-    ui_element::{CharGrid, UIElement},
+    ui_element::{CharGrid, UITree},
     ui_event::{self, KeyModifiers, KeySymbol, KeyTrait},
 };
 
 struct BasicApp {
     content_str: String,
-    content: EncapsulatedLock<UIElement>,
+    content: EncapsulatedLock<UITree>,
     request_sender: Sender<StandardRequest>,
 }
 impl BasicApp {
@@ -26,7 +26,7 @@ impl BasicApp {
             (KeySymbol::Backspace, _) => {
                 self.content_str.pop();
                 self.content
-                    .set(CharGrid::from(self.content_str.as_str()).element());
+                    .set(CharGrid::from(self.content_str.as_str()).element().into());
                 self.request_sender
                     .send(StandardRequest::DamageSurface)
                     .unwrap();
@@ -38,7 +38,7 @@ impl BasicApp {
                     Some(key_char) => {
                         self.content_str.push(key_char);
                         self.content
-                            .set(CharGrid::from(self.content_str.as_str()).element());
+                            .set(CharGrid::from(self.content_str.as_str()).element().into());
                         self.request_sender
                             .send(StandardRequest::DamageSurface)
                             .unwrap();
@@ -55,7 +55,7 @@ impl RawClientInitializer for BasicInitializer {
     fn init(
         // smth smth box needs to know size
         self: Box<Self>,
-        content: EncapsulatedLock<UIElement>,
+        content: EncapsulatedLock<UITree>,
         event_queue: calloop::channel::Channel<singularity_common::sap::packets::StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
         // (I am really trying to convince myself this is fine, I am the strawman)

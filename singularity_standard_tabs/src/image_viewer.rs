@@ -8,7 +8,7 @@ use singularity_sttk::nodular_applet::{
 use singularity_sttk::nodular_applet::{NodularRunnerHook, StandardApplet};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
 use sonamu_ui::display_units::DisplayContainerSize;
-use sonamu_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UITree;
 use std::path::PathBuf;
 
 pub struct ImageViewerApplet {
@@ -103,7 +103,7 @@ impl StandardApplet for ImageViewerApplet {
         }
     }
 
-    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
         // UIElement::Image(self.image.clone())
         todo!("Didn't think abt giving wgpu to applets, ImageViewer isn't used anyways")
     }

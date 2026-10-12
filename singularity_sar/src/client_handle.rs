@@ -4,18 +4,18 @@ use singularity_common::sap::{
     packets::StandardEvent, raw_client_initializer::RawClientInitializer,
 };
 use sonamu_sync::EncapsulatedLock;
-use sonamu_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UITree;
 use std::thread;
 
 /// ~~Implemented by Applet,~~ used by SDE/server.
 pub(crate) struct ClientHandle {
     event_queue: calloop::channel::Sender<StandardEvent>,
-    surface: EncapsulatedLock<UIElement>,
+    surface: EncapsulatedLock<UITree>,
 }
 impl ClientHandle {
     pub fn spawn_new_client(
         client_initializer: Box<dyn RawClientInitializer>,
-        initial_content: UIElement,
+        initial_content: UITree,
         runner_event_loop: &LoopHandle<'static, AppletRunner>,
     ) -> Self {
         let surface = EncapsulatedLock::new(initial_content);
@@ -51,7 +51,7 @@ impl ClientHandle {
         self.event_queue.send(event).unwrap();
     }
 
-    pub fn get_surface(&self) -> UIElement {
+    pub fn get_surface(&self) -> UITree {
         // this order matters; you should generally do the action first then send notification that you did it
         let surface = self.surface.get();
         // TODO: just realized that I need to send this after the ui display confirms it too

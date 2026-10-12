@@ -294,7 +294,7 @@ impl StandardApplet for CodeEditorApplet {
     fn get_window_standard_applet(
         &self,
         container_size: sonamu_ui::display_units::DisplayContainerSize,
-    ) -> sonamu_ui::ui_element::UIElement {
+    ) -> sonamu_ui::ui_element::UITree {
         let (width, height) = CharGrid::largest_fittable_size(container_size);
 
         // let line_idx = self.buffer.char_to_line(self.cursor);
@@ -358,7 +358,7 @@ impl StandardApplet for CodeEditorApplet {
         const EXPAND_EDITOR_TEXT: bool = true;
 
         if EXPAND_EDITOR_TEXT {
-            content.element()
+            content.element().into()
         } else {
             content.contained_element()
         }

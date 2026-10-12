@@ -9,7 +9,10 @@ use crate::{
 };
 use singularity_common::utils::tree::world_tree::WorldTreePath;
 use sonamu_ui::{
-    color::Color, display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent,
+    color::Color,
+    display_units::DisplayContainerSize,
+    ui_element::{UIElement, UITree},
+    ui_event::UIEvent,
 };
 use std::fmt::Write as _;
 
@@ -234,7 +237,7 @@ impl StandardApplet for CommandHubApplet {
         WorldTreePath::new_into()
     }
 
-    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
         let mut display_string = String::new();
 
         // print the last 10 from history
@@ -244,6 +247,9 @@ impl StandardApplet for CommandHubApplet {
         }
         writeln!(&mut display_string, "> {}", self.current_prompt).unwrap();
 
-        UIElement::from(display_string).fill_bg(Color::BLACK)
+        UITree::new(
+            UIElement::Backgrounded(Color::BLACK),
+            vec![UITree::from(display_string)],
+        )
     }
 }

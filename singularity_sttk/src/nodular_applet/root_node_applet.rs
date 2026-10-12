@@ -20,7 +20,7 @@ use singularity_common::{
 use sonamu_ui::{
     color::Color,
     display_units::{DisplayArea, DisplayContainerSize},
-    ui_element::UIElement,
+    ui_element::{UIElement, UITree},
     ui_event::UIEvent,
 };
 use std::{
@@ -36,7 +36,7 @@ pub struct RootNodeApplet {
     // window: Arc<Mutex<UIElement>>,
     // hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
     // applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
-    content: EncapsulatedLock<UIElement>,
+    content: EncapsulatedLock<UITree>,
     content_dirty: bool,
     request_sender: Sender<StandardRequest>,
 
@@ -67,7 +67,7 @@ impl RootNodeApplet {
     pub fn new(
         inner_initializer: Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet>,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
-        content: EncapsulatedLock<UIElement>,
+        content: EncapsulatedLock<UITree>,
         request_sender: Sender<StandardRequest>,
         event_loop: &LoopHandle<'_, Self>,
     ) -> Self {
@@ -187,7 +187,7 @@ impl RootNodeApplet {
             fn init(
                 // smth smth box needs to know size
                 self: Box<Self>,
-                content: EncapsulatedLock<UIElement>,
+                content: EncapsulatedLock<UITree>,
                 event_queue: Channel<StandardEvent>,
                 // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
                 // (I am really trying to convince myself this is fine, I am the strawman)
@@ -255,7 +255,7 @@ impl RootNodeApplet {
         })
     }
 
-    fn get_treeview_display(&self) -> UIElement {
+    fn get_treeview_display(&self) -> UITree {
         let focused_path = self.applet.get_focus_path();
         let treeview = self.applet.get_treeview();
 
@@ -290,7 +290,7 @@ impl BasicApplet for RootNodeApplet {
         self.applet.handle_ui_event(ui_event);
     }
 
-    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_window(&self, container_size: DisplayContainerSize) -> UITree {
         UIElement::Container(vec![
             self.get_treeview_display()
                 .contain(DisplayArea::new((0.0, 0.0), (0.2, 1.0))),

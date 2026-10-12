@@ -2,7 +2,7 @@
 //! it is implemenented in SDE but used in Ratk of STTK
 
 use sonamu_sync::EncapsulatedLock;
-use sonamu_ui::ui_element::UIElement;
+use sonamu_ui::ui_element::UITree;
 
 use crate::sap::packets::StandardRequest;
 
@@ -10,7 +10,7 @@ use crate::sap::packets::StandardRequest;
 /// TODO: put this in sttk
 pub struct ServerHandle {
     request_queue: calloop::channel::Sender<StandardRequest>,
-    surface: EncapsulatedLock<UIElement>,
+    surface: EncapsulatedLock<UITree>,
 }
 
 impl ServerHandle {
@@ -22,7 +22,7 @@ impl ServerHandle {
         self.request_queue.send(request).unwrap();
     }
 
-    pub fn set_surface(&self, surface: UIElement) {
+    pub fn set_surface(&self, surface: UITree) {
         // REVIEW: enforce the display ack thing?
         self.surface.set(surface);
         self.send_request(StandardRequest::DamageSurface);

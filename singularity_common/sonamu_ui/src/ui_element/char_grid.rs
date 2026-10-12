@@ -1,8 +1,5 @@
-use crate::ui_element::UIElement;
-use crate::{
-    color::Color,
-    display_units::{DisplayArea, DisplayContainerSize, DisplayCoord},
-};
+use crate::ui_element::{Dimension, Style, UIElement, UITree};
+use crate::{color::Color, display_units::DisplayContainerSize};
 
 /// 0 and 1 are planned to be bold and italic
 /// 2 is cursor line
@@ -219,10 +216,18 @@ impl CharGrid {
     }
 
     #[must_use]
-    pub fn contained_element(self) -> UIElement {
-        let size = self.display_size().into();
-        self.element()
-            .contain(DisplayArea::from_corner_size(DisplayCoord::ZERO, size))
+    pub fn contained_element(self) -> UITree {
+        let size = self.display_size();
+        UITree::leaf_styled(
+            self.element(),
+            Style {
+                size: taffy::Size {
+                    width: Dimension::Px(size.width as f32),
+                    height: Dimension::Px(size.height as f32),
+                },
+                ..Default::default()
+            },
+        )
     }
 
     #[must_use]

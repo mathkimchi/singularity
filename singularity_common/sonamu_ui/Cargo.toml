@@ -36,6 +36,9 @@ ttf-parser = "0.18"                                       # is what msdf uses
 msdfgen = "^0.2.1"
 dejavu = "^2.37.0"
 
+# layout (sizing) algorithm; see 2026-10-11 DEVLOG
+taffy = "^0.14.0"
+
 log = { workspace = true }
 
 [features]

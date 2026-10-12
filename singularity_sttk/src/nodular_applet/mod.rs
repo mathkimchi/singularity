@@ -7,7 +7,7 @@ use singularity_common::{
         WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
     },
 };
-use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement};
+use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UITree};
 use std::collections::BTreeMap;
 
 pub mod caching_applet;
@@ -38,7 +38,7 @@ pub trait StandardApplet {
 
     /// This should resolve damaged state
     /// Kinda conflicts BasicApplet
-    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement;
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree;
 
     fn get_treeview(&self) -> WorldTree<String>;
 
@@ -53,7 +53,7 @@ where
         self.handle_standard_event(StandardEvent::UIEvent(ui_event));
     }
 
-    fn get_window(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_window(&self, container_size: DisplayContainerSize) -> UITree {
         self.get_window_standard_applet(container_size)
     }
 }
@@ -72,7 +72,7 @@ impl StandardApplet for Box<dyn StandardApplet> {
         (**self).get_focus_path()
     }
 
-    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
         (**self).get_window_standard_applet(container_size)
     }
 }

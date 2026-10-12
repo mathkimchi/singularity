@@ -17,7 +17,7 @@ use singularity_common::{
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
-    ui_element::UIElement,
+    ui_element::{UIElement, UITree},
     ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
@@ -64,7 +64,7 @@ impl SharedResource {
         shared_resource: &Rc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
     ) -> CachingApplet {
-        let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
+        let inner_applet_window = EncapsulatedLock::new(UITree::leaf(UIElement::Nothing));
         let inner_applet_treeview = EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
 
         struct InnerHook {
@@ -342,7 +342,7 @@ impl RecursiveNodeApplet {
         let shared_resource = SharedResource::new(hook);
 
         let main_applet = {
-            let inner_applet_window = EncapsulatedLock::new(UIElement::Nothing);
+            let inner_applet_window = EncapsulatedLock::new(UITree::leaf(UIElement::Nothing));
             let inner_applet_treeview =
                 EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
 
@@ -502,7 +502,7 @@ impl RecursiveNodeApplet {
     //     }
     // }
 
-    fn get_display(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_display(&self, container_size: DisplayContainerSize) -> UITree {
         // let mut applet_displays = Vec::new();
 
         // for applet in self.shared_resource.applets.read().unwrap().iter() {
@@ -663,7 +663,7 @@ impl StandardApplet for RecursiveNodeApplet {
         }
     }
 
-    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
         // TODO: return cached if damaged is already false?
         // REVIEW: idk why this is necessary if I already have caching browser; I'm not touching it rn
         self.shared_resource

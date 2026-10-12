@@ -69,8 +69,8 @@ impl StandardApplet for OneCharRenderTestApplet {
     fn get_window_standard_applet(
         &self,
         _container_size: sonamu_ui::display_units::DisplayContainerSize,
-    ) -> sonamu_ui::ui_element::UIElement {
-        CharGrid::from(self.0.to_string().as_str()).element()
+    ) -> sonamu_ui::ui_element::UITree {
+        CharGrid::from(self.0.to_string().as_str()).element().into()
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

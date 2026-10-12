@@ -7,13 +7,17 @@ use singularity_common::{
     sync::EncapsulatedLock,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
-use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::{
+    display_units::DisplayContainerSize,
+    ui_element::{UIElement, UITree},
+    ui_event::UIEvent,
+};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 /// Implements caching for an app.
 pub struct CachingApplet {
     applet: Mutex<Box<dyn StandardApplet>>,
-    window: EncapsulatedLock<UIElement>,
+    window: EncapsulatedLock<UITree>,
     window_damaged: Arc<AtomicBool>,
     window_size: EncapsulatedLock<DisplayContainerSize>,
     treeview: EncapsulatedLock<WorldTree<String>>,
@@ -23,7 +27,7 @@ impl CachingApplet {
     pub fn new(
         inner_initiator: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
         outer_hook: Box<dyn NodularRunnerHook>,
-        window: EncapsulatedLock<UIElement>,
+        window: EncapsulatedLock<UITree>,
         // window_damaged: Arc<AtomicBool>,
         treeview: EncapsulatedLock<WorldTree<String>>,
     ) -> Self {
@@ -145,14 +149,14 @@ impl CachingApplet {
             fn get_window_standard_applet(
                 &self,
                 _container_size: DisplayContainerSize,
-            ) -> UIElement {
+            ) -> UITree {
                 panic!("Placeholder app's functions should not be called")
             }
         }
 
         Self {
             applet: Mutex::new(Box::new(PlaceholderApp)),
-            window: EncapsulatedLock::new(UIElement::Nothing),
+            window: EncapsulatedLock::new(UITree::leaf(UIElement::Nothing)),
             window_damaged: Arc::new(AtomicBool::new(false)),
             window_size: EncapsulatedLock::new(DisplayContainerSize::new(0, 0)),
             treeview: EncapsulatedLock::new(WorldTree::Base("Placeholder".to_string())),
@@ -182,7 +186,7 @@ impl StandardApplet for CachingApplet {
         self.applet.lock().unwrap().get_focus_path()
     }
 
-    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UIElement {
+    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
         if self
             .window_damaged
             .swap(false, std::sync::atomic::Ordering::Relaxed)

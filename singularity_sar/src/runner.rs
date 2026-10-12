@@ -6,7 +6,7 @@ use singularity_common::sap::{
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
-    ui_element::{PrimitiveScene, UIElement},
+    ui_element::{PrimitiveScene, UIElement, UITree},
     ui_event::UIEvent,
 };
 
@@ -34,7 +34,7 @@ impl AppletRunner {
     ) -> Self {
         let root_client = ClientHandle::spawn_new_client(
             root_applet_initializer,
-            UIElement::Nothing,
+            UITree::leaf(UIElement::Nothing),
             &event_loop,
         );
 
@@ -94,7 +94,7 @@ impl AppletRunner {
 
     pub(crate) fn redraw_ui(&mut self) {
         self.ui_handle
-            .set_ui_content(PrimitiveScene::from_ui_element(
+            .set_ui_content(PrimitiveScene::from_ui_tree(
                 self.root_client.get_surface(),
                 self.window_size,
                 |surface_id| {
@@ -107,8 +107,8 @@ impl AppletRunner {
                             &self.ui_handle.queue,
                         )
                         .map_or(
-                            UIElement::Nothing.fill_bg(sonamu_ui::color::Color::RED),
-                            UIElement::Texture,
+                            UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED)),
+                            |texture| UITree::leaf(UIElement::Texture(texture)),
                         )
                 },
             ));

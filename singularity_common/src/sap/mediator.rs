@@ -3,12 +3,15 @@
 //! tracks the initial implementation of this.
 
 use crate::sync::EncapsulatedLock;
-use sonamu_ui::{ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::{
+    ui_element::{UIElement, UITree},
+    ui_event::UIEvent,
+};
 use std::sync::{Arc, atomic::AtomicBool, mpsc};
 
 struct MediatorSharedData {
     /// TODO: use double buffer?
-    display_content: EncapsulatedLock<UIElement>,
+    display_content: EncapsulatedLock<UITree>,
     /// TODO: figure out Arc later
     display_damaged: AtomicBool,
 
@@ -51,7 +54,7 @@ impl SonamuMediator {
         Self {
             inner: Arc::new(MediatorSharedData {
                 // just set initial content as nothing
-                display_content: EncapsulatedLock::new(UIElement::Nothing),
+                display_content: EncapsulatedLock::new(UITree::leaf(UIElement::Nothing)),
                 display_damaged: AtomicBool::new(false),
                 display_server_callback,
                 display_client_callbacks: Box::new(display_client_callbacks),
@@ -61,7 +64,7 @@ impl SonamuMediator {
     }
 
     /// NOTE: Assumes whoever is calling this (server) will process it
-    pub fn get_display_content(&self) -> UIElement {
+    pub fn get_display_content(&self) -> UITree {
         let content = self.inner.display_content.get();
         // self.content_processed();
         self.inner
@@ -74,7 +77,7 @@ impl SonamuMediator {
     /// client should call this
     /// REVIEW: also have a force update?
     /// Returns whether or not display was actually updated
-    pub fn try_update_display_content(&self, content_getter: impl FnOnce() -> UIElement) -> bool {
+    pub fn try_update_display_content(&self, content_getter: impl FnOnce() -> UITree) -> bool {
         if self
             .inner
             .display_damaged

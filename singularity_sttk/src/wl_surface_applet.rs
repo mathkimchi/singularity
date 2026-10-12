@@ -4,7 +4,11 @@ use crate::{
     standard_keybinds::handle_standard_keybinds,
 };
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId};
-use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UIElement, ui_event::UIEvent};
+use sonamu_ui::{
+    display_units::DisplayContainerSize,
+    ui_element::{UIElement, UITree},
+    ui_event::UIEvent,
+};
 
 pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,
@@ -68,8 +72,8 @@ impl StandardApplet for WlSurfaceApplet {
         }
     }
 
-    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UIElement {
-        UIElement::Subsurface(self.surface_id.as_u64())
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
+        UITree::leaf(UIElement::Subsurface(self.surface_id.as_u64()))
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
