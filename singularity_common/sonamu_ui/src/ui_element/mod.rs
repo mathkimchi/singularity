@@ -153,17 +153,132 @@ impl PrimitiveScene {
     }
     */
 
+    /// Adds `ui_tree` into `taffy` with each node's `UIElement` as its context.
+    /// Subsurfaces are resolved here: the returned tree becomes the subsurface node's child.
+    fn build_taffy_tree(
+        taffy: &mut taffy::TaffyTree<UIElement>,
+        ui_tree: UITree,
+        subsurfaces: &impl Fn(u64) -> UITree,
+    ) -> taffy::NodeId {
+        let UITree {
+            node,
+            style,
+            mut children,
+        } = ui_tree;
+
+        if let UIElement::Subsurface(surface_id) = node {
+            children.push(subsurfaces(surface_id));
+        }
+
+        let child_ids: Vec<_> = children
+            .into_iter()
+            .map(|child| Self::build_taffy_tree(taffy, child, subsurfaces))
+            .collect();
+
+        let node_id = taffy
+            .new_with_children((&style).into(), &child_ids)
+            .unwrap();
+        taffy.set_node_context(node_id, Some(node)).unwrap();
+        node_id
+    }
+
+    /// Parents are added before children, so children draw on top.
+    fn add_taffy_node(
+        &mut self,
+        taffy: &mut taffy::TaffyTree<UIElement>,
+        node_id: taffy::NodeId,
+        parent_location: taffy::Point<f32>,
+    ) {
+        let layout = *taffy.layout(node_id).unwrap();
+        let location = taffy::Point {
+            x: parent_location.x + layout.location.x,
+            y: parent_location.y + layout.location.y,
+        };
+        let area = DisplayAreaPx::new(
+            location.x as u32,
+            location.y as u32,
+            (location.x + layout.size.width) as u32,
+            (location.y + layout.size.height) as u32,
+        );
+
+        let element = std::mem::replace(
+            taffy.get_node_context_mut(node_id).unwrap(),
+            UIElement::Nothing,
+        );
+        let primitive = match element {
+            UIElement::Bordered(border_color) => Some(UIPrimitiveElement::RoundRect(RoundRect {
+                corner_radius: 1.0,
+                // REVIEW: assumes the same border width on every side
+                border_width: layout.border.left,
+                main_color: Color::TRANSPARENT.to_rgba_f32_array(),
+                border_color: border_color.to_rgba_f32_array(),
+            })),
+            UIElement::Backgrounded(bg_color) => Some(UIPrimitiveElement::RoundRect(RoundRect {
+                corner_radius: 0.0,
+                border_width: 0.0,
+                main_color: bg_color.to_rgba_f32_array(),
+                // shouldn't matter
+                border_color: [0.; 4],
+            })),
+            UIElement::Text(text) => Some(UIPrimitiveElement::Text(text)),
+            UIElement::CharGrid(char_grid) => Some(UIPrimitiveElement::CharGrid(char_grid)),
+            UIElement::Texture(texture_view) => Some(UIPrimitiveElement::Texture(texture_view)),
+            // already resolved into a child in `build_taffy_tree`
+            UIElement::Subsurface(_) | UIElement::Nothing => None,
+        };
+        if let Some(primitive) = primitive {
+            self.elements.push((primitive, area));
+        }
+
+        for child_id in taffy.children(node_id).unwrap() {
+            self.add_taffy_node(taffy, child_id, location);
+        }
+    }
+
     pub fn from_ui_tree(
         content: UITree,
         screen_size: DisplayContainerSize,
         subsurfaces: impl Fn(u64) -> UITree,
     ) -> Self {
-        // let mut scene = PrimitiveScene::new_empty();
-        //
-        // scene.add_ui_element(content, DisplayArea::FULL, screen_size, &subsurfaces);
-        //
-        // scene
-        todo!()
+        // TODO: keep the taffy tree between frames to use its cache
+        let mut taffy = taffy::TaffyTree::new();
+        let root = Self::build_taffy_tree(&mut taffy, content, &subsurfaces);
+
+        taffy
+            .compute_layout_with_measure(
+                root,
+                taffy::Size {
+                    width: taffy::AvailableSpace::Definite(screen_size.width as f32),
+                    height: taffy::AvailableSpace::Definite(screen_size.height as f32),
+                },
+                |inputs, _node_id, _element, style| {
+                    // leaves with auto size take all the space they can
+                    taffy::compute_leaf_layout(
+                        inputs,
+                        style,
+                        |_, _| 0.0,
+                        |known_dimensions, available_space| {
+                            let fill = |space| match space {
+                                taffy::AvailableSpace::Definite(space) => space,
+                                _ => 0.0,
+                            };
+                            taffy::Size {
+                                width: known_dimensions
+                                    .width
+                                    .unwrap_or_else(|| fill(available_space.width)),
+                                height: known_dimensions
+                                    .height
+                                    .unwrap_or_else(|| fill(available_space.height)),
+                            }
+                        },
+                    )
+                },
+            )
+            .unwrap();
+
+        let mut scene = Self::new_empty();
+        scene.add_taffy_node(&mut taffy, root, taffy::Point { x: 0.0, y: 0.0 });
+        scene
     }
 }
 
@@ -225,10 +340,17 @@ impl UITree {
         self.children.push(child);
     }
 
-    /// Wraps self in a full-size bordered node
+    /// Wraps self in a full-size node with a 1px border
     #[must_use]
     pub fn bordered(self, border: Color) -> Self {
-        Self::new(UIElement::Bordered(border), vec![self])
+        Self::new_styled(
+            UIElement::Bordered(border),
+            Style {
+                border: Length::uniform_rect(Length::Px(1.0)),
+                ..Style::full_size()
+            },
+            vec![self],
+        )
     }
 
     /// Wraps self in a full-size backgrounded node
@@ -250,20 +372,16 @@ impl UITree {
     /// Takes in a list of full-size elements and returns a combined ui element where they are equally spaced
     /// across the horizontal axis and take full height.
     /// TODO: take in horizontal vs vertical as input or make this into two functions
-    pub fn combine_displays(subdisplays: impl ExactSizeIterator<Item = Self>) -> Self {
+    pub fn combine_displays(subdisplays: Vec<Self>) -> Self {
         Self::new_container_styled(
             Style {
-                display: taffy::Display::Grid,
+                display: Display::Grid,
                 // one equal column per subdisplay, one full-height row
                 grid_template_columns: vec![TrackSize::Fr(1.0); subdisplays.len()],
                 grid_template_rows: vec![TrackSize::Fr(1.0)],
                 ..Style::full_size()
             },
-            subdisplays
-                .map(|subdisplay| {
-                    Self::new(UIElement::Bordered(Color::LIGHT_GREEN), vec![subdisplay])
-                })
-                .collect(),
+            subdisplays,
         )
     }
 }

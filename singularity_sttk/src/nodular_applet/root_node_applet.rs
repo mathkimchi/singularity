@@ -270,21 +270,25 @@ impl RootNodeApplet {
 
         // This is the horizontal split
         // UIElement::combine_displays((0..(focused_path.0.len() + 1)).map(|world_level_index| {
-        UITree::combine_displays((0..focused_path.0.len()).map(|world_level_index| {
-            let world_path = WorldTreePath(
-                focused_path.0[0..world_level_index]
-                    .to_vec()
-                    .into_boxed_slice(),
-            );
-            UIElement::from(
-                treeview
-                    .safe_get(&world_path)
-                    .unwrap()
-                    .outer_world_to_string(focused_path.0.get(world_level_index).cloned()),
-            )
-            .as_tree()
-            .bordered(Color::LIGHT_GREEN)
-        }))
+        UITree::combine_displays(
+            (0..focused_path.0.len())
+                .map(|world_level_index| {
+                    let world_path = WorldTreePath(
+                        focused_path.0[0..world_level_index]
+                            .to_vec()
+                            .into_boxed_slice(),
+                    );
+                    UIElement::from(
+                        treeview
+                            .safe_get(&world_path)
+                            .unwrap()
+                            .outer_world_to_string(focused_path.0.get(world_level_index).cloned()),
+                    )
+                    .as_tree()
+                    .bordered(Color::LIGHT_GREEN)
+                })
+                .collect(),
+        )
         .fill_bg(Color::BLACK)
     }
 }

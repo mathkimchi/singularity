@@ -9,6 +9,18 @@ pub enum Length {
     /// 0 to 1
     Percent(f32),
 }
+impl Length {
+    /// Same length on every side
+    #[must_use]
+    pub const fn uniform_rect(length: Self) -> taffy::Rect<Self> {
+        taffy::Rect {
+            left: length,
+            right: length,
+            top: length,
+            bottom: length,
+        }
+    }
+}
 impl From<Length> for taffy::LengthPercentage {
     fn from(value: Length) -> Self {
         match value {
@@ -109,8 +121,8 @@ pub struct Style {
     pub position: taffy::Position,
     pub inset: taffy::Rect<LengthAuto>,
     pub size: taffy::Size<Dimension>,
-    // TODO: border
-    // pub border: taffy::Rect<Length>,
+    /// Children are laid out inside the border
+    pub border: taffy::Rect<Length>,
     pub flex_direction: taffy::FlexDirection,
     pub flex_grow: f32,
 
@@ -153,6 +165,7 @@ impl Default for Style {
                 width: Dimension::Auto,
                 height: Dimension::Auto,
             },
+            border: Length::uniform_rect(Length::Px(0.0)),
             flex_direction: taffy::FlexDirection::default(),
             flex_grow: 0.0,
             grid_template_rows: Vec::new(),
@@ -172,6 +185,7 @@ impl From<&Style> for taffy::Style {
             position: style.position,
             inset: map_rect(style.inset),
             size: map_size(style.size),
+            border: map_rect(style.border),
             flex_direction: style.flex_direction,
             flex_grow: style.flex_grow,
             grid_template_rows: map_tracks(&style.grid_template_rows),
