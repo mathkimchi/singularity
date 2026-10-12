@@ -21,6 +21,7 @@ use sonamu_ui::{
     ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
+    cell::Cell,
     rc::{Rc, Weak},
     sync::{RwLock, atomic::AtomicBool},
 };
@@ -42,6 +43,9 @@ struct SharedResource {
 
     window_damaged: AtomicBool,
     treeview_damaged: AtomicBool,
+
+    /// So newly added children can be given the size
+    latest_size: Cell<Option<DisplayContainerSize>>,
 }
 impl SharedResource {
     pub fn new(hook: Box<dyn NodularRunnerHook>) -> Rc<Self> {
@@ -57,6 +61,7 @@ impl SharedResource {
             hook,
             window_damaged,
             treeview_damaged,
+            latest_size: Cell::new(None),
         })
     }
 
@@ -200,6 +205,9 @@ impl SharedResource {
 
         let child_holder = Self::create_hold_holder(shared_resource, child_initializer);
 
+        if let Some(size) = shared_resource.latest_size.get() {
+            child_holder.immut_handle_ui_event(UIEvent::WindowResized(size));
+        }
         shared_resource.children.write().unwrap().push(child_holder);
 
         if !shared_resource
@@ -535,6 +543,15 @@ impl StandardApplet for RecursiveNodeApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
         // TODO: change the order of the matches and stuff; currently just closest to previous implementation
         match standard_event {
+            StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
+                // every applet in this node is displayed at this size, not just the focused one
+                self.shared_resource.latest_size.set(Some(size));
+                self.main_applet
+                    .immut_handle_ui_event(UIEvent::WindowResized(size));
+                for child in self.shared_resource.children.read().unwrap().iter() {
+                    child.immut_handle_ui_event(UIEvent::WindowResized(size));
+                }
+            }
             StandardEvent::UIEvent(ui_event) => {
                 match self.shared_resource.focus_index.get() {
                     FocusIndex::Focusing => {

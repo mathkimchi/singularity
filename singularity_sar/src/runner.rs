@@ -74,6 +74,16 @@ impl AppletRunner {
     }
 
     pub(crate) fn handle_ui_event(&mut self, event: UIEvent) {
+        if let UIEvent::Key {
+            raw_keycode,
+            pressed: false,
+            ..
+        } = event
+        {
+            // evdev -> xkb
+            self.release_wl_key(raw_keycode + 8);
+        }
+
         if let UIEvent::WindowResized(screen_size) = event {
             self.window_size = screen_size;
 

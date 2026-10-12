@@ -4,7 +4,7 @@ use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceI
 use slotmap::SlotMap;
 use smithay::{
     backend::{
-        input::{Axis, AxisSource, ButtonState, Keycode},
+        input::{Axis, AxisSource, ButtonState, KeyState, Keycode},
         renderer::{
             BufferType, buffer_type,
             utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
@@ -192,35 +192,22 @@ impl SmithayState {
                     };
 
                     match wl_event {
-                        WlSurfaceEvent::Key { keycode, pressed } => {
+                        WlSurfaceEvent::Key {
+                            keycode,
+                            pressed: true,
+                        } => {
                             // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
                             state.smithay_state.seat.get_keyboard().unwrap().set_focus(
                                 state,
                                 Some(target_surface),
                                 Serial::from(42),
                             );
-                            state
-                                .smithay_state
-                                .seat
-                                .get_keyboard()
-                                .unwrap()
-                                .input::<(), _>(
-                                    state,
-                                    Keycode::new(keycode),
-                                    if pressed {
-                                        smithay::backend::input::KeyState::Pressed
-                                    } else {
-                                        smithay::backend::input::KeyState::Released
-                                    },
-                                    // dk bro
-                                    Serial::from(42),
-                                    std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_millis() as u32,
-                                    |_, _, _| FilterResult::Forward,
-                                );
+                            state.wl_key_input(keycode, KeyState::Pressed);
                         }
+                        WlSurfaceEvent::Key {
+                            keycode,
+                            pressed: false,
+                        } => state.release_wl_key(keycode),
                         WlSurfaceEvent::Resize(new_size) => {
                             let Some(toplevel) = state
                                 .smithay_state
@@ -440,6 +427,34 @@ fn send_frames_surface_tree(surface: &WlSurface, time: u32) {
 
 smithay::delegate_dispatch2!(AppletRunner);
 // smithay::delegate_dispatch2!(SmithayState);
+
+impl AppletRunner {
+    /// Sends to whichever surface has keyboard focus
+    fn wl_key_input(&mut self, keycode: u32, key_state: KeyState) {
+        self.smithay_state.seat.get_keyboard().unwrap().input::<(), _>(
+            self,
+            Keycode::new(keycode),
+            key_state,
+            // dk bro
+            Serial::from(42),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u32,
+            |_, _, _| FilterResult::Forward,
+        );
+    }
+
+    /// Called for every release, even if sonamu focus is elsewhere,
+    /// otherwise the client (and smithay) think the key is still held.
+    /// Does nothing if the key isn't pressed, so it is fine to call more than once.
+    pub(crate) fn release_wl_key(&mut self, keycode: u32) {
+        let keyboard = self.smithay_state.seat.get_keyboard().unwrap();
+        if keyboard.pressed_keys().contains(&Keycode::new(keycode)) {
+            self.wl_key_input(keycode, KeyState::Released);
+        }
+    }
+}
 
 impl SeatHandler for AppletRunner {
     type KeyboardFocus = WlSurface;
