@@ -11,7 +11,7 @@ use calloop::{
 };
 use singularity_common::{
     sap::{
-        packets::{StandardEvent, StandardRequest},
+        packets::{StandardEvent, StandardRequest, WlSurfaceId},
         raw_client_initializer::RawClientInitializer,
     },
     sync::EncapsulatedLock,
@@ -41,6 +41,8 @@ pub struct RootNodeApplet {
     request_sender: Sender<StandardRequest>,
 
     latest_size: DisplayContainerSize,
+    /// Last sent with `StandardRequest::WlKeyboardFocus`
+    focused_wl_surface: Option<WlSurfaceId>,
 
     applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
@@ -52,6 +54,17 @@ impl RootNodeApplet {
     fn inner_applet_size(&self) -> DisplayContainerSize {
         self.latest_size
             .find_subsize(Self::INNER_APPLET_AREA.size())
+    }
+
+    /// Tells the runner if Sonamu focus moved onto or off a wl surface
+    fn update_wl_focus(&mut self) {
+        let focused_wl_surface = self.applet.focused_wl_surface();
+        if focused_wl_surface != self.focused_wl_surface {
+            self.focused_wl_surface = focused_wl_surface;
+            self.request_sender
+                .send(StandardRequest::WlKeyboardFocus(focused_wl_surface))
+                .unwrap();
+        }
     }
 
     /// Redraws if necessary/possible
@@ -89,7 +102,12 @@ impl RootNodeApplet {
                     StandardRequest::DamageTreeview => {
                         applet.try_redraw();
                     }
-                    StandardRequest::Quit => todo!(),
+                    // eg Ctrl+Shift+Q; quits everything
+                    StandardRequest::Quit => {
+                        applet.request_sender.send(StandardRequest::Quit).unwrap();
+                    }
+                    // only sent by the root itself
+                    StandardRequest::WlKeyboardFocus(_) => {}
                 }
             })
             .unwrap();
@@ -168,6 +186,7 @@ impl RootNodeApplet {
             content_dirty: false,
             // Just making stuff up
             latest_size: DisplayContainerSize::new(800, 600),
+            focused_wl_surface: None,
             request_sender,
             applet_spawner_registry,
         }
@@ -232,7 +251,8 @@ impl RootNodeApplet {
                                 StandardEvent::FocusChanged(..)
                                 | StandardEvent::Highlighted(..)
                                 | StandardEvent::TreeviewDamageAck
-                                | StandardEvent::WlSurfaceRegistered { .. } => {
+                                | StandardEvent::WlSurfaceRegistered { .. }
+                                | StandardEvent::FocusWlSurface(_) => {
                                     applet.applet.handle_standard_event(event);
                                 }
                             }
@@ -248,7 +268,10 @@ impl RootNodeApplet {
                     &event_loop.handle(),
                 );
 
-                event_loop.run(None, &mut applet, |_| {}).unwrap();
+                // after each batch of events, since any of them may move focus
+                event_loop
+                    .run(None, &mut applet, RootNodeApplet::update_wl_focus)
+                    .unwrap();
             }
         }
         Box::new(Initializer {

@@ -18,9 +18,11 @@ use smithay::{
     },
     input::{
         Seat, SeatHandler, SeatState,
+        dnd::{DnDGrab, DndGrabHandler, DndTarget, GrabType, Source},
         keyboard::FilterResult,
         pointer::{
             AxisFrame, ButtonEvent, CursorImageStatus, CursorImageSurfaceData, Focus, MotionEvent,
+            PointerHandle, RelativeMotionEvent,
         },
     },
     output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
@@ -30,15 +32,31 @@ use smithay::{
         Client, Display, DisplayHandle, Resource as _, backend::ClientData,
         protocol::{wl_seat::WlSeat, wl_surface::WlSurface},
     },
-    utils::{Clock, Logical, Monotonic, Point, Rectangle, SERIAL_COUNTER, Serial, Time},
+    utils::{
+        Buffer as BufferCoords, Clock, Logical, Monotonic, Physical, Point, Rectangle,
+        SERIAL_COUNTER, Serial, Size, Time, Transform,
+    },
     wayland::{
         buffer::BufferHandler,
         compositor::{
             CompositorClientState, CompositorHandler, CompositorState, SurfaceAttributes,
-            SurfaceData, TraversalAction, with_states, with_surface_tree_downward,
+            SurfaceData, TraversalAction, send_surface_state, with_states,
+            with_surface_tree_downward,
         },
         cursor_shape::CursorShapeManagerState,
+        fractional_scale::{
+            FractionalScaleHandler, FractionalScaleManagerState, with_fractional_scale,
+        },
+        pointer_constraints::{
+            PointerConstraint, PointerConstraintsHandler, PointerConstraintsState,
+            with_pointer_constraint,
+        },
+        relative_pointer::RelativePointerManagerState,
         tablet_manager::TabletSeatHandler,
+        text_input::{TextInputManagerState, TextInputSeat as _},
+        xdg_activation::{
+            XdgActivationHandler, XdgActivationState, XdgActivationToken, XdgActivationTokenData,
+        },
         idle_inhibit::{IdleInhibitHandler, IdleInhibitManagerState},
         output::{OutputHandler, OutputManagerState},
         selection::{
@@ -63,11 +81,12 @@ use smithay::{
     },
 };
 use sonamu_ui::{
-    display_units::DisplayContainerSize,
+    DisplayInfo, ImeEvent, PointerGrab,
+    display_units::{DisplayAreaPx, DisplayContainerSize},
     ui_element::{Cursor, Style, UIElement, UITree},
     ui_event::{MouseEvent, MouseEventKind},
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use wgpu::{TextureView, TextureViewDescriptor};
 
 #[derive(Debug, Default)]
@@ -116,6 +135,22 @@ pub struct SmithayState {
     /// Latest cursor set by the client under the pointer
     cursor_status: CursorImageStatus,
     _cursor_shape_state: CursorShapeManagerState,
+    _fractional_scale_state: FractionalScaleManagerState,
+    xdg_activation_state: XdgActivationState,
+    _text_input_state: TextInputManagerState,
+    _pointer_constraints_state: PointerConstraintsState,
+    _relative_pointer_state: RelativePointerManagerState,
+    /// The last surface the pointer was sent to and its origin, for relative motion
+    pointer_focus: Option<(WlSurface, Point<f64, Logical>)>,
+    /// From the last redraw, in Sonamu window px
+    tile_areas: HashMap<WlSurfaceId, DisplayAreaPx>,
+    /// Where to warp the pointer when the current lock ends (window px), from `cursor_position_hint`
+    pub(crate) lock_end_position: Option<[f64; 2]>,
+    /// Drawn at the pointer plus its offset during a drag and drop
+    dnd_icon: Option<(WlSurface, Point<i32, Logical>)>,
+    /// Of the Sonamu window; wl clients' logical units are px / scale
+    scale: f64,
+    refresh_millihertz: Option<u32>,
 
     seat: Seat<AppletRunner>,
     output: Output,
@@ -136,27 +171,55 @@ pub struct SmithayState {
     wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
 }
 impl SmithayState {
-    /// Same as anvil, but constrained to the toplevel's tile instead of the output,
-    /// since where the tile is in the output isn't known here.
-    /// TODO: constrain to the output once the tile's position is known
+    pub fn flush_clients(&mut self) {
+        if let Err(err) = self.display_handle.flush_clients() {
+            dbg!("Failed to flush clients:", err);
+        }
+    }
+
+    /// Where each wl toplevel's tile was laid out in the last redraw
+    pub fn set_tile_areas(&mut self, tile_areas: impl Iterator<Item = (WlSurfaceId, DisplayAreaPx)>) {
+        self.tile_areas.clear();
+        self.tile_areas.extend(tile_areas);
+    }
+
+    /// Same as anvil: keeps the popup inside the output (the Sonamu window).
+    /// Falls back to the toplevel's tile if the tile hasn't been laid out yet.
     fn unconstrain_popup(&self, popup: &PopupSurface) {
         let kind = PopupKind::Xdg(popup.clone());
         let Ok(root) = find_popup_root_surface(&kind) else {
             return;
         };
-        let Some(tile_size) = self
-            .xdg_shell_state
-            .toplevel_surfaces()
+
+        // the output, relative to the tile
+        let output_in_tile = self
+            .surfaces
             .iter()
-            .find(|toplevel| toplevel.wl_surface() == &root)
-            // the latest size sent, which is the tile size
-            .and_then(|toplevel| toplevel.with_pending_state(|state| state.size))
-        else {
+            .find_map(|(surface_id, surface)| (*surface == root).then_some(surface_id))
+            .and_then(|surface_id| self.tile_areas.get(&surface_id))
+            .zip(self.output.current_mode())
+            .map(|(DisplayAreaPx([[left, top], _]), mode)| {
+                Rectangle::new(
+                    Point::<f64, Physical>::from((-f64::from(*left), -f64::from(*top)))
+                        .to_logical(self.scale)
+                        .to_i32_round(),
+                    mode.size.to_f64().to_logical(self.scale).to_i32_round(),
+                )
+            });
+        let tile = || {
+            self.xdg_shell_state
+                .toplevel_surfaces()
+                .iter()
+                .find(|toplevel| toplevel.wl_surface() == &root)
+                // the latest size sent, which is the tile size
+                .and_then(|toplevel| toplevel.with_pending_state(|state| state.size))
+                .map(Rectangle::from_size)
+        };
+        let Some(mut target) = output_in_tile.or_else(tile) else {
             return;
         };
 
         // relative to the popup's parent's window geometry, like the positioner
-        let mut target = Rectangle::from_size(tile_size);
         target.loc -= get_popup_toplevel_coords(&kind);
         target.loc -= window_geometry_loc(&root);
 
@@ -169,29 +232,29 @@ impl SmithayState {
     /// and presentation feedback.
     /// TODO: skip surfaces that aren't visible (and discard their presentation feedback)
     pub fn frame_presented(&mut self) {
-        let frame_time = self.start_time.elapsed().as_millis() as u32;
-        let present_time = self.clock.now();
         self.presented_frames += 1;
+        let presentation = Presentation {
+            frame_time: self.start_time.elapsed().as_millis() as u32,
+            output: &self.output,
+            time: self.clock.now(),
+            refresh: self.refresh_millihertz.map_or(Refresh::Unknown, |refresh| {
+                Refresh::fixed(Duration::from_nanos(1_000_000_000_000 / u64::from(refresh)))
+            }),
+            seq: self.presented_frames,
+        };
 
-        if let CursorImageStatus::Surface(cursor_surface) = &self.cursor_status {
-            send_frames_surface_tree(
-                cursor_surface,
-                frame_time,
-                &self.output,
-                present_time,
-                self.presented_frames,
-            );
+        if let CursorImageStatus::Surface(cursor_surface) = &self.cursor_status
+            && cursor_surface.is_alive()
+        {
+            send_frames_surface_tree(cursor_surface, &presentation);
+        }
+        if let Some((icon, _)) = self.dnd_icon.as_ref().filter(|(icon, _)| icon.is_alive()) {
+            send_frames_surface_tree(icon, &presentation);
         }
         for root in self.surfaces.values() {
-            send_frames_surface_tree(root, frame_time, &self.output, present_time, self.presented_frames);
+            send_frames_surface_tree(root, &presentation);
             for (popup, _) in PopupManager::popups_for_surface(root) {
-                send_frames_surface_tree(
-                    popup.wl_surface(),
-                    frame_time,
-                    &self.output,
-                    present_time,
-                    self.presented_frames,
-                );
+                send_frames_surface_tree(popup.wl_surface(), &presentation);
             }
         }
     }
@@ -200,12 +263,150 @@ impl SmithayState {
     pub fn resize_output(&self, size: DisplayContainerSize) {
         let mode = Mode {
             size: (size.width as i32, size.height as i32).into(),
-            // TODO: use the real refresh rate (mHz)
-            refresh: 60_000,
+            // 60 Hz when unknown
+            refresh: self
+                .refresh_millihertz
+                .map_or(60_000, |refresh| refresh.cast_signed()),
         };
         self.output
             .change_current_state(Some(mode), None, None, None);
         self.output.set_preferred(mode);
+    }
+
+    /// Updates the output, and every surface's preferred scale and toplevel's size
+    pub fn set_display_info(&mut self, info: DisplayInfo) {
+        let old_scale = self.scale;
+        self.scale = info.scale_factor;
+        self.refresh_millihertz = info.refresh_millihertz;
+
+        if let Some(mode) = self.output.current_mode() {
+            self.resize_output(DisplayContainerSize::new(
+                mode.size.w.cast_unsigned(),
+                mode.size.h.cast_unsigned(),
+            ));
+        }
+        self.output.change_current_state(
+            None,
+            None,
+            Some(Scale::Fractional(self.scale)),
+            None,
+        );
+
+        if old_scale != self.scale {
+            for toplevel in self.xdg_shell_state.toplevel_surfaces() {
+                // same px size, in the new logical units
+                toplevel.with_pending_state(|state| {
+                    state.size = state.size.map(|size| {
+                        size.to_f64()
+                            .to_physical(old_scale)
+                            .to_logical(self.scale)
+                            .to_i32_round()
+                    });
+                });
+                if toplevel.is_initial_configure_sent() {
+                    toplevel.send_pending_configure();
+                }
+            }
+        }
+
+        for root in self.surfaces.values() {
+            self.send_scale(root);
+            for (popup, _) in PopupManager::popups_for_surface(root) {
+                self.send_scale(popup.wl_surface());
+            }
+        }
+    }
+
+    /// The client may have destroyed it since
+    fn live_pointer_focus(&self) -> Option<&WlSurface> {
+        self.pointer_focus
+            .as_ref()
+            .map(|(surface, _)| surface)
+            .filter(|surface| surface.is_alive())
+    }
+
+    /// Activates the pointer-focused surface's constraint if the pointer is in its region, like anvil
+    fn maybe_activate_pointer_constraint(&self) {
+        let Some((surface, origin)) = self
+            .pointer_focus
+            .as_ref()
+            .filter(|(surface, _)| surface.is_alive())
+        else {
+            return;
+        };
+        let pointer = self.seat.get_pointer().unwrap();
+        let surface_location = (pointer.current_location() - *origin).to_i32_round();
+        with_pointer_constraint(surface, &pointer, |constraint| {
+            if let Some(constraint) = constraint
+                && !constraint.is_active()
+                && constraint
+                    .region()
+                    .is_none_or(|region| region.contains(surface_location))
+            {
+                constraint.activate();
+            }
+        });
+    }
+
+    /// How the Sonamu window should hold the pointer, from the pointer-focused surface's active constraint
+    pub fn pointer_grab(&self) -> PointerGrab {
+        let Some(surface) = self.live_pointer_focus() else {
+            return PointerGrab::None;
+        };
+        let pointer = self.seat.get_pointer().unwrap();
+        with_pointer_constraint(surface, &pointer, |constraint| match constraint {
+            Some(constraint) if constraint.is_active() => match &*constraint {
+                PointerConstraint::Confined(_) => PointerGrab::Confined,
+                PointerConstraint::Locked(_) => PointerGrab::Locked,
+            },
+            _ => PointerGrab::None,
+        })
+    }
+
+    /// Sends input method text to the keyboard-focused client's active text input
+    pub fn ime_input(&self, ime: &ImeEvent) {
+        let text_input = self.seat.text_input();
+        text_input.with_active_text_input(|text_input, _| match ime {
+            ImeEvent::Preedit { text, cursor } => {
+                // -1, -1 hides the cursor
+                let (begin, end) = cursor.map_or((-1, -1), |(begin, end)| {
+                    (
+                        i32::try_from(begin).unwrap_or(-1),
+                        i32::try_from(end).unwrap_or(-1),
+                    )
+                });
+                text_input.preedit_string(Some(text.clone()), begin, end);
+            }
+            ImeEvent::Commit(text) => {
+                text_input.preedit_string(None, 0, 0);
+                text_input.commit_string(Some(text.clone()));
+            }
+        });
+        text_input.done(false);
+    }
+
+    /// Tells every surface in the tree the preferred scale (does nothing if unchanged)
+    fn send_scale(&self, root: &WlSurface) {
+        let integer_scale = self.scale.ceil() as i32;
+        with_surface_tree_downward(
+            root,
+            (),
+            |_, _, &()| TraversalAction::DoChildren(()),
+            |surface, states, &()| {
+                with_fractional_scale(states, |fractional_scale| {
+                    fractional_scale.set_preferred_scale(self.scale);
+                });
+                send_surface_state(surface, states, integer_scale, Transform::Normal);
+            },
+            |_, _, &()| true,
+        );
+    }
+
+    /// Px in the Sonamu window to the logical units wl clients use
+    fn to_logical(&self, size: DisplayContainerSize) -> Size<i32, Logical> {
+        Size::<f64, Physical>::from((f64::from(size.width), f64::from(size.height)))
+            .to_logical(self.scale)
+            .to_i32_round()
     }
 
     pub fn new(event_handle: &LoopHandle<AppletRunner>) -> Self {
@@ -237,7 +438,7 @@ impl SmithayState {
                 serial_number: String::from("Unknown"),
             },
         );
-        // TODO: advertise the real scale (forward winit's scale factor)
+        // the real scale is set by `set_display_info`
         output.change_current_state(None, None, Some(Scale::Integer(1)), Some((0, 0).into()));
         output.create_global::<AppletRunner>(&display_handle);
 
@@ -249,6 +450,15 @@ impl SmithayState {
         let viewporter_state = ViewporterState::new::<AppletRunner>(&display_handle);
         // delivered through `SeatHandler::cursor_image` as named cursors
         let cursor_shape_state = CursorShapeManagerState::new::<AppletRunner>(&display_handle);
+        let fractional_scale_state =
+            FractionalScaleManagerState::new::<AppletRunner>(&display_handle);
+        let xdg_activation_state = XdgActivationState::new::<AppletRunner>(&display_handle);
+        // smithay moves text input focus with keyboard focus
+        let text_input_state = TextInputManagerState::new::<AppletRunner>(&display_handle);
+        let pointer_constraints_state =
+            PointerConstraintsState::new::<AppletRunner>(&display_handle);
+        let relative_pointer_state =
+            RelativePointerManagerState::new::<AppletRunner>(&display_handle);
         let clock = Clock::<Monotonic>::new();
         let presentation_state =
             PresentationState::new::<AppletRunner>(&display_handle, clock.id() as u32);
@@ -324,6 +534,17 @@ impl SmithayState {
             presented_frames: 0,
             cursor_status: CursorImageStatus::default_named(),
             _cursor_shape_state: cursor_shape_state,
+            _fractional_scale_state: fractional_scale_state,
+            xdg_activation_state,
+            _text_input_state: text_input_state,
+            _pointer_constraints_state: pointer_constraints_state,
+            _relative_pointer_state: relative_pointer_state,
+            pointer_focus: None,
+            tile_areas: HashMap::new(),
+            lock_end_position: None,
+            dnd_icon: None,
+            scale: 1.0,
+            refresh_millihertz: None,
             seat,
             output,
             surfaces: SlotMap::with_key(),
@@ -359,20 +580,8 @@ impl SmithayState {
                             pressed: true,
                         } => {
                             // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
-                            let keyboard = state.smithay_state.seat.get_keyboard().unwrap();
-                            // the toplevel's popups keep focus, otherwise the popup grab would end
-                            let focus_in_target = keyboard.current_focus().is_some_and(|focus| {
-                                focus == target_surface
-                                    || state
-                                        .smithay_state
-                                        .popup_manager
-                                        .find_popup(&focus)
-                                        .and_then(|popup| find_popup_root_surface(&popup).ok())
-                                        .is_some_and(|root| root == target_surface)
-                            });
-                            if !focus_in_target {
-                                keyboard.set_focus(state, Some(target_surface), Serial::from(42));
-                            }
+                            // usually already focused by `StandardRequest::WlKeyboardFocus`
+                            state.focus_wl_keyboard_on(target_surface);
                             state.wl_key_input(keycode, KeyState::Pressed);
                         }
                         WlSurfaceEvent::Key {
@@ -392,9 +601,9 @@ impl SmithayState {
                                 return;
                             };
 
+                            let size = state.smithay_state.to_logical(new_size);
                             toplevel.with_pending_state(|toplevel_state| {
-                                toplevel_state.size =
-                                    Some((new_size.width as i32, new_size.height as i32).into());
+                                toplevel_state.size = Some(size);
                             });
                             toplevel.send_configure();
                         }
@@ -404,16 +613,20 @@ impl SmithayState {
 
                             // Motion first so the pointer is focused on the surface under it.
                             // `position` is already relative to the tile, which is where the root is drawn
-                            let location = (position[0], position[1]).into();
+                            let location = Point::<f64, Physical>::from((position[0], position[1]))
+                                .to_logical(state.smithay_state.scale);
+                            let focus = SmithayState::surface_under(&target_surface, location);
+                            state.smithay_state.pointer_focus.clone_from(&focus);
                             pointer.motion(
                                 state,
-                                SmithayState::surface_under(&target_surface, location),
+                                focus,
                                 &MotionEvent {
                                     location,
                                     serial: SERIAL_COUNTER.next_serial(),
                                     time,
                                 },
                             );
+                            state.smithay_state.maybe_activate_pointer_constraint();
                             match kind {
                                 MouseEventKind::Motion => {}
                                 MouseEventKind::Button { button, pressed } => {
@@ -495,7 +708,11 @@ impl SmithayState {
                 .get::<RendererSurfaceStateUserData>()
                 .and_then(|surface_state| {
                     let surface_state = surface_state.lock().unwrap();
-                    Some((surface_state.view()?, surface_state.buffer()?.clone()))
+                    Some((
+                        surface_state.view()?,
+                        surface_state.buffer()?.clone(),
+                        surface_state.buffer_scale(),
+                    ))
                 })
         };
 
@@ -504,15 +721,16 @@ impl SmithayState {
             root,
             origin,
             |_, states, &location| match view(states) {
-                Some((view, _)) => TraversalAction::DoChildren(location + view.offset),
+                Some((view, ..)) => TraversalAction::DoChildren(location + view.offset),
                 // not mapped, so neither are its children
                 None => TraversalAction::SkipChildren,
             },
             |surface, states, &location| {
-                if let Some((view, buffer)) = view(states) {
+                if let Some((view, buffer, buffer_scale)) = view(states) {
                     layers.push(Layer {
                         surface: surface.clone(),
                         buffer,
+                        buffer_scale,
                         location: location + view.offset,
                         view,
                     });
@@ -538,18 +756,40 @@ impl SmithayState {
     ) -> Option<UITree> {
         let surface = self.surfaces.get(surface_id)?;
 
-        let layers = Self::window_layers(surface);
+        let mut layers = Self::window_layers(surface);
         let cursor = self.wl_cursor(&layers);
+
+        // the pointer isn't focused on anything during a drag, so the icon goes in every tile
+        if let Some((icon, offset)) = self.dnd_icon.as_ref().filter(|(icon, _)| icon.is_alive()) {
+            let location = self
+                .seat
+                .get_pointer()
+                .unwrap()
+                .current_location()
+                .to_i32_round();
+            layers.extend(Self::surface_tree_layers(icon, location + *offset));
+        }
 
         let textures: Vec<_> = layers
             .into_iter()
             .filter_map(|layer| {
-                let texture = Self::import_buffer(&layer.buffer, layer.view.src, device, queue)?;
+                let src = layer.view.src.to_buffer(
+                    f64::from(layer.buffer_scale),
+                    Transform::Normal,
+                    &layer.view.src.size,
+                );
+                let texture = Self::import_buffer(&layer.buffer, src, device, queue)?;
                 Some(UITree::leaf_styled(
                     UIElement::Texture(texture),
                     Style::absolute(
-                        [layer.location.x as f32, layer.location.y as f32],
-                        [layer.view.dst.w as f32, layer.view.dst.h as f32],
+                        [
+                            (f64::from(layer.location.x) * self.scale) as f32,
+                            (f64::from(layer.location.y) * self.scale) as f32,
+                        ],
+                        [
+                            (f64::from(layer.view.dst.w) * self.scale) as f32,
+                            (f64::from(layer.view.dst.h) * self.scale) as f32,
+                        ],
                     ),
                 ))
             })
@@ -568,8 +808,18 @@ impl SmithayState {
         match &self.cursor_status {
             CursorImageStatus::Hidden => Some(Cursor::Hidden),
             CursorImageStatus::Named(icon) => Some(Cursor::Named(*icon)),
-            CursorImageStatus::Surface(surface) => read_cursor_surface(surface),
+            CursorImageStatus::Surface(surface) if surface.is_alive() => {
+                read_cursor_surface(surface)
+            }
+            CursorImageStatus::Surface(_) => None,
         }
+    }
+
+    /// Whether `surface` is drawn as part of `toplevel` (itself, a subsurface, or a popup)
+    fn is_in_window(toplevel: &WlSurface, surface: &WlSurface) -> bool {
+        Self::window_layers(toplevel)
+            .iter()
+            .any(|layer| &layer.surface == surface)
     }
 
     /// The topmost surface of the toplevel under `point` (relative to the root),
@@ -593,10 +843,10 @@ impl SmithayState {
 
     /// Only the `src` part of the buffer is imported (viewporter crop).
     ///
-    /// TODO: `src` is in surface coords, which only match buffer px with buffer scale 1 and no transform
+    /// TODO: buffer transforms (eg rotated buffers) aren't handled
     fn import_buffer(
         wl_buffer: &Buffer,
-        src: Rectangle<f64, Logical>,
+        src: Rectangle<f64, BufferCoords>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> Option<TextureView> {
@@ -688,11 +938,11 @@ impl SmithayState {
                 .ok()
                 .flatten()
             }
-            Some(BufferType::Dma) => {
-                dbg!("Dma");
-                todo!()
+            // not advertised, so clients shouldn't send these; draw nothing instead of panicking
+            unsupported => {
+                dbg!("Unsupported buffer type:", unsupported);
+                None
             }
-            Some(BufferType::SinglePixel | _) | None => todo!(),
         }
     }
 }
@@ -703,6 +953,7 @@ impl SmithayState {
 struct Layer {
     surface: WlSurface,
     buffer: Buffer,
+    buffer_scale: i32,
     /// Offset from the root
     location: Point<i32, Logical>,
     /// The crop (`src`) and drawn size (`dst`), from viewporter or the buffer
@@ -785,17 +1036,22 @@ fn read_cursor_surface(surface: &WlSurface) -> Option<Cursor> {
     .flatten()
 }
 
+/// What a presented frame tells clients
+struct Presentation<'a> {
+    /// For frame callbacks
+    frame_time: u32,
+    output: &'a Output,
+    time: Time<Monotonic>,
+    refresh: Refresh,
+    /// The presented frame count
+    seq: u64,
+}
+
 /// See 2026-09-04 DEVLOG
 /// I think this is just going through the entire tree and telling all the frame callbacks that the request was done
 ///
-/// Also sends presentation feedback; `seq` is the presented frame count.
-fn send_frames_surface_tree(
-    surface: &WlSurface,
-    frame_time: u32,
-    output: &Output,
-    present_time: Time<Monotonic>,
-    seq: u64,
-) {
+/// Also sends presentation feedback.
+fn send_frames_surface_tree(surface: &WlSurface, presentation: &Presentation) {
     with_surface_tree_downward(
         surface,
         (),
@@ -808,7 +1064,7 @@ fn send_frames_surface_tree(
                 .frame_callbacks
                 .drain(..)
             {
-                callback.done(frame_time);
+                callback.done(presentation.frame_time);
             }
 
             for feedback in states
@@ -818,12 +1074,12 @@ fn send_frames_surface_tree(
                 .callbacks
                 .drain(..)
             {
-                // refresh is unknown and the time isn't from the hardware, so no flags
+                // the time isn't from the hardware, so no flags
                 feedback.presented(
-                    output,
-                    present_time,
-                    Refresh::Unknown,
-                    seq,
+                    presentation.output,
+                    presentation.time,
+                    presentation.refresh,
+                    presentation.seq,
                     PresentationFeedbackKind::empty(),
                 );
             }
@@ -899,6 +1155,24 @@ impl CompositorHandler for AppletRunner {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
 
+        // covers new subsurfaces, popups and cursors; does nothing if already sent
+        self.smithay_state.send_scale(surface);
+
+        // the drag icon moves by its attach offset, like anvil
+        if let Some((icon, offset)) = &mut self.smithay_state.dnd_icon
+            && icon == surface
+        {
+            *offset += with_states(icon, |states| {
+                states
+                    .cached_state
+                    .get::<SurfaceAttributes>()
+                    .current()
+                    .buffer_delta
+                    .take()
+                    .unwrap_or_default()
+            });
+        }
+
         self.smithay_state.popup_manager.commit(surface);
         if let Some(PopupKind::Xdg(popup)) = self.smithay_state.popup_manager.find_popup(surface)
             && !popup.is_initial_configure_sent()
@@ -942,12 +1216,7 @@ impl XdgShellHandler for AppletRunner {
         surface.send_configure();
         self.smithay_state.output.enter(surface.wl_surface());
 
-        self.smithay_state.seat.get_keyboard().unwrap().set_focus(
-            self,
-            Some(surface.wl_surface().clone()),
-            // Idk what serial should be
-            Serial::from(42),
-        );
+        // keyboard focus is given once Sonamu focus reaches the new tile (`StandardRequest::WlKeyboardFocus`)
 
         // add surface to list of surfaces
         let surface_id = self
@@ -1060,8 +1329,60 @@ impl DataDeviceHandler for AppletRunner {
     }
 }
 
-/// TODO: dnd; the default impl cancels it since there is no icon rendering yet
-impl WaylandDndGrabHandler for AppletRunner {}
+/// Same as anvil
+impl WaylandDndGrabHandler for AppletRunner {
+    fn dnd_requested<S: Source>(
+        &mut self,
+        source: S,
+        icon: Option<WlSurface>,
+        seat: Seat<Self>,
+        serial: Serial,
+        type_: GrabType,
+    ) {
+        self.smithay_state.dnd_icon = icon.map(|icon| (icon, Point::from((0, 0))));
+
+        match type_ {
+            GrabType::Pointer => {
+                let pointer = seat.get_pointer().unwrap();
+                let Some(start_data) = pointer.grab_start_data() else {
+                    source.cancel();
+                    return;
+                };
+                pointer.set_grab(
+                    self,
+                    DnDGrab::new_pointer(
+                        &self.smithay_state.display_handle,
+                        start_data,
+                        source,
+                        seat,
+                    ),
+                    serial,
+                    Focus::Keep,
+                );
+            }
+            // there is no touch
+            GrabType::Touch => source.cancel(),
+        }
+    }
+}
+
+impl DndGrabHandler for AppletRunner {
+    fn dropped(
+        &mut self,
+        _target: Option<DndTarget<'_, Self>>,
+        _validated: bool,
+        _seat: Seat<Self>,
+        _location: Point<f64, Logical>,
+    ) {
+        self.smithay_state.dnd_icon = None;
+        self.needs_redraw = true;
+    }
+
+    fn cancelled(&mut self, _seat: Seat<Self>, _location: Point<f64, Logical>) {
+        self.smithay_state.dnd_icon = None;
+        self.needs_redraw = true;
+    }
+}
 
 impl PrimarySelectionHandler for AppletRunner {
     fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
@@ -1097,6 +1418,172 @@ impl IdleInhibitHandler for AppletRunner {
     fn inhibit(&mut self, _surface: WlSurface) {}
 
     fn uninhibit(&mut self, _surface: WlSurface) {}
+}
+
+impl PointerConstraintsHandler for AppletRunner {
+    fn new_constraint(&mut self, _surface: &WlSurface, _pointer: &PointerHandle<Self>) {
+        self.smithay_state.maybe_activate_pointer_constraint();
+    }
+
+    /// The window's grab is released by `AppletRunner::update_pointer_grab`
+    fn remove_constraint(&mut self, _surface: &WlSurface, _pointer: &PointerHandle<Self>) {}
+
+    /// Where the pointer goes when the lock ends, like anvil.
+    /// Converted to window px now, while the surface's position is known.
+    fn cursor_position_hint(
+        &mut self,
+        surface: &WlSurface,
+        pointer: &PointerHandle<Self>,
+        location: Point<f64, Logical>,
+    ) {
+        let state = &self.smithay_state;
+        if !with_pointer_constraint(surface, pointer, |constraint| {
+            constraint.is_some_and(|constraint| constraint.is_active())
+        }) {
+            return;
+        }
+        let Some((_, origin)) = state
+            .pointer_focus
+            .as_ref()
+            .filter(|(focus, _)| focus == surface)
+        else {
+            return;
+        };
+        // the pointer focus is in the visible tile; find its toplevel's tile
+        let Some(DisplayAreaPx([[left, top], _])) = state
+            .surfaces
+            .iter()
+            .find_map(|(surface_id, toplevel)| {
+                state
+                    .tile_areas
+                    .get(&surface_id)
+                    .filter(|_| SmithayState::is_in_window(toplevel, surface))
+            })
+        else {
+            return;
+        };
+
+        let in_tile = (*origin + location).to_physical(state.scale);
+        self.smithay_state.lock_end_position =
+            Some([f64::from(*left) + in_tile.x, f64::from(*top) + in_tile.y]);
+    }
+}
+
+impl AppletRunner {
+    /// Follows Sonamu focus; `None` (or a stale id) clears keyboard focus
+    pub(crate) fn focus_wl_keyboard(&mut self, surface_id: Option<WlSurfaceId>) {
+        match surface_id.and_then(|surface_id| self.smithay_state.surfaces.get(surface_id).cloned())
+        {
+            Some(surface) => self.focus_wl_keyboard_on(surface),
+            None => {
+                let keyboard = self.smithay_state.seat.get_keyboard().unwrap();
+                if keyboard.current_focus().is_some() {
+                    // also ends any popup grab
+                    keyboard.set_focus(self, None, SERIAL_COUNTER.next_serial());
+                }
+
+                // the pointer leaves too, which ends any pointer lock (and so the window's grab)
+                if self.smithay_state.pointer_focus.take().is_some() {
+                    let pointer = self.smithay_state.seat.get_pointer().unwrap();
+                    let location = pointer.current_location();
+                    pointer.motion(
+                        self,
+                        None,
+                        &MotionEvent {
+                            location,
+                            serial: SERIAL_COUNTER.next_serial(),
+                            time: self.smithay_state.start_time.elapsed().as_millis() as u32,
+                        },
+                    );
+                    pointer.frame(self);
+                }
+            }
+        }
+    }
+
+    /// Focuses the toplevel, unless it or one of its popups already is
+    /// (moving focus off a popup would end its grab)
+    fn focus_wl_keyboard_on(&mut self, toplevel: WlSurface) {
+        let keyboard = self.smithay_state.seat.get_keyboard().unwrap();
+        let focus_in_toplevel = keyboard.current_focus().is_some_and(|focus| {
+            focus == toplevel
+                || self
+                    .smithay_state
+                    .popup_manager
+                    .find_popup(&focus)
+                    .and_then(|popup| find_popup_root_surface(&popup).ok())
+                    .is_some_and(|root| root == toplevel)
+        });
+        if !focus_in_toplevel {
+            keyboard.set_focus(self, Some(toplevel), SERIAL_COUNTER.next_serial());
+        }
+    }
+
+    /// Raw mouse movement, sent to the surface the pointer was last sent to
+    pub(crate) fn relative_pointer_motion(&mut self, [dx, dy]: [f64; 2]) {
+        let Some(focus) = self
+            .smithay_state
+            .pointer_focus
+            .clone()
+            .filter(|(surface, _)| surface.is_alive())
+        else {
+            return;
+        };
+        let pointer = self.smithay_state.seat.get_pointer().unwrap();
+        // physical px to logical
+        let delta = Point::<f64, Physical>::from((dx, dy)).to_logical(self.smithay_state.scale);
+        pointer.relative_motion(
+            self,
+            Some(focus),
+            &RelativeMotionEvent {
+                delta,
+                // winit's delta is raw, so both are the same
+                delta_unaccel: delta,
+                utime: self.smithay_state.start_time.elapsed().as_micros() as u64,
+            },
+        );
+        pointer.frame(self);
+    }
+}
+
+impl XdgActivationHandler for AppletRunner {
+    fn activation_state(&mut self) -> &mut XdgActivationState {
+        &mut self.smithay_state.xdg_activation_state
+    }
+
+    /// Like anvil: granted if the token is recent
+    fn request_activation(
+        &mut self,
+        _token: XdgActivationToken,
+        token_data: XdgActivationTokenData,
+        surface: WlSurface,
+    ) {
+        if token_data.timestamp.elapsed().as_secs() >= 10 {
+            return;
+        }
+        let Some(surface_id) = self
+            .smithay_state
+            .surfaces
+            .iter()
+            .find_map(|(surface_id, registered)| (*registered == surface).then_some(surface_id))
+        else {
+            return;
+        };
+
+        self.root_client
+            .send_event(StandardEvent::FocusWlSurface(surface_id));
+        self.smithay_state.seat.get_keyboard().unwrap().set_focus(
+            self,
+            Some(surface),
+            SERIAL_COUNTER.next_serial(),
+        );
+    }
+}
+
+impl FractionalScaleHandler for AppletRunner {
+    fn new_fractional_scale(&mut self, surface: WlSurface) {
+        self.smithay_state.send_scale(&surface);
+    }
 }
 
 /// Needed by cursor shape; there's no tablet support, so the default does nothing

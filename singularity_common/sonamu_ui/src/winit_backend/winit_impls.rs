@@ -4,16 +4,19 @@ use crate::{
     display_units::DisplayContainerSize,
     ui_element::{Cursor, CursorIcon},
     ui_event::{KeySymbol, MouseEvent, MouseEventKind, UIEvent},
-    winit_backend::{UIDisplay, WgpuData, WinitData},
+    winit_backend::{
+        DisplayInfo, DisplayNotification, DisplayRequest, ImeEvent, PointerGrab, UIDisplay,
+        WgpuData, WinitData,
+    },
 };
 use smithay::reexports::winit;
 use std::sync::Arc;
 use winit::{
-    dpi::LogicalSize,
-    window::{CustomCursor, Window},
+    dpi::{LogicalSize, PhysicalPosition},
+    window::{CursorGrabMode, CustomCursor, Window},
 };
 
-impl winit::application::ApplicationHandler for UIDisplay {
+impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         if self.winit_data.is_some() {
             return;
@@ -25,9 +28,16 @@ impl winit::application::ApplicationHandler for UIDisplay {
             .with_title("Sonamu");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
+        // the inner size is in physical px, which isn't 800x600 when scaled
+        let size = window.inner_size();
         self.event_queue
-            .send(UIEvent::WindowResized(DisplayContainerSize::new(800, 600)))
+            .send(UIEvent::WindowResized(DisplayContainerSize::new(
+                size.width,
+                size.height,
+            )))
             .unwrap();
+        self.send_display_info(&window);
+        window.set_ime_allowed(true);
 
         let winit_data = WinitData::new(
             window,
@@ -39,9 +49,54 @@ impl winit::application::ApplicationHandler for UIDisplay {
     }
 
     /// Sent when the ui content is updated
-    fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, (): ()) {
-        if let Some(winit_data) = &self.winit_data {
-            winit_data.window.request_redraw();
+    fn user_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        request: DisplayRequest,
+    ) {
+        // a quit sends a request to wake this up
+        if !self.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+            event_loop.exit();
+            return;
+        }
+
+        let Some(winit_data) = &self.winit_data else {
+            return;
+        };
+        let window = &winit_data.window;
+        match request {
+            DisplayRequest::Redraw => window.request_redraw(),
+            DisplayRequest::SetPointerGrab(grab) => {
+                let result = match grab {
+                    PointerGrab::None => window.set_cursor_grab(CursorGrabMode::None),
+                    PointerGrab::Confined => window.set_cursor_grab(CursorGrabMode::Confined),
+                    // not every platform can lock (eg X11), so confine there
+                    PointerGrab::Locked => window
+                        .set_cursor_grab(CursorGrabMode::Locked)
+                        .or_else(|_| window.set_cursor_grab(CursorGrabMode::Confined)),
+                };
+                if let Err(err) = result {
+                    dbg!("Couldn't grab pointer:", err);
+                }
+            }
+            DisplayRequest::WarpPointer([x, y]) => {
+                if let Err(err) = window.set_cursor_position(PhysicalPosition::new(x, y)) {
+                    dbg!("Couldn't warp pointer:", err);
+                }
+            }
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        if let winit::event::DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
+            self.display_notification_queue
+                .send(DisplayNotification::RelativeMotion([dx, dy]))
+                .unwrap();
         }
     }
 
@@ -74,6 +129,8 @@ impl winit::application::ApplicationHandler for UIDisplay {
 
         // Other redraws are requested through `user_event` when content changes
         match event {
+            // wgpu panics on a zero-sized surface (eg minimized on some platforms)
+            winit::event::WindowEvent::Resized(size) if size.width == 0 || size.height == 0 => {}
             winit::event::WindowEvent::Resized(size) => {
                 surface_config.width = size.width;
                 surface_config.height = size.height;
@@ -87,6 +144,22 @@ impl winit::application::ApplicationHandler for UIDisplay {
                     .unwrap();
 
                 window.request_redraw();
+            }
+            // the window may now be on a different monitor
+            winit::event::WindowEvent::ScaleFactorChanged { .. }
+            | winit::event::WindowEvent::Moved(_) => {
+                let window = window.clone();
+                self.send_display_info(&window);
+            }
+            winit::event::WindowEvent::Ime(ime) => {
+                let ime = match ime {
+                    winit::event::Ime::Preedit(text, cursor) => ImeEvent::Preedit { text, cursor },
+                    winit::event::Ime::Commit(text) => ImeEvent::Commit(text),
+                    winit::event::Ime::Enabled | winit::event::Ime::Disabled => return,
+                };
+                self.display_notification_queue
+                    .send(DisplayNotification::Ime(ime))
+                    .unwrap();
             }
             winit::event::WindowEvent::CloseRequested => {
                 self.is_running
@@ -158,7 +231,9 @@ impl winit::application::ApplicationHandler for UIDisplay {
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(content) = self.ui_content.get_if_dirty() {
                     Self::draw(&mut self.winit_data, &content);
-                    self.present_queue.send(()).unwrap();
+                    self.display_notification_queue
+                        .send(DisplayNotification::Presented)
+                        .unwrap();
 
                     // what's under the pointer may have changed
                     self.drawn_cursors = content.cursors;
@@ -170,6 +245,22 @@ impl winit::application::ApplicationHandler for UIDisplay {
     }
 }
 impl UIDisplay {
+    /// Sends the window's scale and refresh rate, if they changed
+    fn send_display_info(&mut self, window: &Window) {
+        let info = DisplayInfo {
+            scale_factor: window.scale_factor(),
+            refresh_millihertz: window
+                .current_monitor()
+                .and_then(|monitor| monitor.refresh_rate_millihertz()),
+        };
+        if self.display_info != Some(info) {
+            self.display_info = Some(info);
+            self.display_notification_queue
+                .send(DisplayNotification::Info(info))
+                .unwrap();
+        }
+    }
+
     /// Sets the window's cursor to the one under the pointer, if it changed
     fn update_cursor(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let Some(winit_data) = &self.winit_data else {

@@ -3,7 +3,7 @@ use crate::{
     nodular_applet::{NodularRunnerHook, StandardApplet},
 };
 use singularity_common::{
-    sap::packets::StandardEvent,
+    sap::packets::{StandardEvent, WlSurfaceId},
     sync::EncapsulatedLock,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
@@ -184,6 +184,14 @@ impl StandardApplet for CachingApplet {
     /// TODO: cache this
     fn get_focus_path(&self) -> WorldTreePath {
         self.applet.lock().unwrap().get_focus_path()
+    }
+
+    fn contains_wl_surface(&self, surface_id: WlSurfaceId) -> bool {
+        self.applet.lock().unwrap().contains_wl_surface(surface_id)
+    }
+
+    fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
+        self.applet.lock().unwrap().focused_wl_surface()
     }
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {

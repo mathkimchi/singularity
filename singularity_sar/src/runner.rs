@@ -1,10 +1,11 @@
 use crate::{client_handle::ClientHandle, smithay::SmithayState, ui_handle::UIHandle};
-use calloop::{EventLoop, LoopHandle};
+use calloop::{EventLoop, LoopHandle, LoopSignal};
 use singularity_common::sap::{
     packets::{StandardEvent, StandardRequest, WlSurfaceId},
     raw_client_initializer::RawClientInitializer,
 };
 use sonamu_ui::{
+    PointerGrab,
     display_units::DisplayContainerSize,
     ui_element::{PrimitiveScene, UIElement, UITree},
     ui_event::UIEvent,
@@ -28,10 +29,15 @@ pub struct AppletRunner {
     window_size: DisplayContainerSize,
     /// Set by damage; the redraw happens once per event loop iteration
     pub(crate) needs_redraw: bool,
+    /// What the display was last asked to do with the pointer
+    pointer_grab: PointerGrab,
+    /// Stops `run` once the display closes
+    pub(crate) loop_signal: LoopSignal,
 }
 impl AppletRunner {
     fn new(
         event_loop: LoopHandle<'static, Self>,
+        loop_signal: LoopSignal,
         root_applet_initializer: Box<dyn RawClientInitializer>,
     ) -> Self {
         let root_client = ClientHandle::spawn_new_client(
@@ -52,6 +58,23 @@ impl AppletRunner {
                 height: 100,
             },
             needs_redraw: true,
+            pointer_grab: PointerGrab::None,
+            loop_signal,
+        }
+    }
+
+    /// Grabs the pointer while the wl surface under it has an active pointer constraint
+    fn update_pointer_grab(&mut self) {
+        let grab = self.smithay_state.pointer_grab();
+        if grab != self.pointer_grab {
+            // a lock ended, so put the pointer where the client asked
+            if self.pointer_grab == PointerGrab::Locked
+                && let Some(position) = self.smithay_state.lock_end_position.take()
+            {
+                self.ui_handle.warp_pointer(position);
+            }
+            self.pointer_grab = grab;
+            self.ui_handle.set_pointer_grab(grab);
         }
     }
 
@@ -59,7 +82,11 @@ impl AppletRunner {
     pub fn run(root_applet_initializer: Box<dyn RawClientInitializer>) {
         let mut event_loop = EventLoop::try_new().unwrap();
 
-        let mut runner = Self::new(event_loop.handle(), root_applet_initializer);
+        let mut runner = Self::new(
+            event_loop.handle(),
+            event_loop.get_signal(),
+            root_applet_initializer,
+        );
 
         dbg!("Will run event loop");
 
@@ -69,6 +96,11 @@ impl AppletRunner {
                 if std::mem::take(&mut runner.needs_redraw) {
                     runner.redraw_ui();
                 }
+                // constraints change on client requests and pointer focus changes
+                runner.update_pointer_grab();
+                // events sent outside client dispatch (eg frame callbacks after a present)
+                // only reach clients once flushed
+                runner.smithay_state.flush_clients();
             })
             .unwrap();
     }
@@ -100,33 +132,39 @@ impl AppletRunner {
             StandardRequest::DamageSurface => {
                 self.needs_redraw = true;
             }
-            StandardRequest::DamageTreeview => todo!(),
-            StandardRequest::Quit => {
-                self.ui_handle
-                    .is_running
-                    .store(false, std::sync::atomic::Ordering::Relaxed);
+            // the treeview is part of the surface
+            StandardRequest::DamageTreeview => {
+                self.needs_redraw = true;
             }
+            StandardRequest::Quit => self.ui_handle.quit(),
+            StandardRequest::WlKeyboardFocus(surface_id) => self.focus_wl_keyboard(surface_id),
         }
     }
 
     fn redraw_ui(&mut self) {
-        self.ui_handle
-            .set_ui_content(PrimitiveScene::from_ui_tree(
-                self.root_client.get_surface(),
-                self.window_size,
-                |surface_id| {
-                    // NOTE: currently only handles subsurfaces being the wl surfaces
-                    let wl_surface_id = WlSurfaceId::from_u64(surface_id);
-                    self.smithay_state
-                        .get_wl_surface_as_element(
-                            wl_surface_id,
-                            &self.ui_handle.device,
-                            &self.ui_handle.queue,
-                        )
-                        .unwrap_or_else(|| {
-                            UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED))
-                        })
-                },
-            ));
+        let scene = PrimitiveScene::from_ui_tree(
+            self.root_client.get_surface(),
+            self.window_size,
+            |surface_id| {
+                // NOTE: currently only handles subsurfaces being the wl surfaces
+                let wl_surface_id = WlSurfaceId::from_u64(surface_id);
+                self.smithay_state
+                    .get_wl_surface_as_element(
+                        wl_surface_id,
+                        &self.ui_handle.device,
+                        &self.ui_handle.queue,
+                    )
+                    .unwrap_or_else(|| {
+                        UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED))
+                    })
+            },
+        );
+        self.smithay_state.set_tile_areas(
+            scene
+                .subsurface_areas
+                .iter()
+                .map(|&(surface_id, area)| (WlSurfaceId::from_u64(surface_id), area)),
+        );
+        self.ui_handle.set_ui_content(scene);
     }
 }

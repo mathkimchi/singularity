@@ -63,6 +63,8 @@ impl StandardApplet for OneCharRenderTestApplet {
             StandardEvent::SurfaceDamageAck => todo!(),
             StandardEvent::TreeviewDamageAck => todo!(),
             StandardEvent::WlSurfaceRegistered { .. } => todo!(),
+            // doesn't show wl surfaces
+            StandardEvent::FocusWlSurface(_) => {}
         }
     }
 

@@ -11,6 +11,9 @@ pub enum StandardRequest {
     DamageSurface,
     DamageTreeview,
     Quit,
+    /// The wl surface Sonamu focus is on (`None` if it's on something else), sent when it changes.
+    /// Keyboard (and so clipboard and text input) focus follows it.
+    WlKeyboardFocus(Option<WlSurfaceId>),
 }
 
 slotmap::new_key_type! {
@@ -47,6 +50,9 @@ pub enum StandardEvent {
         wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
         // surface_updated: calloop::channel::Channel<()>,
     },
+    /// Focus whichever applet shows this surface (eg for xdg-activation).
+    /// Sent from the root down; applets that don't contain it ignore it.
+    FocusWlSurface(WlSurfaceId),
 }
 
 /// Wl surface applet to compositor

@@ -2,7 +2,7 @@
 
 use crate::basic_applet::{BasicApplet, BasicRunnerHook};
 use singularity_common::{
-    sap::packets::StandardEvent,
+    sap::packets::{StandardEvent, WlSurfaceId},
     utils::tree::world_tree::{
         WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
     },
@@ -44,6 +44,16 @@ pub trait StandardApplet {
 
     /// Assume focus updates when treeview updates
     fn get_focus_path(&self) -> WorldTreePath;
+
+    /// Whether this applet or any applet under it shows the wl surface
+    fn contains_wl_surface(&self, _surface_id: WlSurfaceId) -> bool {
+        false
+    }
+
+    /// The wl surface at the end of this applet's focus path, if any
+    fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
+        None
+    }
 }
 impl<T> BasicApplet for T
 where
@@ -74,6 +84,14 @@ impl StandardApplet for Box<dyn StandardApplet> {
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
         (**self).get_window_standard_applet(container_size)
+    }
+
+    fn contains_wl_surface(&self, surface_id: WlSurfaceId) -> bool {
+        (**self).contains_wl_surface(surface_id)
+    }
+
+    fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
+        (**self).focused_wl_surface()
     }
 }
 

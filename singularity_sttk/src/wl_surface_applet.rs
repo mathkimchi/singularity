@@ -69,6 +69,8 @@ impl StandardApplet for WlSurfaceApplet {
                 surface_id: _,
                 wl_event_queue: _,
             } => {}
+            // the parent already focused this
+            StandardEvent::FocusWlSurface(_) => {}
         }
     }
 
@@ -83,5 +85,13 @@ impl StandardApplet for WlSurfaceApplet {
 
     fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
         singularity_common::utils::tree::world_tree::WorldTreePath::new_into()
+    }
+
+    fn contains_wl_surface(&self, surface_id: WlSurfaceId) -> bool {
+        self.surface_id == surface_id
+    }
+
+    fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
+        Some(self.surface_id)
     }
 }

@@ -56,12 +56,15 @@ pub enum UIPrimitiveElement {
 pub struct PrimitiveScene {
     pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
     pub cursors: CursorAreas,
+    /// Where each subsurface was laid out, so whoever provides them knows
+    pub subsurface_areas: Vec<(u64, DisplayAreaPx)>,
 }
 impl PrimitiveScene {
     pub fn new_empty() -> Self {
         Self {
             elements: Vec::new(),
             cursors: CursorAreas::default(),
+            subsurface_areas: Vec::new(),
         }
     }
 
@@ -252,7 +255,11 @@ impl PrimitiveScene {
             UIElement::CharGrid(char_grid) => Some(UIPrimitiveElement::CharGrid(char_grid)),
             UIElement::Texture(texture_view) => Some(UIPrimitiveElement::Texture(texture_view)),
             // already resolved into a child in `build_taffy_tree`
-            UIElement::Subsurface(_) | UIElement::Nothing => None,
+            UIElement::Subsurface(surface_id) => {
+                self.subsurface_areas.push((surface_id, area));
+                None
+            }
+            UIElement::Nothing => None,
         };
         if let Some(primitive) = primitive {
             self.elements.push((primitive, area));

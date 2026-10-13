@@ -204,14 +204,64 @@ impl WinitData {
     }
 }
 
+/// Sent to the display by whoever runs it, through the proxy from `run_display`
+#[derive(Debug, Clone, Copy)]
+pub enum DisplayRequest {
+    /// The ui content changed
+    Redraw,
+    SetPointerGrab(PointerGrab),
+    /// Moves the pointer to a position in the window (physical px)
+    WarpPointer([f64; 2]),
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PointerGrab {
+    #[default]
+    None,
+    /// Kept inside the window
+    Confined,
+    /// Kept in place (falls back to confined where unsupported)
+    Locked,
+}
+
+/// Sent by the display to whoever runs it (not applets)
+#[derive(Debug, Clone)]
+pub enum DisplayNotification {
+    /// After each presented frame
+    Presented,
+    /// On start, and when the scale factor or monitor may have changed
+    Info(DisplayInfo),
+    /// Text from the input method (eg for CJK).
+    /// Not a `UIEvent` since it isn't `Copy`, and only wl clients use it so far.
+    Ime(ImeEvent),
+    /// Raw mouse movement, which still arrives while the pointer is locked.
+    /// Only wl clients use it so far.
+    RelativeMotion([f64; 2]),
+}
+#[derive(Debug, Clone)]
+pub enum ImeEvent {
+    /// Text being composed; `cursor` is a byte range in `text`, `None` hides it
+    Preedit {
+        text: String,
+        cursor: Option<(usize, usize)>,
+    },
+    Commit(String),
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DisplayInfo {
+    pub scale_factor: f64,
+    /// `None` if the monitor's refresh rate is unknown
+    pub refresh_millihertz: Option<u32>,
+}
+
 /// REVIEW: rename this
 /// REVIEW: don't even expose this to pub?
 /// I'm thinking I have the UISharedData standardized, and then it has a run function that depends on each backend
 pub struct UIDisplay {
     is_running: Arc<AtomicBool>,
     event_queue: Sender<UIEvent>,
-    /// Notified after each presented frame
-    present_queue: Sender<()>,
+    display_notification_queue: Sender<DisplayNotification>,
+    /// Last sent, so it is only sent when changed
+    display_info: Option<DisplayInfo>,
     ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
 
     // width: u32,
@@ -375,7 +425,7 @@ impl UIDisplay {
 
     /// Returns when display is closed.
     ///
-    /// Sends back a proxy through `proxy_tx`; send `()` through it to request a redraw.
+    /// Sends back a proxy through `proxy_tx` to send `DisplayRequest`s with.
     pub fn run_display(
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
@@ -383,10 +433,10 @@ impl UIDisplay {
         device: wgpu::Device,
         queue: wgpu::Queue,
         instance: wgpu::Instance,
-        proxy_tx: std::sync::mpsc::Sender<EventLoopProxy<()>>,
-        present_queue: Sender<()>,
+        proxy_tx: std::sync::mpsc::Sender<EventLoopProxy<DisplayRequest>>,
+        display_notification_queue: Sender<DisplayNotification>,
     ) {
-        let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
+        let event_loop = smithay::reexports::winit::event_loop::EventLoop::with_user_event()
             .with_wayland()
             .with_any_thread(true)
             .build()
@@ -395,7 +445,8 @@ impl UIDisplay {
         let mut app = Self {
             is_running,
             event_queue,
-            present_queue,
+            display_notification_queue,
+            display_info: None,
             ui_content,
             // width: 256,
             // height: 256,

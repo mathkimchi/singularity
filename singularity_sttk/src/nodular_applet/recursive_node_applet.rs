@@ -7,7 +7,7 @@ use crate::{
     wl_surface_applet::WlSurfaceApplet,
 };
 use singularity_common::{
-    sap::packets::StandardEvent,
+    sap::packets::{StandardEvent, WlSurfaceId},
     sync::EncapsulatedLock,
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -639,6 +639,34 @@ impl StandardApplet for RecursiveNodeApplet {
                         .immut_handle_ui_event(ui_event),
                 }
             }
+            StandardEvent::FocusWlSurface(surface_id) => {
+                let new_focus = if self.main_applet.contains_wl_surface(surface_id) {
+                    FocusIndex::Inner
+                } else if let Some(child_index) = self
+                    .shared_resource
+                    .children
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .position(|child| child.contains_wl_surface(surface_id))
+                {
+                    FocusIndex::Child(child_index)
+                } else {
+                    return;
+                };
+                self.shared_resource.focus_index.set(new_focus);
+
+                // the focused applet focuses further down
+                match new_focus {
+                    FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
+                        [child_index]
+                        .immut_handle_standard_event(standard_event),
+                    _ => self.main_applet.immut_handle_standard_event(standard_event),
+                }
+
+                self.shared_resource.hook.damage_window();
+                self.shared_resource.hook.damage_treeview();
+            }
             StandardEvent::WlSurfaceRegistered {
                 surface_id,
                 wl_event_queue,
@@ -715,6 +743,28 @@ impl StandardApplet for RecursiveNodeApplet {
         }
 
         WorldTree::World(Box::new(raw_treeview))
+    }
+
+    fn contains_wl_surface(&self, surface_id: WlSurfaceId) -> bool {
+        self.main_applet.contains_wl_surface(surface_id)
+            || self
+                .shared_resource
+                .children
+                .read()
+                .unwrap()
+                .iter()
+                .any(|child| child.contains_wl_surface(surface_id))
+    }
+
+    /// `None` while this node itself is focused (`Focusing`), since it takes the keys then
+    fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
+        match self.shared_resource.focus_index.get() {
+            FocusIndex::Focusing => None,
+            FocusIndex::Inner => self.main_applet.focused_wl_surface(),
+            FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
+                [child_index]
+                .focused_wl_surface(),
+        }
     }
 
     fn get_focus_path(&self) -> WorldTreePath {
