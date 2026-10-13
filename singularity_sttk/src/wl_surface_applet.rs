@@ -71,6 +71,11 @@ impl StandardApplet for WlSurfaceApplet {
             } => {}
             // the parent already focused this
             StandardEvent::FocusWlSurface(_) => {}
+            StandardEvent::WlSurfaceDestroyed(surface_id) => {
+                if surface_id == self.surface_id {
+                    self.hook.close();
+                }
+            }
         }
     }
 

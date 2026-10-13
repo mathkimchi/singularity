@@ -227,6 +227,7 @@ impl StandardApplet for CommandHubApplet {
             }
             // doesn't show wl surfaces
             singularity_common::sap::packets::StandardEvent::FocusWlSurface(_) => {}
+            singularity_common::sap::packets::StandardEvent::WlSurfaceDestroyed(_) => {}
         }
     }
 

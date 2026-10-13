@@ -21,7 +21,7 @@ use sonamu_ui::{
     ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     rc::{Rc, Weak},
     sync::{RwLock, atomic::AtomicBool},
 };
@@ -33,10 +33,24 @@ enum FocusIndex {
     Child(usize),
 }
 
+/// A child of a `RecursiveNodeApplet`; can be moved to another node.
+pub struct NodeChild {
+    applet: CachingApplet,
+    slot: Rc<ChildSlot>,
+}
+
+/// Shared between a `NodeChild` and its hook
+struct ChildSlot {
+    parent: RefCell<Weak<SharedResource>>,
+    /// `Some` once closed, holding the children for the parent to adopt.
+    /// Removal is deferred since the parent may be holding a lock on `children`.
+    closed: RefCell<Option<Vec<NodeChild>>>,
+}
+
 /// Information needed for the main applet and child applet hooks
 /// REVIEW: rename
 struct SharedResource {
-    children: RwLock<Vec<CachingApplet>>,
+    children: RwLock<Vec<NodeChild>>,
 
     focus_index: EncapsulatedLock<FocusIndex>,
     hook: Box<dyn NodularRunnerHook>,
@@ -68,7 +82,7 @@ impl SharedResource {
     fn create_hold_holder(
         shared_resource: &Rc<Self>,
         child_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>,
-    ) -> CachingApplet {
+    ) -> NodeChild {
         let inner_applet_window = EncapsulatedLock::new(UITree::leaf(UIElement::Nothing));
         let inner_applet_treeview = EncapsulatedLock::new(WorldTree::new_base(String::from("Hi")));
 
@@ -79,9 +93,14 @@ impl SharedResource {
             // window: EncapsulatedLock<UIElement>,
             // treeview: EncapsulatedLock<WorldTree<String>>,
             // outer_focused_child_index: Arc<Mutex<usize>>,
-            shared_resource: Weak<SharedResource>,
+            slot: Rc<ChildSlot>,
             // the index of this hook's corresponding app in the shared resource list of applets
             // index: usize,
+        }
+        impl InnerHook {
+            fn parent(&self) -> Rc<SharedResource> {
+                self.slot.parent.borrow().upgrade().unwrap()
+            }
         }
         impl BasicRunnerHook for InnerHook {
             // fn update_display(&self, display: &UIElement) {
@@ -96,19 +115,16 @@ impl SharedResource {
 
             fn damage_window(&self) {
                 if !self
-                    .shared_resource
-                    .upgrade()
-                    .unwrap()
+                    .parent()
                     .window_damaged
                     .swap(true, std::sync::atomic::Ordering::Relaxed)
                 {
-                    self.shared_resource.upgrade().unwrap().hook.damage_window();
+                    self.parent().hook.damage_window();
                 }
             }
 
             fn close(&self) {
-                // FIXME: right now, just closes the entire node including all children as well
-                self.shared_resource.upgrade().unwrap().hook.close();
+                self.close_with_children(Vec::new());
             }
         }
         impl NodularRunnerHook for InnerHook {
@@ -124,69 +140,71 @@ impl SharedResource {
 
             fn damage_treeview(&self) {
                 if !self
-                    .shared_resource
-                    .upgrade()
-                    .unwrap()
+                    .parent()
                     .treeview_damaged
                     .swap(true, std::sync::atomic::Ordering::Relaxed)
                 {
-                    self.shared_resource
-                        .upgrade()
-                        .unwrap()
-                        .hook
-                        .damage_treeview();
+                    self.parent().hook.damage_treeview();
                 }
             }
 
             fn add_child(&self, initializer: NodularAppletInitializer) {
-                SharedResource::add_child(&self.shared_resource.upgrade().unwrap(), initializer);
+                SharedResource::add_child(&self.parent(), initializer);
             }
 
             fn change_focus(&self, operation: WorldTreeTraversalOperation) {
-                self.shared_resource
-                    .upgrade()
-                    .unwrap()
-                    .change_focus(operation);
+                self.parent().change_focus(operation);
+            }
+
+            fn close_with_children(&self, children: Vec<NodeChild>) {
+                self.slot
+                    .closed
+                    .borrow_mut()
+                    .get_or_insert_default()
+                    .extend(children);
+                self.damage_window();
+                self.damage_treeview();
+            }
+
+            fn quit(&self) {
+                self.parent().hook.quit();
             }
 
             fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
-                self.shared_resource
-                    .upgrade()
-                    .unwrap()
+                self.parent()
                     .hook
                     .register_applet_spawner(name, applet_spawner);
             }
             fn get_applet_spawners(
                 &self,
             ) -> std::collections::BTreeMap<String, super::AppletSpawner> {
-                self.shared_resource
-                    .upgrade()
-                    .unwrap()
-                    .hook
-                    .get_applet_spawners()
+                self.parent().hook.get_applet_spawners()
             }
             fn find_applet_spawner(&self, name: String) -> Option<super::AppletSpawner> {
-                self.shared_resource
-                    .upgrade()
-                    .unwrap()
-                    .hook
-                    .find_applet_spawner(name)
+                self.parent().hook.find_applet_spawner(name)
             }
         }
 
+        let slot = Rc::new(ChildSlot {
+            parent: RefCell::new(Rc::downgrade(shared_resource)),
+            closed: RefCell::new(None),
+        });
         let inner_hook = InnerHook {
             // window: inner_applet_window.clone(),
             // index: shared_resource.children.read().unwrap().len(),
-            shared_resource: Rc::downgrade(shared_resource),
+            slot: slot.clone(),
             // treeview: inner_applet_treeview.clone(),
         };
 
-        CachingApplet::new(
-            child_initializer,
-            Box::new(inner_hook),
-            inner_applet_window,
-            inner_applet_treeview,
-        )
+        NodeChild {
+            applet: CachingApplet::new(
+                child_initializer,
+                Box::new(inner_hook),
+                inner_applet_window,
+                inner_applet_treeview,
+            ),
+            slot,
+        }
     }
 
     /// NOTE: this can't take `&self` because we need to create a weak reference to shared resource,
@@ -206,7 +224,9 @@ impl SharedResource {
         let child_holder = Self::create_hold_holder(shared_resource, child_initializer);
 
         if let Some(size) = shared_resource.latest_size.get() {
-            child_holder.immut_handle_ui_event(UIEvent::WindowResized(size));
+            child_holder
+                .applet
+                .immut_handle_ui_event(UIEvent::WindowResized(size));
         }
         shared_resource.children.write().unwrap().push(child_holder);
 
@@ -222,6 +242,48 @@ impl SharedResource {
         {
             shared_resource.hook.damage_window();
         }
+    }
+
+    /// Replaces each closed child with its children.
+    /// If the focused child closed, this node becomes focused.
+    fn remove_closed_children(shared_resource: &Rc<Self>) {
+        let mut children = shared_resource.children.write().unwrap();
+        if children
+            .iter()
+            .all(|child| child.slot.closed.borrow().is_none())
+        {
+            return;
+        }
+
+        let old_focus = shared_resource.focus_index.get();
+        let mut new_focus = old_focus;
+        let mut new_children = Vec::with_capacity(children.len());
+        for (i, child) in std::mem::take(&mut *children).into_iter().enumerate() {
+            let is_focused = matches!(old_focus, FocusIndex::Child(focused) if focused == i);
+            match child.slot.closed.take() {
+                None => {
+                    if is_focused {
+                        new_focus = FocusIndex::Child(new_children.len());
+                    }
+                    new_children.push(child);
+                }
+                Some(orphans) => {
+                    if is_focused {
+                        new_focus = FocusIndex::Focusing;
+                    }
+                    for orphan in orphans {
+                        *orphan.slot.parent.borrow_mut() = Rc::downgrade(shared_resource);
+                        new_children.push(orphan);
+                    }
+                }
+            }
+        }
+        *children = new_children;
+        drop(children);
+
+        shared_resource.focus_index.set(new_focus);
+        shared_resource.hook.damage_window();
+        shared_resource.hook.damage_treeview();
     }
 
     /// Doesn't actually change anything.
@@ -387,8 +449,7 @@ impl RecursiveNodeApplet {
                 }
 
                 fn close(&self) {
-                    // FIXME: right now, just closes the entire node including all children as well
-                    self.shared_resource.upgrade().unwrap().hook.close();
+                    self.close_with_children(Vec::new());
                 }
             }
             impl NodularRunnerHook for InnerHook {
@@ -430,6 +491,19 @@ impl RecursiveNodeApplet {
                         .upgrade()
                         .unwrap()
                         .change_focus(operation);
+                }
+
+                /// Closing the main applet closes this node, so the parent adopts this node's children
+                fn close_with_children(&self, children: Vec<NodeChild>) {
+                    let shared_resource = self.shared_resource.upgrade().unwrap();
+                    let mut orphans =
+                        std::mem::take(&mut *shared_resource.children.write().unwrap());
+                    orphans.extend(children);
+                    shared_resource.hook.close_with_children(orphans);
+                }
+
+                fn quit(&self) {
+                    self.shared_resource.upgrade().unwrap().hook.quit();
                 }
 
                 fn register_applet_spawner(
@@ -534,6 +608,7 @@ impl RecursiveNodeApplet {
                 //         .get_root_value()
                 // );
                 self.shared_resource.children.read().unwrap()[child_index]
+                    .applet
                     .get_window(container_size)
             }
         }
@@ -549,7 +624,9 @@ impl StandardApplet for RecursiveNodeApplet {
                 self.main_applet
                     .immut_handle_ui_event(UIEvent::WindowResized(size));
                 for child in self.shared_resource.children.read().unwrap().iter() {
-                    child.immut_handle_ui_event(UIEvent::WindowResized(size));
+                    child
+                        .applet
+                        .immut_handle_ui_event(UIEvent::WindowResized(size));
                 }
             }
             StandardEvent::UIEvent(ui_event) => {
@@ -636,6 +713,7 @@ impl StandardApplet for RecursiveNodeApplet {
                     FocusIndex::Inner => self.main_applet.immut_handle_ui_event(ui_event),
                     FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                         [child_index]
+                        .applet
                         .immut_handle_ui_event(ui_event),
                 }
             }
@@ -648,7 +726,7 @@ impl StandardApplet for RecursiveNodeApplet {
                     .read()
                     .unwrap()
                     .iter()
-                    .position(|child| child.contains_wl_surface(surface_id))
+                    .position(|child| child.applet.contains_wl_surface(surface_id))
                 {
                     FocusIndex::Child(child_index)
                 } else {
@@ -660,12 +738,28 @@ impl StandardApplet for RecursiveNodeApplet {
                 match new_focus {
                     FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                         [child_index]
+                        .applet
                         .immut_handle_standard_event(standard_event),
                     _ => self.main_applet.immut_handle_standard_event(standard_event),
                 }
 
                 self.shared_resource.hook.damage_window();
                 self.shared_resource.hook.damage_treeview();
+            }
+            StandardEvent::WlSurfaceDestroyed(surface_id) => {
+                // forward to whichever applet contains it, without changing focus
+                if self.main_applet.contains_wl_surface(surface_id) {
+                    self.main_applet.immut_handle_standard_event(standard_event);
+                } else if let Some(child) = self
+                    .shared_resource
+                    .children
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .find(|child| child.applet.contains_wl_surface(surface_id))
+                {
+                    child.applet.immut_handle_standard_event(standard_event);
+                }
             }
             StandardEvent::WlSurfaceRegistered {
                 surface_id,
@@ -702,10 +796,13 @@ impl StandardApplet for RecursiveNodeApplet {
                     }
                     FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                         [child_index]
+                        .applet
                         .immut_handle_standard_event(standard_event),
                 }
             }
         }
+
+        SharedResource::remove_closed_children(&self.shared_resource);
     }
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
@@ -726,8 +823,9 @@ impl StandardApplet for RecursiveNodeApplet {
         let mut raw_treeview = RecursiveTreeNode::from_value(self.main_applet.get_treeview());
 
         for child_index in 0..(self.shared_resource.children.read().unwrap().len()) {
-            let child_treeview =
-                self.shared_resource.children.read().unwrap()[child_index].get_treeview();
+            let child_treeview = self.shared_resource.children.read().unwrap()[child_index]
+                .applet
+                .get_treeview();
 
             match child_treeview {
                 WorldTree::World(recursive_tree_node) => {
@@ -753,7 +851,7 @@ impl StandardApplet for RecursiveNodeApplet {
                 .read()
                 .unwrap()
                 .iter()
-                .any(|child| child.contains_wl_surface(surface_id))
+                .any(|child| child.applet.contains_wl_surface(surface_id))
     }
 
     /// `None` while this node itself is focused (`Focusing`), since it takes the keys then
@@ -763,6 +861,7 @@ impl StandardApplet for RecursiveNodeApplet {
             FocusIndex::Inner => self.main_applet.focused_wl_surface(),
             FocusIndex::Child(child_index) => self.shared_resource.children.read().unwrap()
                 [child_index]
+                .applet
                 .focused_wl_surface(),
         }
     }
@@ -788,6 +887,7 @@ impl StandardApplet for RecursiveNodeApplet {
             }
             FocusIndex::Child(child_index) => {
                 let mut path_tail = self.shared_resource.children.read().unwrap()[child_index]
+                    .applet
                     .get_focus_path()
                     .0
                     .to_vec();

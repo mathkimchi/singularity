@@ -53,6 +53,9 @@ pub enum StandardEvent {
     /// Focus whichever applet shows this surface (eg for xdg-activation).
     /// Sent from the root down; applets that don't contain it ignore it.
     FocusWlSurface(WlSurfaceId),
+    /// The surface's toplevel is gone (eg the client disconnected); its applet should close.
+    /// Sent from the root down like `FocusWlSurface`.
+    WlSurfaceDestroyed(WlSurfaceId),
 }
 
 /// Wl surface applet to compositor

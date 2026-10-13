@@ -118,10 +118,7 @@ impl RootNodeApplet {
         }
         impl BasicRunnerHook for InnerHook {
             fn close(&self) {
-                self.outer_request_queue
-                    .send(StandardRequest::Quit)
-                    .unwrap();
-                // self.outer_hook.close();
+                log::warn!("Tried to close root");
             }
 
             fn damage_window(&self) {
@@ -153,6 +150,16 @@ impl RootNodeApplet {
                 _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
             ) {
                 // REVIEW: do I need to do anything here?
+            }
+
+            fn close_with_children(&self, _children: Vec<super::NodeChild>) {
+                self.close();
+            }
+
+            fn quit(&self) {
+                self.outer_request_queue
+                    .send(StandardRequest::Quit)
+                    .unwrap();
             }
 
             fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner) {
@@ -252,7 +259,8 @@ impl RootNodeApplet {
                                 | StandardEvent::Highlighted(..)
                                 | StandardEvent::TreeviewDamageAck
                                 | StandardEvent::WlSurfaceRegistered { .. }
-                                | StandardEvent::FocusWlSurface(_) => {
+                                | StandardEvent::FocusWlSurface(_)
+                                | StandardEvent::WlSurfaceDestroyed(_) => {
                                     applet.applet.handle_standard_event(event);
                                 }
                             }

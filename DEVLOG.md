@@ -10222,3 +10222,14 @@ Bruh, it fixed it in 1 minute and a half.
 (My job is gone.)
 
 Yk what x2, I'm just going to make Claude do all the non-major Wayland impls automatically.
+
+2026-10-13 07:46AM
+
+Btw, I wrote the previous commit in Sonamu, and I'm writing this devlog in Sonamu in Helix.
+It is pretty surreal.
+
+...
+
+I had to quit because the mod keys weren't working or something.
+I couldn't hit escape so I couldn't `:w`, but I luckily rebinded Ctrl+S to save which worked.
+Next up is tree management.

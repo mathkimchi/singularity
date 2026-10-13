@@ -1,6 +1,9 @@
 //! This is where the hierarchy stuff is implemented.
 
-use crate::basic_applet::{BasicApplet, BasicRunnerHook};
+use crate::{
+    basic_applet::{BasicApplet, BasicRunnerHook},
+    nodular_applet::recursive_node_applet::NodeChild,
+};
 use singularity_common::{
     sap::packets::{StandardEvent, WlSurfaceId},
     utils::tree::world_tree::{
@@ -121,6 +124,12 @@ pub trait NodularRunnerHook: BasicRunnerHook {
 
     fn change_focus(&self, operation: WorldTreeTraversalOperation);
 
+    /// Closes this applet, handing `children` to the parent to adopt in its place.
+    fn close_with_children(&self, children: Vec<NodeChild>);
+
+    /// Quits everything
+    fn quit(&self);
+
     /// NOTE: look at 2026-03-08 for more detail on future things
     fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner);
     fn get_applet_spawners(&self) -> BTreeMap<String, AppletSpawner>;
@@ -146,6 +155,14 @@ impl NodularRunnerHook for Box<dyn NodularRunnerHook> {
 
     fn change_focus(&self, operation: WorldTreeTraversalOperation) {
         (**self).change_focus(operation);
+    }
+
+    fn close_with_children(&self, children: Vec<NodeChild>) {
+        (**self).close_with_children(children);
+    }
+
+    fn quit(&self) {
+        (**self).quit();
     }
 
     fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner) {

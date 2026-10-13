@@ -82,6 +82,14 @@ impl CachingApplet {
                 self.outer_hook.change_focus(operation);
             }
 
+            fn close_with_children(&self, children: Vec<super::NodeChild>) {
+                self.outer_hook.close_with_children(children);
+            }
+
+            fn quit(&self) {
+                self.outer_hook.quit();
+            }
+
             fn register_applet_spawner(&self, name: String, applet_spawner: super::AppletSpawner) {
                 self.outer_hook
                     .register_applet_spawner(name, applet_spawner);
@@ -146,10 +154,7 @@ impl CachingApplet {
                 panic!("Placeholder app's functions should not be called")
             }
 
-            fn get_window_standard_applet(
-                &self,
-                _container_size: DisplayContainerSize,
-            ) -> UITree {
+            fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
                 panic!("Placeholder app's functions should not be called")
             }
         }

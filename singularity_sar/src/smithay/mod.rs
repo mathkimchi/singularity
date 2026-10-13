@@ -1235,13 +1235,21 @@ impl XdgShellHandler for AppletRunner {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-        // Without this the slotmap keeps a dead `WlSurface` forever and the
-        // applet holding its id renders a stale/absent buffer.
-        // TODO: also tell the owning applet so it can remove itself from the tree
+        // Without this the slotmap keeps a dead `WlSurface` forever
         let wl_surface = surface.wl_surface();
-        self.smithay_state
+        let Some(surface_id) = self
+            .smithay_state
             .surfaces
-            .retain(|_, registered| registered != wl_surface);
+            .iter()
+            .find_map(|(id, registered)| (registered == wl_surface).then_some(id))
+        else {
+            return;
+        };
+        self.smithay_state.surfaces.remove(surface_id);
+
+        // the owning applet closes its tab
+        self.root_client
+            .send_event(StandardEvent::WlSurfaceDestroyed(surface_id));
 
         self.needs_redraw = true;
     }

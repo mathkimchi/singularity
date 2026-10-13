@@ -8,6 +8,7 @@ use crate::{
 
 /// Handle the standard keybinds like:
 /// - `Ctrl+Shift+Q` - Quit
+/// - `Ctrl+W` - Close tab
 /// - `Ctrl+Shift+Plus` - Add child
 /// - `Alt+<traversal key>` - traversal
 ///
@@ -28,6 +29,18 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         && key.to_char() == Some('Q')
     {
         // Ctrl+Shift+Q -> Quit
+        hook.quit();
+
+        true
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers: KeyModifiers::CTRL,
+        pressed: true,
+        ..
+    } = &ui_event
+        && key.to_char() == Some('w')
+    {
+        // Ctrl+W -> close this tab, its children move to the parent
         hook.close();
 
         true
