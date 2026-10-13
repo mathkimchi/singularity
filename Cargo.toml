@@ -34,6 +34,7 @@ wgpu = "^29.0.3"
 # smithay = { version = "^0.7.0", features = ["wayland_frontend"] }
 smithay = { git = "https://github.com/Smithay/smithay", branch = "master", features = [
     "wayland_frontend",
+    "desktop",
     # "backend_egl",
     # "use_system_lib",
     # "wayland-protocols",

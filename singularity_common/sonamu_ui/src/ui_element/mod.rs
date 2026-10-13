@@ -2,6 +2,8 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
 };
+pub use smithay::reexports::winit::window::CursorIcon;
+use std::sync::Arc;
 use wgpu::TextureView;
 
 mod char_grid;
@@ -20,6 +22,26 @@ pub struct RoundRect {
     pub border_color: [f32; 4],
 }
 
+/// Areas of nodes that set a cursor, parents before children
+#[derive(Debug, Clone, Default)]
+pub struct CursorAreas(pub Vec<(Cursor, DisplayAreaPx)>);
+impl CursorAreas {
+    /// The cursor of the topmost node under `position` that sets one
+    pub fn cursor_at(&self, [x, y]: [f64; 2]) -> Option<&Cursor> {
+        self.0
+            .iter()
+            .rev()
+            .find(|(_, DisplayAreaPx([[left, top], [right, bot]]))| {
+                (f64::from(*left)..f64::from(*right)).contains(&x)
+                    && (f64::from(*top)..f64::from(*bot)).contains(&y)
+            })
+            .map(|(cursor, _)| cursor)
+    }
+}
+
+/// What each taffy node holds while laying out
+type NodeContext = (UIElement, Option<Cursor>);
+
 /// On their own, a UI Primitive fills up the whole space
 #[derive(Debug, Clone)]
 pub enum UIPrimitiveElement {
@@ -33,11 +55,13 @@ pub enum UIPrimitiveElement {
 #[derive(Debug, Clone)]
 pub struct PrimitiveScene {
     pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
+    pub cursors: CursorAreas,
 }
 impl PrimitiveScene {
     pub fn new_empty() -> Self {
         Self {
             elements: Vec::new(),
+            cursors: CursorAreas::default(),
         }
     }
 
@@ -153,16 +177,17 @@ impl PrimitiveScene {
     }
     */
 
-    /// Adds `ui_tree` into `taffy` with each node's `UIElement` as its context.
+    /// Adds `ui_tree` into `taffy` with each node's `UIElement` and cursor as its context.
     /// Subsurfaces are resolved here: the returned tree becomes the subsurface node's child.
     fn build_taffy_tree(
-        taffy: &mut taffy::TaffyTree<UIElement>,
+        taffy: &mut taffy::TaffyTree<NodeContext>,
         ui_tree: UITree,
         subsurfaces: &impl Fn(u64) -> UITree,
     ) -> taffy::NodeId {
         let UITree {
             node,
             style,
+            cursor,
             mut children,
         } = ui_tree;
 
@@ -178,14 +203,14 @@ impl PrimitiveScene {
         let node_id = taffy
             .new_with_children((&style).into(), &child_ids)
             .unwrap();
-        taffy.set_node_context(node_id, Some(node)).unwrap();
+        taffy.set_node_context(node_id, Some((node, cursor))).unwrap();
         node_id
     }
 
     /// Parents are added before children, so children draw on top.
     fn add_taffy_node(
         &mut self,
-        taffy: &mut taffy::TaffyTree<UIElement>,
+        taffy: &mut taffy::TaffyTree<NodeContext>,
         node_id: taffy::NodeId,
         parent_location: taffy::Point<f32>,
     ) {
@@ -201,10 +226,13 @@ impl PrimitiveScene {
             (location.y + layout.size.height) as u32,
         );
 
-        let element = std::mem::replace(
+        let (element, cursor) = std::mem::replace(
             taffy.get_node_context_mut(node_id).unwrap(),
-            UIElement::Nothing,
+            (UIElement::Nothing, None),
         );
+        if let Some(cursor) = cursor {
+            self.cursors.0.push((cursor, area));
+        }
         let primitive = match element {
             UIElement::Bordered(border_color) => Some(UIPrimitiveElement::RoundRect(RoundRect {
                 corner_radius: 1.0,
@@ -304,10 +332,26 @@ pub enum UIElement {
     Nothing,
 }
 
+/// The pointer's look while it is over a node
+#[derive(Debug, Clone, PartialEq)]
+pub enum Cursor {
+    Named(CursorIcon),
+    Hidden,
+    Custom {
+        /// RGBA8, row-major
+        rgba: Arc<[u8]>,
+        width: u16,
+        height: u16,
+        hotspot: [u16; 2],
+    },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UITree {
     node: UIElement,
     style: Style,
+    /// `None` uses the parent's cursor (the default cursor at the root)
+    cursor: Option<Cursor>,
 
     children: Vec<UITree>,
 }
@@ -322,8 +366,15 @@ impl UITree {
         Self {
             node,
             style,
+            cursor: None,
             children,
         }
+    }
+
+    #[must_use]
+    pub fn with_cursor(mut self, cursor: Option<Cursor>) -> Self {
+        self.cursor = cursor;
+        self
     }
 
     #[must_use]

@@ -44,6 +44,15 @@ impl UIHandle {
             })
             .unwrap();
 
+        let (present_tx, present_rx) = calloop::channel::channel();
+        runner_event_loop
+            .insert_source(present_rx, |event, &mut (), runner| {
+                if let calloop::channel::Event::Msg(()) = event {
+                    runner.smithay_state.frame_presented();
+                }
+            })
+            .unwrap();
+
         let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
@@ -76,7 +85,7 @@ impl UIHandle {
             let instance = instance.clone();
             thread::spawn(|| {
                 UIDisplay::run_display(
-                    is_running, tx, ui_content, device, queue, instance, proxy_tx,
+                    is_running, tx, ui_content, device, queue, instance, proxy_tx, present_tx,
                 );
             });
 

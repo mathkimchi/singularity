@@ -5,7 +5,7 @@
 
 use crate::{
     display_units::DisplayContainerSize,
-    ui_element::PrimitiveScene,
+    ui_element::{Cursor, CursorAreas, PrimitiveScene},
     winit_backend::{
         rendering::{CharGridRenderer, ImageRenderer, RectangleRenderer, Vertex},
         ui_event::{KeyModifiers, UIEvent},
@@ -210,6 +210,8 @@ impl WinitData {
 pub struct UIDisplay {
     is_running: Arc<AtomicBool>,
     event_queue: Sender<UIEvent>,
+    /// Notified after each presented frame
+    present_queue: Sender<()>,
     ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
 
     // width: u32,
@@ -217,6 +219,10 @@ pub struct UIDisplay {
     key_modifiers: KeyModifiers,
     /// Last known cursor position, since winit's button and scroll events don't carry one
     cursor_position: [f64; 2],
+    /// From the last drawn scene
+    drawn_cursors: CursorAreas,
+    /// What the window's cursor is set to; `None` is the default cursor
+    applied_cursor: Option<Cursor>,
 
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -378,6 +384,7 @@ impl UIDisplay {
         queue: wgpu::Queue,
         instance: wgpu::Instance,
         proxy_tx: std::sync::mpsc::Sender<EventLoopProxy<()>>,
+        present_queue: Sender<()>,
     ) {
         let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
@@ -388,11 +395,14 @@ impl UIDisplay {
         let mut app = Self {
             is_running,
             event_queue,
+            present_queue,
             ui_content,
             // width: 256,
             // height: 256,
             key_modifiers: KeyModifiers::NONE,
             cursor_position: [0.0, 0.0],
+            drawn_cursors: CursorAreas::default(),
+            applied_cursor: None,
             winit_data: None,
             device,
             queue,

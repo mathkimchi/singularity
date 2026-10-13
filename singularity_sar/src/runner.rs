@@ -123,10 +123,9 @@ impl AppletRunner {
                             &self.ui_handle.device,
                             &self.ui_handle.queue,
                         )
-                        .map_or(
-                            UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED)),
-                            |texture| UITree::leaf(UIElement::Texture(texture)),
-                        )
+                        .unwrap_or_else(|| {
+                            UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED))
+                        })
                 },
             ));
     }

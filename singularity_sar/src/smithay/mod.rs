@@ -7,34 +7,64 @@ use smithay::{
         input::{Axis, AxisSource, ButtonState, KeyState, Keycode},
         renderer::{
             BufferType, buffer_type,
-            utils::{RendererSurfaceStateUserData, on_commit_buffer_handler},
+            utils::{
+                Buffer, RendererSurfaceStateUserData, SurfaceView, on_commit_buffer_handler,
+            },
         },
+    },
+    desktop::{
+        PopupKeyboardGrab, PopupKind, PopupManager, PopupPointerGrab, PopupUngrabStrategy,
+        find_popup_root_surface, get_popup_toplevel_coords,
     },
     input::{
         Seat, SeatHandler, SeatState,
         keyboard::FilterResult,
-        pointer::{AxisFrame, ButtonEvent, MotionEvent},
+        pointer::{
+            AxisFrame, ButtonEvent, CursorImageStatus, CursorImageSurfaceData, Focus, MotionEvent,
+        },
     },
     output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
+    reexports::wayland_protocols::wp::presentation_time::server::wp_presentation_feedback::Kind as PresentationFeedbackKind,
+    reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode,
     reexports::wayland_server::{
-        Client, Display, DisplayHandle, backend::ClientData, protocol::wl_surface::WlSurface,
+        Client, Display, DisplayHandle, Resource as _, backend::ClientData,
+        protocol::{wl_seat::WlSeat, wl_surface::WlSurface},
     },
-    utils::{SERIAL_COUNTER, Serial},
+    utils::{Clock, Logical, Monotonic, Point, Rectangle, SERIAL_COUNTER, Serial, Time},
     wayland::{
         buffer::BufferHandler,
         compositor::{
             CompositorClientState, CompositorHandler, CompositorState, SurfaceAttributes,
-            TraversalAction, with_states, with_surface_tree_downward,
+            SurfaceData, TraversalAction, with_states, with_surface_tree_downward,
         },
+        cursor_shape::CursorShapeManagerState,
+        tablet_manager::TabletSeatHandler,
+        idle_inhibit::{IdleInhibitHandler, IdleInhibitManagerState},
         output::{OutputHandler, OutputManagerState},
+        selection::{
+            SelectionHandler,
+            data_device::{
+                DataDeviceHandler, DataDeviceState, WaylandDndGrabHandler, set_data_device_focus,
+            },
+            primary_selection::{
+                PrimarySelectionHandler, PrimarySelectionState, set_primary_focus,
+            },
+        },
         security_context::SecurityContext,
-        shell::xdg::{XdgShellHandler, XdgShellState},
+        shell::xdg::{
+            PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface, XdgShellHandler,
+            XdgShellState,
+            decoration::{XdgDecorationHandler, XdgDecorationState},
+        },
         shm::{ShmHandler, ShmState},
         socket::ListeningSocketSource,
+        presentation::{PresentationFeedbackCachedState, PresentationState, Refresh},
+        viewporter::ViewporterState,
     },
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
+    ui_element::{Cursor, Style, UIElement, UITree},
     ui_event::{MouseEvent, MouseEventKind},
 };
 use std::sync::Arc;
@@ -73,6 +103,19 @@ pub struct SmithayState {
     shm_state: ShmState,
     seat_state: SeatState<AppletRunner>,
     _output_manager_state: OutputManagerState,
+    data_device_state: DataDeviceState,
+    primary_selection_state: PrimarySelectionState,
+    _xdg_decoration_state: XdgDecorationState,
+    _idle_inhibit_state: IdleInhibitManagerState,
+    popup_manager: PopupManager,
+    _viewporter_state: ViewporterState,
+    _presentation_state: PresentationState,
+    /// For presentation times
+    clock: Clock<Monotonic>,
+    presented_frames: u64,
+    /// Latest cursor set by the client under the pointer
+    cursor_status: CursorImageStatus,
+    _cursor_shape_state: CursorShapeManagerState,
 
     seat: Seat<AppletRunner>,
     output: Output,
@@ -93,6 +136,66 @@ pub struct SmithayState {
     wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
 }
 impl SmithayState {
+    /// Same as anvil, but constrained to the toplevel's tile instead of the output,
+    /// since where the tile is in the output isn't known here.
+    /// TODO: constrain to the output once the tile's position is known
+    fn unconstrain_popup(&self, popup: &PopupSurface) {
+        let kind = PopupKind::Xdg(popup.clone());
+        let Ok(root) = find_popup_root_surface(&kind) else {
+            return;
+        };
+        let Some(tile_size) = self
+            .xdg_shell_state
+            .toplevel_surfaces()
+            .iter()
+            .find(|toplevel| toplevel.wl_surface() == &root)
+            // the latest size sent, which is the tile size
+            .and_then(|toplevel| toplevel.with_pending_state(|state| state.size))
+        else {
+            return;
+        };
+
+        // relative to the popup's parent's window geometry, like the positioner
+        let mut target = Rectangle::from_size(tile_size);
+        target.loc -= get_popup_toplevel_coords(&kind);
+        target.loc -= window_geometry_loc(&root);
+
+        popup.with_pending_state(|state| {
+            state.geometry = state.positioner.get_unconstrained_geometry(target);
+        });
+    }
+
+    /// Called after a frame is presented: sends frame callbacks (so clients render at the display's pace)
+    /// and presentation feedback.
+    /// TODO: skip surfaces that aren't visible (and discard their presentation feedback)
+    pub fn frame_presented(&mut self) {
+        let frame_time = self.start_time.elapsed().as_millis() as u32;
+        let present_time = self.clock.now();
+        self.presented_frames += 1;
+
+        if let CursorImageStatus::Surface(cursor_surface) = &self.cursor_status {
+            send_frames_surface_tree(
+                cursor_surface,
+                frame_time,
+                &self.output,
+                present_time,
+                self.presented_frames,
+            );
+        }
+        for root in self.surfaces.values() {
+            send_frames_surface_tree(root, frame_time, &self.output, present_time, self.presented_frames);
+            for (popup, _) in PopupManager::popups_for_surface(root) {
+                send_frames_surface_tree(
+                    popup.wl_surface(),
+                    frame_time,
+                    &self.output,
+                    present_time,
+                    self.presented_frames,
+                );
+            }
+        }
+    }
+
     /// The single output represents the whole Sonamu window
     pub fn resize_output(&self, size: DisplayContainerSize) {
         let mode = Mode {
@@ -137,6 +240,18 @@ impl SmithayState {
         // TODO: advertise the real scale (forward winit's scale factor)
         output.change_current_state(None, None, Some(Scale::Integer(1)), Some((0, 0).into()));
         output.create_global::<AppletRunner>(&display_handle);
+
+        let data_device_state = DataDeviceState::new::<AppletRunner>(&display_handle);
+        let primary_selection_state = PrimarySelectionState::new::<AppletRunner>(&display_handle);
+        let xdg_decoration_state = XdgDecorationState::new::<AppletRunner>(&display_handle);
+        let idle_inhibit_state = IdleInhibitManagerState::new::<AppletRunner>(&display_handle);
+        // smithay applies the viewport to the surface view, which rendering uses
+        let viewporter_state = ViewporterState::new::<AppletRunner>(&display_handle);
+        // delivered through `SeatHandler::cursor_image` as named cursors
+        let cursor_shape_state = CursorShapeManagerState::new::<AppletRunner>(&display_handle);
+        let clock = Clock::<Monotonic>::new();
+        let presentation_state =
+            PresentationState::new::<AppletRunner>(&display_handle, clock.id() as u32);
 
         // set up socket
         {
@@ -198,6 +313,17 @@ impl SmithayState {
             shm_state,
             seat_state,
             _output_manager_state: output_manager_state,
+            data_device_state,
+            primary_selection_state,
+            _xdg_decoration_state: xdg_decoration_state,
+            _idle_inhibit_state: idle_inhibit_state,
+            popup_manager: PopupManager::default(),
+            _viewporter_state: viewporter_state,
+            _presentation_state: presentation_state,
+            clock,
+            presented_frames: 0,
+            cursor_status: CursorImageStatus::default_named(),
+            _cursor_shape_state: cursor_shape_state,
             seat,
             output,
             surfaces: SlotMap::with_key(),
@@ -233,11 +359,20 @@ impl SmithayState {
                             pressed: true,
                         } => {
                             // target_surface.key(seat, data, key, state, serial, time); // TODO: use this instead of needing to jankily set focus?
-                            state.smithay_state.seat.get_keyboard().unwrap().set_focus(
-                                state,
-                                Some(target_surface),
-                                Serial::from(42),
-                            );
+                            let keyboard = state.smithay_state.seat.get_keyboard().unwrap();
+                            // the toplevel's popups keep focus, otherwise the popup grab would end
+                            let focus_in_target = keyboard.current_focus().is_some_and(|focus| {
+                                focus == target_surface
+                                    || state
+                                        .smithay_state
+                                        .popup_manager
+                                        .find_popup(&focus)
+                                        .and_then(|popup| find_popup_root_surface(&popup).ok())
+                                        .is_some_and(|root| root == target_surface)
+                            });
+                            if !focus_in_target {
+                                keyboard.set_focus(state, Some(target_surface), Serial::from(42));
+                            }
                             state.wl_key_input(keycode, KeyState::Pressed);
                         }
                         WlSurfaceEvent::Key {
@@ -267,14 +402,14 @@ impl SmithayState {
                             let pointer = state.smithay_state.seat.get_pointer().unwrap();
                             let time = state.smithay_state.start_time.elapsed().as_millis() as u32;
 
-                            // Motion first so the pointer is focused on the target surface.
-                            // TODO: the surface is assumed to be at the window's origin;
-                            // use where it is actually drawn once that is tracked
+                            // Motion first so the pointer is focused on the surface under it.
+                            // `position` is already relative to the tile, which is where the root is drawn
+                            let location = (position[0], position[1]).into();
                             pointer.motion(
                                 state,
-                                Some((target_surface, (0., 0.).into())),
+                                SmithayState::surface_under(&target_surface, location),
                                 &MotionEvent {
-                                    location: (position[0], position[1]).into(),
+                                    location,
                                     serial: SERIAL_COUNTER.next_serial(),
                                     time,
                                 },
@@ -335,26 +470,137 @@ impl SmithayState {
         wl_event_queue_sender
     }
 
+    /// Every surface of the toplevel (root, subsurfaces, then popups, in stacking order)
+    /// that has a buffer, with its offset from the root and its size.
+    fn window_layers(root: &WlSurface) -> Vec<Layer> {
+        let mut layers = Self::surface_tree_layers(root, Point::from((0, 0)));
+
+        // popup positions are relative to the root's window geometry
+        let root_geometry_loc = window_geometry_loc(root);
+        for (popup, offset) in PopupManager::popups_for_surface(root) {
+            let origin = root_geometry_loc + offset - popup.geometry().loc;
+            layers.extend(Self::surface_tree_layers(popup.wl_surface(), origin));
+        }
+
+        layers
+    }
+
+    /// Every surface in the tree (root and subsurfaces, in stacking order) that has a buffer,
+    /// with its offset from `origin` and its size.
+    fn surface_tree_layers(root: &WlSurface, origin: Point<i32, Logical>) -> Vec<Layer> {
+        // `location` is the parent's; each surface's view offset is relative to its parent
+        let view = |states: &SurfaceData| {
+            states
+                .data_map
+                .get::<RendererSurfaceStateUserData>()
+                .and_then(|surface_state| {
+                    let surface_state = surface_state.lock().unwrap();
+                    Some((surface_state.view()?, surface_state.buffer()?.clone()))
+                })
+        };
+
+        let mut layers = Vec::new();
+        with_surface_tree_downward(
+            root,
+            origin,
+            |_, states, &location| match view(states) {
+                Some((view, _)) => TraversalAction::DoChildren(location + view.offset),
+                // not mapped, so neither are its children
+                None => TraversalAction::SkipChildren,
+            },
+            |surface, states, &location| {
+                if let Some((view, buffer)) = view(states) {
+                    layers.push(Layer {
+                        surface: surface.clone(),
+                        buffer,
+                        location: location + view.offset,
+                        view,
+                    });
+                }
+            },
+            |_, _, _| true,
+        );
+        layers
+    }
+
+    /// Each surface is drawn 1:1 at its offset from the tile's top-left.
+    ///
     /// Returns `None` when the surface has nothing displayable yet
     /// (eg the initial xdg_surface commit carries no buffer by protocol)
     /// or when the surface id is stale.
+    ///
+    /// TODO: clip to the tile
     pub fn get_wl_surface_as_element(
         &self,
         surface_id: WlSurfaceId,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> Option<TextureView> {
+    ) -> Option<UITree> {
         let surface = self.surfaces.get(surface_id)?;
-        let wl_buffer = with_states(surface, |states| {
-            let surface_state = states
-                .data_map
-                .get::<RendererSurfaceStateUserData>()?
-                .lock()
-                .unwrap();
-            surface_state.buffer().cloned()
-        })?;
 
-        match buffer_type(&wl_buffer) {
+        let layers = Self::window_layers(surface);
+        let cursor = self.wl_cursor(&layers);
+
+        let textures: Vec<_> = layers
+            .into_iter()
+            .filter_map(|layer| {
+                let texture = Self::import_buffer(&layer.buffer, layer.view.src, device, queue)?;
+                Some(UITree::leaf_styled(
+                    UIElement::Texture(texture),
+                    Style::absolute(
+                        [layer.location.x as f32, layer.location.y as f32],
+                        [layer.view.dst.w as f32, layer.view.dst.h as f32],
+                    ),
+                ))
+            })
+            .collect();
+
+        (!textures.is_empty())
+            .then(|| UITree::new(UIElement::Nothing, textures).with_cursor(cursor))
+    }
+
+    /// The client's cursor if the pointer is over one of `layers` (one toplevel's surfaces)
+    fn wl_cursor(&self, layers: &[Layer]) -> Option<Cursor> {
+        let focus = self.seat.get_pointer()?.current_focus()?;
+        if !layers.iter().any(|layer| layer.surface == focus) {
+            return None;
+        }
+        match &self.cursor_status {
+            CursorImageStatus::Hidden => Some(Cursor::Hidden),
+            CursorImageStatus::Named(icon) => Some(Cursor::Named(*icon)),
+            CursorImageStatus::Surface(surface) => read_cursor_surface(surface),
+        }
+    }
+
+    /// The topmost surface of the toplevel under `point` (relative to the root),
+    /// and that surface's offset from the root.
+    ///
+    /// TODO: respect input regions
+    fn surface_under(
+        root: &WlSurface,
+        point: Point<f64, Logical>,
+    ) -> Option<(WlSurface, Point<f64, Logical>)> {
+        Self::window_layers(root)
+            .into_iter()
+            .rev()
+            .find(|layer| {
+                Rectangle::new(layer.location, layer.view.dst)
+                    .to_f64()
+                    .contains(point)
+            })
+            .map(|layer| (layer.surface, layer.location.to_f64()))
+    }
+
+    /// Only the `src` part of the buffer is imported (viewporter crop).
+    ///
+    /// TODO: `src` is in surface coords, which only match buffer px with buffer scale 1 and no transform
+    fn import_buffer(
+        wl_buffer: &Buffer,
+        src: Rectangle<f64, Logical>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Option<TextureView> {
+        match buffer_type(wl_buffer) {
             Some(BufferType::Shm) => {
                 // NOTE: everything touching the mapped pool has to stay inside this
                 // closure: the pointer is only valid while it runs, and smithay only
@@ -366,9 +612,19 @@ impl SmithayState {
                         // may mutate the pool concurrently, so don't hold this anywhere.
                         let data = unsafe { std::slice::from_raw_parts(content_ptr, length) };
 
+                        // crop to `src`, kept inside the buffer
+                        let left = (src.loc.x.floor() as i32).clamp(0, metadata.width);
+                        let top = (src.loc.y.floor() as i32).clamp(0, metadata.height);
+                        let right = ((src.loc.x + src.size.w).ceil() as i32).clamp(left, metadata.width);
+                        let bottom =
+                            ((src.loc.y + src.size.h).ceil() as i32).clamp(top, metadata.height);
+                        if right == left || bottom == top {
+                            return None;
+                        }
+
                         let texture_size = wgpu::Extent3d {
-                            width: metadata.width.cast_unsigned(),
-                            height: metadata.height.cast_unsigned(),
+                            width: (right - left).cast_unsigned(),
+                            height: (bottom - top).cast_unsigned(),
                             // All textures are stored as 3D
                             depth_or_array_layers: 1,
                         };
@@ -415,9 +671,13 @@ impl SmithayState {
                             data,
                             // The layout of the texture
                             wgpu::TexelCopyBufferLayout {
-                                offset: u64::from(metadata.offset.cast_unsigned()),
+                                // both supported formats are 4 bytes per pixel
+                                offset: u64::from(
+                                    (metadata.offset + top * metadata.stride + left * 4)
+                                        .cast_unsigned(),
+                                ),
                                 bytes_per_row: Some(metadata.stride.cast_unsigned()),
-                                rows_per_image: Some(metadata.height.cast_unsigned()),
+                                rows_per_image: Some(texture_size.height),
                             },
                             texture_size,
                         );
@@ -439,9 +699,103 @@ impl SmithayState {
 
 /// NOTE: Disclosure: from by GitHub Copilot
 /// Fixes the Alacritty problem.
+/// A surface drawn as part of a toplevel
+struct Layer {
+    surface: WlSurface,
+    buffer: Buffer,
+    /// Offset from the root
+    location: Point<i32, Logical>,
+    /// The crop (`src`) and drawn size (`dst`), from viewporter or the buffer
+    view: SurfaceView,
+}
+
+/// Where the xdg window geometry starts in the surface (eg after client-side shadows)
+fn window_geometry_loc(surface: &WlSurface) -> Point<i32, Logical> {
+    with_states(surface, |states| {
+        states
+            .cached_state
+            .get::<SurfaceCachedState>()
+            .current()
+            .geometry
+            .map(|geometry| geometry.loc)
+            .unwrap_or_default()
+    })
+}
+
+/// Copies a cursor surface's shm buffer into a custom cursor.
+/// Its subsurfaces are ignored.
+fn read_cursor_surface(surface: &WlSurface) -> Option<Cursor> {
+    let (buffer, hotspot) = with_states(surface, |states| {
+        let buffer = states
+            .data_map
+            .get::<RendererSurfaceStateUserData>()?
+            .lock()
+            .unwrap()
+            .buffer()?
+            .clone();
+        let hotspot = states
+            .data_map
+            .get::<CursorImageSurfaceData>()?
+            .lock()
+            .unwrap()
+            .hotspot;
+        Some((buffer, hotspot))
+    })?;
+
+    smithay::wayland::shm::with_buffer_contents(&buffer, |content_ptr, length, metadata| {
+        // SAFETY: same as in `SmithayState::import_buffer`
+        let data = unsafe { std::slice::from_raw_parts(content_ptr, length) };
+
+        use smithay::reexports::wayland_server::protocol::wl_shm::Format;
+        let has_alpha = match metadata.format {
+            Format::Argb8888 => true,
+            Format::Xrgb8888 => false,
+            _ => return None,
+        };
+
+        let width = usize::try_from(metadata.width).ok()?;
+        let height = usize::try_from(metadata.height).ok()?;
+        let mut rgba = Vec::with_capacity(width * height * 4);
+        for row in 0..height {
+            let start = usize::try_from(metadata.offset + metadata.stride * row as i32).ok()?;
+            // little-endian ARGB is B,G,R,A in bytes, and premultiplied
+            for pixel in data.get(start..start + width * 4)?.chunks_exact(4) {
+                let &[b, g, r, a] = pixel else { unreachable!() };
+                let a = if has_alpha { a } else { u8::MAX };
+                let unpremultiply = |c: u8| {
+                    let c = (u16::from(c) * 255).checked_div(u16::from(a)).unwrap_or(0);
+                    // clamp, in case the client's color is brighter than its alpha allows
+                    u8::try_from(c).unwrap_or(u8::MAX)
+                };
+                rgba.extend([unpremultiply(r), unpremultiply(g), unpremultiply(b), a]);
+            }
+        }
+
+        Some(Cursor::Custom {
+            rgba: rgba.into(),
+            width: u16::try_from(width).ok()?,
+            height: u16::try_from(height).ok()?,
+            hotspot: [
+                u16::try_from(hotspot.x).ok()?,
+                u16::try_from(hotspot.y).ok()?,
+            ],
+        })
+    })
+    .ok()
+    .flatten()
+}
+
 /// See 2026-09-04 DEVLOG
 /// I think this is just going through the entire tree and telling all the frame callbacks that the request was done
-fn send_frames_surface_tree(surface: &WlSurface, time: u32) {
+///
+/// Also sends presentation feedback; `seq` is the presented frame count.
+fn send_frames_surface_tree(
+    surface: &WlSurface,
+    frame_time: u32,
+    output: &Output,
+    present_time: Time<Monotonic>,
+    seq: u64,
+) {
     with_surface_tree_downward(
         surface,
         (),
@@ -454,7 +808,24 @@ fn send_frames_surface_tree(surface: &WlSurface, time: u32) {
                 .frame_callbacks
                 .drain(..)
             {
-                callback.done(time);
+                callback.done(frame_time);
+            }
+
+            for feedback in states
+                .cached_state
+                .get::<PresentationFeedbackCachedState>()
+                .current()
+                .callbacks
+                .drain(..)
+            {
+                // refresh is unknown and the time isn't from the hardware, so no flags
+                feedback.presented(
+                    output,
+                    present_time,
+                    Refresh::Unknown,
+                    seq,
+                    PresentationFeedbackKind::empty(),
+                );
             }
         },
         |_, _, &()| true,
@@ -501,14 +872,19 @@ impl SeatHandler for AppletRunner {
         &mut self.smithay_state.seat_state
     }
 
-    fn cursor_image(
-        &mut self,
-        _seat: &Seat<Self>,
-        _image: smithay::input::pointer::CursorImageStatus,
-    ) {
+    fn cursor_image(&mut self, _seat: &Seat<Self>, image: CursorImageStatus) {
+        // applied to the pointer focus's tile on redraw
+        self.smithay_state.cursor_status = image;
+        self.needs_redraw = true;
     }
 
-    fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
+    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
+        // selections are only offered to the focused client
+        let display_handle = &self.smithay_state.display_handle;
+        let client = focused.and_then(|surface| display_handle.get_client(surface.id()).ok());
+        set_data_device_focus(display_handle, seat, client.clone());
+        set_primary_focus(display_handle, seat, client);
+    }
 }
 impl CompositorHandler for AppletRunner {
     fn compositor_state(&mut self) -> &mut CompositorState {
@@ -523,11 +899,15 @@ impl CompositorHandler for AppletRunner {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
 
-        send_frames_surface_tree(
-            surface,
-            self.smithay_state.start_time.elapsed().as_millis() as u32,
-        );
+        self.smithay_state.popup_manager.commit(surface);
+        if let Some(PopupKind::Xdg(popup)) = self.smithay_state.popup_manager.find_popup(surface)
+            && !popup.is_initial_configure_sent()
+        {
+            // the initial configure is always allowed, so this can't fail
+            popup.send_configure().expect("initial configure failed");
+        }
 
+        // frame callbacks are sent after the redraw is presented
         self.needs_redraw = true;
     }
 }
@@ -551,7 +931,7 @@ impl XdgShellHandler for AppletRunner {
         &mut self.smithay_state.xdg_shell_state
     }
 
-    fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+    fn new_toplevel(&mut self, surface: ToplevelSurface) {
         dbg!("Handling new toplevel surface");
         surface.with_pending_state(|state| {
             state.size = Some((800, 600).into());
@@ -585,7 +965,7 @@ impl XdgShellHandler for AppletRunner {
         println!("New toplevel surface registered");
     }
 
-    fn toplevel_destroyed(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+    fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
         // Without this the slotmap keeps a dead `WlSurface` forever and the
         // applet holding its id renders a stale/absent buffer.
         // TODO: also tell the owning applet so it can remove itself from the tree
@@ -597,28 +977,127 @@ impl XdgShellHandler for AppletRunner {
         self.needs_redraw = true;
     }
 
-    fn new_popup(
-        &mut self,
-        _surface: smithay::wayland::shell::xdg::PopupSurface,
-        _positioner: smithay::wayland::shell::xdg::PositionerState,
-    ) {
+    fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
+        // the initial configure is sent on the popup's first commit
+        self.smithay_state.unconstrain_popup(&surface);
+
+        if let Err(err) = self
+            .smithay_state
+            .popup_manager
+            .track_popup(PopupKind::from(surface))
+        {
+            dbg!("Failed to track popup:", err);
+        }
     }
 
-    fn grab(
-        &mut self,
-        _surface: smithay::wayland::shell::xdg::PopupSurface,
-        _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        _serial: Serial,
-    ) {
+    fn popup_destroyed(&mut self, _surface: PopupSurface) {
+        self.smithay_state.popup_manager.cleanup();
+        self.needs_redraw = true;
+    }
+
+    /// Same as anvil
+    fn grab(&mut self, surface: PopupSurface, seat: WlSeat, serial: Serial) {
+        let seat: Seat<Self> = Seat::from_resource(&seat).unwrap();
+        let kind = PopupKind::Xdg(surface);
+        let Ok(root) = find_popup_root_surface(&kind) else {
+            return;
+        };
+        let Ok(mut grab) = self
+            .smithay_state
+            .popup_manager
+            .grab_popup(root, kind, &seat, serial)
+        else {
+            return;
+        };
+
+        if let Some(keyboard) = seat.get_keyboard() {
+            if keyboard.is_grabbed()
+                && !(keyboard.has_grab(serial)
+                    || keyboard.has_grab(grab.previous_serial().unwrap_or(serial)))
+            {
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            keyboard.set_focus(self, grab.current_grab(), serial);
+            keyboard.set_grab(self, PopupKeyboardGrab::new(&grab), serial);
+        }
+        if let Some(pointer) = seat.get_pointer() {
+            if pointer.is_grabbed()
+                && !(pointer.has_grab(serial)
+                    || pointer.has_grab(grab.previous_serial().unwrap_or_else(|| grab.serial())))
+            {
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            pointer.set_grab(self, PopupPointerGrab::new(&grab), serial, Focus::Keep);
+        }
     }
 
     fn reposition_request(
         &mut self,
-        _surface: smithay::wayland::shell::xdg::PopupSurface,
-        _positioner: smithay::wayland::shell::xdg::PositionerState,
-        _token: u32,
+        surface: PopupSurface,
+        positioner: PositionerState,
+        token: u32,
     ) {
+        surface.with_pending_state(|state| {
+            state.geometry = positioner.get_geometry();
+            state.positioner = positioner;
+        });
+        self.smithay_state.unconstrain_popup(&surface);
+        surface.send_repositioned(token);
     }
 }
 
 impl OutputHandler for AppletRunner {}
+
+impl SelectionHandler for AppletRunner {
+    type SelectionUserData = ();
+}
+
+impl DataDeviceHandler for AppletRunner {
+    fn data_device_state(&mut self) -> &mut DataDeviceState {
+        &mut self.smithay_state.data_device_state
+    }
+}
+
+/// TODO: dnd; the default impl cancels it since there is no icon rendering yet
+impl WaylandDndGrabHandler for AppletRunner {}
+
+impl PrimarySelectionHandler for AppletRunner {
+    fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
+        &mut self.smithay_state.primary_selection_state
+    }
+}
+
+/// Sonamu draws the borders, so always tell clients to not draw decorations
+fn use_server_side_decoration(toplevel: &ToplevelSurface) {
+    toplevel.with_pending_state(|state| {
+        state.decoration_mode = Some(DecorationMode::ServerSide);
+    });
+    if toplevel.is_initial_configure_sent() {
+        toplevel.send_pending_configure();
+    }
+}
+impl XdgDecorationHandler for AppletRunner {
+    fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        use_server_side_decoration(&toplevel);
+    }
+
+    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: DecorationMode) {
+        use_server_side_decoration(&toplevel);
+    }
+
+    fn unset_mode(&mut self, toplevel: ToplevelSurface) {
+        use_server_side_decoration(&toplevel);
+    }
+}
+
+/// Sonamu has no idle handling yet, so there is nothing to inhibit
+impl IdleInhibitHandler for AppletRunner {
+    fn inhibit(&mut self, _surface: WlSurface) {}
+
+    fn uninhibit(&mut self, _surface: WlSurface) {}
+}
+
+/// Needed by cursor shape; there's no tablet support, so the default does nothing
+impl TabletSeatHandler for AppletRunner {}

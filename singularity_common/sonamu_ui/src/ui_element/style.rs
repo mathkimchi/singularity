@@ -148,6 +148,25 @@ impl Style {
             ..Default::default()
         }
     }
+
+    /// Placed at `[left, top]` px from the container's top-left, with a px size
+    #[must_use]
+    pub fn absolute([left, top]: [f32; 2], [width, height]: [f32; 2]) -> Self {
+        Self {
+            position: taffy::Position::Absolute,
+            inset: taffy::Rect {
+                left: LengthAuto::Px(left),
+                top: LengthAuto::Px(top),
+                right: LengthAuto::Auto,
+                bottom: LengthAuto::Auto,
+            },
+            size: taffy::Size {
+                width: Dimension::Px(width),
+                height: Dimension::Px(height),
+            },
+            ..Default::default()
+        }
+    }
 }
 /// Same as taffy's defaults
 impl Default for Style {

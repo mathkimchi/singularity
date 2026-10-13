@@ -2,12 +2,16 @@ use winit::platform::scancode::PhysicalKeyExtScancode;
 
 use crate::{
     display_units::DisplayContainerSize,
+    ui_element::{Cursor, CursorIcon},
     ui_event::{KeySymbol, MouseEvent, MouseEventKind, UIEvent},
     winit_backend::{UIDisplay, WgpuData, WinitData},
 };
 use smithay::reexports::winit;
 use std::sync::Arc;
-use winit::{dpi::LogicalSize, window::Window};
+use winit::{
+    dpi::LogicalSize,
+    window::{CustomCursor, Window},
+};
 
 impl winit::application::ApplicationHandler for UIDisplay {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -110,6 +114,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = [position.x, position.y];
+                self.update_cursor(event_loop);
                 Self::send_mouse_event(
                     &self.event_queue,
                     self.cursor_position,
@@ -153,6 +158,11 @@ impl winit::application::ApplicationHandler for UIDisplay {
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(content) = self.ui_content.get_if_dirty() {
                     Self::draw(&mut self.winit_data, &content);
+                    self.present_queue.send(()).unwrap();
+
+                    // what's under the pointer may have changed
+                    self.drawn_cursors = content.cursors;
+                    self.update_cursor(event_loop);
                 }
             }
             _ => {}
@@ -160,6 +170,43 @@ impl winit::application::ApplicationHandler for UIDisplay {
     }
 }
 impl UIDisplay {
+    /// Sets the window's cursor to the one under the pointer, if it changed
+    fn update_cursor(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let Some(winit_data) = &self.winit_data else {
+            return;
+        };
+        let cursor = self.drawn_cursors.cursor_at(self.cursor_position);
+        if cursor == self.applied_cursor.as_ref() {
+            return;
+        }
+
+        let window = &winit_data.window;
+        window.set_cursor_visible(cursor != Some(&Cursor::Hidden));
+        match cursor {
+            None => window.set_cursor(CursorIcon::Default),
+            Some(Cursor::Named(icon)) => window.set_cursor(*icon),
+            Some(Cursor::Hidden) => {}
+            Some(Cursor::Custom {
+                rgba,
+                width,
+                height,
+                hotspot: [hotspot_x, hotspot_y],
+            }) => match CustomCursor::from_rgba(
+                rgba.to_vec(),
+                *width,
+                *height,
+                *hotspot_x,
+                *hotspot_y,
+            ) {
+                Ok(source) => window.set_cursor(event_loop.create_custom_cursor(source)),
+                Err(err) => {
+                    dbg!("Bad custom cursor:", err);
+                }
+            },
+        }
+        self.applied_cursor = cursor.cloned();
+    }
+
     fn send_mouse_event(
         event_queue: &calloop::channel::Sender<UIEvent>,
         cursor_position: [f64; 2],
