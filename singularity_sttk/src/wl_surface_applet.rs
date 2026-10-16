@@ -49,9 +49,12 @@ impl StandardApplet for WlSurfaceApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
         let ui_event = match standard_event {
             StandardEvent::UIEvent(ui_event) => ui_event,
-            StandardEvent::WlSurfaceTitle(_, title) => {
-                self.title = title;
-                self.hook.damage_treeview();
+            // titles of unregistered surfaces are broadcast to every node, so check the id
+            StandardEvent::WlSurfaceTitle(surface_id, title) => {
+                if surface_id == self.surface_id {
+                    self.title = title;
+                    self.hook.damage_treeview();
+                }
                 return;
             }
             _ => return,
