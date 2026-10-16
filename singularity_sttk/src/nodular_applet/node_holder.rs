@@ -214,6 +214,16 @@ impl NodeHolder {
         }
     }
 
+    /// Passes the title to the surface's tile, here or in whichever main has it inside
+    pub fn set_wl_surface_title(&mut self, surface_id: WlSurfaceId, title: String) {
+        if !self.tree.set_wl_surface_title(surface_id, title.clone()) {
+            for id in self.tree.with_main() {
+                self.tree
+                    .send_event(id, StandardEvent::WlSurfaceTitle(surface_id, title.clone()));
+            }
+        }
+    }
+
     /// Tells the holder's node if focus moved onto or off a wl surface. Run after each batch of events.
     pub fn update_wl_focus(&mut self) {
         let focused_wl_surface = self.tree.focused_wl_surface();

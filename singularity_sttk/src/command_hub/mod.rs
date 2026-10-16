@@ -524,7 +524,8 @@ impl StandardApplet for CommandHubApplet {
             // doesn't show wl surfaces (only the root gets these)
             StandardEvent::WlSurfaceRegistered { .. }
             | StandardEvent::FocusWlSurface(_)
-            | StandardEvent::WlSurfaceDestroyed(_) => {}
+            | StandardEvent::WlSurfaceDestroyed(_)
+            | StandardEvent::WlSurfaceTitle(..) => {}
         }
     }
 

@@ -103,6 +103,9 @@ impl StandardApplet for ProjectApplet {
             StandardEvent::WlSurfaceDestroyed(surface_id) => {
                 self.holder.close_wl_surface(surface_id);
             }
+            StandardEvent::WlSurfaceTitle(surface_id, title) => {
+                self.holder.set_wl_surface_title(surface_id, title);
+            }
             // handled by the applet's client
             StandardEvent::CloseRequest
             | StandardEvent::DamageAck(_)
