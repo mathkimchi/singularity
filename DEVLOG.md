@@ -10445,3 +10445,21 @@ The first part took 20 min and the rest (cleaning subagent + second batch of fea
 It didn't quite do projects how I wanted it to, but this is still very impressive.
 
 I'll commit then test running this with udev.
+
+2026-10-16 10:03AM
+
+Ok, I'm in udev > Sonamu > wayland applet > alacritty > helix.
+Main point, udev works!
+
+It is going to be slightly weird to develop sonamu in sonamu,
+because it doesn't do hot reloading and when I spawn it embedded,
+the keybinds might get intercepted...
+
+Actually, it just ERR's.
+This isn't really a problem though and unless it is caused by a deeper issue that will cause more bugs,
+I don't really care.
+
+The first thing I'll fix is the cursor is just a rectangle and that I want to fix the scroll direction.
+
+Ok, it fixed the cursor and I can just test it in a new TTY
+(I was afraid multiple sonamu via TTY would crash, but of course Claude mitigated that).

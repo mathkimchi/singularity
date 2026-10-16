@@ -5,7 +5,7 @@
 
 use crate::{
     display_units::{DisplayAreaPx, DisplayContainerSize},
-    ui_element::{Cursor, PrimitiveScene, RoundRect, UIPrimitiveElement},
+    ui_element::{Cursor, CursorIcon, PrimitiveScene, RoundRect, UIPrimitiveElement},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
     winit_backend::{
         DisplayInfo, DisplayNotification, DisplayProxy, DisplayRequest, Gpu, PointerGrab,
@@ -47,7 +47,15 @@ const REPEAT_DELAY: Duration = Duration::from_millis(600);
 const REPEAT_INTERVAL: Duration = Duration::from_millis(40);
 /// px per wheel notch, like the winit backend
 const SCROLL_PER_NOTCH: f64 = 15.0;
+/// Size of the fallback box, when the cursor theme has no image
 const CURSOR_SIZE: [u32; 2] = [12, 18];
+
+/// A cursor uploaded to the GPU
+struct CursorImage {
+    texture: wgpu::TextureView,
+    size: [u32; 2],
+    hotspot: [u32; 2],
+}
 
 struct DrmDisplay {
     is_running: Arc<AtomicBool>,
@@ -66,6 +74,9 @@ struct DrmDisplay {
 
     pointer: [f64; 2],
     pointer_grab: PointerGrab,
+    cursor_theme: xcursor::CursorTheme,
+    /// The last drawn cursor, `None` if it had no image
+    cursor_image: Option<(Cursor, Option<CursorImage>)>,
     keyboard: xkb::State,
     /// The key being repeated (xkb keycode) and its timer
     repeat: Option<(Keycode, RegistrationToken)>,
@@ -265,6 +276,10 @@ impl DrmDisplay {
             size,
             pointer: [f64::from(size.width) / 2.0, f64::from(size.height) / 2.0],
             pointer_grab: PointerGrab::None,
+            cursor_theme: xcursor::CursorTheme::load(
+                &std::env::var("XCURSOR_THEME").unwrap_or_else(|_| "default".to_string()),
+            ),
+            cursor_image: None,
             keyboard: xkb::State::new(&keymap),
             repeat: None,
             _drm: drm,
@@ -292,24 +307,44 @@ impl DrmDisplay {
             self.scene = scene;
         }
 
-        let hidden = self.scene.cursors.cursor_at(self.pointer) == Some(&Cursor::Hidden);
-        if hidden {
+        let cursor = self
+            .scene
+            .cursors
+            .cursor_at(self.pointer)
+            .cloned()
+            .unwrap_or(Cursor::Named(CursorIcon::Default));
+        if cursor == Cursor::Hidden {
             UIDisplay::draw(&mut self.wgpu_data, &self.scene);
         } else {
-            // software cursor: a white arrow-ish box with a black outline
+            if self.cursor_image.as_ref().is_none_or(|(drawn, _)| *drawn != cursor) {
+                let image = self.load_cursor(&cursor);
+                self.cursor_image = Some((cursor, image));
+            }
+            // software cursor
             let mut scene = self.scene.clone();
             // the pointer is clamped to the screen, so non-negative
             #[allow(clippy::cast_sign_loss)]
             let [x, y] = self.pointer.map(|value| value as u32);
-            scene.elements.push((
-                UIPrimitiveElement::RoundRect(RoundRect {
-                    corner_radius: 2.0,
-                    border_width: 1.0,
-                    main_color: [1.0, 1.0, 1.0, 1.0],
-                    border_color: [0.0, 0.0, 0.0, 1.0],
-                }),
-                DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
-            ));
+            scene.elements.push(match self.cursor_image.as_ref().and_then(|(_, image)| image.as_ref()) {
+                Some(image) => {
+                    let x = x.saturating_sub(image.hotspot[0]);
+                    let y = y.saturating_sub(image.hotspot[1]);
+                    (
+                        UIPrimitiveElement::Texture(image.texture.clone()),
+                        DisplayAreaPx::new(x, y, x + image.size[0], y + image.size[1]),
+                    )
+                }
+                // a white box with a black outline
+                None => (
+                    UIPrimitiveElement::RoundRect(RoundRect {
+                        corner_radius: 2.0,
+                        border_width: 1.0,
+                        main_color: [1.0, 1.0, 1.0, 1.0],
+                        border_color: [0.0, 0.0, 0.0, 1.0],
+                    }),
+                    DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
+                ),
+            });
             UIDisplay::draw(&mut self.wgpu_data, &scene);
         }
 
@@ -318,6 +353,80 @@ impl DrmDisplay {
                 .display_notification_queue
                 .send(DisplayNotification::Presented);
         }
+    }
+
+    /// Uploads the cursor's image, `None` if it has none (or is hidden)
+    fn load_cursor(&self, cursor: &Cursor) -> Option<CursorImage> {
+        let (rgba, size, hotspot) = match cursor {
+            Cursor::Hidden => return None,
+            Cursor::Named(icon) => {
+                let image = self.load_theme_cursor(*icon).or_else(|| {
+                    log::warn!("No cursor {icon:?} in the theme");
+                    self.load_theme_cursor(CursorIcon::Default)
+                })?;
+                (
+                    image.pixels_rgba.into(),
+                    [image.width, image.height],
+                    [image.xhot, image.yhot],
+                )
+            }
+            Cursor::Custom {
+                rgba,
+                width,
+                height,
+                hotspot,
+            } => (
+                rgba.clone(),
+                [u32::from(*width), u32::from(*height)],
+                hotspot.map(u32::from),
+            ),
+        };
+
+        let WgpuData { device, queue, .. } = &self.wgpu_data;
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: size[0],
+                height: size[1],
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("cursor_texture"),
+            view_formats: &[],
+        });
+        queue.write_texture(
+            texture.as_image_copy(),
+            &rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * size[0]),
+                rows_per_image: None,
+            },
+            texture.size(),
+        );
+        Some(CursorImage {
+            texture: texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            size,
+            hotspot,
+        })
+    }
+
+    /// The icon's first frame from the theme, at the size closest to `XCURSOR_SIZE` (24 by default)
+    fn load_theme_cursor(&self, icon: CursorIcon) -> Option<xcursor::parser::Image> {
+        let wanted_size = std::env::var("XCURSOR_SIZE")
+            .ok()
+            .and_then(|size| size.parse().ok())
+            .unwrap_or(24);
+        let path = std::iter::once(icon.name())
+            .chain(icon.alt_names().iter().copied())
+            .find_map(|name| self.cursor_theme.load_icon(name))?;
+        let images = xcursor::parser::parse_xcursor(&std::fs::read(path).ok()?)?;
+        images
+            .into_iter()
+            .min_by_key(|image| image.size.abs_diff(wanted_size))
     }
 
     fn clamp_to_screen(&self, [x, y]: [f64; 2]) -> [f64; 2] {

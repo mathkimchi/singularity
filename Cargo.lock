@@ -3120,6 +3120,7 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wgpu",
+ "xcursor",
 ]
 
 [[package]]
