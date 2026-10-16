@@ -3,7 +3,7 @@ use crate::utils::tree::{recursive_tree::RecursiveTreeNode, tree_node_path::Tree
 pub mod world_tree_traversal;
 
 // pub struct WorldTreePath(Vec<TreeNodePath>);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldTreePath(pub Box<[TreeNodePath]>);
 impl WorldTreePath {
     // pub fn new(inner: &[TreeNodePath]) -> Self {

@@ -52,7 +52,7 @@ impl StandardApplet for OneCharRenderTestApplet {
             StandardEvent::Highlighted(_) => todo!(),
             StandardEvent::CloseRequest => todo!(),
             // handled by the applet's client
-            StandardEvent::DamageAck(_) => {}
+            StandardEvent::DamageAck(_) | StandardEvent::Pluck(_) | StandardEvent::Place(..) => {}
             StandardEvent::WlSurfaceRegistered { .. } => todo!(),
             // doesn't show wl surfaces
             StandardEvent::FocusWlSurface(_) => {}

@@ -1,7 +1,8 @@
-use crate::{smithay::SmithayState, ui_handle::UIHandle};
+use crate::{pluck_place::PluckPlace, smithay::SmithayState, ui_handle::UIHandle};
 use calloop::{EventLoop, LoopHandle, LoopSignal};
 use singularity_common::sap::{
     client_handle::ClientHandle,
+    detached::DetachedTree,
     packets::{StandardEvent, StandardRequest, StateKind, WlSurfaceId},
     raw_client_initializer::RawClientInitializer,
 };
@@ -9,7 +10,7 @@ use sonamu_ui::{
     PointerGrab,
     display_units::DisplayContainerSize,
     ui_element::{PrimitiveScene, UIElement, UITree},
-    ui_event::UIEvent,
+    ui_event::{KeyModifiers, KeySymbol, UIEvent},
 };
 
 /// The Singularity Applet Runner (SAR) is kind of just a wrapper around the Singularity UI.
@@ -34,6 +35,12 @@ pub struct AppletRunner {
     pointer_grab: PointerGrab,
     /// Stops `run` once the display closes
     pub(crate) loop_signal: LoopSignal,
+
+    /// Taken out of the root's tree by a pluck, until it's placed
+    pub(crate) plucked: Option<DetachedTree>,
+    pub(crate) pluck_place: PluckPlace,
+    /// In window px, for drawing what's plucked under the pointer
+    pub(crate) pointer_position: [f64; 2],
 }
 impl AppletRunner {
     fn new(
@@ -61,6 +68,9 @@ impl AppletRunner {
             needs_redraw: true,
             pointer_grab: PointerGrab::None,
             loop_signal,
+            plucked: None,
+            pluck_place: PluckPlace::Idle,
+            pointer_position: [0.0, 0.0],
         }
     }
 
@@ -124,6 +134,32 @@ impl AppletRunner {
             self.needs_redraw = true;
         }
 
+        if let UIEvent::Mouse(mouse_event) = event {
+            self.pointer_position = mouse_event.position;
+            // what's plucked follows the pointer
+            if self.plucked.is_some() {
+                self.needs_redraw = true;
+            }
+        }
+
+        // global keybinds
+        if let UIEvent::Key {
+            symbol: Some(KeySymbol::Char('p' | 'P')),
+            modifiers:
+                KeyModifiers {
+                    alt: true,
+                    ctrl: false,
+                    logo: false,
+                    ..
+                },
+            pressed: true,
+            ..
+        } = event
+        {
+            self.toggle_pluck_place();
+            return;
+        }
+
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
@@ -137,12 +173,20 @@ impl AppletRunner {
             StandardRequest::Damage(StateKind::Treeview) => {}
             StandardRequest::Quit => self.ui_handle.quit(),
             StandardRequest::WlKeyboardFocus(surface_id) => self.focus_wl_keyboard(surface_id),
+            StandardRequest::Plucked(plucked) => self.plucked(plucked),
+            StandardRequest::Placed(given_back) => self.placed(given_back),
+            StandardRequest::RequestPluck(path) => self.pluck(Some(path)),
+            StandardRequest::RequestPlace(path) => self.request_place(path),
         }
     }
 
     fn redraw_ui(&mut self) {
+        let mut content = self.root_client.get_surface();
+        if let Some(ghost) = self.plucked_ghost() {
+            content = UITree::new_container(vec![content, ghost]);
+        }
         let scene = PrimitiveScene::from_ui_tree(
-            self.root_client.get_surface(),
+            content,
             self.window_size,
             |surface_id| {
                 // NOTE: currently only handles subsurfaces being the wl surfaces

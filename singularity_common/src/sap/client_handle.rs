@@ -1,14 +1,15 @@
 use crate::{
     sap::{
+        detached::DetachedClient,
         packets::{StandardEvent, StateKind},
         raw_client_initializer::RawClientInitializer,
         shared_state::SharedState,
     },
     utils::tree::world_tree::WorldTree,
 };
-use calloop::LoopHandle;
+use calloop::{Dispatcher, LoopHandle, channel::Channel};
 use sonamu_ui::ui_element::{UIElement, UITree};
-use std::thread;
+use std::{any::Any, thread};
 
 /// ~~Implemented by Applet,~~ used by whoever holds a client (the sar server or an sttk node).
 ///
@@ -17,6 +18,8 @@ pub struct ClientHandle {
     event_queue: calloop::channel::Sender<StandardEvent>,
     surface: SharedState<UITree>,
     treeview: SharedState<WorldTree<String>>,
+    /// Takes the request channel back out of the holder's loop
+    detach_requests: Box<dyn FnOnce() -> Box<dyn Any + Send>>,
 }
 impl ClientHandle {
     /// Runs the client on a new thread.
@@ -24,7 +27,7 @@ impl ClientHandle {
     pub fn spawn_new_client<Request: Send + 'static, Data: 'static>(
         client_initializer: Box<dyn RawClientInitializer<Request>>,
         event_loop: &LoopHandle<'static, Data>,
-        mut on_request: impl FnMut(Request, &mut Data) + 'static,
+        on_request: impl FnMut(Request, &mut Data) + 'static,
     ) -> Self {
         let surface = SharedState::new(StateKind::Surface, UITree::leaf(UIElement::Nothing));
         let treeview = SharedState::new(StateKind::Treeview, WorldTree::new_base(String::new()));
@@ -33,27 +36,62 @@ impl ClientHandle {
 
         // I don't think order matters,
         // but just in-case I should start listening before I make the client
-        event_loop
-            .insert_source(request_rx, move |request, &mut (), data| {
-                // `Closed` means the client ended; calloop removes the source after that
-                if let calloop::channel::Event::Msg(request) = request {
-                    on_request(request, data);
-                }
-            })
-            .unwrap();
+        let handle = Self::attach(
+            event_tx,
+            surface.clone(),
+            treeview.clone(),
+            request_rx,
+            event_loop,
+            on_request,
+        );
 
-        {
-            let surface = surface.clone();
-            let treeview = treeview.clone();
-            thread::spawn(|| {
-                client_initializer.init(surface, treeview, event_rx, request_tx);
-            });
-        }
+        thread::spawn(|| {
+            client_initializer.init(surface, treeview, event_rx, request_tx);
+        });
+
+        handle
+    }
+
+    /// Starts handling a client's requests on `event_loop`
+    pub(crate) fn attach<Request: Send + 'static, Data: 'static>(
+        event_queue: calloop::channel::Sender<StandardEvent>,
+        surface: SharedState<UITree>,
+        treeview: SharedState<WorldTree<String>>,
+        requests: Channel<Request>,
+        event_loop: &LoopHandle<'static, Data>,
+        mut on_request: impl FnMut(Request, &mut Data) + 'static,
+    ) -> Self {
+        let dispatcher = Dispatcher::new(requests, move |request, &mut (), data| {
+            // `Closed` means the client ended; calloop removes the source after that
+            if let calloop::channel::Event::Msg(request) = request {
+                on_request(request, data);
+            }
+        });
+        let token = event_loop.register_dispatcher(dispatcher.clone()).unwrap();
+        let event_loop = event_loop.clone();
 
         Self {
-            event_queue: event_tx,
+            event_queue,
             surface,
             treeview,
+            detach_requests: Box::new(move || {
+                event_loop.remove(token);
+                Box::new(dispatcher.into_source_inner())
+            }),
+        }
+    }
+
+    /// Takes the client out of its holder's loop, keeping it running.
+    ///
+    /// # Panics
+    ///
+    /// If called while the loop is dispatching this client's requests (eg from its own `on_request`).
+    pub fn detach(self) -> DetachedClient {
+        DetachedClient {
+            requests: (self.detach_requests)(),
+            event_queue: self.event_queue,
+            surface: self.surface,
+            treeview: self.treeview,
         }
     }
 

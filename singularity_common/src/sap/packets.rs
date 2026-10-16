@@ -1,3 +1,4 @@
+use crate::{sap::detached::DetachedTree, utils::tree::world_tree::WorldTreePath};
 use slotmap::KeyData;
 use sonamu_ui::{
     display_units::DisplayContainerSize,
@@ -13,7 +14,7 @@ pub enum StateKind {
 }
 
 /// Client to server
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub enum StandardRequest {
     /// The client published a new value of this state
     Damage(StateKind),
@@ -21,6 +22,14 @@ pub enum StandardRequest {
     /// The wl surface Sonamu focus is on (`None` if it's on something else), sent when it changes.
     /// Keyboard (and so clipboard and text input) focus follows it.
     WlKeyboardFocus(Option<WlSurfaceId>),
+    /// Answers `StandardEvent::Pluck`; `None` if nothing there can be plucked
+    Plucked(Option<DetachedTree>),
+    /// Answers `StandardEvent::Place`; gives the tree back if it wasn't placed
+    Placed(Option<DetachedTree>),
+    /// Asks the server to pluck at this path of the client's treeview (eg a drag started there)
+    RequestPluck(WorldTreePath),
+    /// Asks the server to place what it plucked at this path of the client's treeview
+    RequestPlace(WorldTreePath),
 }
 
 slotmap::new_key_type! {
@@ -63,6 +72,12 @@ pub enum StandardEvent {
     /// The surface's toplevel is gone (eg the client disconnected); its applet should close.
     /// Sent from the root down like `FocusWlSurface`.
     WlSurfaceDestroyed(WlSurfaceId),
+    /// Take out the closest pluckable element at this path of the client's treeview
+    /// (`None`: at its focus), and answer with `StandardRequest::Plucked`
+    Pluck(Option<WorldTreePath>),
+    /// Take ownership of the tree at this path (`None`: at its focus),
+    /// and answer with `StandardRequest::Placed`
+    Place(Option<WorldTreePath>, DetachedTree),
 }
 
 /// Wl surface applet to compositor

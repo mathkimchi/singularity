@@ -5,6 +5,7 @@ use crate::{
 use singularity_common::{
     sap::{
         client_handle::ClientHandle,
+        detached::{DetachedClient, DetachedTree},
         packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId},
     },
     utils::tree::{
@@ -145,6 +146,8 @@ pub struct NodeTree {
     latest_size: Option<DisplayContainerSize>,
     /// Runs an applet as a client whose requests are tagged with the given node
     spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
+    /// Like `spawn_applet`, for a placed client that is already running
+    attach_applet: Box<dyn Fn(NodeId, DetachedClient) -> ClientHandle>,
     /// Set when the tree changed in a way that needs a redraw
     damaged: bool,
 }
@@ -152,6 +155,7 @@ impl NodeTree {
     pub fn new(
         root_initializer: NodularAppletInitializer,
         spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
+        attach_applet: Box<dyn Fn(NodeId, DetachedClient) -> ClientHandle>,
     ) -> Self {
         let mut tree = Self {
             root: NodeId::default(),
@@ -159,6 +163,7 @@ impl NodeTree {
             wl_surfaces: HashMap::new(),
             latest_size: None,
             spawn_applet,
+            attach_applet,
             damaged: true,
         };
         tree.root = tree.insert_node(None, root_initializer);
@@ -186,12 +191,161 @@ impl NodeTree {
             children: Vec::new(),
             focus: FocusIndex::Focusing,
         });
+        self.send_size(id);
+        id
+    }
+
+    /// Attaches the tree's clients under `parent` (not added to its children), with new ids
+    fn attach_subtree(&mut self, parent: NodeId, tree: DetachedTree) -> NodeId {
+        let attach_applet = &self.attach_applet;
+        let id = self.nodes.insert_with_key(|id| Node {
+            main: attach_applet(id, tree.main),
+            parent: Some(parent),
+            children: Vec::new(),
+            focus: FocusIndex::Focusing,
+        });
+        self.send_size(id);
+        if let Some(surface_id) = tree.wl_surface {
+            self.wl_surfaces.insert(surface_id, id);
+        }
+        for child in tree.children {
+            let child = self.attach_subtree(id, child);
+            self.nodes[id].children.push(child);
+        }
+        id
+    }
+
+    /// Detaches the node and its descendants (already removed from its parent's children)
+    fn detach_subtree(&mut self, id: NodeId) -> DetachedTree {
+        let node = self.nodes.remove(id).unwrap();
+        let wl_surface = self
+            .wl_surfaces
+            .iter()
+            .find_map(|(&surface_id, &node_id)| (node_id == id).then_some(surface_id));
+        if let Some(surface_id) = wl_surface {
+            self.wl_surfaces.remove(&surface_id);
+        }
+        DetachedTree {
+            main: node.main.detach(),
+            wl_surface,
+            children: node
+                .children
+                .into_iter()
+                .map(|child| self.detach_subtree(child))
+                .collect(),
+        }
+    }
+
+    fn send_size(&self, id: NodeId) {
         if let Some(size) = self.latest_size {
             self.nodes[id]
                 .main
                 .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
         }
+    }
+
+    pub fn send_event(&self, id: NodeId, event: StandardEvent) {
+        if let Some(node) = self.nodes.get(id) {
+            node.main.send_event(event);
+        }
+    }
+
+    /// The node at `path` of the node tree
+    pub fn node_at(&self, path: &TreeNodePath) -> Option<NodeId> {
+        let mut id = self.root;
+        for &index in &path.0 {
+            id = *self.nodes[id].children.get(index)?;
+        }
+        Some(id)
+    }
+
+    /// The deepest node along `path`, and whether it is the node at `path`
+    pub fn closest_node_at(&self, path: &TreeNodePath) -> (NodeId, bool) {
+        let mut id = self.root;
+        for &index in &path.0 {
+            let Some(&child) = self.nodes[id].children.get(index) else {
+                return (id, false);
+            };
+            id = child;
+        }
+        (id, true)
+    }
+
+    /// The node's path in the node tree, `None` if it isn't in the tree
+    pub fn path_of(&self, id: NodeId) -> Option<TreeNodePath> {
+        let mut indices = Vec::new();
+        let mut child = id;
+        while let Some(parent) = self.nodes.get(child)?.parent {
+            indices.push(self.child_index(parent, child));
+            child = parent;
+        }
+        indices.reverse();
+        Some(TreeNodePath(indices))
+    }
+
+    fn child_index(&self, parent: NodeId, child: NodeId) -> usize {
+        self.nodes[parent]
+            .children
+            .iter()
+            .position(|&id| id == child)
+            .unwrap()
+    }
+
+    /// Takes the node out with its children.
+    /// If it was its parent's focused child, the parent becomes focused.
+    ///
+    /// `None` for the root or a node not in the tree.
+    ///
+    /// # Panics
+    ///
+    /// If called while the loop is dispatching a request from one of the plucked applets.
+    pub fn pluck(&mut self, id: NodeId) -> Option<DetachedTree> {
+        let parent_id = self.nodes.get(id)?.parent?;
+        let index = self.child_index(parent_id, id);
+        let parent = &mut self.nodes[parent_id];
+        parent.children.remove(index);
+        parent.focus = match parent.focus {
+            FocusIndex::Child(focused) if focused == index => FocusIndex::Focusing,
+            FocusIndex::Child(focused) if focused > index => FocusIndex::Child(focused - 1),
+            focus => focus,
+        };
+        self.damaged = true;
+        Some(self.detach_subtree(id))
+    }
+
+    /// Adds the tree as the parent's last child and focuses it
+    pub fn place(&mut self, parent: NodeId, tree: DetachedTree) -> NodeId {
+        let id = self.attach_subtree(parent, tree);
+        self.nodes[parent].children.push(id);
+        self.focus_node(id);
+        self.nodes[id].focus = FocusIndex::Focusing;
+        self.damaged = true;
         id
+    }
+
+    /// Points every ancestor's focus down to the node, without changing the node's own focus
+    fn focus_node(&mut self, id: NodeId) {
+        let mut child = id;
+        while let Some(parent) = self.nodes[child].parent {
+            let index = self.child_index(parent, child);
+            self.nodes[parent].focus = FocusIndex::Child(index);
+            child = parent;
+        }
+        self.damaged = true;
+    }
+
+    /// Focuses what `path` of the treeview points at: the node itself if the path ends at it,
+    /// otherwise its main (focus inside it is TODO)
+    pub fn focus_path(&mut self, path: &WorldTreePath) {
+        let Some(id) = path.0.first().map_or(Some(self.root), |path| self.node_at(path)) else {
+            return;
+        };
+        self.focus_node(id);
+        self.nodes[id].focus = if path.0.len() > 1 {
+            FocusIndex::Inner
+        } else {
+            FocusIndex::Focusing
+        };
     }
 
     /// Returns `None` if `parent` isn't in the tree (eg it closed since)
@@ -298,18 +452,7 @@ impl NodeTree {
             return;
         };
         self.nodes[id].focus = FocusIndex::Inner;
-
-        let mut child = id;
-        while let Some(parent) = self.nodes[child].parent {
-            let index = self.nodes[parent]
-                .children
-                .iter()
-                .position(|&id| id == child)
-                .unwrap();
-            self.nodes[parent].focus = FocusIndex::Child(index);
-            child = parent;
-        }
-        self.damaged = true;
+        self.focus_node(id);
     }
 
     /// Follows focused children down to the node that is focusing or focused on its main

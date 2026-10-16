@@ -214,7 +214,9 @@ impl StandardApplet for CommandHubApplet {
             singularity_common::sap::packets::StandardEvent::Highlighted(_) => todo!(),
             singularity_common::sap::packets::StandardEvent::CloseRequest => todo!(),
             // handled by the applet's client
-            singularity_common::sap::packets::StandardEvent::DamageAck(_) => {}
+            singularity_common::sap::packets::StandardEvent::DamageAck(_)
+            | singularity_common::sap::packets::StandardEvent::Pluck(_)
+            | singularity_common::sap::packets::StandardEvent::Place(..) => {}
             singularity_common::sap::packets::StandardEvent::WlSurfaceRegistered { .. } => {
                 todo!()
             }

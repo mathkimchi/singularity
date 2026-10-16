@@ -3,11 +3,14 @@
 use calloop::{EventLoop, LoopSignal, channel::Sender};
 use singularity_common::{
     sap::{
+        detached::DetachedTree,
         packets::{StandardEvent, StandardRequest, StateKind},
         raw_client_initializer::RawClientInitializer,
         shared_state::{SharedState, StatePublisher},
     },
-    utils::tree::world_tree::{WorldTree, world_tree_traversal::WorldTreeTraversalOperation},
+    utils::tree::world_tree::{
+        WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
+    },
 };
 use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UITree, ui_event::UIEvent};
 use std::{
@@ -17,6 +20,7 @@ use std::{
 
 pub mod node_tree;
 pub mod root_node_applet;
+mod treeview;
 
 // pub struct RootApplet<Applet: BasicApplet> {
 //     inner: Applet,
@@ -49,6 +53,18 @@ pub trait StandardApplet {
     /// TODO: also publish the focus path inside it, and let focus cross into it.
     /// For now the node assumes the inner tree's root is focused.
     fn get_treeview(&self) -> WorldTree<String>;
+
+    /// Takes the closest pluckable element at `path` (in the inner tree) out of the applet.
+    /// `None` makes its node pluck itself, with the applet and its children.
+    fn pluck(&mut self, _path: &WorldTreePath) -> Option<DetachedTree> {
+        None
+    }
+
+    /// Takes ownership of `tree` at `path` (in the inner tree).
+    /// `Err` gives it back, and the node adds it as its last child.
+    fn place(&mut self, _path: &WorldTreePath, tree: DetachedTree) -> Result<(), DetachedTree> {
+        Err(tree)
+    }
 }
 
 /// Makes the applet, on the applet's own thread
@@ -177,6 +193,21 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 }
                 calloop::channel::Event::Msg(StandardEvent::DamageAck(StateKind::Treeview)) => {
                     state.treeview.ack();
+                }
+                // TODO: `None` should be the focus path inside the inner tree; for now its root
+                calloop::channel::Event::Msg(StandardEvent::Pluck(path)) => {
+                    let path = path.unwrap_or_else(WorldTreePath::new_into);
+                    let plucked = state.applet.pluck(&path);
+                    let _ = state
+                        .request_sender
+                        .send(StandardRequest::Plucked(plucked).into());
+                }
+                calloop::channel::Event::Msg(StandardEvent::Place(path, tree)) => {
+                    let path = path.unwrap_or_else(WorldTreePath::new_into);
+                    let given_back = state.applet.place(&path, tree).err();
+                    let _ = state
+                        .request_sender
+                        .send(StandardRequest::Placed(given_back).into());
                 }
                 calloop::channel::Event::Msg(event) => {
                     if let StandardEvent::UIEvent(UIEvent::WindowResized(size)) = event {

@@ -10306,3 +10306,88 @@ A big change in philosophy is that I have finally decided to make it so that
 an applet only controls/owns it's inner tree things (which, reminder, is it's own value in a world tree),
 and no longer owns and manages its children nodes.
 An applet can still request its owner to spawn children and stuff, but it is indirect.
+
+2026-10-15 10:46PM
+
+Here's my clearer plan for pluck and place:
+
+When the server asks the root to pluck at some world tree index,
+the root must return the closest pluckable tree of the requested element.
+So a structural node that owns the applet requested element will ask the applet
+for the plucked element.
+If the inner applet says it has no pluckable elements,
+then the structural node just plucks itself
+(it returns the inner applet and also all the children).
+
+On pluck, the plucked thing should be removed from the normal treeview,
+and it should be held by the server in an optional plucked tree.
+
+On place, it's a similar algorithm,
+where the place propogates downwards and then if the bottom most applet can't place,
+it calls spawn child upwards.
+(Is this tuff?)
+
+The shortcut is Alt+P for both operations, and I guess this will be the first global shortcut.
+
+2026-10-15 11:40PM
+
+I was going to let this run while sleeping, but it finished in 20 minutes (21m 11s to be exact):
+
+```txt
+❯ Use Alt+P for both pluck and place. This can be the first global keybind.
+
+  Actually, I'll let you make the decisions and implement first, and just store every choice and major change you make or question for me into a document so you can
+  summarize the changes later. When you're done with that, you have freedom to change how the tree is displayed, make it look nice. Then, do click to focus on tree, then
+  mouse drag for pluck and place. Update the treeview UI to make it react better to these mouse operations.
+
+  Don't commit or make new branches, because that requires my password.
+
+  If it helps, you can rewrite the .claude/TODO.md to keep track.
+```
+
+it's own summary:
+
+```txt
+Pluck and place work end to end: Alt+P, click-to-focus in the treeview, and drag to pluck and place. I didn't commit anything. Every decision, open question and issue is logged in .claude/PLUCK_PLACE.md.
+
+The workspace builds and clippy has nothing new in the touched files. A throwaway headless test (now deleted) drove the root through a fake server and everything passed:
+- Plucking a focused node, and placing it back.
+- Dragging a node that has a child and dropping it on another row.
+- Re-attached applets still work: renaming shows up, and Ctrl+W closes the right node.
+- Trying to pluck the root does nothing.
+
+Two short live runs of the app had no panics, and screenshots show the new treeview. I couldn't send input to the live window, so Alt+P, the drag preview, hover highlighting and plucking Wayland windows haven't been tested by hand. Those are the things to try.
+
+How it works:
+- Moving clients between owners: a client can now be taken out of its owner's event loop and attached to another one, with its thread still running. Requests it sends while unattached wait and are handled once it's placed. The server (sar) holds the plucked tree without knowing what kind of requests its clients send.
+- Pluck: the root asks the target node's applet first. If the applet says it has nothing to pluck (every current applet does), the node plucks itself with its children. The root can't be plucked. When the node being plucked is the one that just answered, the removal waits until after the current batch of events, because calloop panics otherwise.
+- Place: the tree goes to the closest existing node along the path. That node's applet is asked first; if it declines, the tree becomes the node's last child and gets focus.
+- Alt+P is handled in sar: it plucks at the current focus, or places there if something is already plucked.
+- Treeview: one indented outline replaces the per-level columns, with guide lines and a marker on the focused row. The marker is yellow when the node itself is focused and green when focus is inside its applet. Hovered rows highlight, the dragged row dims, the drop target gets an outline, and what's plucked follows the pointer in a small box.
+- Fast drags: if you release before the pluck finishes, the drop's position could point at the wrong node once the tree shifts. The root remembers which node the drop was on and uses its current position instead.
+
+Smaller changes:
+- StandardRequest is no longer Copy.
+- ClientHandle is no longer Send; nothing needed it.
+- I removed the root's debug print that ran on every redraw.
+
+Questions for you (also in the doc):
+1. Should dropping a node make it a sibling of the target instead of its last child?
+2. A Wayland window that closes while plucked stays in the plucked tree and gets placed back as a dead tile.
+3. If an applet never answers a pluck or place (for example it panicked), the root and server wait forever.
+4. Should a placed tree keep its old inner focus? Right now it resets.
+
+Issues found:
+- Colors: background colors are drawn as linear while text colors aren't, so #121418 shows as about #4b5059. I pre-darkened the treeview colors to compensate; the real fix belongs in the renderer.
+- 1px lines: a 1px background rect drew as a bright line, so I dropped the separator between the treeview and the applet.
+- todo!(): the command hub panics on FocusChanged, so the root can never send that event.
+
+For CLAUDE.md: "moving nodes between owners (pluck and place)" can come off the not-done list, replaced by questions 2–3 above and the fact that no applet supports plucking from inside itself yet. The doc lists the other notes worth adding.
+
+On my process: one edit went through sed, against your saved preference. It was a two-line change to eprintln! in singularity_sar/src/pluck_place.rs plus the module line in singularity_sar/src/lib.rs; everything else went through Edit. To screenshot the window I used niri, which copies to the clipboard. I saved your clipboard text first and restored it afterwards.
+```
+
+I'll commit now and verify this later (if I remember).
+It runs, and it seems to work.
+
+I want to give it a harder task...
