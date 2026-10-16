@@ -1,5 +1,5 @@
 use singularity_common::{
-    sap::packets::StandardRequest,
+    sap::{detached::Axis, packets::StandardRequest},
     utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
 };
 use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
@@ -13,6 +13,7 @@ use crate::{
 /// - `Ctrl+Shift+Q` - Quit
 /// - `Ctrl+W` - Close tab
 /// - `Ctrl+Shift+Plus` - Add child
+/// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Alt+<traversal key>` - traversal
 ///
 /// Returns whether or not the keypress was used.
@@ -63,6 +64,23 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         Some(NodeRequest::AddChild(
             CommandHubApplet::get_boxed_initiator(),
         ))
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers: KeyModifiers::CTRL_SHIFT,
+        pressed: true,
+        ..
+    } = &ui_event
+        && let Some(axis) = match key.to_char() {
+            Some('|') => Some(Axis::Horizontal),
+            Some('_') => Some(Axis::Vertical),
+            _ => None,
+        }
+    {
+        // Ctrl+Shift+| / Ctrl+Shift+_ -> split with a CommandHub beside / below
+        Some(NodeRequest::Split {
+            axis,
+            new_pane: CommandHubApplet::get_boxed_initiator(),
+        })
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::ALT,

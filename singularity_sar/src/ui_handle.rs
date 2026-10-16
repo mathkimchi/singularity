@@ -1,9 +1,9 @@
 use crate::runner::AppletRunner;
 use calloop::LoopHandle;
-use smithay::reexports::winit::event_loop::EventLoopProxy;
 use sonamu_sync::TrackedEncapsulatedLock;
 use sonamu_ui::{
-    DisplayNotification, DisplayRequest, PointerGrab, UIDisplay, ui_element::PrimitiveScene,
+    DisplayNotification, DisplayProxy, DisplayRequest, Gpu, PointerGrab, UIDisplay,
+    run_drm_display, ui_element::PrimitiveScene,
 };
 use std::{
     sync::{Arc, atomic::AtomicBool, mpsc},
@@ -19,16 +19,17 @@ pub(crate) struct UIHandle {
     pub is_running: Arc<AtomicBool>,
     pub ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
     /// Wakes the display to redraw
-    display_proxy: EventLoopProxy<DisplayRequest>,
+    display_proxy: DisplayProxy,
 
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub instance: wgpu::Instance,
 }
 impl UIHandle {
+    /// `on_tty`: on the monitor directly, rather than in a window
     pub fn init_ui(
         initial_content: PrimitiveScene,
         runner_event_loop: &LoopHandle<'_, AppletRunner>,
+        on_tty: bool,
     ) -> Self {
         let is_running = Arc::new(AtomicBool::new(true));
         let ui_content = TrackedEncapsulatedLock::new(initial_content);
@@ -67,7 +68,12 @@ impl UIHandle {
             })
             .unwrap();
 
-        let instance = wgpu::Instance::new(InstanceDescriptor::new_without_display_handle());
+        let mut instance_descriptor = InstanceDescriptor::new_without_display_handle();
+        if on_tty {
+            // drawing to a monitor directly needs Vulkan's `VK_EXT_acquire_drm_display`
+            instance_descriptor.backends = wgpu::Backends::VULKAN;
+        }
+        let instance = wgpu::Instance::new(instance_descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             compatible_surface: None,
@@ -94,20 +100,19 @@ impl UIHandle {
         {
             let is_running = is_running.clone();
             let ui_content = ui_content.clone();
-            let device = device.clone();
-            let queue = queue.clone();
-            let instance = instance.clone();
-            thread::spawn(|| {
-                UIDisplay::run_display(
-                    is_running,
-                    tx,
-                    ui_content,
-                    device,
-                    queue,
-                    instance,
-                    proxy_tx,
-                    notification_tx,
-                );
+            let gpu = Gpu {
+                device: device.clone(),
+                queue: queue.clone(),
+                instance,
+                adapter,
+            };
+            let run_display = if on_tty {
+                run_drm_display
+            } else {
+                UIDisplay::run_display
+            };
+            thread::spawn(move || {
+                run_display(is_running, tx, ui_content, gpu, proxy_tx, notification_tx);
             });
 
             dbg!("Started UI thread");
@@ -120,14 +125,12 @@ impl UIHandle {
 
             device,
             queue,
-            instance,
         }
     }
 
     pub fn set_ui_content(&self, new_content: PrimitiveScene) {
         self.ui_content.set(new_content);
-        // errs only if the display already closed
-        let _ = self.display_proxy.send_event(DisplayRequest::Redraw);
+        (self.display_proxy)(DisplayRequest::Redraw);
     }
 
     /// Closes the display, which then ends the runner's event loop
@@ -135,21 +138,15 @@ impl UIHandle {
         self.is_running
             .store(false, std::sync::atomic::Ordering::Relaxed);
         // wakes the display so it notices
-        let _ = self.display_proxy.send_event(DisplayRequest::Redraw);
+        (self.display_proxy)(DisplayRequest::Redraw);
     }
 
     /// `position` is in window px
     pub fn warp_pointer(&self, position: [f64; 2]) {
-        // errs only if the display already closed
-        let _ = self
-            .display_proxy
-            .send_event(DisplayRequest::WarpPointer(position));
+        (self.display_proxy)(DisplayRequest::WarpPointer(position));
     }
 
     pub fn set_pointer_grab(&self, grab: PointerGrab) {
-        // errs only if the display already closed
-        let _ = self
-            .display_proxy
-            .send_event(DisplayRequest::SetPointerGrab(grab));
+        (self.display_proxy)(DisplayRequest::SetPointerGrab(grab));
     }
 }

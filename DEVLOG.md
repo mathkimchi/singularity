@@ -10391,3 +10391,57 @@ I'll commit now and verify this later (if I remember).
 It runs, and it seems to work.
 
 I want to give it a harder task...
+
+I'm going to say this:
+
+```txt
+Make a file manager that, when I click/open a file, it opens the file in an editable way with the editor file embedded.
+This should be embedded, so the editor UI shows up inside the file manager UI (along with the file tree) and is a node in the inner tree.
+I want to do this to test plucking from elements.
+
+Make splitting panes. To start, just do 2-way splits.
+
+Make it so I can run Sonamu as an actual compositor (smithay udev backend?).
+
+Once you add these features, you may start looking for and squashing bugs and resolving TODOs.
+If that is done, improve the features you added.
+Try to make a new session with a fresh context if you can when you are at this stage,
+so that the context window doesn't fill up.
+
+Make the decisions and implement first, and just store every choice and major change you make or question for me into a document so you can summarize the changes later. When you're done with that, you have freedom to change how the tree is displayed, make it look nice.
+Don't commit or make new branches, because that requires my password.
+If it helps, you can rewrite the .claude/TODO.md to keep track.
+```
+
+2026-10-16 12:30AM
+
+I thought of more things:
+
+```txt
+Once the general purpose subagent finishes, make a new agent with similar instructions but these new tasks:
+
+Redo the command hub to have the features it currently has, but make it look good and possibly have more features.
+
+Make it so WL applets spawn under the focused one, use a downwards propagation then upwards add_child maybe.
+
+Add a help applet that appears on Super+?.
+
+Make it so that the tree view only appears during traversal (make it a setting with a const in the code for now).
+
+Do some type of project management, where a project is a node and it's inner tree acts as if it was a root. Let the user set where the view root is, so when they are
+working within the context of a project, then during traversal it looks like the view root is the outermost tree. But of course, the user can widen the view root if they
+keep going out.
+```
+
+2026-10-16 06:18AM
+
+My running mate is getting ready so I ran Sonamu.
+
+2026-10-16 09:47AM
+
+I'm back, wow, it's made a lot of progress.
+The first part took 20 min and the rest (cleaning subagent + second batch of features) took 53 min.
+
+It didn't quite do projects how I wanted it to, but this is still very impressive.
+
+I'll commit then test running this with udev.

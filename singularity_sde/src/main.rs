@@ -19,11 +19,12 @@
 
 use singularity_sar::runner::AppletRunner;
 use singularity_standard_tabs::{
-    code_editor::CodeEditorApplet, image_viewer::ImageViewerApplet,
+    code_editor::CodeEditorApplet, file_manager::FileManagerApplet, image_viewer::ImageViewerApplet,
     one_char_render_test::OneCharRenderTestApplet,
 };
 use singularity_sttk::{
-    command_hub::CommandHubApplet, nodular_applet::root_node_applet::RootNodeApplet,
+    command_hub::CommandHubApplet, help::HelpApplet,
+    nodular_applet::root_node_applet::RootNodeApplet,
 };
 use std::collections::BTreeMap;
 use tracing_subscriber::EnvFilter;
@@ -47,6 +48,10 @@ fn main() {
                 CodeEditorApplet::get_applet_spawner(),
             ),
             (
+                "file_manager".to_string(),
+                FileManagerApplet::get_applet_spawner(),
+            ),
+            (
                 "image_viewer".to_string(),
                 ImageViewerApplet::get_applet_spawner(),
             ),
@@ -54,6 +59,7 @@ fn main() {
                 "char_render_test".to_string(),
                 OneCharRenderTestApplet::get_applet_spawner(),
             ),
+            ("help".to_string(), HelpApplet::get_applet_spawner()),
         ]),
     ))
 }

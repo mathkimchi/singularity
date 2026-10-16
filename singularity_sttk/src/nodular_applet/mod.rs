@@ -1,9 +1,10 @@
 //! This is where the hierarchy stuff is implemented.
 
-use calloop::{EventLoop, LoopSignal, channel::Sender};
+use calloop::{EventLoop, LoopHandle, LoopSignal, channel::Sender};
 use singularity_common::{
     sap::{
-        detached::DetachedTree,
+        client_handle::ClientHandle,
+        detached::{Axis, DetachedClient, DetachedTree},
         packets::{StandardEvent, StandardRequest, StateKind},
         raw_client_initializer::RawClientInitializer,
         shared_state::{SharedState, StatePublisher},
@@ -14,7 +15,9 @@ use singularity_common::{
 };
 use sonamu_ui::{display_units::DisplayContainerSize, ui_element::UITree, ui_event::UIEvent};
 use std::{
+    cell::Cell,
     collections::BTreeMap,
+    rc::Rc,
     sync::{Arc, RwLock},
 };
 
@@ -65,7 +68,27 @@ pub trait StandardApplet {
     fn place(&mut self, _path: &WorldTreePath, tree: DetachedTree) -> Result<(), DetachedTree> {
         Err(tree)
     }
+
+    /// A request from an applet this applet embedded (`AppletContext::embed`)
+    fn handle_embedded_request(&mut self, _id: EmbeddedId, _request: NodeRequest) {}
+
+    /// Called on the applet's thread after an `AppletWaker` woke it (eg a worker thread finished)
+    fn wake(&mut self) {}
 }
+
+/// Wakes an applet from another thread (`StandardApplet::wake`); from `AppletContext::waker`
+#[derive(Clone)]
+pub struct AppletWaker(Sender<()>);
+impl AppletWaker {
+    pub fn wake(&self) {
+        // the applet may have ended
+        let _ = self.0.send(());
+    }
+}
+
+/// An applet embedded in another applet's inner tree (`AppletContext::embed`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EmbeddedId(u64);
 
 /// Makes the applet, on the applet's own thread
 pub type NodularAppletInitializer =
@@ -97,6 +120,13 @@ pub enum NodeRequest {
     ChangeFocus(WorldTreeTraversalOperation),
     /// Closes the applet's node; its children move to the parent
     Close,
+    /// Replaces the applet's node with a split showing it and a new applet next to it
+    Split {
+        axis: Axis,
+        new_pane: NodularAppletInitializer,
+    },
+    /// Makes the applet's node a project (its subtree is viewed on its own while focus is in it), or not
+    SetProject(bool),
 }
 impl From<StandardRequest> for NodeRequest {
     fn from(request: StandardRequest) -> Self {
@@ -106,15 +136,52 @@ impl From<StandardRequest> for NodeRequest {
 
 /// What an applet uses to talk to its node (replaces the old runner hooks).
 ///
-/// Can be cloned and sent to other threads (eg to damage from a worker).
+/// Can be cloned, but stays on the applet's thread (it holds the applet's loop, for `embed`).
 #[derive(Clone)]
 pub struct AppletContext {
     request_sender: Sender<NodeRequest>,
     /// To the applet's own loop, which publishes the damaged state
     damage_sender: Sender<StateKind>,
+    /// To the applet's own loop, which calls `StandardApplet::wake`
+    wake_sender: Sender<()>,
     applet_spawners: AppletSpawnerRegistry,
+    /// The applet's own loop, which embedded applets' requests are handled on
+    event_loop: LoopHandle<'static, AppletState>,
+    next_embedded_id: Rc<Cell<u64>>,
 }
 impl AppletContext {
+    /// Runs an applet that this applet holds itself, in its inner tree.
+    /// Its requests go to `StandardApplet::handle_embedded_request`; dropping the handle ends it.
+    pub fn embed(&self, initializer: NodularAppletInitializer) -> (EmbeddedId, ClientHandle) {
+        let id = self.new_embedded_id();
+        let handle = ClientHandle::spawn_new_client(
+            Box::new(AppletClient {
+                initializer,
+                applet_spawners: self.applet_spawners.clone(),
+            }),
+            &self.event_loop,
+            move |request, state: &mut AppletState| {
+                state.applet.handle_embedded_request(id, request);
+            },
+        );
+        (id, handle)
+    }
+
+    /// Like `embed`, for a placed client that is already running
+    pub fn embed_detached(&self, client: DetachedClient) -> (EmbeddedId, ClientHandle) {
+        let id = self.new_embedded_id();
+        let handle = client.attach(&self.event_loop, move |request, state: &mut AppletState| {
+            state.applet.handle_embedded_request(id, request);
+        });
+        (id, handle)
+    }
+
+    fn new_embedded_id(&self) -> EmbeddedId {
+        let id = self.next_embedded_id.get();
+        self.next_embedded_id.set(id + 1);
+        EmbeddedId(id)
+    }
+
     pub fn request(&self, request: NodeRequest) {
         // the node may already be gone while closing
         let _ = self.request_sender.send(request);
@@ -126,6 +193,11 @@ impl AppletContext {
 
     pub fn damage_treeview(&self) {
         let _ = self.damage_sender.send(StateKind::Treeview);
+    }
+
+    /// For other threads, since the context stays on the applet's thread
+    pub fn waker(&self) -> AppletWaker {
+        AppletWaker(self.wake_sender.clone())
     }
 
     pub fn close(&self) {
@@ -160,6 +232,16 @@ impl AppletContext {
     }
 }
 
+/// The applet's event loop data
+pub struct AppletState {
+    applet: Box<dyn StandardApplet>,
+    size: DisplayContainerSize,
+    surface: StatePublisher<UITree>,
+    treeview: StatePublisher<WorldTree<String>>,
+    request_sender: Sender<NodeRequest>,
+    loop_signal: LoopSignal,
+}
+
 /// Runs a `StandardApplet` as a client of a node
 pub(crate) struct AppletClient {
     pub initializer: NodularAppletInitializer,
@@ -173,16 +255,7 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
         event_queue: calloop::channel::Channel<StandardEvent>,
         request_sender: Sender<NodeRequest>,
     ) {
-        struct State {
-            applet: Box<dyn StandardApplet>,
-            size: DisplayContainerSize,
-            surface: StatePublisher<UITree>,
-            treeview: StatePublisher<WorldTree<String>>,
-            request_sender: Sender<NodeRequest>,
-            loop_signal: LoopSignal,
-        }
-
-        let mut event_loop: EventLoop<State> = EventLoop::try_new().unwrap();
+        let mut event_loop: EventLoop<AppletState> = EventLoop::try_new().unwrap();
         let (damage_tx, damage_rx) = calloop::channel::channel();
 
         event_loop
@@ -231,13 +304,25 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 }
             })
             .unwrap();
+        let (wake_tx, wake_rx) = calloop::channel::channel();
+        event_loop
+            .handle()
+            .insert_source(wake_rx, |event, &mut (), state| {
+                if let calloop::channel::Event::Msg(()) = event {
+                    state.applet.wake();
+                }
+            })
+            .unwrap();
 
         let context = AppletContext {
             request_sender: request_sender.clone(),
             damage_sender: damage_tx,
+            wake_sender: wake_tx,
             applet_spawners: self.applet_spawners,
+            event_loop: event_loop.handle(),
+            next_embedded_id: Rc::default(),
         };
-        let mut state = State {
+        let mut state = AppletState {
             applet: (self.initializer)(context),
             // until the node sends a size
             size: DisplayContainerSize::new(800, 600),

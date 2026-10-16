@@ -41,14 +41,35 @@ pub struct TreeviewRow {
     pub path: WorldTreePath,
     depth: usize,
     label: String,
-    /// Inside an applet's inner tree, rather than a node
+    /// Inside an applet's inner tree, rather than a node (or the view root's parent); drawn dimmer
     inner: bool,
 }
 
-/// One row per node of the tree, and per element of each applet's inner tree, in DFS order
-pub fn treeview_rows(treeview: &WorldTree<String>) -> Vec<TreeviewRow> {
+/// One row per node of the tree, and per element of each applet's inner tree, in DFS order.
+///
+/// `treeview` is the view root's subtree and `base` its path, so rows get paths from the real root.
+/// `up` is the view root's parent (path and label): a dim first row, to widen the view by focusing it.
+pub fn treeview_rows(
+    treeview: &WorldTree<String>,
+    base: &TreeNodePath,
+    up: Option<(TreeNodePath, String)>,
+) -> Vec<TreeviewRow> {
     let mut rows = Vec::new();
     push_rows(treeview, &[], 0, false, &mut rows);
+    for row in &mut rows {
+        row.path.0[0].0.splice(0..0, base.0.iter().copied());
+    }
+    if let Some((path, label)) = up {
+        rows.insert(
+            0,
+            TreeviewRow {
+                path: WorldTreePath(Box::new([path])),
+                depth: 0,
+                label: format!("‹ {label}"),
+                inner: true,
+            },
+        );
+    }
     rows
 }
 
@@ -129,6 +150,11 @@ pub struct TreeviewResponse {
 }
 
 impl TreeviewPointer {
+    /// A press that started on a row hasn't been released yet
+    pub const fn is_pressed(&self) -> bool {
+        self.press.is_some()
+    }
+
     /// `position` is relative to the treeview's top-left; `in_treeview` is whether it's over the treeview
     pub fn handle_mouse(
         &mut self,

@@ -19,8 +19,6 @@ use sonamu_ui::{
 /// Using Singularity UI requires the user to be active,
 /// but using Applet Runner is passive.
 pub struct AppletRunner {
-    pub(crate) event_loop: LoopHandle<'static, Self>,
-
     ui_handle: UIHandle,
     pub(crate) root_client: ClientHandle,
 
@@ -44,20 +42,21 @@ pub struct AppletRunner {
 }
 impl AppletRunner {
     fn new(
-        event_loop: LoopHandle<'static, Self>,
+        event_loop: &LoopHandle<'static, Self>,
         loop_signal: LoopSignal,
         root_applet_initializer: Box<dyn RawClientInitializer>,
+        smithay_state: SmithayState,
+        on_tty: bool,
     ) -> Self {
         let root_client = ClientHandle::spawn_new_client(
             root_applet_initializer,
-            &event_loop,
+            event_loop,
             |request, runner: &mut Self| runner.handle_client_request(request),
         );
 
         Self {
-            ui_handle: UIHandle::init_ui(PrimitiveScene::new_empty(), &event_loop),
-            smithay_state: SmithayState::new(&event_loop),
-            event_loop,
+            ui_handle: UIHandle::init_ui(PrimitiveScene::new_empty(), event_loop, on_tty),
+            smithay_state,
             root_client,
             // subsurfaces: SlotMap::with_key(),
             // idk if there's a way to actually get this
@@ -90,13 +89,32 @@ impl AppletRunner {
     }
 
     /// Blocks until end.
+    ///
+    /// Runs on the monitor directly (as the actual compositor) when there's no display server to open a window in
+    /// (no `WAYLAND_DISPLAY` or `DISPLAY`), or when `SONAMU_BACKEND=tty`; `SONAMU_BACKEND=winit` forces a window.
     pub fn run(root_applet_initializer: Box<dyn RawClientInitializer>) {
+        let on_tty = match std::env::var("SONAMU_BACKEND").as_deref() {
+            Ok("tty") => true,
+            Ok("winit") => false,
+            _ => std::env::var_os("WAYLAND_DISPLAY").is_none() && std::env::var_os("DISPLAY").is_none(),
+        };
         let mut event_loop = EventLoop::try_new().unwrap();
 
+        let smithay_state = SmithayState::new(&event_loop.handle());
+        // For applets that launch wl clients (they set `WAYLAND_DISPLAY` to it).
+        // Not `WAYLAND_DISPLAY` itself: Mesa's Vulkan device selection would connect here
+        // before this loop runs, and wait forever (and in a window, winit connects to it).
+        // SAFETY: nothing else runs yet (the display, root and applet threads start below)
+        unsafe {
+            std::env::set_var("SONAMU_WAYLAND_DISPLAY", &smithay_state.socket_name);
+        }
+
         let mut runner = Self::new(
-            event_loop.handle(),
+            &event_loop.handle(),
             event_loop.get_signal(),
             root_applet_initializer,
+            smithay_state,
+            on_tty,
         );
 
         dbg!("Will run event loop");

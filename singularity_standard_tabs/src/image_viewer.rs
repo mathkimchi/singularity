@@ -11,7 +11,8 @@ use std::path::PathBuf;
 
 pub struct ImageViewerApplet {
     image_path: PathBuf,
-    _image: RgbaImage,
+    /// Why it couldn't be loaded otherwise
+    image: Result<RgbaImage, String>,
 
     focused: bool,
 
@@ -24,14 +25,13 @@ impl ImageViewerApplet {
         PathBuf: From<P>,
     {
         let image = ImageReader::open(&image_path)
-            .unwrap()
-            .decode()
-            .unwrap()
-            .to_rgba8();
+            .map_err(|err| err.to_string())
+            .and_then(|reader| reader.decode().map_err(|err| err.to_string()))
+            .map(|image| image.to_rgba8());
 
         Self {
             image_path: image_path.into(),
-            _image: image,
+            image,
             focused: true,
             hook,
         }
@@ -70,12 +70,10 @@ impl ImageViewerApplet {
     }
 
     fn get_title(&self) -> String {
-        self.image_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
+        self.image_path.file_name().map_or_else(
+            || self.image_path.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        )
     }
 }
 impl StandardApplet for ImageViewerApplet {
@@ -101,7 +99,17 @@ impl StandardApplet for ImageViewerApplet {
 
     fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
         // UIElement::Image(self.image.clone())
-        todo!("Didn't think abt giving wgpu to applets, ImageViewer isn't used anyways")
+        // TODO: draw the image; applets can't make textures (no wgpu device), so just describe it
+        let text = match &self.image {
+            Ok(image) => format!(
+                "{}: {}x{} (images can't be drawn yet)",
+                self.get_title(),
+                image.width(),
+                image.height()
+            ),
+            Err(err) => format!("Can't open {}: {err}", self.get_title()),
+        };
+        UITree::from(text)
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

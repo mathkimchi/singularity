@@ -20,10 +20,11 @@ use smithay::reexports::winit::{
 use sonamu_sync::TrackedEncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, PresentMode, SurfaceConfiguration, SurfaceTarget, TextureFormat,
+    CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureFormat,
     TextureUsages, util::DeviceExt as _,
 };
 
+pub mod drm;
 mod rendering;
 pub mod ui_event;
 mod winit_impls;
@@ -57,23 +58,35 @@ struct WgpuData {
 }
 impl WgpuData {
     fn new(
-        target: impl Into<SurfaceTarget<'static>>,
+        surface: wgpu::Surface<'static>,
         physical_size: DisplayContainerSize,
         device: wgpu::Device,
         queue: wgpu::Queue,
-        instance: &wgpu::Instance,
+        adapter: &wgpu::Adapter,
     ) -> Self {
-        // Set up surface
-        let surface = instance.create_surface(target).expect("Create surface");
-        let swapchain_format = TextureFormat::Bgra8UnormSrgb;
+        // Set up surface; a DRM display may not support the window's format or alpha
+        let capabilities = surface.get_capabilities(adapter);
+        let swapchain_format = [TextureFormat::Bgra8UnormSrgb, TextureFormat::Rgba8UnormSrgb]
+            .into_iter()
+            .find(|format| capabilities.formats.contains(format))
+            .or_else(|| capabilities.formats.first().copied())
+            .unwrap_or(TextureFormat::Bgra8UnormSrgb);
+        let alpha_mode = if capabilities
+            .alpha_modes
+            .contains(&CompositeAlphaMode::PreMultiplied)
+        {
+            // is a simple way of dealing with transparency
+            CompositeAlphaMode::PreMultiplied
+        } else {
+            CompositeAlphaMode::Auto
+        };
         let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: swapchain_format,
             width: physical_size.width,
             height: physical_size.height,
             present_mode: PresentMode::Fifo,
-            // is a simple way of dealing with transparency
-            alpha_mode: CompositeAlphaMode::PreMultiplied,
+            alpha_mode,
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
@@ -183,17 +196,20 @@ impl WinitData {
         device: wgpu::Device,
         queue: wgpu::Queue,
         instance: &wgpu::Instance,
+        adapter: &wgpu::Adapter,
     ) -> Self {
         let physical_size = window.inner_size();
         // let scale_factor = window.scale_factor();
 
         Self {
             wgpu_data: WgpuData::new(
-                window.clone(),
+                instance
+                    .create_surface(window.clone())
+                    .expect("Create surface"),
                 DisplayContainerSize::new(physical_size.width, physical_size.height),
                 device,
                 queue,
-                instance,
+                adapter,
             ),
             window,
         }
@@ -203,6 +219,18 @@ impl WinitData {
         (self.wgpu_data.device.clone(), self.wgpu_data.queue.clone())
     }
 }
+
+/// What the display draws with, shared with whoever runs it (eg to upload wl buffers)
+#[derive(Clone)]
+pub struct Gpu {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
+}
+
+/// Sends a request to the display, waking it. Does nothing once the display closed.
+pub type DisplayProxy = Box<dyn Fn(DisplayRequest) + Send>;
 
 /// Sent to the display by whoever runs it, through the proxy from `run_display`
 #[derive(Debug, Clone, Copy)]
@@ -277,6 +305,7 @@ pub struct UIDisplay {
     device: wgpu::Device,
     queue: wgpu::Queue,
     instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
 
     winit_data: Option<WinitData>,
 }
@@ -430,10 +459,8 @@ impl UIDisplay {
         is_running: Arc<AtomicBool>,
         event_queue: Sender<UIEvent>,
         ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
-        instance: wgpu::Instance,
-        proxy_tx: std::sync::mpsc::Sender<EventLoopProxy<DisplayRequest>>,
+        gpu: Gpu,
+        proxy_tx: std::sync::mpsc::Sender<DisplayProxy>,
         display_notification_queue: Sender<DisplayNotification>,
     ) {
         let event_loop = smithay::reexports::winit::event_loop::EventLoop::with_user_event()
@@ -441,7 +468,19 @@ impl UIDisplay {
             .with_any_thread(true)
             .build()
             .unwrap();
-        proxy_tx.send(event_loop.create_proxy()).unwrap();
+        let proxy: EventLoopProxy<DisplayRequest> = event_loop.create_proxy();
+        proxy_tx
+            .send(Box::new(move |request| {
+                // errs only if the display already closed
+                let _ = proxy.send_event(request);
+            }))
+            .unwrap();
+        let Gpu {
+            device,
+            queue,
+            instance,
+            adapter,
+        } = gpu;
         let mut app = Self {
             is_running,
             event_queue,
@@ -458,6 +497,7 @@ impl UIDisplay {
             device,
             queue,
             instance,
+            adapter,
         };
         event_loop.run_app(&mut app).unwrap();
 

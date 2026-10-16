@@ -154,7 +154,8 @@ pub struct SmithayState {
 
     seat: Seat<AppletRunner>,
     output: Output,
-    // _socket_name: OsString,
+    /// What wl clients set `WAYLAND_DISPLAY` to, to connect here
+    pub(crate) socket_name: std::ffi::OsString,
 
     // _main_client: Option<Client>,
     // surface: Option<WlSurface>,
@@ -472,7 +473,7 @@ impl SmithayState {
             PresentationState::new::<AppletRunner>(&display_handle, clock.id() as u32);
 
         // set up socket
-        {
+        let socket_name = {
             // Creates a new listening socket, automatically choosing the next available `wayland` socket name.
             let listening_socket = ListeningSocketSource::new_auto().unwrap();
 
@@ -494,13 +495,9 @@ impl SmithayState {
 
             dbg!(&socket_name);
 
-            // unsafe {
-            //     set_var("WAYLAND_DISPLAY", socket_name);
-            //     // // Firefox just spawns in normal compositor with this unset
-            //     // // Whoop dee doo, it still doesn't work
-            //     // set_var("MOZ_ENABLE_WAYLAND", "1");
-            // }
-        }
+            // `SONAMU_WAYLAND_DISPLAY` is set to it by `AppletRunner::run`
+            socket_name
+        };
 
         event_handle
             .insert_source(
@@ -555,6 +552,7 @@ impl SmithayState {
             refresh_millihertz: None,
             seat,
             output,
+            socket_name,
             surfaces: SlotMap::with_key(),
             wl_event_queue,
         }
@@ -1255,9 +1253,18 @@ impl XdgShellHandler for AppletRunner {
         };
         self.smithay_state.surfaces.remove(surface_id);
 
-        // the owning applet closes its tab
-        self.root_client
-            .send_event(StandardEvent::WlSurfaceDestroyed(surface_id));
+        // its tile may be plucked, out of the root's tree
+        if let Some(plucked) = &mut self.plucked
+            && plucked.remove_wl_surface(surface_id)
+        {
+            if plucked.main.is_none() && plucked.children.is_empty() {
+                self.plucked = None;
+            }
+        } else {
+            // the owning applet closes its tab
+            self.root_client
+                .send_event(StandardEvent::WlSurfaceDestroyed(surface_id));
+        }
 
         self.needs_redraw = true;
     }

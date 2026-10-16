@@ -41,8 +41,9 @@ impl ViewOffset {
     fn clamp_to_cursor(&mut self, cursor_line: usize) {
         // the top row displayed (scroll) should be at cursor_line or above (minus)
         self.scroll = self.scroll.clamp(
+            // at least one row, or the bounds cross (and `clamp` panics) in a pane too small for a row
             if let Some(num_rows) = self.most_recent_num_rows {
-                (cursor_line + 1).saturating_sub(num_rows)
+                (cursor_line + 1).saturating_sub(num_rows.max(1))
             } else {
                 0
             },
@@ -61,6 +62,8 @@ pub struct CodeEditorApplet {
     file_path: PathBuf,
 
     buffer: Rope,
+    /// Set if the file couldn't be read; saving is then disabled so it isn't overwritten
+    load_error: Option<String>,
 
     /// In char, not bytes
     cursor: usize,
@@ -78,12 +81,23 @@ where
 {
     fn new(file_path: P, hook: AppletContext) -> Self {
         // Is reader overkill? Should I just have read?
-        let buffer = Rope::from_reader(BufReader::new(File::open(&file_path).unwrap())).unwrap();
+        let read = File::open(&file_path).and_then(|file| Rope::from_reader(BufReader::new(file)));
+        let (buffer, load_error) = match read {
+            Ok(buffer) => (buffer, None),
+            // a new file, created on save
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => (Rope::new(), None),
+            // shown instead of the file, which is never saved over
+            Err(err) => (
+                Rope::from(format!("Can't open: {err}")),
+                Some(err.to_string()),
+            ),
+        };
         let file_path = PathBuf::from(file_path);
 
         Self {
             file_path,
             buffer,
+            load_error,
 
             cursor: 0,
             focused: true,
@@ -117,18 +131,35 @@ impl CodeEditorApplet {
     }
 
     fn get_title(&self) -> String {
-        self.file_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
+        self.file_path.file_name().map_or_else(
+            || self.file_path.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        )
     }
 
     fn save_buffer(&self) {
-        let mut dest = BufWriter::new(File::create(&self.file_path).unwrap());
-        self.buffer.write_to(&mut dest).unwrap();
-        dest.flush().unwrap();
+        if let Some(err) = &self.load_error {
+            log::warn!(
+                "Not saving {}: it couldn't be read ({err})",
+                self.file_path.display()
+            );
+            return;
+        }
+        let save = || -> std::io::Result<()> {
+            let mut dest = BufWriter::new(File::create(&self.file_path)?);
+            self.buffer.write_to(&mut dest)?;
+            dest.flush()
+        };
+        if let Err(err) = save() {
+            log::error!("Couldn't save {}: {err}", self.file_path.display());
+        }
+    }
+
+    /// The char index at `column` of `line`, or the end of the line (before its line break) if it's shorter
+    fn cursor_at(&self, line: usize, column: usize) -> usize {
+        let line_slice = self.buffer.line(line);
+        let line_break = usize::from(line_slice.chars().last() == Some('\n'));
+        self.buffer.line_to_char(line) + column.min(line_slice.len_chars() - line_break)
     }
 
     fn clamp_view_to_cursor(&mut self) {
@@ -181,9 +212,13 @@ impl CodeEditorApplet {
             (KeySymbol::Char('v'), KeyModifiers::CTRL)
             | (KeySymbol::Char('V'), KeyModifiers::CTRL_SHIFT) => {
                 // log::debug!("Pasting");
-                if let Ok(text) = arboard::Clipboard::new().unwrap().get_text() {
+                // no clipboard on a TTY
+                if let Ok(text) =
+                    arboard::Clipboard::new().and_then(|mut clipboard| clipboard.get_text())
+                {
                     self.buffer.insert(self.cursor, &text);
-                    self.cursor += text.len();
+                    // in chars, like the cursor
+                    self.cursor += text.chars().count();
                     self.clamp_view_to_cursor();
                 }
                 // dbg!(arboard::Clipboard::new().unwrap().get_text());
@@ -211,15 +246,7 @@ impl CodeEditorApplet {
                 let line = self.buffer.char_to_line(self.cursor);
                 let column = self.cursor - self.buffer.line_to_char(line);
 
-                let new_line = line.saturating_sub(1);
-                let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
-
-                self.cursor = unclamped_new_cursor_pos.min(
-                    self.buffer
-                        .try_line_to_char(new_line + 1)
-                        .unwrap_or_else(|_| self.buffer.len_chars())
-                        - 1,
-                );
+                self.cursor = self.cursor_at(line.saturating_sub(1), column);
                 self.clamp_view_to_cursor();
             }
             (KeySymbol::ArrowKeyDown, KeyModifiers::NONE) => {
@@ -227,13 +254,7 @@ impl CodeEditorApplet {
                 let column = self.cursor - self.buffer.line_to_char(line);
 
                 let new_line = (line + 1).min(self.buffer.len_lines() - 1);
-                let unclamped_new_cursor_pos = self.buffer.line_to_char(new_line) + column;
-
-                self.cursor = unclamped_new_cursor_pos.min(
-                    self.buffer
-                        .try_line_to_char(new_line + 1)
-                        .unwrap_or_else(|_| self.buffer.len_chars()),
-                );
+                self.cursor = self.cursor_at(new_line, column);
                 self.clamp_view_to_cursor();
             }
             // these are mostly here for debug purposes

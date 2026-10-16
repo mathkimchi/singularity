@@ -44,6 +44,7 @@ impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
             self.device.clone(),
             self.queue.clone(),
             &self.instance,
+            &self.adapter,
         );
         self.winit_data = Some(winit_data);
     }
@@ -230,7 +231,9 @@ impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
             }
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(content) = self.ui_content.get_if_dirty() {
-                    Self::draw(&mut self.winit_data, &content);
+                    if let Some(winit_data) = &mut self.winit_data {
+                        Self::draw(&mut winit_data.wgpu_data, &content);
+                    }
                     self.display_notification_queue
                         .send(DisplayNotification::Presented)
                         .unwrap();

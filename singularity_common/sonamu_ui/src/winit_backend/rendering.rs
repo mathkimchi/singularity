@@ -6,7 +6,7 @@ use crate::{
     ui_element::{
         CharGrid, FONT_SIZE_F, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
     },
-    winit_backend::{WgpuData, WinitData},
+    winit_backend::WgpuData,
 };
 use glyphon::{AttrsOwned, Metrics, TextRenderer};
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
@@ -1225,11 +1225,7 @@ impl DrawingSharedData<'_> {
 
 impl UIDisplay {
     /// REVIEW: move somewhere else?
-    pub(super) fn draw(winit_data: &mut Option<WinitData>, content: &PrimitiveScene) {
-        let Some(state) = winit_data else {
-            return;
-        };
-
+    pub(super) fn draw(wgpu_data: &mut WgpuData, content: &PrimitiveScene) {
         let WgpuData {
             // window,
             device,
@@ -1250,7 +1246,7 @@ impl UIDisplay {
             // instance_buffer,
             // instances,
             ..
-        } = &mut state.wgpu_data;
+        } = wgpu_data;
 
         let output = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(output) => output,

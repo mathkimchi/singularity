@@ -2890,9 +2890,12 @@ dependencies = [
 name = "singularity_sde"
 version = "0.1.0"
 dependencies = [
+ "calloop 0.14.4",
+ "singularity_common",
  "singularity_sar",
  "singularity_standard_tabs",
  "singularity_sttk",
+ "sonamu_ui",
  "tracing-subscriber",
 ]
 

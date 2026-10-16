@@ -48,14 +48,14 @@ impl StandardApplet for OneCharRenderTestApplet {
                     self.1.damage_treeview();
                 }
             }
-            StandardEvent::FocusChanged(_) => todo!(),
-            StandardEvent::Highlighted(_) => todo!(),
-            StandardEvent::CloseRequest => todo!(),
+            // looks the same either way
+            StandardEvent::FocusChanged(_) | StandardEvent::Highlighted(_) => {}
+            // nothing to ask about first
+            StandardEvent::CloseRequest => self.1.close(),
             // handled by the applet's client
             StandardEvent::DamageAck(_) | StandardEvent::Pluck(_) | StandardEvent::Place(..) => {}
-            StandardEvent::WlSurfaceRegistered { .. } => todo!(),
-            // doesn't show wl surfaces
-            StandardEvent::FocusWlSurface(_) => {}
+            // doesn't show wl surfaces (only the root gets these)
+            StandardEvent::WlSurfaceRegistered { .. } | StandardEvent::FocusWlSurface(_) => {}
             StandardEvent::WlSurfaceDestroyed(_) => {}
         }
     }

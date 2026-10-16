@@ -5,7 +5,7 @@ use crate::{
 use singularity_common::{
     sap::{
         client_handle::ClientHandle,
-        detached::{DetachedClient, DetachedTree},
+        detached::{Axis, DetachedClient, DetachedTree, Layout},
         packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId},
     },
     utils::tree::{
@@ -16,7 +16,9 @@ use singularity_common::{
 };
 use slotmap::SlotMap;
 use sonamu_ui::{
+    color::Color,
     display_units::DisplayContainerSize,
+    ui_element::{Length, Style, UIElement, UITree},
     ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::collections::HashMap;
@@ -33,13 +35,18 @@ slotmap::new_key_type! {
     pub struct NodeId;
 }
 
-/// Shows its main applet, or the focused child.
+/// Shows its main applet or the focused child, or all its children at once (a split).
 struct Node {
-    /// Dropping it ends the applet
-    main: ClientHandle,
+    /// Dropping it ends the applet. `None` for splits.
+    main: Option<ClientHandle>,
+    layout: Layout,
     parent: Option<NodeId>,
     children: Vec<NodeId>,
     focus: FocusIndex,
+    /// Last size sent to `main`
+    size: Option<DisplayContainerSize>,
+    /// Becomes the view root when focus moves into it
+    project: bool,
 }
 impl Node {
     /// Doesn't actually change anything.
@@ -58,9 +65,15 @@ impl Node {
                     // With PrevLayer, propagate the prev layer until the lowest level of prev layer gets this message
                     (None, Some(operation))
                 }
+                // a split has no main to go into, so into its first pane
+                WorldTreeTraversalOperation::NextLayer if self.main.is_none() => {
+                    ((!self.children.is_empty()).then_some(FocusIndex::Child(0)), None)
+                }
                 WorldTreeTraversalOperation::NextLayer => (Some(FocusIndex::Inner), None),
-                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsPrev) => todo!(),
-                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsNext) => todo!(),
+                // TODO: no key makes these (`q`/`e` are the layer keys)
+                WorldTreeTraversalOperation::Layerwise(
+                    TreeTraverseOperation::BfsPrev | TreeTraverseOperation::BfsNext,
+                ) => (None, None),
                 WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Child(
                     child_index,
                 )) => {
@@ -80,19 +93,13 @@ impl Node {
                 }
             },
             FocusIndex::Inner => match operation {
-                WorldTreeTraversalOperation::GlobalRoot => todo!(),
-                WorldTreeTraversalOperation::PrevLayer => (Some(FocusIndex::Focusing), None),
-                WorldTreeTraversalOperation::NextLayer => todo!(),
-                WorldTreeTraversalOperation::Layerwise(tree_traverse_operation) => {
-                    match tree_traverse_operation {
-                        TreeTraverseOperation::Parent => todo!(),
-                        TreeTraverseOperation::RelShiftSibling(_) => todo!(),
-                        TreeTraverseOperation::BfsPrev => todo!(),
-                        TreeTraverseOperation::BfsNext => todo!(),
-                        TreeTraverseOperation::Child(_) => todo!(),
-                        TreeTraverseOperation::LastChild => todo!(),
-                    }
+                WorldTreeTraversalOperation::GlobalRoot => {
+                    (Some(FocusIndex::Focusing), Some(operation))
                 }
+                WorldTreeTraversalOperation::PrevLayer => (Some(FocusIndex::Focusing), None),
+                // TODO: focus inside the applet's inner tree; for now only `PrevLayer` leaves it
+                WorldTreeTraversalOperation::NextLayer
+                | WorldTreeTraversalOperation::Layerwise(_) => (None, None),
             },
             FocusIndex::Child(child_index) => match operation {
                 WorldTreeTraversalOperation::GlobalRoot
@@ -106,7 +113,9 @@ impl Node {
                 //     // self.focus_index.set(FocusIndex::Focusing);
                 //     (None, Some(operation))
                 // }
-                WorldTreeTraversalOperation::NextLayer => todo!(),
+                // focus is already below this node; only a stale request (eg from an applet whose
+                // node lost focus meanwhile) gets these here
+                WorldTreeTraversalOperation::NextLayer => (None, None),
                 WorldTreeTraversalOperation::Layerwise(tree_traverse_operation) => {
                     match tree_traverse_operation {
                         TreeTraverseOperation::Parent => (
@@ -122,10 +131,10 @@ impl Node {
                             )),
                             None,
                         ),
-                        TreeTraverseOperation::BfsPrev => todo!(),
-                        TreeTraverseOperation::BfsNext => todo!(),
-                        TreeTraverseOperation::Child(_) => todo!(),
-                        TreeTraverseOperation::LastChild => todo!(),
+                        TreeTraverseOperation::BfsPrev
+                        | TreeTraverseOperation::BfsNext
+                        | TreeTraverseOperation::Child(_)
+                        | TreeTraverseOperation::LastChild => (None, None),
                     }
                 }
             },
@@ -142,15 +151,55 @@ pub struct NodeTree {
     /// Which node shows each wl surface (its main is a `WlSurfaceApplet`)
     wl_surfaces: HashMap<WlSurfaceId, NodeId>,
 
-    /// Every node is displayed at this size
+    /// The whole tree is displayed at this size
     latest_size: Option<DisplayContainerSize>,
+    /// What is on screen, from the last `update_layout`
+    panes: Vec<Pane>,
+    /// The pane a mouse button was pressed in; it gets the pointer until the release
+    pointer_grab: Option<NodeId>,
     /// Runs an applet as a client whose requests are tagged with the given node
     spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
     /// Like `spawn_applet`, for a placed client that is already running
     attach_applet: Box<dyn Fn(NodeId, DetachedClient) -> ClientHandle>,
     /// Set when the tree changed in a way that needs a redraw
     damaged: bool,
+
+    /// Only its subtree is shown (panes and treeview), as if it were the root.
+    /// Focus always stays inside it: when focus leaves, it widens to the ancestor that has the focus.
+    view_root: NodeId,
+    /// The focused node at the last `update_view_root`, to tell when focus moves into a project
+    last_focused: NodeId,
 }
+
+/// A node shown on screen, at `rect` (`[x, y, width, height]`, border included) of the tree's area
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Pane {
+    node: NodeId,
+    rect: [u32; 4],
+}
+impl Pane {
+    /// Inside the border
+    const fn inner_size(&self) -> DisplayContainerSize {
+        DisplayContainerSize::new(
+            self.rect[2].saturating_sub(2 * PANE_BORDER),
+            self.rect[3].saturating_sub(2 * PANE_BORDER),
+        )
+    }
+
+    fn contains(&self, [x, y]: [f64; 2]) -> bool {
+        let [left, top, width, height] = self.rect.map(f64::from);
+        (left..left + width).contains(&x) && (top..top + height).contains(&y)
+    }
+}
+
+const PANE_BORDER: u32 = 1;
+/// Focus is inside the pane's applet (keys go to it)
+const BORDER_INNER: Color = Color::LIGHT_GREEN;
+/// Focus is on the pane's node itself (traversal keys move it)
+const BORDER_FOCUSING: Color = Color::LIGHT_YELLOW;
+/// Rect colors are drawn as linear, so this shows as about #3a3f4a
+const BORDER_UNFOCUSED: Color = Color([11, 13, 17, 0xFF]);
+
 impl NodeTree {
     pub fn new(
         root_initializer: NodularAppletInitializer,
@@ -162,11 +211,17 @@ impl NodeTree {
             nodes: SlotMap::with_key(),
             wl_surfaces: HashMap::new(),
             latest_size: None,
+            panes: Vec::new(),
+            pointer_grab: None,
             spawn_applet,
             attach_applet,
             damaged: true,
+            view_root: NodeId::default(),
+            last_focused: NodeId::default(),
         };
         tree.root = tree.insert_node(None, root_initializer);
+        tree.view_root = tree.root;
+        tree.last_focused = tree.root;
         tree
     }
 
@@ -186,12 +241,15 @@ impl NodeTree {
     ) -> NodeId {
         let spawn_applet = &self.spawn_applet;
         let id = self.nodes.insert_with_key(|id| Node {
-            main: spawn_applet(id, initializer),
+            main: Some(spawn_applet(id, initializer)),
+            layout: Layout::Single,
             parent,
             children: Vec::new(),
             focus: FocusIndex::Focusing,
+            size: None,
+            project: false,
         });
-        self.send_size(id);
+        self.send_initial_size(id);
         id
     }
 
@@ -199,12 +257,15 @@ impl NodeTree {
     fn attach_subtree(&mut self, parent: NodeId, tree: DetachedTree) -> NodeId {
         let attach_applet = &self.attach_applet;
         let id = self.nodes.insert_with_key(|id| Node {
-            main: attach_applet(id, tree.main),
+            main: tree.main.map(|main| attach_applet(id, main)),
+            layout: tree.layout,
             parent: Some(parent),
             children: Vec::new(),
             focus: FocusIndex::Focusing,
+            size: None,
+            project: tree.project,
         });
-        self.send_size(id);
+        self.send_initial_size(id);
         if let Some(surface_id) = tree.wl_surface {
             self.wl_surfaces.insert(surface_id, id);
         }
@@ -226,8 +287,10 @@ impl NodeTree {
             self.wl_surfaces.remove(&surface_id);
         }
         DetachedTree {
-            main: node.main.detach(),
+            main: node.main.map(ClientHandle::detach),
+            layout: node.layout,
             wl_surface,
+            project: node.project,
             children: node
                 .children
                 .into_iter()
@@ -236,17 +299,37 @@ impl NodeTree {
         }
     }
 
-    fn send_size(&self, id: NodeId) {
+    /// A guess until `update_layout` shows it: the whole tree's size
+    fn send_initial_size(&mut self, id: NodeId) {
         if let Some(size) = self.latest_size {
-            self.nodes[id]
-                .main
-                .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+            self.resize(id, size);
+        }
+    }
+
+    fn resize(&mut self, id: NodeId, size: DisplayContainerSize) {
+        let node = &mut self.nodes[id];
+        if node.size != Some(size) {
+            node.size = Some(size);
+            if let Some(main) = &node.main {
+                main.send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+            }
         }
     }
 
     pub fn send_event(&self, id: NodeId, event: StandardEvent) {
-        if let Some(node) = self.nodes.get(id) {
-            node.main.send_event(event);
+        if let Some(main) = self.nodes.get(id).and_then(|node| node.main.as_ref()) {
+            main.send_event(event);
+        }
+    }
+
+    /// Gives the event back if the node has no running applet to send it to
+    /// (splits have none, and an applet may have ended, eg by panicking)
+    // the error is just the event, as big as what was passed in
+    #[allow(clippy::result_large_err)]
+    pub fn try_send_event(&self, id: NodeId, event: StandardEvent) -> Result<(), StandardEvent> {
+        match self.nodes.get(id).and_then(|node| node.main.as_ref()) {
+            Some(main) => main.try_send_event(event),
+            None => Err(event),
         }
     }
 
@@ -310,11 +393,95 @@ impl NodeTree {
             focus => focus,
         };
         self.damaged = true;
-        Some(self.detach_subtree(id))
+        if self.contains(id, self.view_root) {
+            self.view_root = parent_id;
+        }
+        let plucked = self.detach_subtree(id);
+        self.collapse_split(parent_id);
+        Some(plucked)
     }
 
-    /// Adds the tree as the parent's last child and focuses it
+    /// Whether `descendant` is `ancestor` or below it
+    fn contains(&self, ancestor: NodeId, descendant: NodeId) -> bool {
+        let mut id = Some(descendant);
+        while let Some(current) = id {
+            if current == ancestor {
+                return true;
+            }
+            id = self.nodes.get(current).and_then(|node| node.parent);
+        }
+        false
+    }
+
+    /// Replaces the node with a split showing it and a new applet, which gets focus
+    pub fn split(&mut self, id: NodeId, axis: Axis, initializer: NodularAppletInitializer) {
+        let Some(node) = self.nodes.get(id) else {
+            return;
+        };
+        let (parent, project) = (node.parent, node.project);
+        // the split takes its place, so it is the project now (and the view root), until it collapses back
+        let split = self.nodes.insert(Node {
+            main: None,
+            layout: Layout::Split(axis),
+            parent,
+            children: vec![id],
+            focus: FocusIndex::Child(0),
+            size: None,
+            project,
+        });
+        match parent {
+            Some(parent) => {
+                let index = self.child_index(parent, id);
+                self.nodes[parent].children[index] = split;
+            }
+            None => self.root = split,
+        }
+        if self.view_root == id {
+            self.view_root = split;
+        }
+        let node = &mut self.nodes[id];
+        node.parent = Some(split);
+        node.project = false;
+
+        let new = self.insert_node(Some(split), initializer);
+        self.nodes[split].children.push(new);
+        self.focus_node(new);
+        self.nodes[new].focus = FocusIndex::Inner;
+    }
+
+    /// A split left with one pane is replaced by that pane
+    fn collapse_split(&mut self, id: NodeId) {
+        let node = &self.nodes[id];
+        if !matches!(node.layout, Layout::Split(_)) || node.children.len() != 1 {
+            return;
+        }
+        let child = node.children[0];
+        let parent = node.parent;
+        match parent {
+            Some(parent) => {
+                let index = self.child_index(parent, id);
+                self.nodes[parent].children[index] = child;
+            }
+            None => self.root = child,
+        }
+        if self.view_root == id {
+            self.view_root = child;
+        }
+        let split = self.nodes.remove(id).unwrap();
+        let child = &mut self.nodes[child];
+        child.parent = parent;
+        child.project |= split.project;
+        self.damaged = true;
+    }
+
+    /// Adds the tree as the parent's last child (the root's if the parent is gone) and focuses it
     pub fn place(&mut self, parent: NodeId, tree: DetachedTree) -> NodeId {
+        // eg it closed while its applet was being asked to place
+        let parent = if self.nodes.contains_key(parent) {
+            parent
+        } else {
+            self.root
+        };
         let id = self.attach_subtree(parent, tree);
         self.nodes[parent].children.push(id);
         self.focus_node(id);
@@ -363,6 +530,7 @@ impl NodeTree {
         Some(id)
     }
 
+    /// Adds a tile for the surface as the parent's last child, and focuses inside it (so it's shown and gets keys)
     pub fn add_wl_surface(
         &mut self,
         parent: NodeId,
@@ -374,7 +542,123 @@ impl NodeTree {
             WlSurfaceApplet::get_boxed_initiator((surface_id, wl_event_queue)),
         ) {
             self.wl_surfaces.insert(surface_id, id);
+            self.focus(id, true);
         }
+    }
+
+    /// Focuses the node itself, or inside its applet if `inner`
+    pub fn focus(&mut self, id: NodeId, inner: bool) {
+        self.focus_node(id);
+        self.nodes[id].focus = if inner {
+            FocusIndex::Inner
+        } else {
+            FocusIndex::Focusing
+        };
+    }
+
+    /// Marking a node as a project makes it the view root, since focus is usually inside it then
+    pub fn set_project(&mut self, id: NodeId, project: bool) {
+        let Some(node) = self.nodes.get_mut(id) else {
+            return;
+        };
+        node.project = project;
+        if project {
+            self.view_root = id;
+        }
+        self.damaged = true;
+    }
+
+    pub fn toggle_project(&mut self, id: NodeId) {
+        if let Some(node) = self.nodes.get(id) {
+            self.set_project(id, !node.project);
+        }
+    }
+
+    /// Views only the focused node's subtree, or everything if it's already the view root
+    pub fn toggle_view_root(&mut self) {
+        let focused = self.focused_node();
+        self.view_root = if focused == self.view_root {
+            self.root
+        } else {
+            focused
+        };
+        self.damaged = true;
+    }
+
+    /// Widens the view root if focus left it, or narrows it to a project focus just moved into.
+    /// Run after each batch of changes.
+    pub fn update_view_root(&mut self) {
+        let old = self.view_root;
+        // pluck, close and split move it themselves; just in case
+        if !self.nodes.contains_key(self.view_root) {
+            self.view_root = self.root;
+        }
+        let focused = self.focused_node();
+        // eg traversing to the parent past it
+        while !self.contains(self.view_root, focused)
+            && let Some(parent) = self.nodes[self.view_root].parent
+        {
+            self.view_root = parent;
+        }
+        // the outermost project inside the view that focus just moved into
+        if focused != self.last_focused {
+            let mut entered = None;
+            let mut id = focused;
+            while id != self.view_root {
+                let node = &self.nodes[id];
+                if node.project && !self.contains(id, self.last_focused) {
+                    entered = Some(id);
+                }
+                let Some(parent) = node.parent else {
+                    break;
+                };
+                id = parent;
+            }
+            if let Some(project) = entered {
+                self.view_root = project;
+            }
+            self.last_focused = focused;
+        }
+        if self.view_root != old {
+            self.damaged = true;
+        }
+    }
+
+    /// The view root's path in the node tree
+    pub fn view_root_path(&self) -> TreeNodePath {
+        self.path_of(self.view_root)
+            .unwrap_or_else(TreeNodePath::new_root)
+    }
+
+    /// The view root's parent: its path and label
+    pub fn view_parent(&self) -> Option<(TreeNodePath, String)> {
+        let parent = self.nodes[self.view_root].parent?;
+        Some((self.path_of(parent)?, self.label(parent)))
+    }
+
+    /// Its applet's treeview label (or its layout's), marked if it's a project
+    fn label(&self, id: NodeId) -> String {
+        let mut treeview = self.applet_treeview(id);
+        std::mem::take(root_label_mut(&mut treeview))
+    }
+
+    fn applet_treeview(&self, id: NodeId) -> WorldTree<String> {
+        let node = &self.nodes[id];
+        let mut treeview = node.main.as_ref().map_or_else(
+            || WorldTree::Base(node.layout.label().to_string()),
+            ClientHandle::get_treeview,
+        );
+        if node.project {
+            root_label_mut(&mut treeview).insert_str(0, "◆ ");
+        }
+        treeview
+    }
+
+    /// Whether focus is inside the node's applet
+    pub fn is_inner(&self, id: NodeId) -> bool {
+        self.nodes
+            .get(id)
+            .is_some_and(|node| matches!(node.focus, FocusIndex::Inner))
     }
 
     /// Closes the node; its parent adopts its children in its place.
@@ -390,6 +674,9 @@ impl NodeTree {
             return false;
         };
 
+        if self.view_root == id {
+            self.view_root = parent_id;
+        }
         let closed = self.nodes.remove(id).unwrap();
         for &orphan in &closed.children {
             self.nodes[orphan].parent = Some(parent_id);
@@ -413,6 +700,7 @@ impl NodeTree {
 
         self.wl_surfaces.retain(|_, node_id| *node_id != id);
         self.damaged = true;
+        self.collapse_split(parent_id);
         true
     }
 
@@ -456,7 +744,7 @@ impl NodeTree {
     }
 
     /// Follows focused children down to the node that is focusing or focused on its main
-    fn focused_node(&self) -> NodeId {
+    pub fn focused_node(&self) -> NodeId {
         let mut id = self.root;
         while let FocusIndex::Child(child_index) = self.nodes[id].focus {
             id = self.nodes[id].children[child_index];
@@ -477,27 +765,45 @@ impl NodeTree {
     }
 
     pub fn handle_event(&mut self, event: StandardEvent) {
-        if let StandardEvent::UIEvent(UIEvent::WindowResized(size)) = event {
-            // every applet is displayed at this size, not just the focused one
-            self.latest_size = Some(size);
-            for node in self.nodes.values() {
-                node.main
-                    .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+        match event {
+            // shown panes get their sizes in `update_layout`
+            StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
+                self.latest_size = Some(size);
+                self.damaged = true;
+                return;
             }
-            return;
+            StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)) => {
+                self.handle_mouse(mouse_event);
+                return;
+            }
+            _ => {}
         }
 
         let id = self.focused_node();
         let node = &mut self.nodes[id];
+        // a split has nothing to send to
+        let Some(main) = &node.main else {
+            if let StandardEvent::UIEvent(UIEvent::Key {
+                symbol: Some(key),
+                pressed: true,
+                ..
+            }) = event
+                && let Some(key_char) = key.to_char()
+                && let Some(operation) = WorldTreeTraversalOperation::from_char(key_char)
+            {
+                self.change_focus(id, operation);
+            }
+            return;
+        };
         if matches!(node.focus, FocusIndex::Inner) {
-            node.main.send_event(event);
+            main.send_event(event);
             return;
         }
 
         // `Focusing`, so we can intercept
         // REVIEW: should focusing just auto go to inner?
         let StandardEvent::UIEvent(ui_event) = event else {
-            node.main.send_event(event);
+            main.send_event(event);
             return;
         };
         match &ui_event {
@@ -514,39 +820,140 @@ impl NodeTree {
                 } else {
                     // if key press not a traversal, then just set focus to inner and forward input
                     node.focus = FocusIndex::Inner;
-                    node.main.send_event(event);
+                    main.send_event(event);
                     self.damaged = true;
                 }
             }
             UIEvent::Key { pressed: false, .. } => {}
-            UIEvent::Mouse(MouseEvent {
-                kind: MouseEventKind::Button { pressed: true, .. },
-                ..
-            }) => {
-                // set focus to inner and forward mouse press
-                node.focus = FocusIndex::Inner;
-                node.main.send_event(event);
-                self.damaged = true;
+            // handled above
+            UIEvent::WindowResized(_) | UIEvent::Mouse(_) => {}
+        }
+    }
+
+    /// Sends the pane under the pointer (or the one holding the pointer grab) the event, relative to it.
+    /// A press focuses the pane's applet.
+    fn handle_mouse(&mut self, mut mouse_event: MouseEvent) {
+        let pane = match self.pointer_grab {
+            Some(id) => self.panes.iter().find(|pane| pane.node == id),
+            None => self
+                .panes
+                .iter()
+                .find(|pane| pane.contains(mouse_event.position)),
+        };
+        let Some(&pane) = pane else {
+            return;
+        };
+
+        if let MouseEventKind::Button { pressed, .. } = mouse_event.kind {
+            self.pointer_grab = pressed.then_some(pane.node);
+            // panes are from the last `update_layout`, so the node may have closed since
+            if pressed
+                && self
+                    .nodes
+                    .get(pane.node)
+                    .is_some_and(|node| node.main.is_some())
+            {
+                self.focus_node(pane.node);
+                self.nodes[pane.node].focus = FocusIndex::Inner;
             }
-            UIEvent::WindowResized(_) | UIEvent::Mouse(_) => {
-                // forward without changing focus (otherwise hovering would steal focus)
-                node.main.send_event(event);
+        }
+        mouse_event.position[0] -= f64::from(pane.rect[0] + PANE_BORDER);
+        mouse_event.position[1] -= f64::from(pane.rect[1] + PANE_BORDER);
+        self.send_event(pane.node, StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)));
+    }
+
+    /// The node `id` shows: following focused children, but stopping at splits, which show every pane
+    fn displayed_node(&self, mut id: NodeId) -> NodeId {
+        loop {
+            let node = &self.nodes[id];
+            match (node.layout, node.focus) {
+                (Layout::Single, FocusIndex::Child(index)) => id = node.children[index],
+                _ => return id,
             }
         }
     }
 
-    /// The focused applet's window
-    pub fn get_window(&self) -> sonamu_ui::ui_element::UITree {
-        self.nodes[self.focused_node()].main.get_surface()
+    /// Works out what is on screen, and resizes the shown applets to their panes
+    pub fn update_layout(&mut self) {
+        let Some(size) = self.latest_size else {
+            return;
+        };
+        let mut panes = Vec::new();
+        self.push_panes(self.view_root, [0, 0, size.width, size.height], &mut panes);
+        for pane in &panes {
+            self.resize(pane.node, pane.inner_size());
+        }
+        if self.pointer_grab.is_some_and(|id| !panes.iter().any(|pane| pane.node == id)) {
+            self.pointer_grab = None;
+        }
+        self.panes = panes;
     }
 
-    pub fn get_treeview(&self) -> WorldTree<String> {
-        self.get_treeview_of(self.root)
+    fn push_panes(&self, id: NodeId, rect: [u32; 4], panes: &mut Vec<Pane>) {
+        let id = self.displayed_node(id);
+        let node = &self.nodes[id];
+        let Layout::Split(axis) = node.layout else {
+            panes.push(Pane { node: id, rect });
+            return;
+        };
+
+        let [x, y, width, height] = rect;
+        let count = node.children.len() as u32;
+        let length = match axis {
+            Axis::Horizontal => width,
+            Axis::Vertical => height,
+        };
+        for (index, &child) in (0..).zip(&node.children) {
+            // the last pane takes the rounding leftovers
+            let start = length * index / count;
+            let end = length * (index + 1) / count;
+            let child_rect = match axis {
+                Axis::Horizontal => [x + start, y, end - start, height],
+                Axis::Vertical => [x, y + start, width, end - start],
+            };
+            self.push_panes(child, child_rect, panes);
+        }
+    }
+
+    /// Every pane, bordered; the focused one's border shows whether focus is inside it
+    pub fn get_window(&self) -> UITree {
+        let focused = self.focused_node();
+        let panes = self
+            .panes
+            .iter()
+            .map(|pane| {
+                let node = &self.nodes[pane.node];
+                let border = match node.focus {
+                    _ if pane.node != focused => BORDER_UNFOCUSED,
+                    FocusIndex::Inner => BORDER_INNER,
+                    _ => BORDER_FOCUSING,
+                };
+                let surface = node.main.as_ref().map_or_else(
+                    || UITree::leaf(UIElement::Nothing),
+                    ClientHandle::get_surface,
+                );
+                let [x, y, width, height] = pane.rect.map(|value| value as f32);
+                UITree::new_styled(
+                    UIElement::Bordered(border),
+                    Style {
+                        border: Length::uniform_rect(Length::Px(PANE_BORDER as f32)),
+                        ..Style::absolute([x, y], [width, height])
+                    },
+                    vec![surface],
+                )
+            })
+            .collect();
+        UITree::new_container(panes)
+    }
+
+    /// The view root's subtree; its root is at `view_root_path`
+    pub fn get_view_treeview(&self) -> WorldTree<String> {
+        self.get_treeview_of(self.view_root)
     }
 
     fn get_treeview_of(&self, id: NodeId) -> WorldTree<String> {
         let node = &self.nodes[id];
-        let mut raw_treeview = RecursiveTreeNode::from_value(node.main.get_treeview());
+        let mut raw_treeview = RecursiveTreeNode::from_value(self.applet_treeview(id));
 
         for &child in &node.children {
             match self.get_treeview_of(child) {
@@ -596,6 +1003,13 @@ impl NodeTree {
                 WorldTreePath(path_tail.into_boxed_slice())
             }
         }
+    }
+}
+
+fn root_label_mut(treeview: &mut WorldTree<String>) -> &mut String {
+    match treeview {
+        WorldTree::Base(label) => label,
+        WorldTree::World(node) => root_label_mut(node.get_value_mut()),
     }
 }
 
