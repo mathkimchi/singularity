@@ -1,0 +1,148 @@
+# World Tree and the hierarchy
+
+How Sonamu's one big tree is structured, addressed, focused, and owned.
+Background: DEVLOG 2026-02-03 to 2026-02-22 (the original design), and `.claude/PROJECTS.md` (projects; its
+rounds 1-4 record how the current design was reached, later rounds superseding earlier ones).
+
+## The data structure
+
+`WorldTree<T>` (`singularity_common/src/utils/tree/world_tree.rs`) is either:
+
+- `Base(T)`: a raw value, or
+- `World(RecursiveTreeNode<WorldTree<T>>)`: a tree whose nodes each have a **value** and a list of **children**.
+  A node's value is itself a `WorldTree<T>`, so it is either a raw value or a whole **inner world**.
+
+So every node has two directions to go "down":
+
+- its **children**, in the *same* world (same layer), and
+- its **value's inner world**, one layer *deeper*.
+
+Example (from the DEVLOG): a project node's children are other projects (same layer).
+Its value is the project's own world of applets (deeper layer). An applet's value can in turn be the world of its elements.
+
+## Paths
+
+`WorldTreePath` is a list of `TreeNodePath`s, **one per world**:
+
+- The first picks a node in the outermost world (`[]` is that world's root, `[2, 1]` is child 1 of child 2).
+- Each later one picks a node in the **inner world of the node the previous one ended at**.
+
+```text
+[[2, 1]]          on node [2, 1] of the outer world
+[[2, 1], []]      inside node [2, 1]: at the root of its inner world
+[[2, 1], [0]]     inside node [2, 1]: at child 0 of its inner root
+[[2, 1], [0], []] inside that one in turn
+```
+
+**"Inside" a node** means the path goes past it: it has more components than the path ending at that node.
+`[[2, 1]]` is *on* the node; `[[2, 1], []]` is *inside* it.
+The treeview draws an inner world's root on the node's own row, so a path ending in `[]` shows on the same row as the node,
+but marked as inside (`row_path`, `is_inside_element` in `nodular_applet/treeview.rs`).
+
+## Traversal keys
+
+The treeview selector shows when focus is on a node rather than inside an applet taking input.
+Keys (`WorldTreeTraversalOperation`):
+
+- `e`: **into** a layer (NextLayer): from a node into its inner world, at its root
+  (the node becomes `Inner` and its main gets `Focus([[]])`).
+- `q`: **out of** a layer (PrevLayer): from anywhere in an inner world back to the node holding that world
+  (from the outermost world: up to its root).
+- `a` / `0`: parent; `d`, `1`-`8`, `9`: first, nth, last child; `w` / `s`: previous/next sibling.
+  These all stay in the same world.
+- Space collapses/expands the selected node's inner world in the treeview; Enter confirms (into the applet, resuming
+  where it was, without `Focus`). Modifiers on their own don't leave the selector; other keys go into the applet.
+- The standard keybinds (Ctrl+W, Ctrl+Shift++, splits, Super+P) act on the selected node.
+  Ctrl+W asks its main to close (`CloseRequest`, see below) rather than closing it.
+  A selected project is a node like any other, so Ctrl+Shift++ on it gives it a child. Inside it at its inner root,
+  Ctrl+Shift++ adds to the project's contents instead.
+
+An applet with an inner world can have its own selector over it, with the same keys (the project via its `NodeTree`,
+the file manager by hand over its root and documents). While it does, it publishes `traversing: true`.
+Alt+Q inside an applet goes to its own selector if it has one (eg the file manager's list or a document), else to its node.
+
+## Who owns what
+
+There is no single global tree object. Each part is owned by whoever manages it, and parts are stitched together through
+published treeviews.
+
+- **Node** (`nodular_applet/node_tree.rs`): has an optional **main** (an applet client behind a `ClientHandle`)
+  and **children** (other nodes). The node's *value* in the world tree is its main's published treeview.
+  That treeview is the main's inner world, or just a label.
+- **`NodeTree`**: a slotmap of nodes forming one world. It is held by a **`NodeHolder`** (`node_holder.rs`):
+  - The root's holder (`RootNodeApplet`, a raw sar client) holds the outermost world. sar only holds the root's
+    `ClientHandle`.
+  - A `ProjectApplet` holds a `NodeHolder` too, for the project's inner world.
+- **Applets own their inner world directly** (eg the file manager's documents, a project's `NodeTree`).
+  Applets they hold are embedded (`AppletContext::embed`) on their own loop. They change their own node's children only
+  by `NodeRequest`s (AddChild, Close, Split, Wrap, ...) to the holder.
+- A **project** is an ordinary `StandardApplet` (`ProjectApplet`). **Nothing above it knows it is a project**: its node
+  just sees an applet with an inner world. Its inner world is a full `NodeTree`, whose root is a container node
+  (no main, labeled `◆ Project`), and the project node still has its own children in the outer world.
+  - Made by `NodeRequest::Wrap(ProjectApplet::wrapper())` (Super+P, hub `project`): the holder replaces the node's
+    subtree with a node whose applet is made from it.
+  - Undone by closing it: on `CloseRequest` (Ctrl+W on its node, or on its inner root) it detaches its contents and
+    sends `NodeRequest::Unwrap(contents)`, so they take its place.
+
+Generic hooks that make this possible (`StandardApplet`, run by `AppletClient`):
+
+- `pluck`/`place` return `Answer::Later` to answer by themselves afterwards (a project asks the applets inside it).
+- `close_requested` decides what `CloseRequest` does (default: close; wl tiles ask the client; projects dissolve).
+- `take_wl_surface` takes a wl surface registered while focus is inside it; by default it is given back with
+  `NodeRequest::AddWlSurface` and becomes the node's child. Its wl keyboard focus goes up as `WlKeyboardFocus`.
+- `update` runs after each batch of events (a project finishes plucks and wraps there, outside request callbacks).
+- `is_traversing` and `focus` are its own selector, above.
+
+Ownership is what pluck/place moves between: a holder detaches clients from its loop and another attaches them
+(`ClientHandle::detach`, `DetachedClient::attach`).
+
+## Focus
+
+Each node stores one `FocusIndex`:
+
+- `Focusing`: the node itself is selected (the treeview selector, yellow marker).
+- `Inner`: focus is inside its main (keys go to it, green marker). Where exactly inside is up to the main.
+- `Child(i)`: focus is down in child `i` (same world).
+
+The full focus path is built bottom-up:
+
+- A `Child(i)` node prefixes `i` to its child's node path.
+- An `Inner` node appends its main's published focus path, which adds more `TreeNodePath`s, one per deeper world.
+
+Moving focus is recursive too:
+
+- A traversal starts at the focused node and is passed up to parents as needed (`calculate_new_focus`).
+- If it passes the root of a world, it **escapes** (`NodeTree::escaped`). A project sends it to its own node
+  as `ChangeFocus`, which continues in the outer world. That is how `q` from inside a project lands on the project.
+  Other applets do the same by hand (`AppletContext::change_focus`).
+- Going into a deeper world is done by the node holding it. `NextLayer` makes the node `Inner` and sends `Focus([[]])`,
+  and from then on keys go to its main, which moves focus inside its own world.
+- `Inner` + `Parent`/`PrevLayer` (from the main) makes the node `Focusing` again: the inner root is the node's own row.
+
+## What a client publishes (`Treeview`, `sap::packets`)
+
+Every client publishes, through its treeview `SharedState`:
+
+- `tree`: its inner world (`WorldTree<String>`, labels only),
+- `focus`: where focus is in it (a `WorldTreePath` of that tree), and
+- `traversing`: whether it is showing a selector itself (`StandardApplet::is_traversing`).
+
+The holder above stitches these in:
+
+- Its treeview puts each node's published tree in as that node's value.
+- Its focus path appends the published focus.
+- The root shows the treeview panel while `NodeTree::is_traversing` is true. That flag follows `Inner` nodes down into
+  their mains' `traversing`, since a path inside a project can still be a selection (eg `[[p], []]`).
+
+## Paths across holders
+
+Paths sent between a client and its holder are always **relative to the client's own treeview**.
+The holder converts them:
+
+- Going up, a holder prefixes the node's path (`NodeHolder::full_path`). Applies to `RequestPluck`, `RequestPlace`
+  and focus.
+- Going down, it takes the first component to find its node and passes the rest (`inner_path`) to that node's main
+  as `Pluck`, `Place` or `Focus`. `Pluck(None)`/`Place(None)` mean "at your focus" (`AppletClient` uses the applet's
+  `get_focus_path`).
+- `Focus(path)` puts focus *at* the path: a path ending on an element selects it (the applet's selector),
+  a longer one goes inside it.

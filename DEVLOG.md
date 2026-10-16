@@ -10466,3 +10466,15 @@ Ok, it fixed the cursor and I can just test it in a new TTY
 
 I'm also going to stop saying "(claude) ..." for the commits,
 that will be the new default.
+
+2026-10-16 01:39PM
+
+I am genuinely reassessing the value of handcoding.
+
+Either ways, it is clear that I should embrace AI.
+
+I want a workflow where throughout the day, I can just put ideas into GitHub issues on my phone.
+Then, Claude sees an issue, implements it, then makes a PR.
+
+I'm going to do this with [Github Actions](https://code.claude.com/docs/en/github-actions),
+which lets me just `@claude` in GitHub issues and apparently it does stuff on the cloud.
