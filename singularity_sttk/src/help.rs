@@ -34,7 +34,8 @@ const BINDS: &[(&str, &str)] = &[
     ("Ctrl+Alt+Backspace", "quit (on a TTY)"),
     ("Ctrl+Alt+F1..F12", "switch VT (on a TTY)"),
     ("", "Inside an applet (green border)"),
-    ("Ctrl+W", "close it; its children move up"),
+    ("Super+W", "close it; its children move up"),
+    ("Super+T / Super+N", "start alacritty / firefox"),
     ("Ctrl+Shift++", "add a command hub as its child"),
     ("Ctrl+Shift+|", "split side by side with a new command hub"),
     ("Ctrl+Shift+_", "split stacked with a new command hub"),
@@ -54,7 +55,7 @@ const BINDS: &[(&str, &str)] = &[
     ("Enter", "confirm: into the applet"),
     ("Space", "collapse or expand its inner tree in the treeview"),
     (
-        "Ctrl+W, Ctrl+Shift++/|/_",
+        "Super+W, Ctrl+Shift++/|/_",
         "as inside, on the selected node (Ctrl+W on a project undoes it)",
     ),
     ("other keys", "go into the applet"),

@@ -787,6 +787,7 @@ impl StandardApplet for FileManagerApplet {
             request @ (NodeRequest::AddChild(_)
             | NodeRequest::Split { .. }
             | NodeRequest::Wrap(_)
+            | NodeRequest::Run(_)
             | NodeRequest::AddWlSurface { .. }) => {
                 self.hook.request(request);
             }
