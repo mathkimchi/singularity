@@ -1,18 +1,19 @@
-use crate::nodular_applet::{NodularRunnerHook, StandardApplet};
+use crate::nodular_applet::{AppletContext, NodularAppletInitializer, StandardApplet};
 
-pub trait CreatableNodularApplet<Args, Hook = Box<dyn NodularRunnerHook>>:
-    StandardApplet + Sized
+pub trait CreatableNodularApplet<Args>: StandardApplet + Sized
 where
     // idk why this is needed, something something box I think
     Self: 'static,
+    // the applet is made on its own thread
+    Args: Send + 'static,
 {
-    fn new(args: Args, hook: Hook) -> Self;
+    fn new(args: Args, hook: AppletContext) -> Self;
 
-    fn get_initiator(args: Args) -> impl FnOnce(Hook) -> Self {
-        |hook: Hook| Self::new(args, hook)
+    fn get_initiator(args: Args) -> impl FnOnce(AppletContext) -> Self {
+        |hook: AppletContext| Self::new(args, hook)
     }
-    fn get_boxed_initiator(args: Args) -> impl FnOnce(Hook) -> Box<dyn StandardApplet> {
-        |hook: Hook| Box::new(Self::new(args, hook))
+    fn get_boxed_initiator(args: Args) -> NodularAppletInitializer {
+        Box::new(|hook: AppletContext| Box::new(Self::new(args, hook)))
     }
     // fn get_applet_spawner() -> AppletSpawner {
     //     struct EditorSpawner;

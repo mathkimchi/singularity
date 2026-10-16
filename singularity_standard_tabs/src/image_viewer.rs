@@ -1,11 +1,9 @@
 use image::{ImageReader, RgbaImage};
 use singularity_common::sap::packets::StandardEvent;
-use singularity_common::utils::tree::world_tree::WorldTreePath;
-use singularity_sttk::nodular_applet::recursive_node_applet::RecursiveNodeApplet;
+use singularity_sttk::nodular_applet::{AppletContext, StandardApplet};
 use singularity_sttk::nodular_applet::{
     AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer,
 };
-use singularity_sttk::nodular_applet::{NodularRunnerHook, StandardApplet};
 use singularity_sttk::standard_keybinds::handle_standard_keybinds;
 use sonamu_ui::display_units::DisplayContainerSize;
 use sonamu_ui::ui_element::UITree;
@@ -17,10 +15,10 @@ pub struct ImageViewerApplet {
 
     focused: bool,
 
-    hook: Box<dyn NodularRunnerHook>,
+    hook: AppletContext,
 }
 impl ImageViewerApplet {
-    pub fn new<P>(image_path: P, hook: Box<dyn NodularRunnerHook>) -> Self
+    pub fn new<P>(image_path: P, hook: AppletContext) -> Self
     where
         P: AsRef<std::path::Path>,
         PathBuf: From<P>,
@@ -38,21 +36,19 @@ impl ImageViewerApplet {
             hook,
         }
     }
-    pub fn get_initiator<P>(file_path: P) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self
+    pub fn get_initiator<P>(file_path: P) -> impl FnOnce(AppletContext) -> Self
     where
         P: AsRef<std::path::Path>,
         PathBuf: From<P>,
     {
-        |hook: Box<dyn NodularRunnerHook>| Self::new(file_path, hook)
+        |hook: AppletContext| Self::new(file_path, hook)
     }
-    pub fn get_boxed_initiator<P>(
-        image_path: P,
-    ) -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Box<dyn StandardApplet>
+    pub fn get_boxed_initiator<P>(image_path: P) -> NodularAppletInitializer
     where
-        P: AsRef<std::path::Path>,
+        P: AsRef<std::path::Path> + Send + 'static,
         PathBuf: From<P>,
     {
-        |hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(image_path, hook))
+        Box::new(|hook: AppletContext| Box::new(Self::new(image_path, hook)))
     }
     #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
@@ -61,8 +57,8 @@ impl ImageViewerApplet {
             fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
                 let file_path = args.first()?;
 
-                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
-                    ImageViewerApplet::get_boxed_initiator(file_path.to_string()),
+                Some(ImageViewerApplet::get_boxed_initiator(
+                    file_path.to_string(),
                 ))
             }
 
@@ -110,10 +106,5 @@ impl StandardApplet for ImageViewerApplet {
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.get_title())
-    }
-
-    fn get_focus_path(&self) -> WorldTreePath {
-        // WorldTreePath::new_empty()
-        WorldTreePath::new_into()
     }
 }

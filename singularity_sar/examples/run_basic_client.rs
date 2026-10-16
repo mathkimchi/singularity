@@ -2,11 +2,15 @@
 //! as well as code to actually run it
 
 use calloop::{EventLoop, channel::Sender};
-use singularity_common::sap::{
-    packets::StandardRequest, raw_client_initializer::RawClientInitializer,
+use singularity_common::{
+    sap::{
+        packets::{StandardEvent, StandardRequest, StateKind},
+        raw_client_initializer::RawClientInitializer,
+        shared_state::{SharedState, StatePublisher},
+    },
+    utils::tree::world_tree::WorldTree,
 };
 use singularity_sar::runner::AppletRunner;
-use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::{
     ui_element::{CharGrid, UITree},
     ui_event::{self, KeyModifiers, KeySymbol, KeyTrait},
@@ -14,7 +18,7 @@ use sonamu_ui::{
 
 struct BasicApp {
     content_str: String,
-    content: EncapsulatedLock<UITree>,
+    content: StatePublisher<UITree>,
     request_sender: Sender<StandardRequest>,
 }
 impl BasicApp {
@@ -25,11 +29,7 @@ impl BasicApp {
             }
             (KeySymbol::Backspace, _) => {
                 self.content_str.pop();
-                self.content
-                    .set(CharGrid::from(self.content_str.as_str()).element().into());
-                self.request_sender
-                    .send(StandardRequest::DamageSurface)
-                    .unwrap();
+                self.content.damage();
             }
             _ => {
                 match key.to_char() {
@@ -37,11 +37,7 @@ impl BasicApp {
                     Some('\x08') => {}
                     Some(key_char) => {
                         self.content_str.push(key_char);
-                        self.content
-                            .set(CharGrid::from(self.content_str.as_str()).element().into());
-                        self.request_sender
-                            .send(StandardRequest::DamageSurface)
-                            .unwrap();
+                        self.content.damage();
                     }
                     _ => (),
                 }
@@ -55,8 +51,10 @@ impl RawClientInitializer for BasicInitializer {
     fn init(
         // smth smth box needs to know size
         self: Box<Self>,
-        content: EncapsulatedLock<UITree>,
-        event_queue: calloop::channel::Channel<singularity_common::sap::packets::StandardEvent>,
+        content: SharedState<UITree>,
+        // this client has no treeview
+        _treeview: SharedState<WorldTree<String>>,
+        event_queue: calloop::channel::Channel<StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
         // (I am really trying to convince myself this is fine, I am the strawman)
         request_sender: Sender<StandardRequest>,
@@ -65,7 +63,7 @@ impl RawClientInitializer for BasicInitializer {
 
         let mut app = BasicApp {
             content_str: "placeholder".to_string(),
-            content,
+            content: StatePublisher::new(content),
             request_sender,
         };
 
@@ -74,16 +72,17 @@ impl RawClientInitializer for BasicInitializer {
             .insert_source(
                 event_queue,
                 |event, &mut (), app_state: &mut BasicApp| match event {
-                    calloop::channel::Event::Msg(
-                        singularity_common::sap::packets::StandardEvent::UIEvent(
-                            ui_event::UIEvent::Key {
-                                symbol: Some(key),
-                                modifiers,
-                                ..
-                            },
-                        ),
-                    ) => {
+                    calloop::channel::Event::Msg(StandardEvent::UIEvent(
+                        ui_event::UIEvent::Key {
+                            symbol: Some(key),
+                            modifiers,
+                            ..
+                        },
+                    )) => {
                         app_state.handle_key_press(key, modifiers);
+                    }
+                    calloop::channel::Event::Msg(StandardEvent::DamageAck(StateKind::Surface)) => {
+                        app_state.content.ack();
                     }
                     calloop::channel::Event::Msg(_) => {}
                     calloop::channel::Event::Closed => {
@@ -93,7 +92,14 @@ impl RawClientInitializer for BasicInitializer {
             )
             .unwrap();
 
-        event_loop.run(None, &mut app, |_| {}).unwrap();
+        event_loop
+            .run(None, &mut app, |app| {
+                app.content.flush(
+                    || CharGrid::from(app.content_str.as_str()).element().into(),
+                    &app.request_sender,
+                );
+            })
+            .unwrap();
     }
 }
 

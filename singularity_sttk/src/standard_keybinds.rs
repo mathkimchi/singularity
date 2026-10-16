@@ -1,9 +1,12 @@
-use singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation;
+use singularity_common::{
+    sap::packets::StandardRequest,
+    utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+};
 use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
 
 use crate::{
     command_hub::CommandHubApplet,
-    nodular_applet::{NodularRunnerHook, recursive_node_applet::RecursiveNodeApplet},
+    nodular_applet::{AppletContext, NodeRequest},
 };
 
 /// Handle the standard keybinds like:
@@ -19,7 +22,21 @@ use crate::{
 ///
 /// TODO: have an enum or something more generic for a keybind system
 /// (could use abstraction similar to what I did with packets).
-pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHook) -> bool {
+pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &AppletContext) -> bool {
+    match standard_keybind_request(ui_event) {
+        Some(NodeRequest::AddChild(initializer)) => hook.add_child(initializer),
+        Some(NodeRequest::ChangeFocus(operation)) => hook.change_focus(operation),
+        Some(NodeRequest::Close) => hook.close(),
+        Some(NodeRequest::Standard(StandardRequest::Quit)) => hook.quit(),
+        Some(NodeRequest::Standard(_)) => unreachable!(),
+        None => return false,
+    }
+    true
+}
+
+/// The request a standard keybind makes to the applet's node, if `ui_event` is one.
+/// Nodes use this directly for mains that aren't applets (wl surfaces).
+pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
     if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::CTRL_SHIFT,
@@ -29,9 +46,7 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         && key.to_char() == Some('Q')
     {
         // Ctrl+Shift+Q -> Quit
-        hook.quit();
-
-        true
+        Some(StandardRequest::Quit.into())
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::CTRL,
@@ -41,9 +56,7 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         && key.to_char() == Some('w')
     {
         // Ctrl+W -> close this tab, its children move to the parent
-        hook.close();
-
-        true
+        Some(NodeRequest::Close)
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::CTRL_SHIFT,
@@ -53,11 +66,9 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
         && key.to_char() == Some('+')
     {
         // Ctrl+Shift+Plus -> spawn CommandHub as child
-        hook.add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
+        Some(NodeRequest::AddChild(
             CommandHubApplet::get_boxed_initiator(),
-        ));
-
-        true
+        ))
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::ALT,
@@ -68,10 +79,10 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &impl NodularRunnerHoo
     {
         // Alt+q -> exit focus
         // NOTE: this might interfere with applets that have its own hierarchy
-        hook.change_focus(WorldTreeTraversalOperation::PrevLayer);
-
-        true
+        Some(NodeRequest::ChangeFocus(
+            WorldTreeTraversalOperation::PrevLayer,
+        ))
     } else {
-        false
+        None
     }
 }

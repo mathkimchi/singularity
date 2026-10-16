@@ -3,8 +3,7 @@ use singularity_common::sap::packets::StandardEvent;
 use singularity_sttk::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
-        AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook,
-        StandardApplet, recursive_node_applet::RecursiveNodeApplet,
+        AppletContext, AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, StandardApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -70,14 +69,14 @@ pub struct CodeEditorApplet {
 
     view_offset: ViewOffset,
 
-    hook: Box<dyn NodularRunnerHook>,
+    hook: AppletContext,
 }
 impl<P> CreatableNodularApplet<P> for CodeEditorApplet
 where
-    P: AsRef<std::path::Path>,
+    P: AsRef<std::path::Path> + Send + 'static,
     PathBuf: From<P>,
 {
-    fn new(file_path: P, hook: Box<dyn NodularRunnerHook + 'static>) -> Self {
+    fn new(file_path: P, hook: AppletContext) -> Self {
         // Is reader overkill? Should I just have read?
         let buffer = Rope::from_reader(BufReader::new(File::open(&file_path).unwrap())).unwrap();
         let file_path = PathBuf::from(file_path);
@@ -107,9 +106,7 @@ impl CodeEditorApplet {
             fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
                 let file_path = args.first()?;
 
-                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
-                    CodeEditorApplet::get_boxed_initiator(file_path.to_string()),
-                ))
+                Some(CodeEditorApplet::get_boxed_initiator(file_path.to_string()))
             }
 
             fn duplicate(&self) -> AppletSpawner {
@@ -384,10 +381,5 @@ impl StandardApplet for CodeEditorApplet {
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.get_title())
-    }
-
-    fn get_focus_path(&self) -> singularity_common::utils::tree::world_tree::WorldTreePath {
-        // WorldTreePath::new_empty()
-        singularity_common::utils::tree::world_tree::WorldTreePath::new_into()
     }
 }

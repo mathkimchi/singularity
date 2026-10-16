@@ -1,21 +1,19 @@
-use crate::{
-    basic_applet::{BasicApplet, BasicRunnerHook},
-    nodular_applet::{
-        AppletSpawner, NodularRunnerHook, StandardApplet,
-        recursive_node_applet::RecursiveNodeApplet,
-    },
+use crate::nodular_applet::{
+    AppletClient, AppletSpawner, NodeRequest, NodularAppletInitializer,
+    recursive_node_applet::{NodeEnv, NodeId, RecursiveNode},
 };
 use calloop::{
     EventLoop, LoopHandle,
-    channel::{Channel, Sender, channel},
+    channel::{Channel, Sender},
 };
 use singularity_common::{
     sap::{
-        packets::{StandardEvent, StandardRequest, WlSurfaceId},
+        client_handle::ClientHandle,
+        packets::{StandardEvent, StandardRequest, StateKind, WlSurfaceId},
         raw_client_initializer::RawClientInitializer,
+        shared_state::{SharedState, StatePublisher},
     },
-    sync::EncapsulatedLock,
-    utils::tree::world_tree::WorldTreePath,
+    utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use sonamu_ui::{
     color::Color,
@@ -28,23 +26,18 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-/// Holds the recursive_node_applet, is held by a Basic Applet runner (applet runner).
+/// Holds the tree of nodes, is held by a Basic Applet runner (applet runner).
+///
+/// Every applet in the tree is a client of this, on its own thread.
 pub struct RootNodeApplet {
-    /// NOTE: this could be generic
-    applet: RecursiveNodeApplet,
-    // inner_event_queue: Sender<NodularEvent>,
-    // window: Arc<Mutex<UIElement>>,
-    // hook: Arc<Mutex<Box<dyn BasicRunnerHook>>>,
-    // applet_spawner_registry: RwLock<BTreeMap<String, AppletSpawner>>,
-    content: EncapsulatedLock<UITree>,
-    content_dirty: bool,
+    tree: RecursiveNode,
+    env: NodeEnv,
+    surface: StatePublisher<UITree>,
     request_sender: Sender<StandardRequest>,
 
     latest_size: DisplayContainerSize,
     /// Last sent with `StandardRequest::WlKeyboardFocus`
     focused_wl_surface: Option<WlSurfaceId>,
-
-    applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
 }
 impl RootNodeApplet {
     const TREEVIEW_SPLIT: f32 = 0.2;
@@ -58,7 +51,7 @@ impl RootNodeApplet {
 
     /// Tells the runner if Sonamu focus moved onto or off a wl surface
     fn update_wl_focus(&mut self) {
-        let focused_wl_surface = self.applet.focused_wl_surface();
+        let focused_wl_surface = self.tree.focused_wl_surface();
         if focused_wl_surface != self.focused_wl_surface {
             self.focused_wl_surface = focused_wl_surface;
             self.request_sender
@@ -67,155 +60,65 @@ impl RootNodeApplet {
         }
     }
 
-    /// Redraws if necessary/possible
-    fn try_redraw(&mut self) {
-        if !self.content_dirty {
-            self.content.set(self.get_window(self.latest_size));
-            self.request_sender
-                .send(StandardRequest::DamageSurface)
-                .unwrap();
-            self.content_dirty = true;
-        }
+    /// Publishes the window if damaged and the runner read the last one
+    fn flush_surface(&mut self) {
+        let tree = &self.tree;
+        self.surface
+            .flush(|| Self::get_window(tree), &self.request_sender);
     }
 
     #[must_use]
-    pub fn new(
-        inner_initializer: Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet>,
+    fn new(
+        root_initializer: NodularAppletInitializer,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
-        content: EncapsulatedLock<UITree>,
+        surface: SharedState<UITree>,
         request_sender: Sender<StandardRequest>,
-        event_loop: &LoopHandle<'_, Self>,
+        event_loop: &LoopHandle<'static, Self>,
     ) -> Self {
-        // let (inner_event_queue_tx, inner_event_queue_rx) = channel();
-        let (inner_request_queue_tx, inner_request_queue_rx) = channel();
-
-        event_loop
-            .insert_source(inner_request_queue_rx, |event, &mut (), applet| {
-                let calloop::channel::Event::Msg(event) = event else {
-                    return;
-                };
-
-                match event {
-                    StandardRequest::DamageSurface => {
-                        applet.try_redraw();
-                    }
-                    StandardRequest::DamageTreeview => {
-                        applet.try_redraw();
-                    }
-                    // eg Ctrl+Shift+Q; quits everything
-                    StandardRequest::Quit => {
-                        applet.request_sender.send(StandardRequest::Quit).unwrap();
-                    }
-                    // only sent by the root itself
-                    StandardRequest::WlKeyboardFocus(_) => {}
-                }
-            })
-            .unwrap();
-
-        struct InnerHook {
-            outer_request_queue: Sender<StandardRequest>,
-            applet_spawner_registry: Arc<RwLock<BTreeMap<String, AppletSpawner>>>,
-        }
-        impl BasicRunnerHook for InnerHook {
-            fn close(&self) {
-                log::warn!("Tried to close root");
-            }
-
-            fn damage_window(&self) {
-                // REVIEW
-                // self.outer_hook.damage_window();
-                self.outer_request_queue
-                    .send(StandardRequest::DamageSurface)
-                    .unwrap();
-            }
-        }
-        impl NodularRunnerHook for InnerHook {
-            // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
-
-            fn add_child(&self, _initializer: super::NodularAppletInitializer) {
-                unimplemented!()
-            }
-
-            fn damage_treeview(&self) {
-                // REVIEW
-                // self.outer_hook.damage_window();
-
-                self.outer_request_queue
-                    .send(StandardRequest::DamageSurface)
-                    .unwrap();
-            }
-
-            fn change_focus(
-                &self,
-                _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
-            ) {
-                // REVIEW: do I need to do anything here?
-            }
-
-            fn close_with_children(&self, _children: Vec<super::NodeChild>) {
-                self.close();
-            }
-
-            fn quit(&self) {
-                self.outer_request_queue
-                    .send(StandardRequest::Quit)
-                    .unwrap();
-            }
-
-            fn register_applet_spawner(&self, name: String, applet_spawner: AppletSpawner) {
-                self.applet_spawner_registry
-                    .write()
-                    .unwrap()
-                    .insert(name, applet_spawner);
-            }
-            fn get_applet_spawners(&self) -> BTreeMap<String, AppletSpawner> {
-                self.applet_spawner_registry.read().unwrap().clone()
-            }
-            fn find_applet_spawner(&self, name: String) -> Option<AppletSpawner> {
-                self.applet_spawner_registry
-                    .read()
-                    .unwrap()
-                    .get(&name)
-                    .cloned()
-            }
-        }
-
-        let applet_spawner_registry = Arc::new(RwLock::new(applet_spawner_registry));
-        let inner_hook = InnerHook {
-            outer_request_queue: inner_request_queue_tx,
-            applet_spawner_registry: applet_spawner_registry.clone(),
+        let applet_spawners = Arc::new(RwLock::new(applet_spawner_registry));
+        let event_loop = event_loop.clone();
+        let env = NodeEnv {
+            spawn_applet: Box::new(move |id, initializer| {
+                ClientHandle::spawn_new_client(
+                    Box::new(AppletClient {
+                        initializer,
+                        applet_spawners: applet_spawners.clone(),
+                    }),
+                    &event_loop,
+                    move |request, root: &mut Self| root.handle_node_request(id, request),
+                )
+            }),
+            wl_event_queue: None,
+            pending_requests: Vec::new(),
+            damaged: false,
         };
 
         Self {
-            applet: inner_initializer(Box::new(inner_hook)),
-            // inner_event_queue: inner_event_queue_tx,
-            content,
-            content_dirty: false,
+            tree: RecursiveNode::new_applet(root_initializer, &env),
+            env,
+            surface: StatePublisher::new(surface),
+            request_sender,
             // Just making stuff up
             latest_size: DisplayContainerSize::new(800, 600),
             focused_wl_surface: None,
-            request_sender,
-            applet_spawner_registry,
         }
     }
 
     pub fn get_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet
-        + Send
-        + Sync
-        + 'static,
+        root_initializer: NodularAppletInitializer,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
     ) -> Box<dyn RawClientInitializer> {
         struct Initializer {
-            inner_initializer:
-                Box<dyn FnOnce(Box<dyn NodularRunnerHook>) -> RecursiveNodeApplet + Send + Sync>,
+            root_initializer: NodularAppletInitializer,
             applet_spawner_registry: BTreeMap<String, AppletSpawner>,
         }
         impl RawClientInitializer for Initializer {
             fn init(
                 // smth smth box needs to know size
                 self: Box<Self>,
-                content: EncapsulatedLock<UITree>,
+                surface: SharedState<UITree>,
+                // the treeview is drawn into the surface
+                _treeview: SharedState<WorldTree<String>>,
                 event_queue: Channel<StandardEvent>,
                 // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
                 // (I am really trying to convince myself this is fine, I am the strawman)
@@ -225,72 +128,140 @@ impl RootNodeApplet {
 
                 event_loop
                     .handle()
-                    .insert_source(
-                        event_queue,
-                        |event, &mut (), applet: &mut RootNodeApplet| {
-                            let calloop::channel::Event::Msg(event) = event else {
-                                return;
-                            };
-                            match event {
-                                StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
-                                    applet.latest_size = size;
-                                    applet.applet.handle_ui_event(UIEvent::WindowResized(
-                                        applet.inner_applet_size(),
-                                    ));
-                                }
-                                StandardEvent::UIEvent(UIEvent::Mouse(mut mouse_event)) => {
-                                    // remap window coords -> inner applet coords
-                                    // TODO: there's also the 1px border on every side
-                                    let [left, top] = RootNodeApplet::INNER_APPLET_AREA
-                                        .map_onto_px_size(applet.latest_size)
-                                        .0[0];
-                                    mouse_event.position[0] -= f64::from(left);
-                                    mouse_event.position[1] -= f64::from(top);
-                                    applet.applet.handle_ui_event(UIEvent::Mouse(mouse_event));
-                                }
-                                StandardEvent::UIEvent(ui_event) => {
-                                    applet.applet.handle_ui_event(ui_event);
-                                }
-                                StandardEvent::CloseRequest => todo!(),
-                                StandardEvent::SurfaceDamageAck => {
-                                    applet.content_dirty = false;
-                                }
-                                StandardEvent::FocusChanged(..)
-                                | StandardEvent::Highlighted(..)
-                                | StandardEvent::TreeviewDamageAck
-                                | StandardEvent::WlSurfaceRegistered { .. }
-                                | StandardEvent::FocusWlSurface(_)
-                                | StandardEvent::WlSurfaceDestroyed(_) => {
-                                    applet.applet.handle_standard_event(event);
-                                }
-                            }
-                        },
-                    )
+                    .insert_source(event_queue, |event, &mut (), root: &mut RootNodeApplet| {
+                        let calloop::channel::Event::Msg(event) = event else {
+                            return;
+                        };
+                        root.handle_event(event);
+                    })
                     .unwrap();
 
-                let mut applet = RootNodeApplet::new(
-                    self.inner_initializer,
+                let mut root = RootNodeApplet::new(
+                    self.root_initializer,
                     self.applet_spawner_registry,
-                    content,
+                    surface,
                     request_sender,
                     &event_loop.handle(),
                 );
 
-                // after each batch of events, since any of them may move focus
+                // after each batch of events, since any of them may move focus or damage
                 event_loop
-                    .run(None, &mut applet, RootNodeApplet::update_wl_focus)
+                    .run(None, &mut root, |root| {
+                        root.update_wl_focus();
+                        root.flush_surface();
+                    })
                     .unwrap();
             }
         }
         Box::new(Initializer {
-            inner_initializer: Box::new(inner_initializer),
+            root_initializer,
             applet_spawner_registry,
         })
     }
 
-    fn get_treeview_display(&self) -> UITree {
-        let focused_path = self.applet.get_focus_path();
-        let treeview = self.applet.get_treeview();
+    /// From the runner
+    fn handle_event(&mut self, event: StandardEvent) {
+        match event {
+            StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
+                self.latest_size = size;
+                self.surface.damage();
+                self.tree.handle_event(
+                    StandardEvent::UIEvent(UIEvent::WindowResized(self.inner_applet_size())),
+                    &mut self.env,
+                );
+            }
+            StandardEvent::UIEvent(UIEvent::Mouse(mut mouse_event)) => {
+                // remap window coords -> inner applet coords
+                // TODO: there's also the 1px border on every side
+                let [left, top] = Self::INNER_APPLET_AREA.map_onto_px_size(self.latest_size).0[0];
+                mouse_event.position[0] -= f64::from(left);
+                mouse_event.position[1] -= f64::from(top);
+                self.tree.handle_event(
+                    StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)),
+                    &mut self.env,
+                );
+            }
+            StandardEvent::DamageAck(StateKind::Surface) => self.surface.ack(),
+            // the treeview is drawn into the surface
+            StandardEvent::DamageAck(StateKind::Treeview) => {}
+            StandardEvent::CloseRequest => todo!(),
+            StandardEvent::WlSurfaceRegistered {
+                surface_id,
+                wl_event_queue,
+            } => {
+                self.env.wl_event_queue = Some(wl_event_queue);
+                // TODO: change behavior based on the focus
+                self.tree
+                    .add_child(RecursiveNode::new_wayland(surface_id), &mut self.env);
+            }
+            StandardEvent::FocusWlSurface(surface_id) => {
+                if self.tree.focus_wl_surface(surface_id) {
+                    self.surface.damage();
+                }
+            }
+            StandardEvent::WlSurfaceDestroyed(surface_id) => {
+                // its tile closes like an applet closing itself
+                if let Some(id) = self.tree.find_wl_surface(surface_id) {
+                    self.env.pending_requests.push((id, NodeRequest::Close));
+                }
+            }
+            StandardEvent::UIEvent(_)
+            | StandardEvent::FocusChanged(..)
+            | StandardEvent::Highlighted(..) => self.tree.handle_event(event, &mut self.env),
+        }
+
+        self.process_pending();
+    }
+
+    /// From an applet in the tree
+    fn handle_node_request(&mut self, id: NodeId, request: NodeRequest) {
+        self.apply_node_request(id, request);
+        self.process_pending();
+    }
+
+    /// Handles requests nodes made themselves, then redraws if the tree changed
+    fn process_pending(&mut self) {
+        for (id, request) in std::mem::take(&mut self.env.pending_requests) {
+            self.apply_node_request(id, request);
+        }
+        if std::mem::take(&mut self.env.damaged) {
+            self.surface.damage();
+        }
+    }
+
+    fn apply_node_request(&mut self, id: NodeId, request: NodeRequest) {
+        match request {
+            // the treeview is drawn into the surface, so both damage it
+            NodeRequest::Standard(StandardRequest::Damage(_)) => self.surface.damage(),
+            // eg Ctrl+Shift+Q; quits everything
+            NodeRequest::Standard(StandardRequest::Quit) => {
+                self.request_sender.send(StandardRequest::Quit).unwrap();
+            }
+            // only sent by the root itself
+            NodeRequest::Standard(StandardRequest::WlKeyboardFocus(_)) => {}
+            NodeRequest::AddChild(initializer) => {
+                // the node may have closed since
+                if let Some(node) = self.tree.find_mut(id) {
+                    let child = RecursiveNode::new_applet(initializer, &self.env);
+                    node.add_child(child, &mut self.env);
+                }
+            }
+            NodeRequest::ChangeFocus(operation) => {
+                if self.tree.change_focus(id, operation) {
+                    self.surface.damage();
+                }
+            }
+            NodeRequest::Close => {
+                if self.tree.close(id) {
+                    self.surface.damage();
+                }
+            }
+        }
+    }
+
+    fn get_treeview_display(tree: &RecursiveNode) -> UITree {
+        let focused_path = tree.get_focus_path();
+        let treeview = tree.get_treeview();
 
         println!("Focused path: {focused_path:?}");
 
@@ -322,13 +293,8 @@ impl RootNodeApplet {
         )
         .fill_bg(Color::BLACK)
     }
-}
-impl BasicApplet for RootNodeApplet {
-    fn handle_ui_event(&mut self, ui_event: UIEvent) {
-        self.applet.handle_ui_event(ui_event);
-    }
 
-    fn get_window(&self, container_size: DisplayContainerSize) -> UITree {
+    fn get_window(tree: &RecursiveNode) -> UITree {
         UITree::new_container_styled(
             sonamu_ui::ui_element::Style {
                 display: sonamu_ui::ui_element::Display::Grid,
@@ -340,80 +306,9 @@ impl BasicApplet for RootNodeApplet {
                 ..sonamu_ui::ui_element::Style::full_size()
             },
             vec![
-                self.get_treeview_display(),
-                self.applet
-                    .get_window(container_size) // TODO: major actually calculate size
-                    .bordered(Color::LIGHT_GREEN),
+                Self::get_treeview_display(tree),
+                tree.get_window().bordered(Color::LIGHT_GREEN),
             ],
         )
     }
 }
-
-/*
-
-/// Holds a nodular applet but only supports Basic operations.
-/// NOTE: This is really for debugging; for the actual, I'll implement RootNodeApplet.
-pub struct NodularHolderApplet<InnerApplet: NodularApplet> {
-    inner_applet: InnerApplet,
-}
-impl<InnerApplet: NodularApplet> NodularHolderApplet<InnerApplet> {
-    pub fn new(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> InnerApplet,
-        hook: Box<dyn BasicRunnerHook>,
-    ) -> Self {
-        struct InnerHook {
-            outer_hook: Box<dyn BasicRunnerHook>,
-        }
-        impl BasicRunnerHook for InnerHook {
-            // fn update_display(&self, display: &sonamu_ui::ui_element::UIElement) {
-            //     self.outer_hook.update_display(display);
-            // }
-
-            fn close(&self) {
-                self.outer_hook.close();
-            }
-
-            fn damage_window(&self) {
-                self.outer_hook.damage_window();
-            }
-        }
-        impl NodularRunnerHook for InnerHook {
-            // fn update_treeview(&self, _treeview: &sonamu_ui::ui_element::UIElement) {}
-
-            fn add_child(&self, _initializer: Box<super::NodularAppletInitializer>) {}
-
-            fn damage_treeview(&self) {
-                todo!()
-            }
-
-            fn change_focus(
-                &self,
-                _operation: singularity_common::utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
-            ) {
-            }
-        }
-
-        let inner_hook = InnerHook { outer_hook: hook };
-
-        Self {
-            inner_applet: inner_initializer(Box::new(inner_hook)),
-        }
-    }
-
-    pub fn get_initializer(
-        inner_initializer: impl FnOnce(Box<dyn NodularRunnerHook>) -> InnerApplet,
-    ) -> impl FnOnce(Box<dyn BasicRunnerHook>) -> Self {
-        move |hook| Self::new(inner_initializer, hook)
-    }
-}
-impl<InnerApplet: NodularApplet> BasicApplet for NodularHolderApplet<InnerApplet> {
-    fn handle_ui_event(&mut self, ui_event: sonamu_ui::ui_event::UIEvent) {
-        self.inner_applet.handle_ui_event(ui_event);
-    }
-
-    fn get_window(&self) -> UIElement {
-        self.inner_applet.get_window()
-    }
-}
-
-*/

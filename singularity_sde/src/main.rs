@@ -23,10 +23,7 @@ use singularity_standard_tabs::{
     one_char_render_test::OneCharRenderTestApplet,
 };
 use singularity_sttk::{
-    command_hub::CommandHubApplet,
-    nodular_applet::{
-        recursive_node_applet::RecursiveNodeApplet, root_node_applet::RootNodeApplet,
-    },
+    command_hub::CommandHubApplet, nodular_applet::root_node_applet::RootNodeApplet,
 };
 use std::collections::BTreeMap;
 use tracing_subscriber::EnvFilter;
@@ -35,7 +32,7 @@ fn main() {
     init_logging();
 
     AppletRunner::run(RootNodeApplet::get_initializer(
-        RecursiveNodeApplet::get_initializer(CommandHubApplet::get_boxed_initiator()),
+        CommandHubApplet::get_boxed_initiator(),
         BTreeMap::from_iter(vec![
             (
                 "command_hub".to_string(),

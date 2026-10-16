@@ -2,12 +2,10 @@
 
 use crate::{
     nodular_applet::{
-        AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, NodularRunnerHook,
-        StandardApplet, recursive_node_applet::RecursiveNodeApplet,
+        AppletContext, AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, StandardApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
-use singularity_common::utils::tree::world_tree::WorldTreePath;
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
@@ -29,11 +27,11 @@ pub struct CommandHubApplet {
     /// The thing that is currently being typed.
     current_prompt: String,
 
-    hook: Box<dyn NodularRunnerHook>,
+    hook: AppletContext,
 }
 impl CommandHubApplet {
     #[must_use]
-    pub fn new(hook: Box<dyn NodularRunnerHook>) -> Self {
+    pub fn new(hook: AppletContext) -> Self {
         Self {
             title: "Command Hub".to_string(),
             history: Vec::new(),
@@ -41,12 +39,12 @@ impl CommandHubApplet {
             hook,
         }
     }
-    pub fn get_initiator() -> impl FnOnce(Box<dyn NodularRunnerHook>) -> Self {
-        |hook: Box<dyn NodularRunnerHook>| Self::new(hook)
+    pub fn get_initiator() -> impl FnOnce(AppletContext) -> Self {
+        |hook: AppletContext| Self::new(hook)
     }
     #[must_use]
     pub fn get_boxed_initiator() -> NodularAppletInitializer {
-        Box::new(|hook: Box<dyn NodularRunnerHook>| Box::new(Self::new(hook)))
+        Box::new(|hook: AppletContext| Box::new(Self::new(hook)))
     }
     #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
@@ -57,9 +55,7 @@ impl CommandHubApplet {
                     println!("Warning: command hub doesn't use spawn args.");
                 }
 
-                Some(RecursiveNodeApplet::boxed_get_boxed_initializer(
-                    CommandHubApplet::get_boxed_initiator(),
-                ))
+                Some(CommandHubApplet::get_boxed_initiator())
             }
 
             fn duplicate(&self) -> AppletSpawner {
@@ -84,13 +80,10 @@ impl CommandHubApplet {
                 .to_string()),
             "add_child" => match args.first() {
                 None => {
-                    self.hook
-                        .add_child(RecursiveNodeApplet::boxed_get_boxed_initializer(
-                            Self::get_boxed_initiator(),
-                        ));
+                    self.hook.add_child(Self::get_boxed_initiator());
                     Ok("Unspecified child defaulting to command_hub.".to_string())
                 }
-                Some(app_name) => match self.hook.find_applet_spawner(app_name.to_string()) {
+                Some(app_name) => match self.hook.find_applet_spawner(app_name) {
                     Some(applet_spawner) => match applet_spawner.create_initializer(&args[1..]) {
                         Some(applet_initializer) => {
                             self.hook.add_child(applet_initializer);
@@ -220,8 +213,8 @@ impl StandardApplet for CommandHubApplet {
             singularity_common::sap::packets::StandardEvent::FocusChanged(_) => todo!(),
             singularity_common::sap::packets::StandardEvent::Highlighted(_) => todo!(),
             singularity_common::sap::packets::StandardEvent::CloseRequest => todo!(),
-            singularity_common::sap::packets::StandardEvent::SurfaceDamageAck => todo!(),
-            singularity_common::sap::packets::StandardEvent::TreeviewDamageAck => todo!(),
+            // handled by the applet's client
+            singularity_common::sap::packets::StandardEvent::DamageAck(_) => {}
             singularity_common::sap::packets::StandardEvent::WlSurfaceRegistered { .. } => {
                 todo!()
             }
@@ -233,11 +226,6 @@ impl StandardApplet for CommandHubApplet {
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
-    }
-
-    fn get_focus_path(&self) -> WorldTreePath {
-        // WorldTreePath::new_empty()
-        WorldTreePath::new_into()
     }
 
     fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {

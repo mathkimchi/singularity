@@ -10233,3 +10233,64 @@ It is pretty surreal.
 I had to quit because the mod keys weren't working or something.
 I couldn't hit escape so I couldn't `:w`, but I luckily rebinded Ctrl+S to save which worked.
 Next up is tree management.
+
+2026-10-15 09:57PM
+
+Ok, I asked claude to move everything to ClientHandle, but I used grill-me.
+Yk what, I'll just make Claude summarize all the changes:
+
+```txt
+At a high level:
+
+- New architecture: every applet now runs on its own thread as a client. The applet tree lives in the root client, and the server holds only that root. Applets change the tree only by sending requests to their node; the old direct hook calls are gone.
+- One update pattern: a client publishes its surface or treeview, sends a damage notice, and waits for the reader's ack. One generic type now handles this everywhere instead of hand-written copies.
+- Wayland tiles: wl clients are a kind of node directly, so the separate wl applet wrapper is gone. Ctrl+W now asks the wl client to close, and its tile goes away once it does.
+- Simplifications: the deadlock and the unreachable resize branch are gone, since the old structure that caused them no longer exists. The command hub, the three active standard tabs and the SDE entry point are ported with minimal changes.
+- Testing: everything builds, Sonamu runs with a wl client connected, and the main tree flows worked in a headless test. I haven't tried it interactively.
+- Docs: the project docs describe the new architecture, and a refactor notes file records the plan, the decisions I made and the issues found.
+- Next: I've proposed a design for handing a client or subtree over to a different owner, as groundwork for pluck and place. It's waiting on your approval; nothing is implemented yet.
+
+ClientHandle refactor
+
+singularity_common::sap
+- client_handle.rs (new, moved here from sar): it works from any holder's event loop, and the holder passes a closure that handles the client's requests. Reading a client's surface or treeview also acks it. A closed request channel is ignored instead of panicking.
+- shared_state.rs (new):
+  - SharedState<T> is a value the client writes and its holder reads.
+  - StatePublisher<T> is the client side. It renders only when damaged and keeps at most one unread publish; damage that arrives while waiting for an ack is merged into the next one.
+- packets.rs:
+  - StateKind { Surface, Treeview }.
+  - StandardRequest::Damage(kind) replaces DamageSurface/DamageTreeview.
+  - StandardEvent::DamageAck(kind) replaces the two old ack events.
+  - New WlSurfaceEvent::Close.
+- raw_client_initializer.rs: the trait now takes a request type (StandardRequest by default), and init gets the two SharedStates, including a new treeview argument.
+
+sar
+- Deleted its own client_handle.rs; the runner uses the common one.
+- Ignores Damage(Treeview), since the root draws its treeview into its surface.
+- Handles WlSurfaceEvent::Close by sending xdg close to the client. Added a small toplevel_of helper.
+- Ported examples/run_basic_client.rs.
+
+sttk
+- Deleted: basic_applet.rs, caching_applet.rs, wl_surface_applet.rs.
+- nodular_applet/mod.rs:
+  - StandardApplet now has just three methods: handle an event, draw the window, give the treeview.
+  - AppletContext replaces the hooks and keeps the same method names. Damage goes through a channel to the applet's own loop, so it works from any thread. It also gives direct access to the shared spawner registry.
+  - NodeRequest covers Standard, AddChild, ChangeFocus and Close.
+  - AppletClient runs each applet on its own thread and publishes its surface and treeview.
+- recursive_node_applet.rs: RecursiveNode replaces RecursiveNodeApplet.
+  - A node holds a main (an applet or a wl surface), its children, a focus index and a NodeId (an atomic counter).
+  - NodeEnv gives nodes a way to spawn applets, the wl event queue, a list of requests nodes make themselves, and a damaged flag.
+  - The focus logic is ported unchanged, and requests from below bubble up to ancestors.
+  - Ctrl+W on a wl tile asks the client to close. The tile goes away when the client destroys its toplevel.
+- root_node_applet.rs:
+  - Holds the tree, routes each applet's requests by NodeId, and handles wl registration, focus and destruction.
+  - Takes a plain initializer for the first applet.
+  - Removed the commented-out NodularHolderApplet block.
+- standard_keybinds.rs: a new standard_keybind_request builds the request for a keybind. It's shared between applets (handle_standard_keybinds) and wl tiles.
+- creatable_applet.rs: uses AppletContext, and its arguments must be Send + 'static.
+- command_hub: ported. find_applet_spawner now takes &str.
+
+Standard tabs and SDE
+- Ported code_editor, image_viewer and one_char_render_test. Spawners no longer wrap applets in a node themselves.
+- singularity_sde passes CommandHubApplet::get_boxed_initiator() straight to the root.
+```

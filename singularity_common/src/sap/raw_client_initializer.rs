@@ -1,20 +1,29 @@
 use calloop::channel::{Channel, Sender};
-use sonamu_sync::EncapsulatedLock;
 use sonamu_ui::ui_element::UITree;
 
-use crate::sap::packets::{StandardEvent, StandardRequest};
+use crate::{
+    sap::{
+        packets::{StandardEvent, StandardRequest},
+        shared_state::SharedState,
+    },
+    utils::tree::world_tree::WorldTree,
+};
 
 /// Look at 2026-07-30 DEVLOG for initial creation
 ///
 /// Called "Raw" because expectation is to make a wrapper in sttk for less boilerplate
-pub trait RawClientInitializer: Send {
+///
+/// `Request` is what the client sends to whoever holds its `ClientHandle`
+/// (the sar server takes `StandardRequest`, sttk nodes take their own superset).
+pub trait RawClientInitializer<Request = StandardRequest>: Send {
     fn init(
         // smth smth box needs to know size
         self: Box<Self>,
-        content: EncapsulatedLock<UITree>,
+        surface: SharedState<UITree>,
+        treeview: SharedState<WorldTree<String>>,
         event_queue: Channel<StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
         // (I am really trying to convince myself this is fine, I am the strawman)
-        request_sender: Sender<StandardRequest>,
+        request_sender: Sender<Request>,
     );
 }

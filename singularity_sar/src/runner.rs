@@ -1,7 +1,8 @@
-use crate::{client_handle::ClientHandle, smithay::SmithayState, ui_handle::UIHandle};
+use crate::{smithay::SmithayState, ui_handle::UIHandle};
 use calloop::{EventLoop, LoopHandle, LoopSignal};
 use singularity_common::sap::{
-    packets::{StandardEvent, StandardRequest, WlSurfaceId},
+    client_handle::ClientHandle,
+    packets::{StandardEvent, StandardRequest, StateKind, WlSurfaceId},
     raw_client_initializer::RawClientInitializer,
 };
 use sonamu_ui::{
@@ -42,8 +43,8 @@ impl AppletRunner {
     ) -> Self {
         let root_client = ClientHandle::spawn_new_client(
             root_applet_initializer,
-            UITree::leaf(UIElement::Nothing),
             &event_loop,
+            |request, runner: &mut Self| runner.handle_client_request(request),
         );
 
         Self {
@@ -129,13 +130,11 @@ impl AppletRunner {
     /// TODO: take in client id
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
-            StandardRequest::DamageSurface => {
+            StandardRequest::Damage(StateKind::Surface) => {
                 self.needs_redraw = true;
             }
-            // the treeview is part of the surface
-            StandardRequest::DamageTreeview => {
-                self.needs_redraw = true;
-            }
+            // the root draws its treeview into its surface
+            StandardRequest::Damage(StateKind::Treeview) => {}
             StandardRequest::Quit => self.ui_handle.quit(),
             StandardRequest::WlKeyboardFocus(surface_id) => self.focus_wl_keyboard(surface_id),
         }

@@ -177,6 +177,14 @@ impl SmithayState {
         }
     }
 
+    fn toplevel_of(&self, surface: &WlSurface) -> Option<ToplevelSurface> {
+        self.xdg_shell_state
+            .toplevel_surfaces()
+            .iter()
+            .find(|toplevel| toplevel.wl_surface() == surface)
+            .cloned()
+    }
+
     /// Where each wl toplevel's tile was laid out in the last redraw
     pub fn set_tile_areas(&mut self, tile_areas: impl Iterator<Item = (WlSurfaceId, DisplayAreaPx)>) {
         self.tile_areas.clear();
@@ -588,14 +596,14 @@ impl SmithayState {
                             keycode,
                             pressed: false,
                         } => state.release_wl_key(keycode),
+                        WlSurfaceEvent::Close => {
+                            if let Some(toplevel) = state.smithay_state.toplevel_of(&target_surface)
+                            {
+                                toplevel.send_close();
+                            }
+                        }
                         WlSurfaceEvent::Resize(new_size) => {
-                            let Some(toplevel) = state
-                                .smithay_state
-                                .xdg_shell_state
-                                .toplevel_surfaces()
-                                .iter()
-                                .find(|toplevel| toplevel.wl_surface() == &target_surface)
-                                .cloned()
+                            let Some(toplevel) = state.smithay_state.toplevel_of(&target_surface)
                             else {
                                 dbg!("Resize sent to surface with no toplevel");
                                 return;

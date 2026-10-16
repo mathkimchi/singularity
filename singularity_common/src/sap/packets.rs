@@ -4,12 +4,19 @@ use sonamu_ui::{
     ui_event::{MouseEvent, UIEvent},
 };
 
+/// A piece of client state the server reads through a `SharedState`
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StateKind {
+    /// Currently the whole surface
+    Surface,
+    Treeview,
+}
+
 /// Client to server
 #[derive(Clone, Copy, Debug)]
 pub enum StandardRequest {
-    /// Currently does the whole surface
-    DamageSurface,
-    DamageTreeview,
+    /// The client published a new value of this state
+    Damage(StateKind),
     Quit,
     /// The wl surface Sonamu focus is on (`None` if it's on something else), sent when it changes.
     /// Keyboard (and so clipboard and text input) focus follows it.
@@ -39,8 +46,8 @@ pub enum StandardEvent {
     // // Is a UI event already
     // Resize(DisplayContainerSize),
     CloseRequest,
-    SurfaceDamageAck,
-    TreeviewDamageAck,
+    /// The server read this state, so the client may publish a new value
+    DamageAck(StateKind),
 
     /// NOTE: ts is kinda niche; dk if it belongs here
     /// Currently doing by surface instead of by wl client
@@ -68,4 +75,6 @@ pub enum WlSurfaceEvent {
     },
     Resize(DisplayContainerSize),
     Mouse(MouseEvent),
+    /// Asks the client to close the toplevel; its tile closes once the toplevel is destroyed
+    Close,
 }
