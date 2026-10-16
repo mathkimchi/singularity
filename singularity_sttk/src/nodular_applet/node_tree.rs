@@ -1,6 +1,6 @@
 use crate::{
-    nodular_applet::{NodeRequest, NodularAppletInitializer},
-    standard_keybinds::standard_keybind_request,
+    creatable_applet::CreatableNodularApplet, nodular_applet::NodularAppletInitializer,
+    wl_surface_applet::WlSurfaceApplet,
 };
 use singularity_common::{
     sap::{
@@ -13,12 +13,12 @@ use singularity_common::{
         world_tree::{WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation},
     },
 };
+use slotmap::SlotMap;
 use sonamu_ui::{
     display_units::DisplayContainerSize,
-    ui_element::{UIElement, UITree},
     ui_event::{KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 enum FocusIndex {
@@ -27,128 +27,20 @@ enum FocusIndex {
     Child(usize),
 }
 
-/// Identifies a node, so requests from its applet still find it after it moves
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NodeId(u64);
-impl NodeId {
-    fn new() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        Self(NEXT.fetch_add(1, Ordering::Relaxed))
-    }
+slotmap::new_key_type! {
+    /// Identifies a node, so requests from its applet still find it after it moves
+    pub struct NodeId;
 }
 
-/// What a node shows and forwards events to
-pub enum NodeMain {
-    /// Dropping the handle ends the applet
-    Applet(ClientHandle),
-    Wayland(WlSurfaceId),
-}
-
-/// What nodes need from whoever holds the tree
-pub struct NodeEnv {
-    /// Runs an applet as a client whose requests are tagged with the given node
-    pub spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
-    /// Set once the first wl surface is registered
-    pub wl_event_queue: Option<calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>>,
-    /// Requests nodes make on behalf of their main (eg standard keybinds on wl tiles),
-    /// for the holder to handle like applet requests
-    pub pending_requests: Vec<(NodeId, NodeRequest)>,
-    /// Set when the tree changed in a way that needs a redraw
-    pub damaged: bool,
-}
-
-/// Holds a main applet (or wl surface) and also children.
-/// Displays the focused one.
-///
-/// Only touched by the thread holding the tree; applets talk to it through `NodeRequest`s.
-pub struct RecursiveNode {
-    id: NodeId,
-    main: NodeMain,
-    children: Vec<Self>,
+/// Shows its main applet, or the focused child.
+struct Node {
+    /// Dropping it ends the applet
+    main: ClientHandle,
+    parent: Option<NodeId>,
+    children: Vec<NodeId>,
     focus: FocusIndex,
-    /// So newly added children can be given the size
-    latest_size: Option<DisplayContainerSize>,
 }
-impl RecursiveNode {
-    fn new(id: NodeId, main: NodeMain) -> Self {
-        Self {
-            id,
-            main,
-            children: Vec::new(),
-            focus: FocusIndex::Focusing,
-            latest_size: None,
-        }
-    }
-
-    pub fn new_applet(initializer: NodularAppletInitializer, env: &NodeEnv) -> Self {
-        let id = NodeId::new();
-        Self::new(id, NodeMain::Applet((env.spawn_applet)(id, initializer)))
-    }
-
-    pub fn new_wayland(surface_id: WlSurfaceId) -> Self {
-        Self::new(NodeId::new(), NodeMain::Wayland(surface_id))
-    }
-
-    pub fn add_child(&mut self, mut child: Self, env: &mut NodeEnv) {
-        if let Some(size) = self.latest_size {
-            child.handle_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)), env);
-        }
-        self.children.push(child);
-        env.damaged = true;
-    }
-
-    pub fn find_mut(&mut self, id: NodeId) -> Option<&mut Self> {
-        let path = self.path_to(id)?;
-        Some(self.node_at_mut(&path))
-    }
-
-    /// Child indices from this node down to the node with `id`
-    fn path_to(&self, id: NodeId) -> Option<Vec<usize>> {
-        if self.id == id {
-            return Some(Vec::new());
-        }
-        self.children
-            .iter()
-            .enumerate()
-            .find_map(|(child_index, child)| {
-                let mut path = child.path_to(id)?;
-                path.insert(0, child_index);
-                Some(path)
-            })
-    }
-
-    fn node_at_mut(&mut self, path: &[usize]) -> &mut Self {
-        path.iter()
-            .fold(self, |node, &child_index| &mut node.children[child_index])
-    }
-
-    /// Closes the node with `id`; its parent adopts its children in its place.
-    /// If the focused child closed, the parent becomes focused.
-    ///
-    /// Returns whether something closed.
-    pub fn close(&mut self, id: NodeId) -> bool {
-        let Some(mut path) = self.path_to(id) else {
-            return false;
-        };
-        let Some(index) = path.pop() else {
-            log::warn!("Tried to close root");
-            return false;
-        };
-
-        let parent = self.node_at_mut(&path);
-        let closed = parent.children.remove(index);
-        let num_orphans = closed.children.len();
-        parent.children.splice(index..index, closed.children);
-        parent.focus = match parent.focus {
-            FocusIndex::Child(focused) if focused == index => FocusIndex::Focusing,
-            FocusIndex::Child(focused) if focused > index => {
-                FocusIndex::Child(focused + num_orphans - 1)
-            }
-            focus => focus,
-        };
-        true
-    }
-
+impl Node {
     /// Doesn't actually change anything.
     /// Just returns the new focus and what to call for the parent.
     fn calculate_new_focus(
@@ -238,212 +130,283 @@ impl RecursiveNode {
             },
         }
     }
+}
 
-    /// Changes focus from the perspective of the node with `id`,
-    /// passing the operation on to its ancestors as needed.
+/// The outer tree: every node's main is an applet running as a client of the tree's holder.
+///
+/// Only touched by the holder's thread; applets talk to it through `NodeRequest`s.
+pub struct NodeTree {
+    root: NodeId,
+    nodes: SlotMap<NodeId, Node>,
+    /// Which node shows each wl surface (its main is a `WlSurfaceApplet`)
+    wl_surfaces: HashMap<WlSurfaceId, NodeId>,
+
+    /// Every node is displayed at this size
+    latest_size: Option<DisplayContainerSize>,
+    /// Runs an applet as a client whose requests are tagged with the given node
+    spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
+    /// Set when the tree changed in a way that needs a redraw
+    damaged: bool,
+}
+impl NodeTree {
+    pub fn new(
+        root_initializer: NodularAppletInitializer,
+        spawn_applet: Box<dyn Fn(NodeId, NodularAppletInitializer) -> ClientHandle>,
+    ) -> Self {
+        let mut tree = Self {
+            root: NodeId::default(),
+            nodes: SlotMap::with_key(),
+            wl_surfaces: HashMap::new(),
+            latest_size: None,
+            spawn_applet,
+            damaged: true,
+        };
+        tree.root = tree.insert_node(None, root_initializer);
+        tree
+    }
+
+    pub const fn root(&self) -> NodeId {
+        self.root
+    }
+
+    /// Whether the tree changed since the last call
+    pub const fn take_damage(&mut self) -> bool {
+        std::mem::replace(&mut self.damaged, false)
+    }
+
+    fn insert_node(
+        &mut self,
+        parent: Option<NodeId>,
+        initializer: NodularAppletInitializer,
+    ) -> NodeId {
+        let spawn_applet = &self.spawn_applet;
+        let id = self.nodes.insert_with_key(|id| Node {
+            main: spawn_applet(id, initializer),
+            parent,
+            children: Vec::new(),
+            focus: FocusIndex::Focusing,
+        });
+        if let Some(size) = self.latest_size {
+            self.nodes[id]
+                .main
+                .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+        }
+        id
+    }
+
+    /// Returns `None` if `parent` isn't in the tree (eg it closed since)
+    pub fn add_child(
+        &mut self,
+        parent: NodeId,
+        initializer: NodularAppletInitializer,
+    ) -> Option<NodeId> {
+        if !self.nodes.contains_key(parent) {
+            return None;
+        }
+        let id = self.insert_node(Some(parent), initializer);
+        self.nodes[parent].children.push(id);
+        self.damaged = true;
+        Some(id)
+    }
+
+    pub fn add_wl_surface(
+        &mut self,
+        parent: NodeId,
+        surface_id: WlSurfaceId,
+        wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    ) {
+        if let Some(id) = self.add_child(
+            parent,
+            WlSurfaceApplet::get_boxed_initiator((surface_id, wl_event_queue)),
+        ) {
+            self.wl_surfaces.insert(surface_id, id);
+        }
+    }
+
+    /// Closes the node; its parent adopts its children in its place.
+    /// If the focused child closed, the parent becomes focused.
     ///
-    /// Returns whether `id` is in this tree.
-    pub fn change_focus(&mut self, id: NodeId, operation: WorldTreeTraversalOperation) -> bool {
-        let Some(mut path) = self.path_to(id) else {
+    /// Returns whether something closed.
+    pub fn close(&mut self, id: NodeId) -> bool {
+        let Some(node) = self.nodes.get(id) else {
+            return false;
+        };
+        let Some(parent_id) = node.parent else {
+            log::warn!("Tried to close root");
             return false;
         };
 
+        let closed = self.nodes.remove(id).unwrap();
+        for &orphan in &closed.children {
+            self.nodes[orphan].parent = Some(parent_id);
+        }
+        let parent = &mut self.nodes[parent_id];
+        let index = parent
+            .children
+            .iter()
+            .position(|&child| child == id)
+            .unwrap();
+        parent
+            .children
+            .splice(index..=index, closed.children.iter().copied());
+        parent.focus = match parent.focus {
+            FocusIndex::Child(focused) if focused == index => FocusIndex::Focusing,
+            FocusIndex::Child(focused) if focused > index => {
+                FocusIndex::Child(focused + closed.children.len() - 1)
+            }
+            focus => focus,
+        };
+
+        self.wl_surfaces.retain(|_, node_id| *node_id != id);
+        self.damaged = true;
+        true
+    }
+
+    /// Closes the node showing the surface
+    pub fn close_wl_surface(&mut self, surface_id: WlSurfaceId) {
+        if let Some(&id) = self.wl_surfaces.get(&surface_id) {
+            self.close(id);
+        }
+    }
+
+    /// Changes focus from the perspective of the node,
+    /// passing the operation on to its ancestors as needed.
+    pub fn change_focus(&mut self, id: NodeId, operation: WorldTreeTraversalOperation) {
+        let mut id = id;
         let mut operation = Some(operation);
-        while let Some(current_operation) = operation {
-            let node = self.node_at_mut(&path);
+        while let Some(current_operation) = operation
+            && let Some(node) = self.nodes.get_mut(id)
+        {
             let (new_focus, parent_call) = node.calculate_new_focus(current_operation);
             if let Some(new_focus) = new_focus {
                 node.focus = new_focus;
+                self.damaged = true;
             }
             operation = parent_call;
 
             // the root has no parent to pass it to
-            if path.pop().is_none() {
+            let Some(parent) = node.parent else {
                 break;
-            }
-        }
-        true
-    }
-
-    fn send_to_main(&self, event: StandardEvent, env: &mut NodeEnv) {
-        match &self.main {
-            NodeMain::Applet(client) => client.send_event(event),
-            NodeMain::Wayland(surface_id) => {
-                let StandardEvent::UIEvent(ui_event) = event else {
-                    return;
-                };
-
-                // wl clients can't send node requests, so their node does the standard keybinds
-                let wl_event = match standard_keybind_request(&ui_event) {
-                    // the tile closes once the client destroys its toplevel (`WlSurfaceDestroyed`),
-                    // so the client may refuse (eg to ask about unsaved changes)
-                    Some(NodeRequest::Close) => WlSurfaceEvent::Close,
-                    Some(request) => {
-                        env.pending_requests.push((self.id, request));
-                        return;
-                    }
-                    None => Self::to_wl_event(ui_event),
-                };
-                if let Some(wl_event_queue) = &env.wl_event_queue {
-                    wl_event_queue.send((*surface_id, wl_event)).unwrap();
-                }
-            }
-        }
-    }
-
-    fn to_wl_event(ui_event: UIEvent) -> WlSurfaceEvent {
-        match ui_event {
-            UIEvent::Key {
-                raw_keycode,
-                pressed,
-                ..
-            } => WlSurfaceEvent::Key {
-                // evdev -> xkb
-                keycode: raw_keycode + 8,
-                pressed,
-            },
-            UIEvent::Mouse(mouse_event) => WlSurfaceEvent::Mouse(mouse_event),
-            UIEvent::WindowResized(new_size) => WlSurfaceEvent::Resize(new_size),
-        }
-    }
-
-    pub fn handle_event(&mut self, event: StandardEvent, env: &mut NodeEnv) {
-        match event {
-            StandardEvent::UIEvent(UIEvent::WindowResized(size)) => {
-                // every applet in this node is displayed at this size, not just the focused one
-                self.latest_size = Some(size);
-                self.send_to_main(event, env);
-                for child in &mut self.children {
-                    child.handle_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)), env);
-                }
-            }
-            StandardEvent::UIEvent(ui_event) => match self.focus {
-                FocusIndex::Focusing => {
-                    // We can intercept
-                    match &ui_event {
-                        UIEvent::Key {
-                            symbol,
-                            pressed: true,
-                            ..
-                        } => {
-                            if let Some(key) = symbol
-                                && let Some(key_char) = key.to_char()
-                                && let Some(operation) =
-                                    WorldTreeTraversalOperation::from_char(key_char)
-                            {
-                                // may need the ancestors, so the tree's holder does it
-                                env.pending_requests
-                                    .push((self.id, NodeRequest::ChangeFocus(operation)));
-                            } else {
-                                // if key press not a traversal, then just set focus to inner and forward input
-                                self.focus = FocusIndex::Inner;
-                                env.damaged = true;
-                                self.send_to_main(event, env);
-                            }
-                        }
-                        UIEvent::Key { pressed: false, .. } => {}
-                        UIEvent::Mouse(MouseEvent {
-                            kind: MouseEventKind::Button { pressed: true, .. },
-                            ..
-                        }) => {
-                            // set focus to inner and forward mouse press
-                            self.focus = FocusIndex::Inner;
-                            env.damaged = true;
-                            self.send_to_main(event, env);
-                        }
-                        UIEvent::WindowResized(_) | UIEvent::Mouse(_) => {
-                            // forward without changing focus (otherwise hovering would steal focus)
-                            self.send_to_main(event, env);
-                        }
-                    }
-                }
-                FocusIndex::Inner => self.send_to_main(event, env),
-                FocusIndex::Child(child_index) => {
-                    self.children[child_index].handle_event(event, env);
-                }
-            },
-            StandardEvent::FocusChanged(..)
-            | StandardEvent::Highlighted(..)
-            | StandardEvent::CloseRequest => match self.focus {
-                // REVIEW: should focusing just auto go to inner?
-                FocusIndex::Focusing | FocusIndex::Inner => self.send_to_main(event, env),
-                FocusIndex::Child(child_index) => {
-                    self.children[child_index].handle_event(event, env);
-                }
-            },
-            // the tree's holder handles these
-            StandardEvent::DamageAck(_)
-            | StandardEvent::WlSurfaceRegistered { .. }
-            | StandardEvent::FocusWlSurface(_)
-            | StandardEvent::WlSurfaceDestroyed(_) => {}
+            };
+            id = parent;
         }
     }
 
     /// Focuses down to the node showing the surface.
-    ///
-    /// Returns whether it's in this tree.
-    pub fn focus_wl_surface(&mut self, surface_id: WlSurfaceId) -> bool {
-        let new_focus = if matches!(self.main, NodeMain::Wayland(id) if id == surface_id) {
-            FocusIndex::Inner
-        } else if let Some(child_index) = self
-            .children
-            .iter_mut()
-            .position(|child| child.focus_wl_surface(surface_id))
-        {
-            FocusIndex::Child(child_index)
-        } else {
-            return false;
+    pub fn focus_wl_surface(&mut self, surface_id: WlSurfaceId) {
+        let Some(&id) = self.wl_surfaces.get(&surface_id) else {
+            return;
         };
-        self.focus = new_focus;
-        true
-    }
+        self.nodes[id].focus = FocusIndex::Inner;
 
-    /// The node showing the surface
-    pub fn find_wl_surface(&self, surface_id: WlSurfaceId) -> Option<NodeId> {
-        if matches!(self.main, NodeMain::Wayland(id) if id == surface_id) {
-            return Some(self.id);
+        let mut child = id;
+        while let Some(parent) = self.nodes[child].parent {
+            let index = self.nodes[parent]
+                .children
+                .iter()
+                .position(|&id| id == child)
+                .unwrap();
+            self.nodes[parent].focus = FocusIndex::Child(index);
+            child = parent;
         }
-        self.children
-            .iter()
-            .find_map(|child| child.find_wl_surface(surface_id))
+        self.damaged = true;
     }
 
-    /// `None` while this node itself is focused (`Focusing`), since it takes the keys then
+    /// Follows focused children down to the node that is focusing or focused on its main
+    fn focused_node(&self) -> NodeId {
+        let mut id = self.root;
+        while let FocusIndex::Child(child_index) = self.nodes[id].focus {
+            id = self.nodes[id].children[child_index];
+        }
+        id
+    }
+
+    /// `None` while a node itself is focused (`Focusing`), since it takes the keys then
     pub fn focused_wl_surface(&self) -> Option<WlSurfaceId> {
-        match self.focus {
-            FocusIndex::Focusing => None,
-            FocusIndex::Inner => match self.main {
-                NodeMain::Wayland(surface_id) => Some(surface_id),
-                // TODO: wl surfaces inside an applet's inner tree
-                NodeMain::Applet(_) => None,
-            },
-            FocusIndex::Child(child_index) => self.children[child_index].focused_wl_surface(),
+        let id = self.focused_node();
+        if matches!(self.nodes[id].focus, FocusIndex::Focusing) {
+            return None;
+        }
+        // TODO: wl surfaces inside an applet's inner tree
+        self.wl_surfaces
+            .iter()
+            .find_map(|(&surface_id, &node_id)| (node_id == id).then_some(surface_id))
+    }
+
+    pub fn handle_event(&mut self, event: StandardEvent) {
+        if let StandardEvent::UIEvent(UIEvent::WindowResized(size)) = event {
+            // every applet is displayed at this size, not just the focused one
+            self.latest_size = Some(size);
+            for node in self.nodes.values() {
+                node.main
+                    .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+            }
+            return;
+        }
+
+        let id = self.focused_node();
+        let node = &mut self.nodes[id];
+        if matches!(node.focus, FocusIndex::Inner) {
+            node.main.send_event(event);
+            return;
+        }
+
+        // `Focusing`, so we can intercept
+        // REVIEW: should focusing just auto go to inner?
+        let StandardEvent::UIEvent(ui_event) = event else {
+            node.main.send_event(event);
+            return;
+        };
+        match &ui_event {
+            UIEvent::Key {
+                symbol,
+                pressed: true,
+                ..
+            } => {
+                if let Some(key) = symbol
+                    && let Some(key_char) = key.to_char()
+                    && let Some(operation) = WorldTreeTraversalOperation::from_char(key_char)
+                {
+                    self.change_focus(id, operation);
+                } else {
+                    // if key press not a traversal, then just set focus to inner and forward input
+                    node.focus = FocusIndex::Inner;
+                    node.main.send_event(event);
+                    self.damaged = true;
+                }
+            }
+            UIEvent::Key { pressed: false, .. } => {}
+            UIEvent::Mouse(MouseEvent {
+                kind: MouseEventKind::Button { pressed: true, .. },
+                ..
+            }) => {
+                // set focus to inner and forward mouse press
+                node.focus = FocusIndex::Inner;
+                node.main.send_event(event);
+                self.damaged = true;
+            }
+            UIEvent::WindowResized(_) | UIEvent::Mouse(_) => {
+                // forward without changing focus (otherwise hovering would steal focus)
+                node.main.send_event(event);
+            }
         }
     }
 
     /// The focused applet's window
-    pub fn get_window(&self) -> UITree {
-        match self.focus {
-            FocusIndex::Focusing | FocusIndex::Inner => match &self.main {
-                NodeMain::Applet(client) => client.get_surface(),
-                NodeMain::Wayland(surface_id) => {
-                    UITree::leaf(UIElement::Subsurface(surface_id.as_u64()))
-                }
-            },
-            FocusIndex::Child(child_index) => self.children[child_index].get_window(),
-        }
+    pub fn get_window(&self) -> sonamu_ui::ui_element::UITree {
+        self.nodes[self.focused_node()].main.get_surface()
     }
 
     pub fn get_treeview(&self) -> WorldTree<String> {
-        let main_treeview = match &self.main {
-            NodeMain::Applet(client) => client.get_treeview(),
-            // TODO: proper wl title
-            NodeMain::Wayland(_) => WorldTree::Base("Wl Surface".to_string()),
-        };
-        let mut raw_treeview = RecursiveTreeNode::from_value(main_treeview);
+        self.get_treeview_of(self.root)
+    }
 
-        for child in &self.children {
-            match child.get_treeview() {
+    fn get_treeview_of(&self, id: NodeId) -> WorldTree<String> {
+        let node = &self.nodes[id];
+        let mut raw_treeview = RecursiveTreeNode::from_value(node.main.get_treeview());
+
+        for &child in &node.children {
+            match self.get_treeview_of(child) {
                 WorldTree::World(recursive_tree_node) => {
                     raw_treeview.push_child_node(*recursive_tree_node);
                 }
@@ -458,7 +421,12 @@ impl RecursiveNode {
     }
 
     pub fn get_focus_path(&self) -> WorldTreePath {
-        match self.focus {
+        self.get_focus_path_of(self.root)
+    }
+
+    fn get_focus_path_of(&self, id: NodeId) -> WorldTreePath {
+        let node = &self.nodes[id];
+        match node.focus {
             FocusIndex::Focusing => WorldTreePath::new_into(),
             FocusIndex::Inner => {
                 // TODO: the focus path inside the main applet's inner tree; for now its root
@@ -469,7 +437,10 @@ impl RecursiveNode {
                 WorldTreePath(path_tail.into_boxed_slice())
             }
             FocusIndex::Child(child_index) => {
-                let mut path_tail = self.children[child_index].get_focus_path().0.to_vec();
+                let mut path_tail = self
+                    .get_focus_path_of(node.children[child_index])
+                    .0
+                    .to_vec();
 
                 if path_tail.is_empty() {
                     log::warn!("Warning: this shouldn't happen");

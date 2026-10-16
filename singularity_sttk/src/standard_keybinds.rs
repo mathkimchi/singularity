@@ -23,19 +23,13 @@ use crate::{
 /// TODO: have an enum or something more generic for a keybind system
 /// (could use abstraction similar to what I did with packets).
 pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &AppletContext) -> bool {
-    match standard_keybind_request(ui_event) {
-        Some(NodeRequest::AddChild(initializer)) => hook.add_child(initializer),
-        Some(NodeRequest::ChangeFocus(operation)) => hook.change_focus(operation),
-        Some(NodeRequest::Close) => hook.close(),
-        Some(NodeRequest::Standard(StandardRequest::Quit)) => hook.quit(),
-        Some(NodeRequest::Standard(_)) => unreachable!(),
-        None => return false,
-    }
-    true
+    standard_keybind_request(ui_event)
+        .map(|request| hook.request(request))
+        .is_some()
 }
 
 /// The request a standard keybind makes to the applet's node, if `ui_event` is one.
-/// Nodes use this directly for mains that aren't applets (wl surfaces).
+/// For applets that handle some keybinds differently (eg `WlSurfaceApplet`'s Ctrl+W).
 pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
     if let UIEvent::Key {
         symbol: Some(key),

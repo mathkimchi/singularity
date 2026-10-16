@@ -10294,3 +10294,15 @@ Standard tabs and SDE
 - Ported code_editor, image_viewer and one_char_render_test. Spawners no longer wrap applets in a node themselves.
 - singularity_sde passes CommandHubApplet::get_boxed_initiator() straight to the root.
 ```
+
+The purpose of it was to enable pluck and place, which I envisioned via transfering ownership.
+(This is relevant for plucking and placing certain elements (a part of the inner tree), if allowed.
+If an element is focused and the user tries to pluck, then the applet in charge of it
+can either return some child applet if applicable like an editor embedded within a file explorer,
+or none in which case the whole applet is picked up.
+Iow, it allows for pluck and place to happen recursively.)
+
+A big change in philosophy is that I have finally decided to make it so that
+an applet only controls/owns it's inner tree things (which, reminder, is it's own value in a world tree),
+and no longer owns and manages its children nodes.
+An applet can still request its owner to spawn children and stuff, but it is indirect.

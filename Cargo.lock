@@ -2927,6 +2927,7 @@ dependencies = [
  "log",
  "regex",
  "singularity_common",
+ "slotmap",
  "sonamu_ui",
 ]
 

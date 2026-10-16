@@ -15,7 +15,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub mod recursive_node_applet;
+pub mod node_tree;
 pub mod root_node_applet;
 
 // pub struct RootApplet<Applet: BasicApplet> {
@@ -99,7 +99,7 @@ pub struct AppletContext {
     applet_spawners: AppletSpawnerRegistry,
 }
 impl AppletContext {
-    fn request(&self, request: NodeRequest) {
+    pub fn request(&self, request: NodeRequest) {
         // the node may already be gone while closing
         let _ = self.request_sender.send(request);
     }

@@ -17,6 +17,7 @@ sonamu_ui = { workspace = true }
 # serde_json = { workspace = true }
 
 calloop = { workspace = true }
+slotmap = { workspace = true }
 
 log = { workspace = true }
 
