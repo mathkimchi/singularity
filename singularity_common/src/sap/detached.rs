@@ -3,7 +3,7 @@
 use crate::{
     sap::{
         client_handle::ClientHandle,
-        packets::{StandardEvent, WlSurfaceId},
+        packets::{StandardEvent, Treeview, WlSurfaceId},
         shared_state::SharedState,
     },
     utils::tree::{recursive_tree::RecursiveTreeNode, world_tree::WorldTree},
@@ -18,7 +18,7 @@ use std::any::Any;
 pub struct DetachedClient {
     pub(crate) event_queue: calloop::channel::Sender<StandardEvent>,
     pub(crate) surface: SharedState<UITree>,
-    pub(crate) treeview: SharedState<WorldTree<String>>,
+    pub(crate) treeview: SharedState<Treeview>,
     /// The client's `Channel<Request>`; type-erased so holders that can't name `Request` can still hold it
     pub(crate) requests: Box<dyn Any + Send>,
 }
@@ -49,7 +49,7 @@ impl DetachedClient {
 
     /// The last published treeview, without acking it
     pub fn peek_treeview(&self) -> WorldTree<String> {
-        self.treeview.get()
+        self.treeview.get().tree
     }
 }
 impl std::fmt::Debug for DetachedClient {
@@ -94,8 +94,6 @@ pub struct DetachedTree {
     pub layout: Layout,
     /// Set if `main` shows this wl surface
     pub wl_surface: Option<WlSurfaceId>,
-    /// A project: its subtree is viewed on its own while working in it
-    pub project: bool,
     pub children: Vec<Self>,
 }
 impl DetachedTree {
@@ -105,7 +103,6 @@ impl DetachedTree {
             main: Some(main),
             layout: Layout::Single,
             wl_surface: None,
-            project: false,
             children: Vec::new(),
         }
     }

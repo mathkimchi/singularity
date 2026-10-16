@@ -114,6 +114,23 @@ fn row_path(path: &WorldTreePath) -> WorldTreePath {
     WorldTreePath(path.into_boxed_slice())
 }
 
+/// The row showing the focus: its own row, or if that is hidden (inside a collapsed node), the row it is hidden in
+fn focused_row(rows: &[TreeviewRow], focus_path: &WorldTreePath) -> WorldTreePath {
+    let own = row_path(focus_path);
+    if rows.iter().any(|row| row.path == own) {
+        return own;
+    }
+    rows.iter()
+        .filter(|row| focus_path.0.starts_with(&row.path.0))
+        .max_by_key(|row| row.path.0.len())
+        .map_or(own, |row| row.path.clone())
+}
+
+/// Whether the focus path goes past its row, into the element's inner world (eg `[[2, 1], []]` is inside `[[2, 1]]`)
+fn is_inside_element(focus_path: &WorldTreePath) -> bool {
+    focus_path.0.len() > row_path(focus_path).0.len()
+}
+
 fn rect(color: Color, position: [f32; 2], size: [f32; 2]) -> UITree {
     UITree::leaf_styled(
         UIElement::Backgrounded(color),
@@ -224,9 +241,8 @@ impl TreeviewPointer {
     }
 
     pub fn render(&self, rows: &[TreeviewRow], width: f32, focus_path: &WorldTreePath) -> UITree {
-        let focused_row = row_path(focus_path);
-        // the focus path goes past the row into its applet
-        let focus_inner = focus_path.0.len() > focused_row.0.len();
+        let focused_row = focused_row(rows, focus_path);
+        let focus_inner = is_inside_element(focus_path);
         let dragging = self.press.as_ref().filter(|press| press.dragging);
 
         let children = rows

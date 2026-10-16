@@ -74,6 +74,14 @@ impl StandardApplet for WlSurfaceApplet {
         let _ = self.wl_event_queue.send((self.surface_id, wl_event));
     }
 
+    /// Asks the client; the tile closes once it destroys its toplevel
+    fn close_requested(&mut self) -> bool {
+        let _ = self
+            .wl_event_queue
+            .send((self.surface_id, WlSurfaceEvent::Close));
+        false
+    }
+
     fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
         UITree::leaf(UIElement::Subsurface(self.surface_id.as_u64()))
     }

@@ -1,12 +1,9 @@
 use calloop::channel::{Channel, Sender};
 use sonamu_ui::ui_element::UITree;
 
-use crate::{
-    sap::{
-        packets::{StandardEvent, StandardRequest},
-        shared_state::SharedState,
-    },
-    utils::tree::world_tree::WorldTree,
+use crate::sap::{
+    packets::{StandardEvent, StandardRequest, Treeview},
+    shared_state::SharedState,
 };
 
 /// Look at 2026-07-30 DEVLOG for initial creation
@@ -20,7 +17,7 @@ pub trait RawClientInitializer<Request = StandardRequest>: Send {
         // smth smth box needs to know size
         self: Box<Self>,
         surface: SharedState<UITree>,
-        treeview: SharedState<WorldTree<String>>,
+        treeview: SharedState<Treeview>,
         event_queue: Channel<StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
         // (I am really trying to convince myself this is fine, I am the strawman)

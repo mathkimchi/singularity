@@ -3,7 +3,7 @@
 use crate::{
     nodular_applet::{
         AppletContext, AppletSpawner, AppletSpawnerTrait, NodeRequest, NodularAppletInitializer,
-        StandardApplet,
+        StandardApplet, project_applet::ProjectApplet,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -33,7 +33,7 @@ add_child [applet] [args]  open an applet as a child (default: command_hub)
 run <program> [args]       start a program without waiting (eg a Wayland client)
 $ <program> [args]         run a program and show its output
 set_title <title>          rename this hub
-project [off]              make this hub's node a project (its own view root)
+project                    put this hub's node (and under it) in a project; Ctrl+W on the project undoes it
 test <name>                image, wl, editor, text_editor or char
 addition <numbers>         add up numbers
 clear                      clear the history
@@ -242,19 +242,14 @@ impl CommandHubApplet {
             )),
 
             "project" => {
-                let project = match args.first() {
-                    None => true,
-                    Some(&"off") => false,
-                    Some(arg) => {
-                        return Err(format!("Unknown argument `{arg}`; try `project off`."));
-                    }
-                };
-                self.hook.request(NodeRequest::SetProject(project));
-                Ok(if project {
-                    "This node is a project: while focus is in it, only it is shown.".to_string()
-                } else {
-                    "This node isn't a project anymore.".to_string()
-                })
+                if let Some(arg) = args.first() {
+                    return Err(format!(
+                        "Unknown argument `{arg}`; Ctrl+W on the project's node undoes it."
+                    ));
+                }
+                self.hook
+                    .request(NodeRequest::Wrap(ProjectApplet::wrapper()));
+                Ok("This node and everything under it are a project now.".to_string())
             }
 
             "clear" => {
@@ -522,7 +517,10 @@ impl StandardApplet for CommandHubApplet {
             // nothing to ask about first
             StandardEvent::CloseRequest => self.hook.close(),
             // handled by the applet's client
-            StandardEvent::DamageAck(_) | StandardEvent::Pluck(_) | StandardEvent::Place(..) => {}
+            StandardEvent::DamageAck(_)
+            | StandardEvent::Pluck(_)
+            | StandardEvent::Place(..)
+            | StandardEvent::Focus(_) => {}
             // doesn't show wl surfaces (only the root gets these)
             StandardEvent::WlSurfaceRegistered { .. }
             | StandardEvent::FocusWlSurface(_)

@@ -6,7 +6,7 @@ use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
 
 use crate::{
     command_hub::CommandHubApplet,
-    nodular_applet::{AppletContext, NodeRequest},
+    nodular_applet::{AppletContext, NodeRequest, project_applet::ProjectApplet},
 };
 
 /// Handle the standard keybinds like:
@@ -14,6 +14,7 @@ use crate::{
 /// - `Ctrl+W` - Close tab
 /// - `Ctrl+Shift+Plus` - Add child
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
+/// - `Super+P` - Put the node in a project
 /// - `Alt+<traversal key>` - traversal
 ///
 /// Returns whether or not the keypress was used.
@@ -42,6 +43,16 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
     {
         // Ctrl+Shift+Q -> Quit
         Some(StandardRequest::Quit.into())
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers: KeyModifiers { logo: true, .. },
+        pressed: true,
+        ..
+    } = &ui_event
+        && matches!(key.to_char(), Some('p' | 'P'))
+    {
+        // Super+P -> put the node and everything under it in a project
+        Some(NodeRequest::Wrap(ProjectApplet::wrapper()))
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::CTRL,

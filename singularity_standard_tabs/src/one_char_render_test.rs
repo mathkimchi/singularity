@@ -53,7 +53,10 @@ impl StandardApplet for OneCharRenderTestApplet {
             // nothing to ask about first
             StandardEvent::CloseRequest => self.1.close(),
             // handled by the applet's client
-            StandardEvent::DamageAck(_) | StandardEvent::Pluck(_) | StandardEvent::Place(..) => {}
+            StandardEvent::DamageAck(_)
+            | StandardEvent::Pluck(_)
+            | StandardEvent::Place(..)
+            | StandardEvent::Focus(_) => {}
             // doesn't show wl surfaces (only the root gets these)
             StandardEvent::WlSurfaceRegistered { .. } | StandardEvent::FocusWlSurface(_) => {}
             StandardEvent::WlSurfaceDestroyed(_) => {}

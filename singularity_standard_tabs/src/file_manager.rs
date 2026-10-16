@@ -10,23 +10,23 @@ use singularity_common::{
     },
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
-        tree_node_path::TreeNodePath,
+        tree_node_path::{TreeNodePath, TreeTraverseOperation},
         world_tree::{WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation},
     },
 };
 use singularity_sttk::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
-        AppletContext, AppletSpawner, AppletSpawnerTrait, EmbeddedId, NodeRequest,
+        Answer, AppletContext, AppletSpawner, AppletSpawnerTrait, EmbeddedId, NodeRequest,
         NodularAppletInitializer, StandardApplet,
     },
-    standard_keybinds::handle_standard_keybinds,
+    standard_keybinds::{handle_standard_keybinds, standard_keybind_request},
 };
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
     ui_element::{FONT_SIZE_F, Style, UIElement, UITree},
-    ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
+    ui_event::{KeyModifiers, KeySymbol, KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
     collections::HashSet,
@@ -56,6 +56,14 @@ enum Pane {
     Document,
 }
 
+/// An element of its inner tree, selected in its own treeview selector
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Selected {
+    /// The file manager itself (its inner root)
+    Root,
+    Document(usize),
+}
+
 /// A visible row of the file tree
 struct Entry {
     path: PathBuf,
@@ -83,6 +91,8 @@ pub struct FileManagerApplet {
     documents: Vec<Document>,
     active: Option<usize>,
     pane: Pane,
+    /// `Some` while selecting an element of its inner tree (traversing), rather than taking input in `pane`
+    selecting: Option<Selected>,
     /// Shown instead of the header until the next key (eg a file that can't be opened)
     status: Option<String>,
 
@@ -100,6 +110,7 @@ impl CreatableNodularApplet<PathBuf> for FileManagerApplet {
             documents: Vec::new(),
             active: None,
             pane: Pane::Files,
+            selecting: None,
             status: None,
             // until the node sends a size
             size: DisplayContainerSize::new(800, 600),
@@ -272,23 +283,139 @@ impl FileManagerApplet {
 
     fn set_active(&mut self, active: Option<usize>) {
         if let Some(document) = self.active_document() {
-            document.handle.send_event(StandardEvent::FocusChanged(false));
+            document
+                .handle
+                .send_event(StandardEvent::FocusChanged(false));
         }
         self.active = active;
         self.send_document_focus();
     }
 
+    /// Takes input in the pane (leaving its selector)
     fn set_pane(&mut self, pane: Pane) {
-        self.pane = if self.active.is_some() { pane } else { Pane::Files };
+        self.selecting = None;
+        self.pane = if self.active.is_some() {
+            pane
+        } else {
+            Pane::Files
+        };
         self.send_document_focus();
     }
 
     /// Tells the active document whether it has the keys
     fn send_document_focus(&self) {
         if let Some(document) = self.active_document() {
-            document
-                .handle
-                .send_event(StandardEvent::FocusChanged(self.pane == Pane::Document));
+            document.handle.send_event(StandardEvent::FocusChanged(
+                self.pane == Pane::Document && self.selecting.is_none(),
+            ));
+        }
+        // the focus path changed
+        self.hook.damage_treeview();
+    }
+
+    /// Starts or stops selecting in its own selector
+    fn set_selecting(&mut self, selecting: Option<Selected>) {
+        if let Some(Selected::Document(index)) = selecting {
+            self.set_active(Some(index));
+        }
+        self.selecting = selecting;
+        self.send_document_focus();
+        self.hook.damage_window();
+    }
+
+    /// Enter: takes input in the selected element (the file list, or a document)
+    fn confirm(&mut self, selected: Selected) {
+        self.selecting = None;
+        match selected {
+            Selected::Root => self.set_pane(Pane::Files),
+            Selected::Document(index) => {
+                self.set_active(Some(index));
+                self.set_pane(Pane::Document);
+            }
+        }
+    }
+
+    /// A key in its own selector: traversal of its inner tree (the root, then one document per child)
+    fn handle_selector_key(&mut self, selected: Selected, key: KeySymbol, ui_event: UIEvent) {
+        // on the selected element: a document closes here, the rest is the file manager's node's
+        if let Some(request) = standard_keybind_request(&ui_event) {
+            match (selected, request) {
+                (Selected::Document(index), NodeRequest::Close) => {
+                    self.remove_document(index);
+                    self.set_selecting(Some(Selected::Root));
+                }
+                (_, request) => self.hook.request(request),
+            }
+            return;
+        }
+        if matches!(key, KeySymbol::Enter) {
+            self.confirm(selected);
+            return;
+        }
+        // documents have no inner trees to collapse
+        if matches!(key, KeySymbol::Char(' ')) {
+            return;
+        }
+        let Some(operation) = key
+            .to_char()
+            .and_then(WorldTreeTraversalOperation::from_char)
+        else {
+            // any other key goes into the selected element
+            self.confirm(selected);
+            self.handle_key(ui_event);
+            return;
+        };
+
+        let last = self.documents.len().checked_sub(1);
+        match (selected, operation) {
+            // out of its inner tree, to its node
+            (
+                Selected::Root,
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Parent),
+            )
+            | (
+                _,
+                WorldTreeTraversalOperation::PrevLayer | WorldTreeTraversalOperation::GlobalRoot,
+            ) => {
+                self.selecting = None;
+                self.hook.change_focus(operation);
+            }
+            (
+                Selected::Document(_),
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Parent),
+            ) => self.set_selecting(Some(Selected::Root)),
+            (Selected::Root, WorldTreeTraversalOperation::NextLayer) => self.confirm(selected),
+            // into the document's inner tree, at its root
+            (Selected::Document(index), WorldTreeTraversalOperation::NextLayer) => {
+                self.confirm(selected);
+                self.documents[index]
+                    .handle
+                    .send_event(StandardEvent::Focus(WorldTreePath::new_into()));
+            }
+            (
+                Selected::Root,
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Child(index)),
+            ) if index < self.documents.len() => {
+                self.set_selecting(Some(Selected::Document(index)));
+            }
+            (
+                Selected::Root,
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::LastChild),
+            ) => {
+                if let Some(last) = last {
+                    self.set_selecting(Some(Selected::Document(last)));
+                }
+            }
+            (
+                Selected::Document(index),
+                WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::RelShiftSibling(
+                    shift,
+                )),
+            ) => {
+                let index = index.saturating_add_signed(shift).min(last.unwrap_or(0));
+                self.set_selecting(Some(Selected::Document(index)));
+            }
+            _ => {}
         }
     }
 
@@ -297,6 +424,18 @@ impl FileManagerApplet {
     }
 
     fn handle_key(&mut self, ui_event: UIEvent) {
+        if let Some(selected) = self.selecting {
+            // releases, and modifiers on their own, stay in the selector
+            if let UIEvent::Key {
+                symbol: Some(key),
+                pressed: true,
+                ..
+            } = ui_event
+            {
+                self.handle_selector_key(selected, key, ui_event);
+            }
+            return;
+        }
         let UIEvent::Key {
             symbol: Some(key),
             modifiers,
@@ -330,6 +469,13 @@ impl FileManagerApplet {
                 }
             }
             Pane::Files => {
+                // eg Alt+q: out of the file list, to its own selector
+                if let Some(NodeRequest::ChangeFocus(WorldTreeTraversalOperation::PrevLayer)) =
+                    standard_keybind_request(&ui_event)
+                {
+                    self.set_selecting(Some(Selected::Root));
+                    return;
+                }
                 if handle_standard_keybinds(&ui_event, &self.hook) {
                     return;
                 }
@@ -467,7 +613,7 @@ impl FileManagerApplet {
                 .iter()
                 .enumerate()
                 .map(|(index, document)| {
-                    let name = document.handle.get_treeview().get_root_value().clone();
+                    let name = document.handle.get_treeview().tree.get_root_value().clone();
                     let color = if Some(index) == self.active {
                         ACTIVE_TEXT
                     } else {
@@ -545,40 +691,81 @@ impl StandardApplet for FileManagerApplet {
             WorldTree::Base(self.title()),
             self.documents
                 .iter()
-                .map(|document| RecursiveTreeNode::from_value(document.handle.get_treeview()))
+                .map(|document| RecursiveTreeNode::from_value(document.handle.get_treeview().tree))
                 .collect(),
         )))
     }
 
-    /// A document (with everything inside it), or the active one if `path` is the root
-    fn pluck(&mut self, path: &WorldTreePath) -> Option<DetachedTree> {
+    /// On the selected element while selecting; otherwise inside the active document while the document pane has
+    /// the keys, or inside the file manager itself (the file list)
+    fn get_focus_path(&self) -> WorldTreePath {
+        match (self.selecting, self.active_document()) {
+            (Some(Selected::Document(index)), _) => {
+                WorldTreePath(Box::new([TreeNodePath(vec![index])]))
+            }
+            (None, Some(document)) if self.pane == Pane::Document => document_path(
+                self.active.expect("has an active document"),
+                document.handle.get_treeview().focus,
+            ),
+            _ => WorldTreePath::new_into(),
+        }
+    }
+
+    fn is_traversing(&self) -> bool {
+        self.selecting.is_some()
+    }
+
+    /// Selects the root (`[[]]`, eg `e` into it) or a document (`[[i]]`), or goes inside a document for longer paths
+    fn focus(&mut self, path: &WorldTreePath) {
+        match path.0.split_first() {
+            Some((node_path, inner))
+                if node_path.0.len() == 1 && node_path.0[0] < self.documents.len() =>
+            {
+                let index = node_path.0[0];
+                if inner.is_empty() {
+                    self.set_selecting(Some(Selected::Document(index)));
+                } else {
+                    self.confirm(Selected::Document(index));
+                    self.documents[index]
+                        .handle
+                        .send_event(StandardEvent::Focus(WorldTreePath(inner.into())));
+                }
+            }
+            _ => self.set_selecting(Some(Selected::Root)),
+        }
+        self.hook.damage_window();
+        self.hook.damage_treeview();
+    }
+
+    /// A document (with everything inside it); the root plucks the file manager itself
+    fn pluck(&mut self, path: &WorldTreePath) -> Answer<Option<DetachedTree>> {
         let index = match path.0.first().map(|node_path| node_path.0.as_slice()) {
-            // the root: means "at the focus" (eg Alt+P)
-            Some([]) | None => self.active.filter(|_| self.pane == Pane::Document)?,
             Some([index, ..]) if *index < self.documents.len() => *index,
-            Some(_) => return None,
+            _ => return Answer::Now(None),
         };
         let document = self.remove_document(index);
         self.hook.damage_window();
-        Some(DetachedTree::leaf(document.handle.detach()))
+        Answer::Now(Some(DetachedTree::leaf(document.handle.detach())))
     }
 
     /// Becomes a document; trees with children or wl surfaces are given back
-    fn place(&mut self, _path: &WorldTreePath, tree: DetachedTree) -> Result<(), DetachedTree> {
+    fn place(
+        &mut self,
+        _path: &WorldTreePath,
+        tree: DetachedTree,
+    ) -> Answer<Result<(), DetachedTree>> {
         // TODO: wl surfaces inside inner trees; children of documents
         if tree.main.is_none() || tree.wl_surface.is_some() || !tree.children.is_empty() {
-            return Err(tree);
+            return Answer::Now(Err(tree));
         }
-        let (id, handle) = self
-            .hook
-            .embed_detached(tree.main.expect("checked above"));
+        let (id, handle) = self.hook.embed_detached(tree.main.expect("checked above"));
         self.add_document(Document {
             id,
             handle,
             file: None,
         });
         self.hook.damage_window();
-        Ok(())
+        Answer::Now(Ok(()))
     }
 
     fn handle_embedded_request(&mut self, id: EmbeddedId, request: NodeRequest) {
@@ -596,17 +783,20 @@ impl StandardApplet for FileManagerApplet {
                 StandardRequest::RequestPlace(document_path(index, path)).into(),
             ),
             NodeRequest::Standard(_) => return,
-            // documents can't hold children, split or be projects here, so this node does
+            // documents can't hold children, split, be wrapped or hold wl surfaces here, so this node does
             request @ (NodeRequest::AddChild(_)
             | NodeRequest::Split { .. }
-            | NodeRequest::SetProject(_)) => {
+            | NodeRequest::Wrap(_)
+            | NodeRequest::AddWlSurface { .. }) => {
                 self.hook.request(request);
             }
-            // eg Alt+q: back to the file list
-            NodeRequest::ChangeFocus(WorldTreeTraversalOperation::PrevLayer) => {
-                self.set_pane(Pane::Files);
-            }
-            NodeRequest::ChangeFocus(_) => return,
+            // eg Alt+q: out of the document, to it in the selector
+            NodeRequest::ChangeFocus(
+                WorldTreeTraversalOperation::PrevLayer
+                | WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Parent),
+            ) => self.set_selecting(Some(Selected::Document(index))),
+            // TODO: a placed project dissolving here loses its contents (they'd need to be the node's children)
+            NodeRequest::ChangeFocus(_) | NodeRequest::Unwrap(_) => return,
             NodeRequest::Close => {
                 // dropping the handle ends it
                 self.remove_document(index);

@@ -1,7 +1,7 @@
 //! THROWAWAY headless harness: drives the root like sar would.
 use singularity_common::sap::{
     detached::DetachedTree,
-    packets::{StandardEvent, StandardRequest, StateKind},
+    packets::{StandardEvent, StandardRequest, StateKind, Treeview},
     shared_state::SharedState,
 };
 use singularity_common::utils::tree::world_tree::WorldTree;
@@ -46,7 +46,7 @@ fn main() {
     let init = RootNodeApplet::get_initializer(root_init, registry);
 
     let surface = SharedState::new(StateKind::Surface, UITree::leaf(UIElement::Nothing));
-    let treeview = SharedState::new(StateKind::Treeview, WorldTree::new_base(String::new()));
+    let treeview = SharedState::new(StateKind::Treeview, Treeview::new(WorldTree::new_base(String::new())));
     let (ev_tx, ev_rx) = calloop::channel::channel();
     let (req_tx, req_rx) = calloop::channel::channel::<StandardRequest>();
     {
@@ -129,6 +129,19 @@ fn main() {
                     })
                     .unwrap();
             }
+            // the last wl toplevel is destroyed
+            "wlx" => server
+                .events
+                .send(StandardEvent::WlSurfaceDestroyed(
+                    singularity_common::sap::packets::WlSurfaceId::from_u64(
+                        (1 << 32) | wl_queues.len() as u64,
+                    ),
+                ))
+                .unwrap(),
+            s if s.starts_with("focus:") => server
+                .events
+                .send(StandardEvent::Focus(parse_path(&s[6..])))
+                .unwrap(),
             // `~` is a space
             s if s.starts_with("type:") => {
                 for c in s[5..].chars() {
@@ -169,7 +182,8 @@ fn main() {
                         .unwrap();
                 }
             }
-            _ => send(&server, key(symbol.unwrap(), mods)),
+            // a name with no symbol (eg `shift`) is a modifier on its own
+            _ => send(&server, UIEvent::Key { symbol, modifiers: mods, raw_keycode: 0, pressed: true }),
         }
         pump(&mut event_loop, &mut server);
         show(&mut server, &step);
@@ -211,6 +225,7 @@ fn parse(arg: &str) -> (String, Option<KeySymbol>, KeyModifiers) {
         "pgup" => Some(KeySymbol::PageUp),
         "pgdn" => Some(KeySymbol::PageDown),
         "space" => Some(KeySymbol::Char(' ')),
+        "plus" => Some(KeySymbol::Char('+')),
         "down" => Some(KeySymbol::ArrowKeyDown),
         "up" => Some(KeySymbol::ArrowKeyUp),
         "enter" => Some(KeySymbol::Enter),

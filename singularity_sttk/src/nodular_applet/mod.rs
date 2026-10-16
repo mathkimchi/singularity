@@ -5,7 +5,9 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree},
-        packets::{StandardEvent, StandardRequest, StateKind},
+        packets::{
+            StandardEvent, StandardRequest, StateKind, Treeview, WlSurfaceEvent, WlSurfaceId,
+        },
         raw_client_initializer::RawClientInitializer,
         shared_state::{SharedState, StatePublisher},
     },
@@ -21,7 +23,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+pub mod node_holder;
 pub mod node_tree;
+pub mod project_applet;
 pub mod root_node_applet;
 mod treeview;
 
@@ -52,21 +56,55 @@ pub trait StandardApplet {
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree;
 
     /// The applet's inner tree; its node shows it as is.
-    ///
-    /// TODO: also publish the focus path inside it, and let focus cross into it.
-    /// For now the node assumes the inner tree's root is focused.
     fn get_treeview(&self) -> WorldTree<String>;
 
+    /// Where focus is in the inner tree (see `Treeview::focus`); published with the treeview,
+    /// so call `AppletContext::damage_treeview` when it changes
+    fn get_focus_path(&self) -> WorldTreePath {
+        WorldTreePath::new_into()
+    }
+
+    /// Whether it is selecting an element of its inner tree (its own treeview selector, so the root shows the treeview),
+    /// rather than taking input; published with the treeview
+    fn is_traversing(&self) -> bool {
+        false
+    }
+
+    /// Puts focus at the element at `path` (in the inner tree), eg it was clicked in the root's treeview
+    /// or `e` went into this applet (`[[]]`, its inner root)
+    fn focus(&mut self, _path: &WorldTreePath) {}
+
     /// Takes the closest pluckable element at `path` (in the inner tree) out of the applet.
-    /// `None` makes its node pluck itself, with the applet and its children.
-    fn pluck(&mut self, _path: &WorldTreePath) -> Option<DetachedTree> {
-        None
+    /// `Now(None)` makes its node pluck itself, with the applet and its children.
+    /// `Later`: the applet answers itself with `StandardRequest::Plucked` (eg after asking an applet inside it).
+    fn pluck(&mut self, _path: &WorldTreePath) -> Answer<Option<DetachedTree>> {
+        Answer::Now(None)
     }
 
     /// Takes ownership of `tree` at `path` (in the inner tree).
-    /// `Err` gives it back, and the node adds it as its last child.
-    fn place(&mut self, _path: &WorldTreePath, tree: DetachedTree) -> Result<(), DetachedTree> {
-        Err(tree)
+    /// `Now(Err)` gives it back, and the node adds it as its last child.
+    /// `Later`: the applet answers itself with `StandardRequest::Placed`.
+    fn place(
+        &mut self,
+        _path: &WorldTreePath,
+        tree: DetachedTree,
+    ) -> Answer<Result<(), DetachedTree>> {
+        Answer::Now(Err(tree))
+    }
+
+    /// Its node was asked to close it (eg Ctrl+W on its node in the treeview).
+    /// Returns whether it closes now; it may refuse, or close later.
+    fn close_requested(&mut self) -> bool {
+        true
+    }
+
+    /// A new wl surface while focus is inside this applet. `Err` gives it back, and its node gets it as a child.
+    fn take_wl_surface(
+        &mut self,
+        surface_id: WlSurfaceId,
+        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    ) -> Result<(), (WlSurfaceId, Sender<(WlSurfaceId, WlSurfaceEvent)>)> {
+        Err((surface_id, wl_event_queue))
     }
 
     /// A request from an applet this applet embedded (`AppletContext::embed`)
@@ -74,6 +112,15 @@ pub trait StandardApplet {
 
     /// Called on the applet's thread after an `AppletWaker` woke it (eg a worker thread finished)
     fn wake(&mut self) {}
+
+    /// Called after each batch of events, before the applet's state is published
+    fn update(&mut self) {}
+}
+
+/// An answer to a request, now or sent later by the applet itself
+pub enum Answer<T> {
+    Now(T),
+    Later,
 }
 
 /// Wakes an applet from another thread (`StandardApplet::wake`); from `AppletContext::waker`
@@ -125,9 +172,20 @@ pub enum NodeRequest {
         axis: Axis,
         new_pane: NodularAppletInitializer,
     },
-    /// Makes the applet's node a project (its subtree is viewed on its own while focus is in it), or not
-    SetProject(bool),
+    /// Replaces the applet's node and everything under it with a node whose applet is made from them
+    /// (eg a project holding them as its inner tree)
+    Wrap(WrapInitializer),
+    /// Replaces the applet's node with `tree`, ending the applet (eg a project's contents, when it dissolves)
+    Unwrap(DetachedTree),
+    /// A wl surface the applet didn't take (`StandardApplet::take_wl_surface`), as a child of its node
+    AddWlSurface {
+        surface_id: WlSurfaceId,
+        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    },
 }
+
+/// Makes an applet from a detached subtree (`NodeRequest::Wrap`)
+pub type WrapInitializer = Box<dyn FnOnce(DetachedTree) -> NodularAppletInitializer + Send>;
 impl From<StandardRequest> for NodeRequest {
     fn from(request: StandardRequest) -> Self {
         Self::Standard(request)
@@ -237,7 +295,7 @@ pub struct AppletState {
     applet: Box<dyn StandardApplet>,
     size: DisplayContainerSize,
     surface: StatePublisher<UITree>,
-    treeview: StatePublisher<WorldTree<String>>,
+    treeview: StatePublisher<Treeview>,
     request_sender: Sender<NodeRequest>,
     loop_signal: LoopSignal,
 }
@@ -251,7 +309,7 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
     fn init(
         self: Box<Self>,
         surface: SharedState<UITree>,
-        treeview: SharedState<WorldTree<String>>,
+        treeview: SharedState<Treeview>,
         event_queue: calloop::channel::Channel<StandardEvent>,
         request_sender: Sender<NodeRequest>,
     ) {
@@ -267,20 +325,43 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 calloop::channel::Event::Msg(StandardEvent::DamageAck(StateKind::Treeview)) => {
                     state.treeview.ack();
                 }
-                // TODO: `None` should be the focus path inside the inner tree; for now its root
+                // `None`: at the focus
                 calloop::channel::Event::Msg(StandardEvent::Pluck(path)) => {
-                    let path = path.unwrap_or_else(WorldTreePath::new_into);
-                    let plucked = state.applet.pluck(&path);
-                    let _ = state
-                        .request_sender
-                        .send(StandardRequest::Plucked(plucked).into());
+                    let path = path.unwrap_or_else(|| state.applet.get_focus_path());
+                    if let Answer::Now(plucked) = state.applet.pluck(&path) {
+                        let _ = state
+                            .request_sender
+                            .send(StandardRequest::Plucked(plucked).into());
+                    }
                 }
                 calloop::channel::Event::Msg(StandardEvent::Place(path, tree)) => {
-                    let path = path.unwrap_or_else(WorldTreePath::new_into);
-                    let given_back = state.applet.place(&path, tree).err();
-                    let _ = state
-                        .request_sender
-                        .send(StandardRequest::Placed(given_back).into());
+                    let path = path.unwrap_or_else(|| state.applet.get_focus_path());
+                    if let Answer::Now(placed) = state.applet.place(&path, tree) {
+                        let _ = state
+                            .request_sender
+                            .send(StandardRequest::Placed(placed.err()).into());
+                    }
+                }
+                calloop::channel::Event::Msg(StandardEvent::Focus(path)) => {
+                    state.applet.focus(&path);
+                }
+                calloop::channel::Event::Msg(StandardEvent::CloseRequest) => {
+                    if state.applet.close_requested() {
+                        let _ = state.request_sender.send(NodeRequest::Close);
+                    }
+                }
+                calloop::channel::Event::Msg(StandardEvent::WlSurfaceRegistered {
+                    surface_id,
+                    wl_event_queue,
+                }) => {
+                    if let Err((surface_id, wl_event_queue)) =
+                        state.applet.take_wl_surface(surface_id, wl_event_queue)
+                    {
+                        let _ = state.request_sender.send(NodeRequest::AddWlSurface {
+                            surface_id,
+                            wl_event_queue,
+                        });
+                    }
                 }
                 calloop::channel::Event::Msg(event) => {
                     if let StandardEvent::UIEvent(UIEvent::WindowResized(size)) = event {
@@ -335,13 +416,19 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
         // after each batch of events, so multiple damages become one publish
         event_loop
             .run(None, &mut state, |state| {
+                state.applet.update();
                 state.surface.flush(
                     || state.applet.get_window_standard_applet(state.size),
                     &state.request_sender,
                 );
-                state
-                    .treeview
-                    .flush(|| state.applet.get_treeview(), &state.request_sender);
+                state.treeview.flush(
+                    || Treeview {
+                        tree: state.applet.get_treeview(),
+                        focus: state.applet.get_focus_path(),
+                        traversing: state.applet.is_traversing(),
+                    },
+                    &state.request_sender,
+                );
             })
             .unwrap();
     }

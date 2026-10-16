@@ -1,4 +1,7 @@
-use crate::{sap::detached::DetachedTree, utils::tree::world_tree::WorldTreePath};
+use crate::{
+    sap::detached::DetachedTree,
+    utils::tree::world_tree::{WorldTree, WorldTreePath},
+};
 use slotmap::KeyData;
 use sonamu_ui::{
     display_units::DisplayContainerSize,
@@ -11,6 +14,28 @@ pub enum StateKind {
     /// Currently the whole surface
     Surface,
     Treeview,
+}
+
+/// A client's inner tree and where focus is in it, published as `StateKind::Treeview`
+#[derive(Clone)]
+pub struct Treeview {
+    pub tree: WorldTree<String>,
+    /// A path of `tree`. Each path after the first goes into the inner world of the node the previous one ends at,
+    /// so focus is "inside" a node when the path goes past it (eg `[[2, 1], []]` is inside `[[2, 1]]`, at its inner root).
+    pub focus: WorldTreePath,
+    /// The client is selecting a node in its tree (eg a project's own treeview selector),
+    /// rather than taking input itself
+    pub traversing: bool,
+}
+impl Treeview {
+    /// Focus inside the root, not traversing
+    pub fn new(tree: WorldTree<String>) -> Self {
+        Self {
+            tree,
+            focus: WorldTreePath::new_into(),
+            traversing: false,
+        }
+    }
 }
 
 /// Client to server
@@ -78,6 +103,8 @@ pub enum StandardEvent {
     /// Take ownership of the tree at this path (`None`: at its focus),
     /// and answer with `StandardRequest::Placed`
     Place(Option<WorldTreePath>, DetachedTree),
+    /// Focus the element at this path of the client's treeview (eg it was clicked in the root's treeview)
+    Focus(WorldTreePath),
 }
 
 /// Wl surface applet to compositor

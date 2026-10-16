@@ -1,7 +1,7 @@
 use crate::{
     sap::{
         detached::DetachedClient,
-        packets::{StandardEvent, StateKind},
+        packets::{StandardEvent, StateKind, Treeview},
         raw_client_initializer::RawClientInitializer,
         shared_state::SharedState,
     },
@@ -17,7 +17,7 @@ use std::{any::Any, thread};
 pub struct ClientHandle {
     event_queue: calloop::channel::Sender<StandardEvent>,
     surface: SharedState<UITree>,
-    treeview: SharedState<WorldTree<String>>,
+    treeview: SharedState<Treeview>,
     /// Takes the request channel back out of the holder's loop
     detach_requests: Box<dyn FnOnce() -> Box<dyn Any + Send>>,
 }
@@ -30,7 +30,10 @@ impl ClientHandle {
         on_request: impl FnMut(Request, &mut Data) + 'static,
     ) -> Self {
         let surface = SharedState::new(StateKind::Surface, UITree::leaf(UIElement::Nothing));
-        let treeview = SharedState::new(StateKind::Treeview, WorldTree::new_base(String::new()));
+        let treeview = SharedState::new(
+            StateKind::Treeview,
+            Treeview::new(WorldTree::new_base(String::new())),
+        );
         let (event_tx, event_rx) = calloop::channel::channel();
         let (request_tx, request_rx) = calloop::channel::channel();
 
@@ -56,7 +59,7 @@ impl ClientHandle {
     pub(crate) fn attach<Request: Send + 'static, Data: 'static>(
         event_queue: calloop::channel::Sender<StandardEvent>,
         surface: SharedState<UITree>,
-        treeview: SharedState<WorldTree<String>>,
+        treeview: SharedState<Treeview>,
         requests: Channel<Request>,
         event_loop: &LoopHandle<'static, Data>,
         mut on_request: impl FnMut(Request, &mut Data) + 'static,
@@ -111,7 +114,7 @@ impl ClientHandle {
         self.get_and_ack(&self.surface)
     }
 
-    pub fn get_treeview(&self) -> WorldTree<String> {
+    pub fn get_treeview(&self) -> Treeview {
         self.get_and_ack(&self.treeview)
     }
 

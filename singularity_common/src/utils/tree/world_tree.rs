@@ -3,6 +3,11 @@ use crate::utils::tree::{recursive_tree::RecursiveTreeNode, tree_node_path::Tree
 pub mod world_tree_traversal;
 
 // pub struct WorldTreePath(Vec<TreeNodePath>);
+/// One `TreeNodePath` per world: the first picks a node of the outermost world,
+/// and each next one picks a node of the inner world (the value) of the node before it.
+///
+/// So a path is "inside" a node when it goes past it: `[[2, 1]]` is on node `[2, 1]`,
+/// `[[2, 1], []]` is inside it at its inner world's root, and `[[2, 1], [0]]` is inside it at that root's first child.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldTreePath(pub Box<[TreeNodePath]>);
 impl WorldTreePath {

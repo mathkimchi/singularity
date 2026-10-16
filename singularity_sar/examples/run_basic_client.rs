@@ -2,13 +2,10 @@
 //! as well as code to actually run it
 
 use calloop::{EventLoop, channel::Sender};
-use singularity_common::{
-    sap::{
-        packets::{StandardEvent, StandardRequest, StateKind},
-        raw_client_initializer::RawClientInitializer,
-        shared_state::{SharedState, StatePublisher},
-    },
-    utils::tree::world_tree::WorldTree,
+use singularity_common::sap::{
+    packets::{StandardEvent, StandardRequest, StateKind, Treeview},
+    raw_client_initializer::RawClientInitializer,
+    shared_state::{SharedState, StatePublisher},
 };
 use singularity_sar::runner::AppletRunner;
 use sonamu_ui::{
@@ -53,7 +50,7 @@ impl RawClientInitializer for BasicInitializer {
         self: Box<Self>,
         content: SharedState<UITree>,
         // this client has no treeview
-        _treeview: SharedState<WorldTree<String>>,
+        _treeview: SharedState<Treeview>,
         event_queue: calloop::channel::Channel<StandardEvent>,
         // yeah, ik the naming is inconsistent bc I'm not saying "event_receiver" or "event_rx", but it's calm
         // (I am really trying to convince myself this is fine, I am the strawman)
