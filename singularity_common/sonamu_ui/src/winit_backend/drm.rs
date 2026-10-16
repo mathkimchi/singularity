@@ -31,7 +31,7 @@ use smithay::{
     input::keyboard::{Keycode, Keysym, xkb},
     reexports::{
         drm::control::{Device as _, ModeTypeFlags, connector},
-        input::Libinput,
+        input::{DeviceCapability, Libinput},
         rustix::fs::OFlags,
     },
     utils::DeviceFd,
@@ -47,6 +47,8 @@ const REPEAT_DELAY: Duration = Duration::from_millis(600);
 const REPEAT_INTERVAL: Duration = Duration::from_millis(40);
 /// px per wheel notch, like the winit backend
 const SCROLL_PER_NOTCH: f64 = 15.0;
+/// Reversed ("natural") scrolling on touchpads: content follows the fingers
+const NATURAL_SCROLL: bool = true;
 /// Size of the fallback box, when the cursor theme has no image
 const CURSOR_SIZE: [u32; 2] = [12, 18];
 
@@ -450,6 +452,14 @@ impl DrmDisplay {
 
     fn handle_input(&mut self, event: InputEvent<LibinputInputBackend>) {
         match event {
+            InputEvent::DeviceAdded { mut device } => {
+                // touchpads only (they have gestures), so mouse wheels keep the usual direction
+                if device.has_capability(DeviceCapability::Gesture)
+                    && device.config_scroll_has_natural_scroll()
+                {
+                    let _ = device.config_scroll_set_natural_scroll_enabled(NATURAL_SCROLL);
+                }
+            }
             InputEvent::Keyboard { event } => {
                 self.handle_key(event.key_code(), event.state() == KeyState::Pressed);
             }

@@ -10463,3 +10463,6 @@ The first thing I'll fix is the cursor is just a rectangle and that I want to fi
 
 Ok, it fixed the cursor and I can just test it in a new TTY
 (I was afraid multiple sonamu via TTY would crash, but of course Claude mitigated that).
+
+I'm also going to stop saying "(claude) ..." for the commits,
+that will be the new default.
