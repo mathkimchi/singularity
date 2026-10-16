@@ -849,6 +849,13 @@ impl NodeTree {
     /// Changes focus from the perspective of the node,
     /// passing the operation on to its ancestors as needed (past the root: `take_escaped`).
     pub fn change_focus(&mut self, id: NodeId, operation: WorldTreeTraversalOperation) {
+        if let WorldTreeTraversalOperation::Layerwise(
+            op @ (TreeTraverseOperation::BfsPrev | TreeTraverseOperation::BfsNext),
+        ) = operation
+        {
+            self.focus_next_in_order(id, matches!(op, TreeTraverseOperation::BfsNext));
+            return;
+        }
         let mut id = id;
         let mut operation = Some(operation);
         while let Some(current_operation) = operation
@@ -878,6 +885,32 @@ impl NodeTree {
             };
             id = parent;
         }
+    }
+
+    /// Focuses the node after (or before) `from` in depth-first order of the shown subtree, wrapping around.
+    /// Lands inside the node's main if it has one, else on the node.
+    fn focus_next_in_order(&mut self, from: NodeId, forward: bool) {
+        let mut order = Vec::new();
+        let mut stack = vec![self.view_root];
+        while let Some(id) = stack.pop() {
+            order.push(id);
+            stack.extend(self.nodes[id].children.iter().rev());
+        }
+        let Some(position) = order.iter().position(|&id| id == from) else {
+            return;
+        };
+        let len = order.len();
+        let target = order[(position + if forward { 1 } else { len - 1 }) % len];
+        self.focus_node(target);
+        let node = &mut self.nodes[target];
+        match &node.main {
+            Some(main) => {
+                node.focus = FocusIndex::Inner;
+                main.send_event(StandardEvent::Focus(WorldTreePath::new_into()));
+            }
+            None => node.focus = FocusIndex::Focusing,
+        }
+        self.damaged = true;
     }
 
     /// Focuses down to the node showing the surface.

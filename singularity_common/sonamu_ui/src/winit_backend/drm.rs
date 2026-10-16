@@ -608,6 +608,7 @@ fn key_symbol(keysym: Keysym) -> Option<KeySymbol> {
         Keysym::Page_Up => KeySymbol::PageUp,
         Keysym::BackSpace => KeySymbol::Backspace,
         Keysym::Escape => KeySymbol::Escape,
+        Keysym::Tab | Keysym::ISO_Left_Tab => KeySymbol::Char('\t'),
         _ => KeySymbol::Char(keysym.key_char()?),
     })
 }

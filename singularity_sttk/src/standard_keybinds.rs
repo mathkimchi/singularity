@@ -1,6 +1,9 @@
 use singularity_common::{
     sap::{detached::Axis, packets::StandardRequest},
-    utils::tree::world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+    utils::tree::{
+        tree_node_path::TreeTraverseOperation,
+        world_tree::world_tree_traversal::WorldTreeTraversalOperation,
+    },
 };
 use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
 
@@ -119,6 +122,25 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         // NOTE: this might interfere with applets that have its own hierarchy
         Some(NodeRequest::ChangeFocus(
             WorldTreeTraversalOperation::PrevLayer,
+        ))
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers,
+        pressed: true,
+        ..
+    } = &ui_event
+        && modifiers.alt
+        && !modifiers.ctrl
+        && !modifiers.logo
+        && key.to_char() == Some('\t')
+    {
+        // Alt+Tab / Alt+Shift+Tab -> next / prev node in tree order
+        Some(NodeRequest::ChangeFocus(
+            WorldTreeTraversalOperation::Layerwise(if modifiers.shift {
+                TreeTraverseOperation::BfsPrev
+            } else {
+                TreeTraverseOperation::BfsNext
+            }),
         ))
     } else {
         None
