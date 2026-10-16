@@ -11,7 +11,8 @@ use crate::{
 
 /// Handle the standard keybinds like:
 /// - `Ctrl+Shift+Q` - Quit
-/// - `Ctrl+W` - Close tab
+/// - `Super+W` - Close tab
+/// - `Super+T` / `Super+N` - Start alacritty / firefox
 /// - `Ctrl+Shift+Plus` - Add child
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Super+P` - Put the node in a project
@@ -31,7 +32,7 @@ pub fn handle_standard_keybinds(ui_event: &UIEvent, hook: &AppletContext) -> boo
 }
 
 /// The request a standard keybind makes to the applet's node, if `ui_event` is one.
-/// For applets that handle some keybinds differently (eg `WlSurfaceApplet`'s Ctrl+W).
+/// For applets that handle some keybinds differently (eg `WlSurfaceApplet`'s Super+W).
 pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
     if let UIEvent::Key {
         symbol: Some(key),
@@ -55,14 +56,28 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         Some(NodeRequest::Wrap(ProjectApplet::wrapper()))
     } else if let UIEvent::Key {
         symbol: Some(key),
-        modifiers: KeyModifiers::CTRL,
+        modifiers: KeyModifiers { logo: true, .. },
         pressed: true,
         ..
     } = &ui_event
         && key.to_char() == Some('w')
     {
-        // Ctrl+W -> close this tab, its children move to the parent
+        // Super+W -> close this tab, its children move to the parent
         Some(NodeRequest::Close)
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers: KeyModifiers { logo: true, .. },
+        pressed: true,
+        ..
+    } = &ui_event
+        && let Some(program) = match key.to_char() {
+            Some('t') => Some("alacritty"),
+            Some('n') => Some("firefox"),
+            _ => None,
+        }
+    {
+        // Super+T / Super+N -> start alacritty / firefox
+        Some(NodeRequest::Run(program))
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers: KeyModifiers::CTRL_SHIFT,

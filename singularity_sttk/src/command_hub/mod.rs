@@ -632,7 +632,7 @@ fn test_command(test: &str) -> Option<&'static [&'static str]> {
 }
 
 /// A process for `program`, connected to Sonamu if it's a wl client
-fn program_command(program: &str, args: &[&str]) -> std::process::Command {
+pub(crate) fn program_command(program: &str, args: &[&str]) -> std::process::Command {
     let mut command = std::process::Command::new(program);
     command.args(args);
     if let Some(socket) = std::env::var_os("SONAMU_WAYLAND_DISPLAY") {

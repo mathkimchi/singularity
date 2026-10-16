@@ -286,6 +286,11 @@ impl NodeHolder {
             NodeRequest::Wrap(_) if self.project && id == self.tree.root() => {}
             NodeRequest::Wrap(wrapper) => self.to_wrap = Some((id, wrapper)),
             NodeRequest::Unwrap(tree) => self.tree.unwrap(id, tree),
+            NodeRequest::Run(program) => {
+                if let Err(err) = crate::command_hub::program_command(program, &[]).spawn() {
+                    log::warn!("Failed to start {program}: {err}");
+                }
+            }
             NodeRequest::AddWlSurface {
                 surface_id,
                 wl_event_queue,
