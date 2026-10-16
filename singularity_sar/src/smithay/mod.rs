@@ -70,8 +70,8 @@ use smithay::{
         },
         security_context::SecurityContext,
         shell::xdg::{
-            PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface, XdgShellHandler,
-            XdgShellState,
+            PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface,
+            XdgShellHandler, XdgShellState, XdgToplevelSurfaceData,
             decoration::{XdgDecorationHandler, XdgDecorationState},
         },
         shm::{ShmHandler, ShmState},
@@ -1238,6 +1238,29 @@ impl XdgShellHandler for AppletRunner {
             });
 
         println!("New toplevel surface registered");
+    }
+
+    fn title_changed(&mut self, surface: ToplevelSurface) {
+        let wl_surface = surface.wl_surface();
+        let Some(surface_id) = self
+            .smithay_state
+            .surfaces
+            .iter()
+            .find_map(|(id, registered)| (registered == wl_surface).then_some(id))
+        else {
+            return;
+        };
+        let title = with_states(wl_surface, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|data| data.lock().unwrap().title.clone())
+        });
+        if let Some(title) = title {
+            // a plucked tile has no applet to tell
+            self.root_client
+                .send_event(StandardEvent::WlSurfaceTitle(surface_id, title));
+        }
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {

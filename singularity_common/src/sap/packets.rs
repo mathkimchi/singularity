@@ -97,6 +97,8 @@ pub enum StandardEvent {
     /// The surface's toplevel is gone (eg the client disconnected); its applet should close.
     /// Sent from the root down like `FocusWlSurface`.
     WlSurfaceDestroyed(WlSurfaceId),
+    /// The surface's toplevel title changed. Sent from the root down like `FocusWlSurface`.
+    WlSurfaceTitle(WlSurfaceId, String),
     /// Take out the closest pluckable element at this path of the client's treeview
     /// (`None`: at its focus), and answer with `StandardRequest::Plucked`
     Pluck(Option<WorldTreePath>),

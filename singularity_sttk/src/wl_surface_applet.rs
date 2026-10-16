@@ -21,6 +21,8 @@ pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,
     wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
     hook: AppletContext,
+    /// The toplevel's title, empty until the client sets one
+    title: String,
 }
 impl
     CreatableNodularApplet<(
@@ -39,13 +41,20 @@ impl
             surface_id,
             wl_event_queue,
             hook,
+            title: String::new(),
         }
     }
 }
 impl StandardApplet for WlSurfaceApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
-        let StandardEvent::UIEvent(ui_event) = standard_event else {
-            return;
+        let ui_event = match standard_event {
+            StandardEvent::UIEvent(ui_event) => ui_event,
+            StandardEvent::WlSurfaceTitle(_, title) => {
+                self.title = title;
+                self.hook.damage_treeview();
+                return;
+            }
+            _ => return,
         };
 
         let wl_event = match standard_keybind_request(&ui_event) {
@@ -87,7 +96,10 @@ impl StandardApplet for WlSurfaceApplet {
     }
 
     fn get_treeview(&self) -> WorldTree<String> {
-        // TODO: proper wl title
-        WorldTree::Base("Wl Surface".to_string())
+        WorldTree::Base(if self.title.is_empty() {
+            "Wl Surface".to_string()
+        } else {
+            self.title.clone()
+        })
     }
 }

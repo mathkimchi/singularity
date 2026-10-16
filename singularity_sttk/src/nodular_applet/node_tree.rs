@@ -837,6 +837,15 @@ impl NodeTree {
             .is_some_and(|id| self.close(id))
     }
 
+    /// Tells the node showing the surface its new title; `false` if no node here shows it
+    pub fn set_wl_surface_title(&mut self, surface_id: WlSurfaceId, title: String) -> bool {
+        let Some(&id) = self.wl_surfaces.get(&surface_id) else {
+            return false;
+        };
+        self.send_event(id, StandardEvent::WlSurfaceTitle(surface_id, title));
+        true
+    }
+
     /// Changes focus from the perspective of the node,
     /// passing the operation on to its ancestors as needed (past the root: `take_escaped`).
     pub fn change_focus(&mut self, id: NodeId, operation: WorldTreeTraversalOperation) {

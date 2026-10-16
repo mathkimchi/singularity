@@ -247,6 +247,9 @@ impl RootNodeApplet {
             StandardEvent::WlSurfaceDestroyed(surface_id) => {
                 self.holder.close_wl_surface(surface_id);
             }
+            StandardEvent::WlSurfaceTitle(surface_id, title) => {
+                self.holder.set_wl_surface_title(surface_id, title);
+            }
             StandardEvent::Pluck(path) => self.holder.start_pluck(path.as_ref()),
             StandardEvent::Place(path, tree) => {
                 let path = path.map(|path| self.redirect_drop(path));
