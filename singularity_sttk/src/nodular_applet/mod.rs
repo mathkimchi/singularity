@@ -27,6 +27,7 @@ pub mod node_holder;
 pub mod node_tree;
 pub mod project_applet;
 pub mod root_node_applet;
+mod status_bar;
 mod treeview;
 
 // pub struct RootApplet<Applet: BasicApplet> {
