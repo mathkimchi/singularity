@@ -4,7 +4,6 @@ use crate::{
         AppletSpawner, NodeRequest, NodularAppletInitializer,
         node_holder::{NodeHolder, client_spawners},
         node_tree::{NodeId, NodeTree},
-        status_bar::{self, STATUS_BAR_HEIGHT},
         treeview::{TreeviewAction, TreeviewPointer, TreeviewRow, treeview_rows},
     },
     session,
@@ -52,12 +51,6 @@ pub struct RootNodeApplet {
     help: Option<OpenHelp>,
     /// See `TREEVIEW_ONLY_WHILE_TRAVERSING`
     treeview_shown: bool,
-    /// Shown in the strip at the top, above the treeview and the tree
-    status_text: String,
-    /// A wl client is capturing the screen (eg recording)
-    capturing: bool,
-    /// The bar's `REC`, which flashes while capturing
-    rec_shown: bool,
     /// Where the session is saved, if anywhere
     session_path: Option<PathBuf>,
     /// The last one written, so unchanged ones aren't written again
@@ -93,7 +86,7 @@ impl RootNodeApplet {
     fn inner_applet_size(&self) -> DisplayContainerSize {
         DisplayContainerSize::new(
             self.latest_size.width - self.treeview_width(),
-            self.latest_size.height.saturating_sub(STATUS_BAR_HEIGHT),
+            self.latest_size.height,
         )
     }
 
@@ -120,20 +113,10 @@ impl RootNodeApplet {
         let Self {
             holder,
             treeview_pointer,
-            status_text,
-            rec_shown,
             ..
         } = self;
         self.surface.flush(
-            || {
-                Self::get_window(
-                    &holder.tree,
-                    treeview_pointer,
-                    treeview_width,
-                    status_text,
-                    *rec_shown,
-                )
-            },
+            || Self::get_window(&holder.tree, treeview_pointer, treeview_width),
             &self.request_sender,
         );
     }
@@ -212,9 +195,6 @@ impl RootNodeApplet {
             help: None,
             // the root node starts focused
             treeview_shown: true,
-            status_text: String::new(),
-            capturing: false,
-            rec_shown: false,
             session_path,
             saved_session,
         }
@@ -256,33 +236,6 @@ impl RootNodeApplet {
                     })
                     .unwrap();
 
-                let (status_sender, status_receiver) = calloop::channel::channel();
-                event_loop
-                    .handle()
-                    .insert_source(
-                        status_receiver,
-                        |event, &mut (), root: &mut RootNodeApplet| {
-                            if let calloop::channel::Event::Msg(text) = event {
-                                root.status_text = text;
-                                root.surface.damage();
-                            }
-                        },
-                    )
-                    .unwrap();
-                status_bar::spawn_ticker(status_sender);
-                event_loop
-                    .handle()
-                    .insert_source(
-                        Timer::from_duration(status_bar::REC_FLASH),
-                        |_, &mut (), root: &mut RootNodeApplet| {
-                            if root.capturing {
-                                root.rec_shown = !root.rec_shown;
-                                root.surface.damage();
-                            }
-                            TimeoutAction::ToDuration(status_bar::REC_FLASH)
-                        },
-                    )
-                    .unwrap();
                 event_loop
                     .handle()
                     .insert_source(
@@ -366,11 +319,7 @@ impl RootNodeApplet {
                 self.holder.start_place(path.as_ref(), tree);
             }
             StandardEvent::Focus(path) => self.holder.focus(&path),
-            StandardEvent::Capturing(capturing) => {
-                self.capturing = capturing;
-                self.rec_shown = capturing;
-                self.surface.damage();
-            }
+            StandardEvent::Capturing(_) => {}
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
                 modifiers: KeyModifiers { logo: true, .. },
@@ -426,12 +375,6 @@ impl RootNodeApplet {
     fn handle_mouse(&mut self, mut mouse_event: MouseEvent) {
         // 0 while the treeview is hidden
         let left = self.treeview_width();
-        // the bar is above everything else
-        let top = f64::from(STATUS_BAR_HEIGHT);
-        if mouse_event.position[1] < top {
-            return;
-        }
-        mouse_event.position[1] -= top;
         let in_treeview = mouse_event.position[0] < f64::from(left);
         // a hidden treeview has no rows to hit
         let rows = if self.treeview_shown {
@@ -510,26 +453,12 @@ impl RootNodeApplet {
         treeview_pointer: &TreeviewPointer,
         // 0 while hidden
         treeview_width: u32,
-        status_text: &str,
-        rec_shown: bool,
     ) -> UITree {
-        let content = if treeview_width == 0 {
+        if treeview_width == 0 {
             tree.get_window()
         } else {
             Self::get_window_with_treeview(tree, treeview_pointer, treeview_width)
-        };
-        UITree::new_container_styled(
-            sonamu_ui::ui_element::Style {
-                display: sonamu_ui::ui_element::Display::Grid,
-                grid_template_columns: vec![TrackSize::Fr(1.0)],
-                grid_template_rows: vec![
-                    TrackSize::Px(STATUS_BAR_HEIGHT as f32),
-                    TrackSize::Fr(1.0),
-                ],
-                ..sonamu_ui::ui_element::Style::full_size()
-            },
-            vec![status_bar::render(status_text, rec_shown), content],
-        )
+        }
     }
 
     fn get_window_with_treeview(
