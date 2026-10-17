@@ -49,7 +49,7 @@ pub trait TraversableTree {
     }
 }
 
-pub const TREE_TRAVERSE_KEYS: &[char] = &[
+pub const TREE_TRAVERSE_KEYS: [char; 16] = [
     'w', 'a', 's', 'd', 'q', 'e', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 ];
 

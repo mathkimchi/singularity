@@ -1,4 +1,5 @@
 mod capture;
+mod layer_shell;
 
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
@@ -71,6 +72,7 @@ use smithay::{
             },
         },
         security_context::SecurityContext,
+        shell::wlr_layer::{LayerSurface, WlrLayerShellState},
         shell::xdg::{
             PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface,
             XdgShellHandler, XdgShellState, XdgToplevelSurfaceData,
@@ -121,6 +123,7 @@ pub struct SmithayState {
     // smithay state
     compositor_state: CompositorState,
     xdg_shell_state: XdgShellState,
+    layer_shell_state: WlrLayerShellState,
     shm_state: ShmState,
     seat_state: SeatState<AppletRunner>,
     _output_manager_state: OutputManagerState,
@@ -163,6 +166,12 @@ pub struct SmithayState {
     // _main_client: Option<Client>,
     // surface: Option<WlSurface>,
     surfaces: SlotMap<WlSurfaceId, WlSurface>,
+    /// Layer surfaces that have committed (outside `surfaces` and the node tree)
+    layer_surfaces: Vec<LayerSurface>,
+    /// From the last `arrange_layers`, topmost layer first
+    layer_placements: Vec<layer_shell::LayerPlacement>,
+    /// Output minus the exclusive zones, in logical units: where the root's content goes
+    usable_area: Rectangle<i32, Logical>,
     /// Toplevels not yet told to the root: they are on their first commit, once they have set their app id
     unregistered: Vec<WlSurfaceId>,
     // image: Arc<Mutex<Option<RgbaImage>>>,
@@ -265,7 +274,11 @@ impl SmithayState {
         if let Some((icon, _)) = self.dnd_icon.as_ref().filter(|(icon, _)| icon.is_alive()) {
             send_frames_surface_tree(icon, &presentation);
         }
-        for root in self.surfaces.values() {
+        for root in self
+            .surfaces
+            .values()
+            .chain(self.layer_surfaces.iter().map(LayerSurface::wl_surface))
+        {
             send_frames_surface_tree(root, &presentation);
             for (popup, _) in PopupManager::popups_for_surface(root) {
                 send_frames_surface_tree(popup.wl_surface(), &presentation);
@@ -324,7 +337,11 @@ impl SmithayState {
             }
         }
 
-        for root in self.surfaces.values() {
+        for root in self
+            .surfaces
+            .values()
+            .chain(self.layer_surfaces.iter().map(LayerSurface::wl_surface))
+        {
             self.send_scale(root);
             for (popup, _) in PopupManager::popups_for_surface(root) {
                 self.send_scale(popup.wl_surface());
@@ -437,6 +454,7 @@ impl SmithayState {
 
         let compositor_state = CompositorState::new::<AppletRunner>(&display_handle);
         let xdg_shell_state = XdgShellState::new::<AppletRunner>(&display_handle);
+        let layer_shell_state = Self::new_layer_shell_state(&display_handle);
         let shm_state = ShmState::new::<AppletRunner>(&display_handle, Vec::new());
         let mut seat_state = SeatState::new();
 
@@ -537,6 +555,7 @@ impl SmithayState {
             display_handle,
             compositor_state,
             xdg_shell_state,
+            layer_shell_state,
             shm_state,
             seat_state,
             _output_manager_state: output_manager_state,
@@ -568,6 +587,9 @@ impl SmithayState {
             socket_name,
             surfaces: SlotMap::with_key(),
             unregistered: Vec::new(),
+            layer_surfaces: Vec::new(),
+            layer_placements: Vec::new(),
+            usable_area: Rectangle::default(),
             wl_event_queue,
         }
     }
@@ -817,7 +839,21 @@ impl SmithayState {
         // popups may leave it
         let clip = window_geometry(surface).map(|geometry| Rectangle::from_size(geometry.size));
 
-        let textures: Vec<_> = layers
+        let textures = self.layers_to_textures(layers, clip, device, queue);
+
+        (!textures.is_empty())
+            .then(|| UITree::new(UIElement::Nothing, textures).with_cursor(cursor))
+    }
+
+    /// Imports the layers into absolutely placed textures; the root's layers are cut to `clip`
+    fn layers_to_textures(
+        &self,
+        layers: Vec<Layer>,
+        clip: Option<Rectangle<i32, Logical>>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Vec<UITree> {
+        layers
             .into_iter()
             .filter_map(|mut layer| {
                 if let Some(clip) = clip.filter(|_| layer.in_root_tree)
@@ -845,10 +881,7 @@ impl SmithayState {
                     ),
                 ))
             })
-            .collect();
-
-        (!textures.is_empty())
-            .then(|| UITree::new(UIElement::Nothing, textures).with_cursor(cursor))
+            .collect()
     }
 
     /// The client's cursor if the pointer is over one of `layers` (one toplevel's surfaces)
@@ -1268,6 +1301,7 @@ impl CompositorHandler for AppletRunner {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
         self.register_toplevel(surface);
+        self.layer_surface_committed(surface);
 
         // covers new subsurfaces, popups and cursors; does nothing if already sent
         self.smithay_state.send_scale(surface);

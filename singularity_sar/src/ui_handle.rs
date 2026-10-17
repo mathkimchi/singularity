@@ -58,7 +58,8 @@ impl UIHandle {
                     DisplayNotification::Presented => runner.smithay_state.frame_presented(),
                     DisplayNotification::Info(info) => {
                         runner.smithay_state.set_display_info(info);
-                        runner.needs_redraw = true;
+                        // the scale changes the logical size of the layer surfaces
+                        runner.relayout();
                     }
                     DisplayNotification::Ime(ime) => runner.smithay_state.ime_input(&ime),
                     DisplayNotification::RelativeMotion(delta) => {
