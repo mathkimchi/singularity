@@ -21,7 +21,7 @@ use smithay::{
     backend::{
         drm::{DrmDeviceFd, DrmNode},
         input::{
-            AbsolutePositionEvent, Axis, ButtonState, InputEvent, KeyState, KeyboardKeyEvent,
+            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event as _, InputEvent, KeyState, KeyboardKeyEvent,
             PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
         },
         libinput::{LibinputInputBackend, LibinputSessionInterface},
@@ -443,10 +443,12 @@ impl DrmDisplay {
         let _ = self.event_queue.send(event);
     }
 
-    fn send_mouse(&self, kind: MouseEventKind) {
+    /// `time_msec` is the libinput event's, since events may be handled in batches (eg after a draw)
+    fn send_mouse(&self, kind: MouseEventKind, time_msec: u32) {
         self.send(UIEvent::Mouse(MouseEvent {
             position: self.pointer,
             kind,
+            time_msec: Some(time_msec),
         }));
     }
 
@@ -473,7 +475,7 @@ impl DrmDisplay {
                     self.pointer =
                         self.clamp_to_screen([self.pointer[0] + delta.x, self.pointer[1] + delta.y]);
                     self.needs_draw = true;
-                    self.send_mouse(MouseEventKind::Motion);
+                    self.send_mouse(MouseEventKind::Motion, event.time_msec());
                 }
             }
             InputEvent::PointerMotionAbsolute { event } => {
@@ -482,12 +484,15 @@ impl DrmDisplay {
                 );
                 self.pointer = self.clamp_to_screen([position.x, position.y]);
                 self.needs_draw = true;
-                self.send_mouse(MouseEventKind::Motion);
+                self.send_mouse(MouseEventKind::Motion, event.time_msec());
             }
-            InputEvent::PointerButton { event } => self.send_mouse(MouseEventKind::Button {
-                button: event.button_code(),
-                pressed: event.state() == ButtonState::Pressed,
-            }),
+            InputEvent::PointerButton { event } => self.send_mouse(
+                MouseEventKind::Button {
+                    button: event.button_code(),
+                    pressed: event.state() == ButtonState::Pressed,
+                },
+                event.time_msec(),
+            ),
             InputEvent::PointerAxis { event } => {
                 let axis_delta = |axis| {
                     // wheels give notches, touchpads give px
@@ -498,11 +503,19 @@ impl DrmDisplay {
                 };
                 let (x, x_v120) = axis_delta(Axis::Horizontal);
                 let (y, y_v120) = axis_delta(Axis::Vertical);
-                self.send_mouse(MouseEventKind::Scroll {
-                    delta: [x, y],
-                    v120: (x_v120.is_some() || y_v120.is_some())
-                        .then(|| [x_v120.unwrap_or(0), y_v120.unwrap_or(0)]),
-                });
+                // like niri: libinput ends a finger scroll with an explicit 0 on that axis
+                let stop = |axis| {
+                    event.source() == AxisSource::Finger && event.amount(axis) == Some(0.0)
+                };
+                self.send_mouse(
+                    MouseEventKind::Scroll {
+                        delta: [x, y],
+                        v120: (x_v120.is_some() || y_v120.is_some())
+                            .then(|| [x_v120.unwrap_or(0), y_v120.unwrap_or(0)]),
+                        stop: [stop(Axis::Horizontal), stop(Axis::Vertical)],
+                    },
+                    event.time_msec(),
+                );
             }
             _ => {}
         }

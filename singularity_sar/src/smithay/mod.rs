@@ -411,6 +411,11 @@ impl SmithayState {
         );
     }
 
+    /// Input event time in CLOCK_MONOTONIC ms, the same clock as libinput's (like niri)
+    fn now_msec(&self) -> u32 {
+        Duration::from(self.clock.now()).as_millis() as u32
+    }
+
     /// Px in the Sonamu window to the logical units wl clients use
     fn to_logical(&self, size: DisplayContainerSize) -> Size<i32, Logical> {
         Size::<f64, Physical>::from((f64::from(size.width), f64::from(size.height)))
@@ -613,25 +618,37 @@ impl SmithayState {
                             });
                             toplevel.send_configure();
                         }
-                        WlSurfaceEvent::Mouse(MouseEvent { position, kind }) => {
+                        WlSurfaceEvent::Mouse(MouseEvent {
+                            position,
+                            kind,
+                            time_msec,
+                        }) => {
                             let pointer = state.smithay_state.seat.get_pointer().unwrap();
-                            let time = state.smithay_state.start_time.elapsed().as_millis() as u32;
+                            let time =
+                                time_msec.unwrap_or_else(|| state.smithay_state.now_msec());
 
                             // Motion first so the pointer is focused on the surface under it.
                             // `position` is already relative to the tile, which is where the root is drawn
                             let location = Point::<f64, Physical>::from((position[0], position[1]))
                                 .to_logical(state.smithay_state.scale);
                             let focus = SmithayState::surface_under(&target_surface, location);
+                            // like niri, only real motion reaches clients (not one before every button/scroll)
+                            let moved = kind == MouseEventKind::Motion
+                                || pointer.current_location() != location
+                                || pointer.current_focus().as_ref()
+                                    != focus.as_ref().map(|(surface, _)| surface);
                             state.smithay_state.pointer_focus.clone_from(&focus);
-                            pointer.motion(
-                                state,
-                                focus,
-                                &MotionEvent {
-                                    location,
-                                    serial: SERIAL_COUNTER.next_serial(),
-                                    time,
-                                },
-                            );
+                            if moved {
+                                pointer.motion(
+                                    state,
+                                    focus,
+                                    &MotionEvent {
+                                        location,
+                                        serial: SERIAL_COUNTER.next_serial(),
+                                        time,
+                                    },
+                                );
+                            }
                             state.smithay_state.maybe_activate_pointer_constraint();
                             match kind {
                                 MouseEventKind::Motion => {}
@@ -653,6 +670,7 @@ impl SmithayState {
                                 MouseEventKind::Scroll {
                                     delta: [dx, dy],
                                     v120,
+                                    stop: [stop_x, stop_y],
                                 } => {
                                     let mut frame = AxisFrame::new(time).source(if v120.is_some() {
                                         AxisSource::Wheel
@@ -664,6 +682,13 @@ impl SmithayState {
                                     }
                                     if dy != 0. {
                                         frame = frame.value(Axis::Vertical, dy);
+                                    }
+                                    // without these, eg Firefox never ends its touchpad pan gesture
+                                    if stop_x {
+                                        frame = frame.stop(Axis::Horizontal);
+                                    }
+                                    if stop_y {
+                                        frame = frame.stop(Axis::Vertical);
                                     }
                                     if let Some([h, v]) = v120 {
                                         frame = frame
@@ -1139,12 +1164,8 @@ impl AppletRunner {
             self,
             Keycode::new(keycode),
             key_state,
-            // dk bro
-            Serial::from(42),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u32,
+            SERIAL_COUNTER.next_serial(),
+            self.smithay_state.now_msec(),
             |_, _, _| FilterResult::Forward,
         );
     }
@@ -1581,7 +1602,7 @@ impl AppletRunner {
                         &MotionEvent {
                             location,
                             serial: SERIAL_COUNTER.next_serial(),
-                            time: self.smithay_state.start_time.elapsed().as_millis() as u32,
+                            time: self.smithay_state.now_msec(),
                         },
                     );
                     pointer.frame(self);
@@ -1628,7 +1649,7 @@ impl AppletRunner {
                 delta,
                 // winit's delta is raw, so both are the same
                 delta_unaccel: delta,
-                utime: self.smithay_state.start_time.elapsed().as_micros() as u64,
+                utime: Duration::from(self.smithay_state.clock.now()).as_micros() as u64,
             },
         );
         pointer.frame(self);

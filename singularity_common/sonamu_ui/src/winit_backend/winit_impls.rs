@@ -221,10 +221,12 @@ impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
                         // 15px per notch, like most compositors
                         delta: [f64::from(-x) * 15., f64::from(-y) * 15.],
                         v120: Some([(-x * 120.) as i32, (-y * 120.) as i32]),
+                        stop: [false; 2],
                     },
                     winit::event::MouseScrollDelta::PixelDelta(pos) => MouseEventKind::Scroll {
                         delta: [-pos.x, -pos.y],
                         v120: None,
+                        stop: [false; 2],
                     },
                 };
                 Self::send_mouse_event(&self.event_queue, self.cursor_position, kind);
@@ -310,6 +312,7 @@ impl UIDisplay {
             .send(UIEvent::Mouse(MouseEvent {
                 position: cursor_position,
                 kind,
+                time_msec: None,
             }))
             .unwrap();
     }

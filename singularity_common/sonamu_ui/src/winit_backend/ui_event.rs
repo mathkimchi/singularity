@@ -25,6 +25,9 @@ pub struct MouseEvent {
     /// Cursor position in physical pixels, relative to the window
     pub position: [f64; 2],
     pub kind: MouseEventKind,
+    /// When the device produced it, in CLOCK_MONOTONIC ms (eg from libinput).
+    /// Clients use it for scroll velocity, so it matters when events get handled in batches.
+    pub time_msec: Option<u32>,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MouseEventKind {
@@ -33,9 +36,11 @@ pub enum MouseEventKind {
     Button { button: u32, pressed: bool },
     /// Positive scrolls down/right (Wayland convention).
     /// `v120` is set for discrete (wheel) scrolling, in 1/120ths of a notch.
+    /// `stop` is set per axis when the fingers lift (touchpad), so clients can end the gesture / start kinetic scrolling.
     Scroll {
         delta: [f64; 2],
         v120: Option<[i32; 2]>,
+        stop: [bool; 2],
     },
 }
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

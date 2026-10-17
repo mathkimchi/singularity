@@ -73,6 +73,17 @@ Choices made while finishing the non-major Wayland features (and small bug fixes
 - Like niri for tiled windows, toplevels get `TiledLeft/Right/Top/Bottom`, so GTK etc. drop shadows and rounded corners.
 - The root's surface tree is clipped to the window geometry (niri's opt-in `clip-to-geometry`, always on here, since tiles have no gaps). Popups aren't clipped. Meant to fix a 1px line left of Firefox (unverified guess: GTK3 Adwaita draws tiled windows with a 1px border box-shadow just outside the geometry). Hit testing isn't clipped.
 
+## Touchpad scroll stop (#58)
+
+- Like niri: on udev, a libinput finger scroll with an explicit `0` on an axis is the fingers lifting; it's sent as `MouseEventKind::Scroll { stop }` and becomes `wl_pointer.axis_stop`. Firefox treats touchpad scrolls as pan gestures that need it.
+- That alone didn't fix Firefox. A WAYLAND_DEBUG log showed axis events bunched 2-3 per identical timestamp, every ~15-20 ms: the drm loop draws synchronously between event batches, and the compositor stamped events when it handled them. Firefox derives pan velocity from those times.
+- Like niri: `MouseEvent::time_msec` carries libinput's event time; the compositor's own times (keys, synthesized motion, relative motion, winit events) are now CLOCK_MONOTONIC (`SmithayState::now_msec`) so they share libinput's clock. Previously keys used UNIX time and the pointer used time since start.
+- Likely the real cause of "touchpad doesn't move at all": Firefox's `nsWindow::GetEventTimeStamp` assumes Wayland event times are CLOCK_MONOTONIC ms, and touchpad scrolls become APZ pan gestures stamped with it (wheel scrolls take a path that doesn't). Our old time-since-start made every pan look about as old as the machine's uptime.
+- Also like niri: a `wl_pointer.motion` is only sent for real motion (moved, or focus changed), not before every button/scroll.
+- Key events used the constant serial 42; they now take `SERIAL_COUNTER.next_serial()`.
+- Still open: the drm loop batching input between synchronous draws adds up to a frame of latency.
+- Not done: the winit backend always sends `stop: [false; 2]` (winit's `TouchPhase::Ended` could map to it). The axis source is still guessed from `v120` instead of libinput's `source()`.
+
 ## Pointer lock end
 
 - New `DisplayRequest::WarpPointer` (winit `set_cursor_position`). `cursor_position_hint` is converted to window px when received (using the tile position and the surface's origin), and the pointer is warped there when a `Locked` grab ends.
