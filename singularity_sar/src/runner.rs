@@ -9,7 +9,11 @@ use singularity_common::sap::{
 use sonamu_ui::{
     PointerGrab,
     display_units::DisplayContainerSize,
+<<<<<<< HEAD
     ui_element::{PrimitiveScene, UIElement, UITree},
+=======
+    ui_element::{PrimitiveScene, Style, UIElement, UITree},
+>>>>>>> origin/claude/issue-66-20261017-1403
     ui_event::{KeyModifiers, KeySymbol, UIEvent},
 };
 
@@ -153,7 +157,18 @@ impl AppletRunner {
         }
     }
 
+<<<<<<< HEAD
     pub(crate) fn handle_ui_event(&mut self, event: UIEvent) {
+=======
+    /// Tells the root the size of the area it's drawn in
+    pub(crate) fn send_content_size(&mut self) {
+        let (_, size) = self.smithay_state.content_area();
+        self.root_client
+            .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(size)));
+    }
+
+    pub(crate) fn handle_ui_event(&mut self, mut event: UIEvent) {
+>>>>>>> origin/claude/issue-66-20261017-1403
         if let UIEvent::Key {
             raw_keycode,
             pressed: false,
@@ -167,16 +182,34 @@ impl AppletRunner {
         if let UIEvent::WindowResized(screen_size) = event {
             self.window_size = screen_size;
             self.smithay_state.resize_output(screen_size);
+<<<<<<< HEAD
 
             self.needs_redraw = true;
         }
 
         if let UIEvent::Mouse(mouse_event) = event {
+=======
+            self.smithay_state.arrange_layers();
+
+            // the root is sent the size of its area instead
+            event = UIEvent::WindowResized(self.smithay_state.content_area().1);
+            self.needs_redraw = true;
+        }
+
+        if let UIEvent::Mouse(mouse_event) = &mut event {
+>>>>>>> origin/claude/issue-66-20261017-1403
             self.pointer_position = mouse_event.position;
             // what's plucked follows the pointer
             if self.plucked.is_some() {
                 self.needs_redraw = true;
             }
+<<<<<<< HEAD
+=======
+            // the root's area is offset by the exclusive zones
+            let [left, top] = self.smithay_state.content_area().0;
+            mouse_event.position[0] -= left;
+            mouse_event.position[1] -= top;
+>>>>>>> origin/claude/issue-66-20261017-1403
         }
 
         // global keybinds
@@ -218,10 +251,35 @@ impl AppletRunner {
     }
 
     fn redraw_ui(&mut self) {
+<<<<<<< HEAD
         let mut content = self.root_client.get_surface();
         if let Some(ghost) = self.plucked_ghost() {
             content = UITree::new_container(vec![content, ghost]);
         }
+=======
+        // background and bottom layers, the root's content in the area left by the exclusive zones,
+        // then top and overlay layers, then what's plucked
+        let (content_position, content_size) = self.smithay_state.content_area();
+        let mut layers = self.smithay_state.layer_surface_elements(
+            true,
+            &self.ui_handle.device,
+            &self.ui_handle.queue,
+        );
+        layers.push(UITree::new_container_styled(
+            Style::absolute(
+                content_position.map(|coord| coord as f32),
+                [content_size.width as f32, content_size.height as f32],
+            ),
+            vec![self.root_client.get_surface()],
+        ));
+        layers.extend(self.smithay_state.layer_surface_elements(
+            false,
+            &self.ui_handle.device,
+            &self.ui_handle.queue,
+        ));
+        layers.extend(self.plucked_ghost());
+        let content = UITree::new_container(layers);
+>>>>>>> origin/claude/issue-66-20261017-1403
         let scene = PrimitiveScene::from_ui_tree(
             content,
             self.window_size,
