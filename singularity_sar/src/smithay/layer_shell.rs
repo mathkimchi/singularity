@@ -2,19 +2,31 @@
 //! They are not in the node tree: they're drawn under or over the root's content,
 //! and their exclusive zones shrink the area the root's content gets.
 
-use super::SmithayState;
+use super::{Layer as SurfaceLayer, SmithayState};
 use crate::runner::AppletRunner;
 use smithay::{
-    reexports::wayland_server::protocol::wl_output::WlOutput,
-    utils::{Logical, Point, Rectangle, Size},
-    wayland::shell::wlr_layer::{
-        Anchor, ExclusiveZone, Layer, LayerSurface, LayerSurfaceCachedState, WlrLayerShellHandler,
-        WlrLayerShellState,
+    backend::input::KeyState,
+    desktop::{PopupKind, PopupManager, find_popup_root_surface},
+    reexports::wayland_server::{
+        Resource as _,
+        protocol::{wl_output::WlOutput, wl_surface::WlSurface},
+    },
+    utils::{Logical, Physical, Point, Rectangle, Size},
+    wayland::{
+        compositor::{SurfaceAttributes, with_states},
+        shell::{
+            wlr_layer::{
+                Anchor, ExclusiveZone, KeyboardInteractivity, Layer, LayerSurface,
+                LayerSurfaceCachedState, WlrLayerShellHandler, WlrLayerShellState,
+            },
+            xdg::PopupSurface,
+        },
     },
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
     ui_element::{Style, UITree},
+    ui_event::{MouseEvent, MouseEventKind},
 };
 
 /// A layer surface after layout
@@ -189,17 +201,94 @@ impl SmithayState {
             .rev()
             .filter(|placement| matches!(placement.layer, Layer::Background | Layer::Bottom) == below)
             .map(|placement| {
-                let layers = Self::surface_tree_layers(placement.surface.wl_surface(), placement.rect.loc);
+                let layers = Self::layer_tree_layers(placement);
+                let cursor = self.wl_cursor(&layers);
                 UITree::new_container_styled(
                     Style::absolute([0.0, 0.0], size),
                     self.layers_to_textures(layers, None, device, queue),
                 )
+                .with_cursor(cursor)
             })
             .collect()
     }
 
+    /// The surfaces of a layer surface (itself, subsurfaces, then popups), placed in the output
+    fn layer_tree_layers(placement: &LayerPlacement) -> Vec<SurfaceLayer> {
+        let root = placement.surface.wl_surface();
+        let mut layers = Self::surface_tree_layers(root, placement.rect.loc);
+        for (popup, offset) in PopupManager::popups_for_surface(root) {
+            let origin = placement.rect.loc + offset - popup.geometry().loc;
+            layers.extend(Self::surface_tree_layers(popup.wl_surface(), origin));
+        }
+        layers
+    }
+
+    /// Where the layer surface is in the output, if `root` is one that has been placed
+    pub(super) fn layer_rect(&self, root: &WlSurface) -> Option<Rectangle<i32, Logical>> {
+        self.layer_placements
+            .iter()
+            .find(|placement| placement.surface.wl_surface() == root)
+            .map(|placement| placement.rect)
+    }
+
+    /// The topmost layer surface surface under `position` (window px), and its origin (output logical units).
+    /// Background and bottom layers are only hit outside the root's content.
+    fn layer_surface_under(&self, position: [f64; 2]) -> Option<(WlSurface, Point<f64, Logical>)> {
+        let point = Point::<f64, Physical>::from((position[0], position[1])).to_logical(self.scale);
+        let in_content = self.usable_area.to_f64().contains(point);
+        self.layer_placements.iter().find_map(|placement| {
+            if in_content && matches!(placement.layer, Layer::Background | Layer::Bottom) {
+                return None;
+            }
+            Self::layer_tree_layers(placement)
+                .into_iter()
+                .rev()
+                .find(|layer| {
+                    let local = point - layer.location.to_f64();
+                    Rectangle::new(layer.location, layer.view.dst).to_f64().contains(point)
+                        && with_states(&layer.surface, |states| {
+                            states
+                                .cached_state
+                                .get::<SurfaceAttributes>()
+                                .current()
+                                .input_region
+                                .as_ref()
+                                .is_none_or(|region| region.contains(local.to_i32_floor()))
+                        })
+                })
+                .map(|layer| (layer.surface, layer.location.to_f64()))
+        })
+    }
+
+    /// Whether the layer surface (not an exclusive one) can take the keyboard when clicked
+    fn takes_keyboard(&self, root: &WlSurface) -> bool {
+        self.layer_placements.iter().any(|placement| {
+            placement.surface.wl_surface() == root
+                && placement.surface.with_cached_state(|state| state.keyboard_interactivity)
+                    != KeyboardInteractivity::None
+        })
+    }
+
+    /// The layer surface that has the keyboard: the topmost exclusive one on the top or overlay layer,
+    /// else the one that was clicked and takes the keyboard
+    pub(super) fn keyboard_layer(&self) -> Option<WlSurface> {
+        self.layer_placements
+            .iter()
+            .find(|placement| {
+                matches!(placement.layer, Layer::Top | Layer::Overlay)
+                    && placement.surface.with_cached_state(|state| state.keyboard_interactivity)
+                        == KeyboardInteractivity::Exclusive
+            })
+            .map(|placement| placement.surface.wl_surface().clone())
+            .or_else(|| {
+                self.layer_focus
+                    .clone()
+                    .filter(|surface| surface.is_alive() && self.takes_keyboard(surface))
+            })
+    }
+
     /// Whether a surface is a layer surface that has been placed
-    pub(super) fn is_layer_surface(&self, surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface) -> bool {
+    pub(super) fn is_layer_surface(&self, surface: &WlSurface) -> bool {
         self.layer_shell_state
             .layer_surfaces()
             .any(|layer_surface| layer_surface.wl_surface() == surface)
@@ -208,7 +297,7 @@ impl SmithayState {
 
 impl AppletRunner {
     /// Called when a layer surface commits: the first commit makes it placed, and its state may have changed
-    pub(super) fn layer_surface_committed(&mut self, surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface) {
+    pub(super) fn layer_surface_committed(&mut self, surface: &WlSurface) {
         let state = &mut self.smithay_state;
         if !state.is_layer_surface(surface) {
             return;
@@ -235,7 +324,96 @@ impl AppletRunner {
         if self.smithay_state.arrange_layers() {
             self.send_content_size();
         }
+        self.refresh_keyboard_focus();
         self.needs_redraw = true;
+    }
+
+    /// Gives the keyboard to the layer surface that should have it,
+    /// or back to Sonamu's focus if a layer surface has it and shouldn't
+    fn refresh_keyboard_focus(&mut self) {
+        if let Some(layer) = self.smithay_state.keyboard_layer() {
+            self.focus_wl_keyboard_on(layer);
+            return;
+        }
+        let state = &self.smithay_state;
+        let layer_focused = state
+            .seat
+            .get_keyboard()
+            .and_then(|keyboard| keyboard.current_focus())
+            .is_some_and(|focus| {
+                let root = state
+                    .popup_manager
+                    .find_popup(&focus)
+                    .and_then(|popup| find_popup_root_surface(&popup).ok())
+                    .unwrap_or(focus);
+                state.layer_rect(&root).is_some()
+            });
+        if layer_focused {
+            self.focus_wl_keyboard(self.smithay_state.wl_target);
+        }
+    }
+
+    /// Sends the mouse event (in window px) to the layer surface under it, or that a pressed button is held on.
+    /// Returns false if there is none, for the root.
+    pub(crate) fn layer_mouse(&mut self, event: &MouseEvent) -> bool {
+        let state = &mut self.smithay_state;
+        let hit = state.layer_surface_under(event.position);
+        // a held button keeps the pointer on its surface
+        let focus = if state.layer_buttons_down > 0 {
+            state
+                .pointer_focus
+                .clone()
+                .filter(|(surface, _)| surface.is_alive())
+                .or(hit)
+        } else {
+            hit
+        };
+        let pressed = matches!(event.kind, MouseEventKind::Button { pressed: true, .. });
+        let released = matches!(event.kind, MouseEventKind::Button { pressed: false, .. });
+        let location = Point::<f64, Physical>::from((event.position[0], event.position[1]))
+            .to_logical(state.scale);
+
+        let Some(focus) = focus else {
+            // clicking elsewhere takes the keyboard back
+            let lost_keyboard = pressed && state.layer_focus.take().is_some();
+            let left = std::mem::take(&mut state.pointer_on_layer);
+            if left {
+                self.send_wl_mouse(location, None, MouseEventKind::Motion, event.time_msec);
+            }
+            if lost_keyboard {
+                self.refresh_keyboard_focus();
+            }
+            return false;
+        };
+        state.pointer_on_layer = true;
+        if released {
+            state.layer_buttons_down = state.layer_buttons_down.saturating_sub(1);
+        }
+        if pressed {
+            state.layer_buttons_down += 1;
+            let root = state
+                .popup_manager
+                .find_popup(&focus.0)
+                .and_then(|popup| find_popup_root_surface(&popup).ok())
+                .unwrap_or_else(|| focus.0.clone());
+            if state.takes_keyboard(&root) {
+                state.layer_focus = Some(root.clone());
+                self.focus_wl_keyboard_on(root);
+            }
+        }
+        self.send_wl_mouse(location, Some(focus), event.kind, event.time_msec);
+        true
+    }
+
+    /// Sends a key press (evdev code) to the layer surface that has the keyboard.
+    /// Returns false if there is none, for the root.
+    pub(crate) fn layer_key_press(&mut self, raw_keycode: u32) -> bool {
+        if self.smithay_state.keyboard_layer().is_none() {
+            return false;
+        }
+        // evdev -> xkb
+        self.wl_key_input(raw_keycode + 8, KeyState::Pressed);
+        true
     }
 }
 
@@ -254,6 +432,18 @@ impl WlrLayerShellHandler for AppletRunner {
     ) {
         // there is only one output
         self.smithay_state.output.enter(surface.wl_surface());
+    }
+
+    fn new_popup(&mut self, _parent: LayerSurface, popup: PopupSurface) {
+        // the same as an xdg toplevel's popup
+        self.smithay_state.unconstrain_popup(&popup);
+        if let Err(err) = self
+            .smithay_state
+            .popup_manager
+            .track_popup(PopupKind::from(popup))
+        {
+            dbg!("Failed to track popup:", err);
+        }
     }
 
     fn layer_destroyed(&mut self, surface: LayerSurface) {

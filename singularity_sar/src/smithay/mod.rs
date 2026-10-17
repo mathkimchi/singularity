@@ -172,6 +172,13 @@ pub struct SmithayState {
     layer_placements: Vec<layer_shell::LayerPlacement>,
     /// Output minus the exclusive zones, in logical units: where the root's content goes
     usable_area: Rectangle<i32, Logical>,
+    /// The layer surface (not an exclusive one) that a click gave the keyboard
+    layer_focus: Option<WlSurface>,
+    /// The tile that Sonamu focus asked the keyboard to be on
+    wl_target: Option<WlSurfaceId>,
+    /// The pointer is on a layer surface, or a button pressed on one is still held
+    pointer_on_layer: bool,
+    layer_buttons_down: u32,
     /// Toplevels not yet told to the root: they are on their first commit, once they have set their app id
     unregistered: Vec<WlSurfaceId>,
     // image: Arc<Mutex<Option<RgbaImage>>>,
@@ -238,7 +245,16 @@ impl SmithayState {
                 .and_then(|toplevel| toplevel.with_pending_state(|state| state.size))
                 .map(Rectangle::from_size)
         };
-        let Some(mut target) = output_in_tile.or_else(tile) else {
+        // for a layer surface's popup, relative to the layer surface
+        let output_in_layer = self.layer_rect(&root).zip(self.output.current_mode()).map(
+            |(rect, mode)| {
+                Rectangle::new(
+                    Point::default() - rect.loc,
+                    mode.size.to_f64().to_logical(self.scale).to_i32_round(),
+                )
+            },
+        );
+        let Some(mut target) = output_in_tile.or(output_in_layer).or_else(tile) else {
             return;
         };
 
@@ -590,6 +606,10 @@ impl SmithayState {
             layer_surfaces: Vec::new(),
             layer_placements: Vec::new(),
             usable_area: Rectangle::default(),
+            layer_focus: None,
+            wl_target: None,
+            pointer_on_layer: false,
+            layer_buttons_down: 0,
             wl_event_queue,
         }
     }
@@ -654,82 +674,12 @@ impl SmithayState {
                             kind,
                             time_msec,
                         }) => {
-                            let pointer = state.smithay_state.seat.get_pointer().unwrap();
-                            let time =
-                                time_msec.unwrap_or_else(|| state.smithay_state.now_msec());
-
                             // Motion first so the pointer is focused on the surface under it.
                             // `position` is already relative to the tile, which is where the root is drawn
                             let location = Point::<f64, Physical>::from((position[0], position[1]))
                                 .to_logical(state.smithay_state.scale);
                             let focus = SmithayState::surface_under(&target_surface, location);
-                            // like niri, only real motion reaches clients (not one before every button/scroll)
-                            let moved = kind == MouseEventKind::Motion
-                                || pointer.current_location() != location
-                                || pointer.current_focus().as_ref()
-                                    != focus.as_ref().map(|(surface, _)| surface);
-                            state.smithay_state.pointer_focus.clone_from(&focus);
-                            if moved {
-                                pointer.motion(
-                                    state,
-                                    focus,
-                                    &MotionEvent {
-                                        location,
-                                        serial: SERIAL_COUNTER.next_serial(),
-                                        time,
-                                    },
-                                );
-                            }
-                            state.smithay_state.maybe_activate_pointer_constraint();
-                            match kind {
-                                MouseEventKind::Motion => {}
-                                MouseEventKind::Button { button, pressed } => {
-                                    pointer.button(
-                                        state,
-                                        &ButtonEvent {
-                                            serial: SERIAL_COUNTER.next_serial(),
-                                            time,
-                                            button,
-                                            state: if pressed {
-                                                ButtonState::Pressed
-                                            } else {
-                                                ButtonState::Released
-                                            },
-                                        },
-                                    );
-                                }
-                                MouseEventKind::Scroll {
-                                    delta: [dx, dy],
-                                    v120,
-                                    stop: [stop_x, stop_y],
-                                } => {
-                                    let mut frame = AxisFrame::new(time).source(if v120.is_some() {
-                                        AxisSource::Wheel
-                                    } else {
-                                        AxisSource::Finger
-                                    });
-                                    if dx != 0. {
-                                        frame = frame.value(Axis::Horizontal, dx);
-                                    }
-                                    if dy != 0. {
-                                        frame = frame.value(Axis::Vertical, dy);
-                                    }
-                                    // without these, eg Firefox never ends its touchpad pan gesture
-                                    if stop_x {
-                                        frame = frame.stop(Axis::Horizontal);
-                                    }
-                                    if stop_y {
-                                        frame = frame.stop(Axis::Vertical);
-                                    }
-                                    if let Some([h, v]) = v120 {
-                                        frame = frame
-                                            .v120(Axis::Horizontal, h)
-                                            .v120(Axis::Vertical, v);
-                                    }
-                                    pointer.axis(state, frame);
-                                }
-                            }
-                            pointer.frame(state);
+                            state.send_wl_mouse(location, focus, kind, time_msec);
                         }
                     }
 
@@ -1670,6 +1620,12 @@ impl PointerConstraintsHandler for AppletRunner {
 impl AppletRunner {
     /// Follows Sonamu focus; `None` (or a stale id) clears keyboard focus
     pub(crate) fn focus_wl_keyboard(&mut self, surface_id: Option<WlSurfaceId>) {
+        self.smithay_state.wl_target = surface_id;
+        // a layer surface that has the keyboard keeps it
+        if let Some(layer) = self.smithay_state.keyboard_layer() {
+            self.focus_wl_keyboard_on(layer);
+            return;
+        }
         match surface_id.and_then(|surface_id| self.smithay_state.surfaces.get(surface_id).cloned())
         {
             Some(surface) => self.focus_wl_keyboard_on(surface),
@@ -1702,6 +1658,7 @@ impl AppletRunner {
     /// Focuses the toplevel, unless it or one of its popups already is
     /// (moving focus off a popup would end its grab)
     fn focus_wl_keyboard_on(&mut self, toplevel: WlSurface) {
+        let toplevel = self.smithay_state.keyboard_layer().unwrap_or(toplevel);
         let keyboard = self.smithay_state.seat.get_keyboard().unwrap();
         let focus_in_toplevel = keyboard.current_focus().is_some_and(|focus| {
             focus == toplevel
@@ -1715,6 +1672,83 @@ impl AppletRunner {
         if !focus_in_toplevel {
             keyboard.set_focus(self, Some(toplevel), SERIAL_COUNTER.next_serial());
         }
+    }
+
+    /// Moves the pointer to `location` (focused on `focus` and its origin, same coordinates), then sends the event
+    pub(crate) fn send_wl_mouse(
+        &mut self,
+        location: Point<f64, Logical>,
+        focus: Option<(WlSurface, Point<f64, Logical>)>,
+        kind: MouseEventKind,
+        time_msec: Option<u32>,
+    ) {
+        let pointer = self.smithay_state.seat.get_pointer().unwrap();
+        let time = time_msec.unwrap_or_else(|| self.smithay_state.now_msec());
+
+        // like niri, only real motion reaches clients (not one before every button/scroll)
+        let moved = kind == MouseEventKind::Motion
+            || pointer.current_location() != location
+            || pointer.current_focus().as_ref() != focus.as_ref().map(|(surface, _)| surface);
+        self.smithay_state.pointer_focus.clone_from(&focus);
+        if moved {
+            pointer.motion(
+                self,
+                focus,
+                &MotionEvent {
+                    location,
+                    serial: SERIAL_COUNTER.next_serial(),
+                    time,
+                },
+            );
+        }
+        self.smithay_state.maybe_activate_pointer_constraint();
+        match kind {
+            MouseEventKind::Motion => {}
+            MouseEventKind::Button { button, pressed } => {
+                pointer.button(
+                    self,
+                    &ButtonEvent {
+                        serial: SERIAL_COUNTER.next_serial(),
+                        time,
+                        button,
+                        state: if pressed {
+                            ButtonState::Pressed
+                        } else {
+                            ButtonState::Released
+                        },
+                    },
+                );
+            }
+            MouseEventKind::Scroll {
+                delta: [dx, dy],
+                v120,
+                stop: [stop_x, stop_y],
+            } => {
+                let mut frame = AxisFrame::new(time).source(if v120.is_some() {
+                    AxisSource::Wheel
+                } else {
+                    AxisSource::Finger
+                });
+                if dx != 0. {
+                    frame = frame.value(Axis::Horizontal, dx);
+                }
+                if dy != 0. {
+                    frame = frame.value(Axis::Vertical, dy);
+                }
+                // without these, eg Firefox never ends its touchpad pan gesture
+                if stop_x {
+                    frame = frame.stop(Axis::Horizontal);
+                }
+                if stop_y {
+                    frame = frame.stop(Axis::Vertical);
+                }
+                if let Some([h, v]) = v120 {
+                    frame = frame.v120(Axis::Horizontal, h).v120(Axis::Vertical, v);
+                }
+                pointer.axis(self, frame);
+            }
+        }
+        pointer.frame(self);
     }
 
     /// Raw mouse movement, sent to the surface the pointer was last sent to

@@ -187,10 +187,25 @@ impl AppletRunner {
             if self.plucked.is_some() {
                 self.needs_redraw = true;
             }
+            // layer surfaces are above (or beside) the root
+            if self.layer_mouse(mouse_event) {
+                return;
+            }
             // the root's area is offset by the exclusive zones
             let [left, top] = self.smithay_state.content_area().0;
             mouse_event.position[0] -= left;
             mouse_event.position[1] -= top;
+        }
+
+        // a layer surface with the keyboard (eg a launcher) gets the keys
+        if let UIEvent::Key {
+            raw_keycode,
+            pressed: true,
+            ..
+        } = event
+            && self.layer_key_press(raw_keycode)
+        {
+            return;
         }
 
         // global keybinds
