@@ -9,7 +9,7 @@ use singularity_common::sap::{
 use sonamu_ui::{
     PointerGrab,
     display_units::DisplayContainerSize,
-    ui_element::{PrimitiveScene, UIElement, UITree},
+    ui_element::{PrimitiveScene, Style, UIElement, UITree},
     ui_event::{KeyModifiers, KeySymbol, UIEvent},
 };
 
@@ -27,6 +27,8 @@ pub struct AppletRunner {
     pub(crate) smithay_state: SmithayState,
 
     window_size: DisplayContainerSize,
+    /// Origin and size in window px of what's left for the root's content after layer surfaces' exclusive zones
+    main_area: ([u32; 2], DisplayContainerSize),
     /// Set by damage; the redraw happens once per event loop iteration
     pub(crate) needs_redraw: bool,
     /// What the display was last asked to do with the pointer
@@ -64,6 +66,13 @@ impl AppletRunner {
                 width: 100,
                 height: 100,
             },
+            main_area: (
+                [0, 0],
+                DisplayContainerSize {
+                    width: 100,
+                    height: 100,
+                },
+            ),
             needs_redraw: true,
             pointer_grab: PointerGrab::None,
             loop_signal,
@@ -126,6 +135,7 @@ impl AppletRunner {
             .run(None, &mut runner, |runner| {
                 // Run after each batch of events, so multiple damages become one redraw
                 if std::mem::take(&mut runner.needs_redraw) {
+                    runner.update_main_area();
                     runner.redraw_ui();
                 }
                 // constraints change on client requests and pointer focus changes
@@ -169,14 +179,22 @@ impl AppletRunner {
             self.smithay_state.resize_output(screen_size);
 
             self.needs_redraw = true;
+            // the root only knows the size of its content
+            self.set_main_area(self.smithay_state.main_area(screen_size));
+            return;
         }
 
-        if let UIEvent::Mouse(mouse_event) = event {
+        let mut event = event;
+        if let UIEvent::Mouse(mouse_event) = &mut event {
             self.pointer_position = mouse_event.position;
             // what's plucked follows the pointer
             if self.plucked.is_some() {
                 self.needs_redraw = true;
             }
+            // the root's content may not start at the window's corner
+            let [left, top] = self.main_area.0;
+            mouse_event.position[0] -= f64::from(left);
+            mouse_event.position[1] -= f64::from(top);
         }
 
         // global keybinds
@@ -200,6 +218,20 @@ impl AppletRunner {
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
+    /// Tells the root when layer surfaces changed the room left for its content
+    fn update_main_area(&mut self) {
+        let main_area = self.smithay_state.main_area(self.window_size);
+        if main_area != self.main_area {
+            self.set_main_area(main_area);
+        }
+    }
+
+    fn set_main_area(&mut self, main_area: ([u32; 2], DisplayContainerSize)) {
+        self.main_area = main_area;
+        self.root_client
+            .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(main_area.1)));
+    }
+
     /// TODO: take in client id
     pub(crate) fn handle_client_request(&mut self, request: StandardRequest) {
         match request {
@@ -218,10 +250,21 @@ impl AppletRunner {
     }
 
     fn redraw_ui(&mut self) {
-        let mut content = self.root_client.get_surface();
-        if let Some(ghost) = self.plucked_ghost() {
-            content = UITree::new_container(vec![content, ghost]);
-        }
+        let layers = self.smithay_state.layer_scene(&self.ui_handle.device, &self.ui_handle.queue);
+        let ([left, top], size) = self.main_area;
+        let main = UITree::new_container_styled(
+            Style::absolute(
+                [left as f32, top as f32],
+                [size.width as f32, size.height as f32],
+            ),
+            vec![self.root_client.get_surface()],
+        );
+        // layer surfaces are outside the root's tree
+        let mut content = layers.below;
+        content.push(main);
+        content.extend(layers.above);
+        content.extend(self.plucked_ghost());
+        let content = UITree::new_container(content);
         let scene = PrimitiveScene::from_ui_tree(
             content,
             self.window_size,

@@ -1,4 +1,5 @@
 mod capture;
+mod layer_shell;
 
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
@@ -42,7 +43,7 @@ use smithay::{
         buffer::BufferHandler,
         compositor::{
             CompositorClientState, CompositorHandler, CompositorState, SurfaceAttributes,
-            SurfaceData, TraversalAction, send_surface_state, with_states,
+            SurfaceData, TraversalAction, get_role, send_surface_state, with_states,
             with_surface_tree_downward,
         },
         cursor_shape::CursorShapeManagerState,
@@ -75,6 +76,7 @@ use smithay::{
             PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface,
             XdgShellHandler, XdgShellState, XdgToplevelSurfaceData,
             decoration::{XdgDecorationHandler, XdgDecorationState},
+            wlr_layer::{LAYER_SURFACE_ROLE, WlrLayerShellState},
         },
         shm::{ShmHandler, ShmState},
         socket::ListeningSocketSource,
@@ -121,6 +123,7 @@ pub struct SmithayState {
     // smithay state
     compositor_state: CompositorState,
     xdg_shell_state: XdgShellState,
+    layer_shell_state: WlrLayerShellState,
     shm_state: ShmState,
     seat_state: SeatState<AppletRunner>,
     _output_manager_state: OutputManagerState,
@@ -271,6 +274,9 @@ impl SmithayState {
                 send_frames_surface_tree(popup.wl_surface(), &presentation);
             }
         }
+        for layer in self.layer_shell_state.layer_surfaces() {
+            send_frames_surface_tree(layer.wl_surface(), &presentation);
+        }
     }
 
     /// The single output represents the whole Sonamu window
@@ -285,6 +291,7 @@ impl SmithayState {
         self.output
             .change_current_state(Some(mode), None, None, None);
         self.output.set_preferred(mode);
+        self.arrange_layers(None);
         self.update_capture_constraints();
     }
 
@@ -330,6 +337,11 @@ impl SmithayState {
                 self.send_scale(popup.wl_surface());
             }
         }
+        for layer in self.layer_shell_state.layer_surfaces() {
+            self.send_scale(layer.wl_surface());
+        }
+        // logical sizes changed with the scale
+        self.arrange_layers(None);
     }
 
     /// The client may have destroyed it since
@@ -437,6 +449,7 @@ impl SmithayState {
 
         let compositor_state = CompositorState::new::<AppletRunner>(&display_handle);
         let xdg_shell_state = XdgShellState::new::<AppletRunner>(&display_handle);
+        let layer_shell_state = WlrLayerShellState::new::<AppletRunner>(&display_handle);
         let shm_state = ShmState::new::<AppletRunner>(&display_handle, Vec::new());
         let mut seat_state = SeatState::new();
 
@@ -537,6 +550,7 @@ impl SmithayState {
             display_handle,
             compositor_state,
             xdg_shell_state,
+            layer_shell_state,
             shm_state,
             seat_state,
             _output_manager_state: output_manager_state,
@@ -825,30 +839,40 @@ impl SmithayState {
                 {
                     return None;
                 }
-                let src = layer.view.src.to_buffer(
-                    f64::from(layer.buffer_scale),
-                    Transform::Normal,
-                    &layer.view.src.size,
-                );
-                let texture = Self::import_buffer(&layer.buffer, src, device, queue)?;
-                Some(UITree::leaf_styled(
-                    UIElement::Texture(texture),
-                    Style::absolute(
-                        [
-                            (f64::from(layer.location.x) * self.scale) as f32,
-                            (f64::from(layer.location.y) * self.scale) as f32,
-                        ],
-                        [
-                            (f64::from(layer.view.dst.w) * self.scale) as f32,
-                            (f64::from(layer.view.dst.h) * self.scale) as f32,
-                        ],
-                    ),
-                ))
+                self.layer_element(&layer, device, queue)
             })
             .collect();
 
         (!textures.is_empty())
             .then(|| UITree::new(UIElement::Nothing, textures).with_cursor(cursor))
+    }
+
+    /// The layer's texture, placed at its location (in window px)
+    fn layer_element(
+        &self,
+        layer: &Layer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Option<UITree> {
+        let src = layer.view.src.to_buffer(
+            f64::from(layer.buffer_scale),
+            Transform::Normal,
+            &layer.view.src.size,
+        );
+        let texture = Self::import_buffer(&layer.buffer, src, device, queue)?;
+        Some(UITree::leaf_styled(
+            UIElement::Texture(texture),
+            Style::absolute(
+                [
+                    (f64::from(layer.location.x) * self.scale) as f32,
+                    (f64::from(layer.location.y) * self.scale) as f32,
+                ],
+                [
+                    (f64::from(layer.view.dst.w) * self.scale) as f32,
+                    (f64::from(layer.view.dst.h) * self.scale) as f32,
+                ],
+            ),
+        ))
     }
 
     /// The client's cursor if the pointer is over one of `layers` (one toplevel's surfaces)
@@ -1271,6 +1295,11 @@ impl CompositorHandler for AppletRunner {
 
         // covers new subsurfaces, popups and cursors; does nothing if already sent
         self.smithay_state.send_scale(surface);
+
+        // its first commit has its anchor and size, so it gets its initial configure
+        if get_role(surface) == Some(LAYER_SURFACE_ROLE) {
+            self.smithay_state.arrange_layers(Some(surface));
+        }
 
         // the drag icon moves by its attach offset, like anvil
         if let Some((icon, offset)) = &mut self.smithay_state.dnd_icon
