@@ -4,7 +4,9 @@ use crate::{
         AppletSpawner, NodeRequest, NodularAppletInitializer,
         node_holder::{NodeHolder, client_spawners},
         node_tree::{NodeId, NodeTree},
-        treeview::{TreeviewAction, TreeviewPointer, TreeviewRow, treeview_rows},
+        treeview::{
+            TreeviewAction, TreeviewPointer, TreeviewRow, inner_layer_rows, treeview_rows,
+        },
     },
     session,
 };
@@ -49,7 +51,7 @@ pub struct RootNodeApplet {
     last_drop: Option<(WorldTreePath, NodeId)>,
     /// The help Super+? opened, to close it on the next one
     help: Option<OpenHelp>,
-    /// See `TREEVIEW_ONLY_WHILE_TRAVERSING`
+    /// See `TREEVIEW_ALWAYS_SHOWN`
     treeview_shown: bool,
     /// Where the session is saved, if anywhere
     session_path: Option<PathBuf>,
@@ -69,9 +71,9 @@ impl RootNodeApplet {
     const TREEVIEW_PERCENT: u32 = 20;
     /// How often the session is saved (if it changed), besides before quitting
     const SAVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-    /// Show the treeview only while traversing (focus is on a node or inner element, not inside an applet).
-    /// Otherwise the applets get the full width.
-    const TREEVIEW_ONLY_WHILE_TRAVERSING: bool = true;
+    /// Always show the treeview. Otherwise only while traversing (focus is on a node or inner element, not inside
+    /// an applet), and the applets get the full width the rest of the time.
+    const TREEVIEW_ALWAYS_SHOWN: bool = true;
 
     /// 0 while hidden
     fn treeview_width(&self) -> u32 {
@@ -92,7 +94,7 @@ impl RootNodeApplet {
 
     /// Shows or hides the treeview, resizing the applets
     fn update_treeview_visibility(&mut self) {
-        let shown = !Self::TREEVIEW_ONLY_WHILE_TRAVERSING
+        let shown = Self::TREEVIEW_ALWAYS_SHOWN
             || self.holder.tree.is_traversing()
             // eg a drag that started there
             || self.treeview_pointer.is_pressed();
@@ -109,14 +111,14 @@ impl RootNodeApplet {
 
     /// Publishes the window if damaged and the runner read the last one
     fn flush_surface(&mut self) {
-        let treeview_width = self.treeview_width();
+        let treeview_size = [self.treeview_width(), self.latest_size.height];
         let Self {
             holder,
             treeview_pointer,
             ..
         } = self;
         self.surface.flush(
-            || Self::get_window(&holder.tree, treeview_pointer, treeview_width),
+            || Self::get_window(&holder.tree, treeview_pointer, treeview_size),
             &self.request_sender,
         );
     }
@@ -384,13 +386,26 @@ impl RootNodeApplet {
         };
         let response = self
             .treeview_pointer
-            .handle_mouse(&mouse_event, in_treeview, &rows);
+            .handle_mouse(
+                &mouse_event,
+                in_treeview,
+                &rows,
+                self.latest_size.height as f32,
+            );
 
         if response.damaged {
             self.surface.damage();
         }
         match response.action {
             Some(TreeviewAction::Focus(path)) => self.holder.focus(&path),
+            // TODO: nodes inside projects, whose `NodeTree` the root can't reach
+            Some(TreeviewAction::ToggleCollapsed(path)) => {
+                if let [node_path] = &*path.0
+                    && let Some(id) = self.holder.tree.node_at(node_path)
+                {
+                    self.holder.tree.toggle_collapsed(id);
+                }
+            }
             Some(TreeviewAction::StartDrag(path)) => {
                 self.send_request(StandardRequest::RequestPluck(path));
             }
@@ -450,25 +465,28 @@ impl RootNodeApplet {
 
     fn get_window(
         tree: &NodeTree,
-        treeview_pointer: &TreeviewPointer,
-        // 0 while hidden
-        treeview_width: u32,
+        treeview_pointer: &mut TreeviewPointer,
+        // width 0 while hidden
+        treeview_size: [u32; 2],
     ) -> UITree {
-        if treeview_width == 0 {
+        if treeview_size[0] == 0 {
             tree.get_window()
         } else {
-            Self::get_window_with_treeview(tree, treeview_pointer, treeview_width)
+            Self::get_window_with_treeview(tree, treeview_pointer, treeview_size)
         }
     }
 
     fn get_window_with_treeview(
         tree: &NodeTree,
-        treeview_pointer: &TreeviewPointer,
-        treeview_width: u32,
+        treeview_pointer: &mut TreeviewPointer,
+        [treeview_width, treeview_height]: [u32; 2],
     ) -> UITree {
         let rows = view_rows(tree);
-        let treeview =
-            treeview_pointer.render(&rows, treeview_width as f32, &tree.get_focus_path());
+        let treeview = treeview_pointer.render(
+            &rows,
+            [treeview_width as f32, treeview_height as f32],
+            &tree.get_focus_path(),
+        );
 
         UITree::new_container_styled(
             sonamu_ui::ui_element::Style {
@@ -486,13 +504,15 @@ impl RootNodeApplet {
     }
 }
 
-/// The treeview's rows: the view root's subtree
+/// The treeview's rows: the inner tree focus is inside, else the view root's subtree
 fn view_rows(tree: &NodeTree) -> Vec<TreeviewRow> {
-    treeview_rows(
-        &tree.get_view_treeview(),
-        &tree.view_root_path(),
-        tree.view_parent(),
-    )
+    inner_layer_rows(&tree.get_treeview(), &tree.get_focus_path()).unwrap_or_else(|| {
+        treeview_rows(
+            &tree.get_view_treeview(),
+            &tree.view_root_path(),
+            tree.view_parent(),
+        )
+    })
 }
 
 /// The part of the path inside the node's applet

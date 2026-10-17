@@ -50,7 +50,7 @@ Keys (`WorldTreeTraversalOperation`):
   (from the outermost world: up to its root).
 - `a` / `0`: parent; `d`, `1`-`8`, `9`: first, nth, last child; `w` / `s`: previous/next sibling.
   These all stay in the same world.
-- Space collapses/expands the selected node's inner world in the treeview; Enter confirms (into the applet, resuming
+- Space (or clicking its `▾`/`▸`, outer-world nodes only for now) collapses/expands the selected node's inner world in the treeview; Enter confirms (into the applet, resuming
   where it was, without `Focus`). Modifiers on their own don't leave the selector; other keys go into the applet.
 - The standard keybinds (Ctrl+W, Ctrl+Shift++, splits, Super+P) act on the selected node.
   Ctrl+W asks its main to close (`CloseRequest`, see below) rather than closing it.
@@ -78,7 +78,7 @@ published treeviews.
   by `NodeRequest`s (AddChild, Close, Split, Wrap, ...) to the holder.
 - A **project** is an ordinary `StandardApplet` (`ProjectApplet`). **Nothing above it knows it is a project**: its node
   just sees an applet with an inner world. Its inner world is a full `NodeTree`, whose root is a container node
-  (no main, labeled `◆ Project`), and the project node still has its own children in the outer world.
+  (no main, labeled `Project`), and the project node still has its own children in the outer world.
   - Made by `NodeRequest::Wrap(ProjectApplet::wrapper())` (Super+P, hub `project`): the holder replaces the node's
     subtree with a node whose applet is made from it.
   - Undone by closing it: on `CloseRequest` (Ctrl+W on its node, or on its inner root) it detaches its contents and
@@ -131,7 +131,12 @@ The holder above stitches these in:
 
 - Its treeview puts each node's published tree in as that node's value.
 - Its focus path appends the published focus.
-- The root shows the treeview panel while `NodeTree::is_traversing` is true. That flag follows `Inner` nodes down into
+- The root always shows the treeview panel (`TREEVIEW_ALWAYS_SHOWN`); with it off, only while
+  `NodeTree::is_traversing` is true.
+- When focus is inside an inner world that has elements, the treeview shows only that (deepest such) world, under a
+  `‹ holder` row that focuses the holding node (`inner_layer_rows`). Else it shows the view root's subtree (Super+V).
+  Expanded inner worlds are drawn in a box; the panel scrolls with the wheel and follows focus.
+- `is_traversing` follows `Inner` nodes down into
   their mains' `traversing`, since a path inside a project can still be a selection (eg `[[p], []]`).
 
 ## Paths across holders

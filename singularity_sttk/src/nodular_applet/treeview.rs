@@ -8,7 +8,7 @@ use singularity_common::utils::tree::{
 };
 use sonamu_ui::{
     color::Color,
-    ui_element::{FONT_SIZE_F, Length, Style, UIElement, UITree},
+    ui_element::{Cursor, CursorIcon, FONT_SIZE_F, Length, Style, UIElement, UITree},
     ui_event::{MouseEvent, MouseEventKind},
 };
 
@@ -17,25 +17,39 @@ const TOP_PAD: f32 = 8.0;
 const LEFT_PAD: f32 = 16.0;
 const INDENT: f32 = 32.0;
 const MARKER_WIDTH: f32 = 6.0;
+/// The clickable width of a row's `▾`/`▸`, from the start of its label
+const TRIANGLE_WIDTH: f32 = FONT_SIZE_F;
 /// How far the pointer moves while pressed before it's a drag
 const DRAG_THRESHOLD: f64 = 12.0;
 const BTN_LEFT: u32 = 0x110;
+/// Rows per scroll step
+const SCROLL_STEP: usize = 3;
+
+/// The alpha of everything in the treeview (about 80%), so what is behind it shows through
+const OPACITY: u8 = 0xCC;
+
+const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
+    Color([r, g, b, OPACITY])
+}
 
 // Rect colors are drawn as linear (text colors aren't), so these are darker than they look:
 // they show as about #17191e, #262a33, #24402f, #3a3f4a
-const PANEL_BG: Color = Color([2, 2, 3, 0xFF]);
-const HOVER_BG: Color = Color([5, 6, 8, 0xFF]);
-const FOCUS_BG: Color = Color([3, 12, 7, 0xFF]);
-const GUIDE: Color = Color([11, 13, 17, 0xFF]);
-const TEXT: Color = Color::LIGHT_GRAY;
+const PANEL_BG: Color = with_opacity(Color([2, 2, 3, 0]));
+const HOVER_BG: Color = with_opacity(Color([5, 6, 8, 0]));
+const FOCUS_BG: Color = with_opacity(Color([3, 12, 7, 0]));
+const GUIDE: Color = with_opacity(Color([11, 13, 17, 0]));
+/// An expanded inner tree's box
+const INNER_BOX_BG: Color = with_opacity(Color([3, 3, 5, 0]));
+const INNER_BOX_BORDER: Color = GUIDE;
+const TEXT: Color = with_opacity(Color::LIGHT_GRAY);
 /// Elements inside an applet's inner tree
-const INNER_TEXT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
-const DRAGGED_TEXT: Color = Color([0x55, 0x5A, 0x64, 0xFF]);
+const INNER_TEXT: Color = with_opacity(Color([0x8A, 0x93, 0xA6, 0]));
+const DRAGGED_TEXT: Color = with_opacity(Color([0x55, 0x5A, 0x64, 0]));
 /// Focus is on the node itself (traversal keys move it)
-const MARKER_FOCUSING: Color = Color::LIGHT_YELLOW;
+const MARKER_FOCUSING: Color = with_opacity(Color::LIGHT_YELLOW);
 /// Focus is inside the node's applet (keys go to it)
-const MARKER_INNER: Color = Color::LIGHT_GREEN;
-const DROP_TARGET: Color = Color::CYAN;
+const MARKER_INNER: Color = with_opacity(Color::LIGHT_GREEN);
+const DROP_TARGET: Color = with_opacity(Color::CYAN);
 
 pub struct TreeviewRow {
     pub path: WorldTreePath,
@@ -55,7 +69,7 @@ pub fn treeview_rows(
     up: Option<(TreeNodePath, String)>,
 ) -> Vec<TreeviewRow> {
     let mut rows = Vec::new();
-    push_rows(treeview, &[], 0, false, &mut rows);
+    push_rows(treeview, &[], 0, false, 0, &mut rows);
     for row in &mut rows {
         row.path.0[0].0.splice(0..0, base.0.iter().copied());
     }
@@ -73,12 +87,41 @@ pub fn treeview_rows(
     rows
 }
 
-/// `skip_root`: the world's root is already the row above (an applet's inner tree root is the applet itself)
+/// When focus is inside an applet's inner tree (eg `[[2], [0]]`), the rows of the deepest one it is in,
+/// under a first row for the node holding it (focusing it goes back out).
+/// `treeview` is the whole tree.
+pub fn inner_layer_rows(
+    treeview: &WorldTree<String>,
+    focus_path: &WorldTreePath,
+) -> Option<Vec<TreeviewRow>> {
+    (1..focus_path.0.len()).rev().find_map(|layer| {
+        let holder = WorldTreePath(focus_path.0[..layer].into());
+        let world = treeview.safe_get(&holder)?;
+        let WorldTree::World(root) = world else {
+            return None;
+        };
+        // eg a terminal's label, or a collapsed node
+        root.safe_get(&TreeNodePath(vec![0]))?;
+        let label = world.get_root_value().trim_start_matches("▾ ");
+        let mut rows = vec![TreeviewRow {
+            label: format!("‹ {label}"),
+            path: holder.clone(),
+            depth: 0,
+            inner: true,
+        }];
+        push_rows(world, &holder.0, 0, true, layer, &mut rows);
+        Some(rows)
+    })
+}
+
+/// `skip_root`: the world's root is already the row above (an applet's inner tree root is the applet itself).
+/// `layer`: how many worlds deep the view is; rows deeper than it are `inner`.
 fn push_rows(
     world: &WorldTree<String>,
     prefix: &[TreeNodePath],
     depth: usize,
     skip_root: bool,
+    layer: usize,
     rows: &mut Vec<TreeviewRow>,
 ) {
     let WorldTree::World(root) = world else {
@@ -96,9 +139,9 @@ fn push_rows(
             path: WorldTreePath(full_path.clone().into_boxed_slice()),
             depth: row_depth,
             label: value.get_root_value().clone(),
-            inner: !prefix.is_empty(),
+            inner: prefix.len() > layer,
         });
-        push_rows(value, &full_path, row_depth, true, rows);
+        push_rows(value, &full_path, row_depth, true, layer, rows);
     }
 }
 
@@ -143,15 +186,23 @@ fn rect(color: Color, position: [f32; 2], size: [f32; 2]) -> UITree {
 pub struct TreeviewPointer {
     hovered: Option<usize>,
     press: Option<Press>,
+    /// The first row shown
+    scroll: usize,
+    /// The focused row last scrolled to, so it is scrolled to again only when focus moves
+    followed: Option<WorldTreePath>,
 }
 struct Press {
     path: WorldTreePath,
     position: [f64; 2],
     dragging: bool,
+    /// On the row's `▾`/`▸`, so a click collapses or expands it instead of focusing it
+    on_triangle: bool,
 }
 
 pub enum TreeviewAction {
     Focus(WorldTreePath),
+    /// Its `▾`/`▸` was clicked
+    ToggleCollapsed(WorldTreePath),
     /// Pluck at this path
     StartDrag(WorldTreePath),
     /// Place at this path, or at the focus if dropped outside the treeview
@@ -178,12 +229,13 @@ impl TreeviewPointer {
         event: &MouseEvent,
         in_treeview: bool,
         rows: &[TreeviewRow],
+        height: f32,
     ) -> TreeviewResponse {
         let [_, y] = event.position;
         // non-negative, since `y >= TOP_PAD`
         #[allow(clippy::cast_sign_loss)]
         let row = (in_treeview && y >= f64::from(TOP_PAD))
-            .then(|| ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)) as usize)
+            .then(|| self.scroll + ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)) as usize)
             .filter(|&index| index < rows.len());
 
         let mut damaged = std::mem::replace(&mut self.hovered, row) != row;
@@ -206,10 +258,15 @@ impl TreeviewPointer {
                 pressed: true,
             } => {
                 if let Some(index) = row {
+                    let row = &rows[index];
+                    let text_left = f64::from(LEFT_PAD + row.depth as f32 * INDENT);
                     self.press = Some(Press {
-                        path: rows[index].path.clone(),
+                        path: row.path.clone(),
                         position: event.position,
                         dragging: false,
+                        on_triangle: has_triangle(row)
+                            && (text_left..text_left + f64::from(TRIANGLE_WIDTH))
+                                .contains(&event.position[0]),
                     });
                 }
             }
@@ -223,12 +280,25 @@ impl TreeviewPointer {
                         Some(TreeviewAction::Drop(target))
                     } else {
                         // a click: pressed and released on the same row
-                        target
-                            .filter(|target| *target == press.path)
-                            .map(TreeviewAction::Focus)
+                        target.filter(|target| *target == press.path).map(|target| {
+                            if press.on_triangle {
+                                TreeviewAction::ToggleCollapsed(target)
+                            } else {
+                                TreeviewAction::Focus(target)
+                            }
+                        })
                     };
                     damaged = true;
                 }
+            }
+            MouseEventKind::Scroll { delta, .. } if in_treeview => {
+                let scroll = if delta[1] > 0.0 {
+                    self.scroll + SCROLL_STEP
+                } else {
+                    self.scroll.saturating_sub(SCROLL_STEP)
+                }
+                .min(max_scroll(rows.len(), height));
+                damaged |= std::mem::replace(&mut self.scroll, scroll) != scroll;
             }
             MouseEventKind::Button { .. } | MouseEventKind::Scroll { .. } => {}
         }
@@ -240,85 +310,173 @@ impl TreeviewPointer {
         }
     }
 
-    pub fn render(&self, rows: &[TreeviewRow], width: f32, focus_path: &WorldTreePath) -> UITree {
+    /// Scrolls to the focused row if focus moved there since the last render
+    pub fn render(
+        &mut self,
+        rows: &[TreeviewRow],
+        [width, height]: [f32; 2],
+        focus_path: &WorldTreePath,
+    ) -> UITree {
         let focused_row = focused_row(rows, focus_path);
         let focus_inner = is_inside_element(focus_path);
+
+        if self.followed.as_ref() != Some(&focused_row) {
+            if let Some(index) = rows.iter().position(|row| row.path == focused_row) {
+                let shown = shown_rows(height);
+                self.scroll = self.scroll.clamp((index + 1).saturating_sub(shown), index);
+            }
+            self.followed = Some(focused_row.clone());
+        }
+        self.scroll = self.scroll.min(max_scroll(rows.len(), height));
+        let scroll = self.scroll;
+        let row_top = |index: usize| TOP_PAD + (index as f32 - scroll as f32) * ROW_HEIGHT;
+
         let dragging = self.press.as_ref().filter(|press| press.dragging);
 
-        let children = rows
-            .iter()
-            .enumerate()
-            .map(|(index, row)| {
-                let is_focused = row.path == focused_row;
-                let is_hovered = self.hovered == Some(index);
-                let is_dragged = dragging.is_some_and(|press| press.path == row.path);
+        let mut children = inner_box_trees(rows, width, row_top);
 
-                let mut parts = Vec::new();
-                for level in 0..row.depth {
-                    parts.push(rect(
-                        GUIDE,
-                        [LEFT_PAD + level as f32 * INDENT + INDENT / 2.0 - 1.0, 0.0],
-                        [2.0, ROW_HEIGHT],
-                    ));
-                }
-                if is_focused {
-                    let marker = if focus_inner {
-                        MARKER_INNER
-                    } else {
-                        MARKER_FOCUSING
-                    };
-                    parts.push(rect(marker, [0.0, 0.0], [MARKER_WIDTH, ROW_HEIGHT]));
-                }
+        children.extend(rows.iter().enumerate().skip(scroll).map(|(index, row)| {
+            let is_focused = row.path == focused_row;
+            let is_hovered = self.hovered == Some(index);
+            let is_dragged = dragging.is_some_and(|press| press.path == row.path);
 
-                let text_left = LEFT_PAD + row.depth as f32 * INDENT;
-                let text_top = (ROW_HEIGHT - FONT_SIZE_F) / 2.0;
-                let text_color = if is_dragged {
-                    DRAGGED_TEXT
-                } else if row.inner {
-                    INNER_TEXT
-                } else {
-                    TEXT
-                };
-                let label = if row.label.is_empty() {
-                    "…".to_string()
-                } else {
-                    row.label.clone()
-                };
-                parts.push(UITree::leaf_styled(
-                    UIElement::Text(vec![(label, UIElement::glyphon_attr(text_color))]),
-                    Style::absolute(
-                        [text_left, text_top],
-                        [(width - text_left).max(0.0), ROW_HEIGHT - text_top],
-                    ),
+            let mut parts = Vec::new();
+            for level in 0..row.depth {
+                parts.push(rect(
+                    GUIDE,
+                    [LEFT_PAD + level as f32 * INDENT + INDENT / 2.0 - 1.0, 0.0],
+                    [2.0, ROW_HEIGHT],
                 ));
-
-                if dragging.is_some() && is_hovered && !is_dragged {
-                    parts.push(UITree::leaf_styled(
-                        UIElement::Bordered(DROP_TARGET),
-                        Style {
-                            border: Length::uniform_rect(Length::Px(2.0)),
-                            ..Style::absolute([2.0, 0.0], [(width - 4.0).max(0.0), ROW_HEIGHT])
-                        },
-                    ));
-                }
-
-                let background = if is_focused {
-                    UIElement::Backgrounded(FOCUS_BG)
-                } else if is_hovered && dragging.is_none() {
-                    UIElement::Backgrounded(HOVER_BG)
+            }
+            if is_focused {
+                let marker = if focus_inner {
+                    MARKER_INNER
                 } else {
-                    UIElement::Nothing
+                    MARKER_FOCUSING
                 };
-                UITree::new_styled(
-                    background,
-                    Style::absolute([0.0, TOP_PAD + index as f32 * ROW_HEIGHT], [width, ROW_HEIGHT]),
-                    parts,
-                )
-            })
-            .collect();
+                parts.push(rect(marker, [0.0, 0.0], [MARKER_WIDTH, ROW_HEIGHT]));
+            }
 
-        UITree::new_styled(UIElement::Backgrounded(PANEL_BG), Style::full_size(), children)
+            let text_left = LEFT_PAD + row.depth as f32 * INDENT;
+            let text_top = (ROW_HEIGHT - FONT_SIZE_F) / 2.0;
+            let text_color = if is_dragged {
+                DRAGGED_TEXT
+            } else if row.inner {
+                INNER_TEXT
+            } else {
+                TEXT
+            };
+            let label = if row.label.is_empty() {
+                "…".to_string()
+            } else {
+                row.label.clone()
+            };
+            parts.push(UITree::leaf_styled(
+                UIElement::Text(vec![(label, UIElement::glyphon_attr(text_color))]),
+                Style::absolute(
+                    [text_left, text_top],
+                    [(width - text_left).max(0.0), ROW_HEIGHT - text_top],
+                ),
+            ));
+            if has_triangle(row) {
+                parts.push(
+                    UITree::leaf_styled(
+                        UIElement::Nothing,
+                        Style::absolute([text_left, 0.0], [TRIANGLE_WIDTH, ROW_HEIGHT]),
+                    )
+                    .with_cursor(Some(Cursor::Named(CursorIcon::Pointer))),
+                );
+            }
+
+            if dragging.is_some() && is_hovered && !is_dragged {
+                parts.push(UITree::leaf_styled(
+                    UIElement::Bordered(DROP_TARGET),
+                    Style {
+                        border: Length::uniform_rect(Length::Px(2.0)),
+                        ..Style::absolute([2.0, 0.0], [(width - 4.0).max(0.0), ROW_HEIGHT])
+                    },
+                ));
+            }
+
+            let background = if is_focused {
+                UIElement::Backgrounded(FOCUS_BG)
+            } else if is_hovered && dragging.is_none() {
+                UIElement::Backgrounded(HOVER_BG)
+            } else {
+                UIElement::Nothing
+            };
+            UITree::new_styled(
+                background,
+                Style::absolute([0.0, row_top(index)], [width, ROW_HEIGHT]),
+                parts,
+            )
+        }));
+
+        UITree::new_styled(
+            UIElement::Backgrounded(PANEL_BG),
+            Style::full_size(),
+            children,
+        )
     }
+}
+
+/// A box behind each shown inner tree's rows. `row_top` is where a row is drawn.
+fn inner_box_trees(
+    rows: &[TreeviewRow],
+    width: f32,
+    row_top: impl Fn(usize) -> f32,
+) -> Vec<UITree> {
+    inner_boxes(rows)
+        .flat_map(|(holder, end)| {
+            let left = LEFT_PAD + rows[holder].depth as f32 * INDENT + INDENT / 2.0 - 1.0;
+            let position = [left, row_top(holder + 1)];
+            let size = [
+                (width - left - 4.0).max(0.0),
+                (end - holder) as f32 * ROW_HEIGHT,
+            ];
+            [
+                rect(INNER_BOX_BG, position, size),
+                UITree::leaf_styled(
+                    UIElement::Bordered(INNER_BOX_BORDER),
+                    Style {
+                        border: Length::uniform_rect(Length::Px(2.0)),
+                        ..Style::absolute(position, size)
+                    },
+                ),
+            ]
+        })
+        .collect()
+}
+
+/// Its label starts with a `▾`/`▸` that collapses or expands it when clicked
+fn has_triangle(row: &TreeviewRow) -> bool {
+    row.label.starts_with(['▾', '▸'])
+}
+
+/// How many rows fit
+#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+fn shown_rows(height: f32) -> usize {
+    (((height - TOP_PAD) / ROW_HEIGHT).floor() as usize).max(1)
+}
+
+/// The furthest the rows can scroll: until the last one is at the bottom
+fn max_scroll(row_count: usize, height: f32) -> usize {
+    row_count.saturating_sub(shown_rows(height))
+}
+
+/// Each shown inner tree: the row holding it, and the last of the rows of it (which directly follow)
+fn inner_boxes(rows: &[TreeviewRow]) -> impl Iterator<Item = (usize, usize)> {
+    rows.iter().enumerate().filter_map(|(holder, row)| {
+        let len = rows[holder + 1..]
+            .iter()
+            .take_while(|inner| {
+                inner.inner
+                    && inner.path.0.len() > row.path.0.len()
+                    && inner.path.0.starts_with(&row.path.0)
+            })
+            .count();
+        (len > 0).then_some((holder, holder + len))
+    })
 }
 
 fn distance([x1, y1]: [f64; 2], [x2, y2]: [f64; 2]) -> f64 {

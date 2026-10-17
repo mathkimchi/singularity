@@ -154,17 +154,12 @@ impl AppletRunner {
         }
     }
 
-    /// Runs dms (the bar, launcher, etc) here.
-    /// Its stderr, with the protocol trace, goes to `dms.log`, since on a tty it isn't seen.
+    /// Runs dms (the bar, launcher, etc) here
     fn spawn_shell(socket_name: &std::ffi::OsStr) {
-        let result = std::fs::File::create("dms.log").and_then(|log| {
-            std::process::Command::new("dms")
-                .arg("run")
-                .env("WAYLAND_DISPLAY", socket_name)
-                .env("WAYLAND_DEBUG", "1")
-                .stderr(log)
-                .spawn()
-        });
+        let result = std::process::Command::new("dms")
+            .arg("run")
+            .env("WAYLAND_DISPLAY", socket_name)
+            .spawn();
         if let Err(err) = result {
             eprintln!("Failed to run dms: {err}");
         }
