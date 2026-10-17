@@ -179,6 +179,10 @@ impl SmithayState {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> Vec<UITree> {
+        // absolute, or the wrappers would take up places in the flow and push the root's content aside
+        let size = self.output.current_mode().map_or([0.0; 2], |mode| {
+            [mode.size.w as f32, mode.size.h as f32]
+        });
         // `layer_placements` is topmost first
         self.layer_placements
             .iter()
@@ -187,7 +191,7 @@ impl SmithayState {
             .map(|placement| {
                 let layers = Self::surface_tree_layers(placement.surface.wl_surface(), placement.rect.loc);
                 UITree::new_container_styled(
-                    Style::full_size(),
+                    Style::absolute([0.0, 0.0], size),
                     self.layers_to_textures(layers, None, device, queue),
                 )
             })
