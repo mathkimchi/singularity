@@ -67,6 +67,12 @@ Choices made while finishing the non-major Wayland features (and small bug fixes
 - Over the part of a popup outside its tile, Sonamu's cursor shows instead of the client's (the client cursor region is the tile).
 - "Clicking outside the tile doesn't dismiss popups" needed no change: all mouse events reach the displayed wl applet, a click with no wl surface under it has no pointer focus, and smithay's `PopupPointerGrab` dismisses on that. Moving Sonamu focus away also clears keyboard focus, which ends the grab.
 
+## Window geometry is the tile (#55)
+
+- Like niri, a toplevel is drawn at `-window_geometry.loc`, so its xdg window geometry (not the surface, which may include CSD shadows) starts at the tile's top-left. Layer locations, pointer focus origins and the popup unconstrain target are all relative to the window geometry.
+- Like niri for tiled windows, toplevels get `TiledLeft/Right/Top/Bottom`, so GTK etc. drop shadows and rounded corners.
+- The root's surface tree is clipped to the window geometry (niri's opt-in `clip-to-geometry`, always on here, since tiles have no gaps). Popups aren't clipped. Meant to fix a 1px line left of Firefox (unverified guess: GTK3 Adwaita draws tiled windows with a 1px border box-shadow just outside the geometry). Hit testing isn't clipped.
+
 ## Pointer lock end
 
 - New `DisplayRequest::WarpPointer` (winit `set_cursor_position`). `cursor_position_hint` is converted to window px when received (using the tile position and the surface's origin), and the pointer is warped there when a `Locked` grab ends.

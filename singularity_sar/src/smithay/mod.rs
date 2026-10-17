@@ -229,8 +229,8 @@ impl SmithayState {
         };
 
         // relative to the popup's parent's window geometry, like the positioner
+        // (the tile is the root's window geometry)
         target.loc -= get_popup_toplevel_coords(&kind);
-        target.loc -= window_geometry_loc(&root);
 
         popup.with_pending_state(|state| {
             state.geometry = state.positioner.get_unconstrained_geometry(target);
@@ -690,14 +690,18 @@ impl SmithayState {
     }
 
     /// Every surface of the toplevel (root, subsurfaces, then popups, in stacking order)
-    /// that has a buffer, with its offset from the root and its size.
+    /// that has a buffer, with its offset from the window geometry (the tile) and its size.
     fn window_layers(root: &WlSurface) -> Vec<Layer> {
-        let mut layers = Self::surface_tree_layers(root, Point::from((0, 0)));
+        // like niri, the window geometry (not the surface, which may have CSD shadows) is the tile
+        let geometry_loc = window_geometry(root).unwrap_or_default().loc;
+        let mut layers = Self::surface_tree_layers(root, Point::default() - geometry_loc);
+        for layer in &mut layers {
+            layer.in_root_tree = true;
+        }
 
         // popup positions are relative to the root's window geometry
-        let root_geometry_loc = window_geometry_loc(root);
         for (popup, offset) in PopupManager::popups_for_surface(root) {
-            let origin = root_geometry_loc + offset - popup.geometry().loc;
+            let origin = offset - popup.geometry().loc;
             layers.extend(Self::surface_tree_layers(popup.wl_surface(), origin));
         }
 
@@ -739,6 +743,7 @@ impl SmithayState {
                         buffer_scale,
                         location: location + view.offset,
                         view,
+                        in_root_tree: false,
                     });
                 }
             },
@@ -752,8 +757,6 @@ impl SmithayState {
     /// Returns `None` when the surface has nothing displayable yet
     /// (eg the initial xdg_surface commit carries no buffer by protocol)
     /// or when the surface id is stale.
-    ///
-    /// TODO: clip to the tile
     pub fn get_wl_surface_as_element(
         &self,
         surface_id: WlSurfaceId,
@@ -776,9 +779,18 @@ impl SmithayState {
             layers.extend(Self::surface_tree_layers(icon, location + *offset));
         }
 
+        // like niri's `clip-to-geometry`: the root's surfaces (eg CSD shadows and borders) stay in the tile,
+        // popups may leave it
+        let clip = window_geometry(surface).map(|geometry| Rectangle::from_size(geometry.size));
+
         let textures: Vec<_> = layers
             .into_iter()
-            .filter_map(|layer| {
+            .filter_map(|mut layer| {
+                if let Some(clip) = clip.filter(|_| layer.in_root_tree)
+                    && !layer.clip_to(clip)
+                {
+                    return None;
+                }
                 let src = layer.view.src.to_buffer(
                     f64::from(layer.buffer_scale),
                     Transform::Normal,
@@ -964,18 +976,41 @@ struct Layer {
     location: Point<i32, Logical>,
     /// The crop (`src`) and drawn size (`dst`), from viewporter or the buffer
     view: SurfaceView,
+    /// Part of the root's surface tree (not a popup)
+    in_root_tree: bool,
 }
 
-/// Where the xdg window geometry starts in the surface (eg after client-side shadows)
-fn window_geometry_loc(surface: &WlSurface) -> Point<i32, Logical> {
+impl Layer {
+    /// Crops the layer to `clip` (same coordinates as `location`).
+    /// Returns false if nothing is left.
+    fn clip_to(&mut self, clip: Rectangle<i32, Logical>) -> bool {
+        let Some(visible) = Rectangle::new(self.location, self.view.dst).intersection(clip) else {
+            return false;
+        };
+        // src units per dst unit
+        let [sx, sy] = [
+            self.view.src.size.w / f64::from(self.view.dst.w),
+            self.view.src.size.h / f64::from(self.view.dst.h),
+        ];
+        let cut = visible.loc - self.location;
+        self.view.src = Rectangle::new(
+            self.view.src.loc + Point::from((f64::from(cut.x) * sx, f64::from(cut.y) * sy)),
+            (f64::from(visible.size.w) * sx, f64::from(visible.size.h) * sy).into(),
+        );
+        self.view.dst = visible.size;
+        self.location = visible.loc;
+        true
+    }
+}
+
+/// The xdg window geometry in the surface (eg inside client-side shadows), if the client set one
+fn window_geometry(surface: &WlSurface) -> Option<Rectangle<i32, Logical>> {
     with_states(surface, |states| {
         states
             .cached_state
             .get::<SurfaceCachedState>()
             .current()
             .geometry
-            .map(|geometry| geometry.loc)
-            .unwrap_or_default()
     })
 }
 
@@ -1214,10 +1249,18 @@ impl XdgShellHandler for AppletRunner {
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         dbg!("Handling new toplevel surface");
         surface.with_pending_state(|state| {
+            use wayland_protocols::xdg::shell::server::xdg_toplevel::State;
             state.size = Some((800, 600).into());
-            state
-                .states
-                .set(wayland_protocols::xdg::shell::server::xdg_toplevel::State::Activated);
+            state.states.set(State::Activated);
+            // like niri for tiled windows: tells CSD clients (eg GTK) to drop shadows and rounded corners
+            for tiled in [
+                State::TiledLeft,
+                State::TiledRight,
+                State::TiledTop,
+                State::TiledBottom,
+            ] {
+                state.states.set(tiled);
+            }
         });
         surface.send_configure();
         self.smithay_state.output.enter(surface.wl_surface());
