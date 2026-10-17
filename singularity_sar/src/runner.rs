@@ -111,6 +111,7 @@ impl AppletRunner {
         if on_tty {
             Self::export_session_env(&smithay_state.socket_name);
         }
+        Self::spawn_shell(&smithay_state.socket_name);
 
         let mut runner = Self::new(
             &event_loop.handle(),
@@ -150,6 +151,22 @@ impl AppletRunner {
             .status();
         if !result.as_ref().is_ok_and(std::process::ExitStatus::success) {
             eprintln!("Failed to export the session env, so portals may not work: {result:?}");
+        }
+    }
+
+    /// Runs dms (the bar, launcher, etc) here.
+    /// Its stderr, with the protocol trace, goes to `dms.log`, since on a tty it isn't seen.
+    fn spawn_shell(socket_name: &std::ffi::OsStr) {
+        let result = std::fs::File::create("dms.log").and_then(|log| {
+            std::process::Command::new("dms")
+                .arg("run")
+                .env("WAYLAND_DISPLAY", socket_name)
+                .env("WAYLAND_DEBUG", "1")
+                .stderr(log)
+                .spawn()
+        });
+        if let Err(err) = result {
+            eprintln!("Failed to run dms: {err}");
         }
     }
 

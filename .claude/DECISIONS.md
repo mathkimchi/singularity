@@ -113,3 +113,6 @@ Found, not fixed (not small, or the intended behavior is unclear):
 - Mouse events over the treeview are still forwarded to the displayed applet (root forwards every mouse event to its inner applet).
 - `command_hub` and `one_char_render_test` `todo!()` on several `StandardEvent`s (`FocusChanged`, `SurfaceDamageAck`, ...). Currently unreachable, but they'd panic if those events start being forwarded.
 - `ClientHandle` panics if the root applet's request channel closes (eg the applet thread panicked), turning one panic into two. (Fixed by the ClientHandle refactor: a closed channel is ignored.)
+
+- dms (quickshell) was killed when closing one of two open popouts: smithay's layer-shell pre-commit hook still ran after the layer surface was destroyed, saw the reset (0-size, unanchored) state and posted `InvalidSize`. Fixed upstream (smithay `ed563d9`), which needed smithay master and so winit 0.31: the display's `DisplayRequest`s now go through an mpsc channel, and the proxy only wakes the loop (`proxy_wake_up`, replacing `user_event`).
+- SDE spawns `dms run` itself (`AppletRunner::spawn_shell`). It currently sets `WAYLAND_DEBUG=1` and writes stderr to `dms.log` for debugging. Client disconnect reasons are printed (`ClientState::disconnected`).

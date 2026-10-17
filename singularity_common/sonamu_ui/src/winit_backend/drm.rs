@@ -490,7 +490,7 @@ impl DrmDisplay {
                     self.pointer =
                         self.clamp_to_screen([self.pointer[0] + delta.x, self.pointer[1] + delta.y]);
                     self.needs_draw = true;
-                    self.send_mouse(MouseEventKind::Motion, event.time_msec());
+                    self.send_mouse(MouseEventKind::Motion, event.time().millis());
                 }
             }
             InputEvent::PointerMotionAbsolute { event } => {
@@ -499,14 +499,14 @@ impl DrmDisplay {
                 );
                 self.pointer = self.clamp_to_screen([position.x, position.y]);
                 self.needs_draw = true;
-                self.send_mouse(MouseEventKind::Motion, event.time_msec());
+                self.send_mouse(MouseEventKind::Motion, event.time().millis());
             }
             InputEvent::PointerButton { event } => self.send_mouse(
                 MouseEventKind::Button {
                     button: event.button_code(),
                     pressed: event.state() == ButtonState::Pressed,
                 },
-                event.time_msec(),
+                event.time().millis(),
             ),
             InputEvent::PointerAxis { event } => {
                 let axis_delta = |axis| {
@@ -529,7 +529,7 @@ impl DrmDisplay {
                             .then(|| [x_v120.unwrap_or(0), y_v120.unwrap_or(0)]),
                         stop: [stop(Axis::Horizontal), stop(Axis::Vertical)],
                     },
-                    event.time_msec(),
+                    event.time().millis(),
                 );
             }
             _ => {}

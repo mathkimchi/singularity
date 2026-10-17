@@ -191,17 +191,17 @@ pub struct WinitData {
     // Make sure that the winit window is last in the struct so that
     // it is dropped after the wgpu surface is dropped, otherwise the
     // program may crash when closed. This is probably a bug in wgpu.
-    window: Arc<Window>,
+    window: Arc<dyn Window>,
 }
 impl WinitData {
     fn new(
-        window: Arc<Window>,
+        window: Arc<dyn Window>,
         device: wgpu::Device,
         queue: wgpu::Queue,
         instance: &wgpu::Instance,
         adapter: &wgpu::Adapter,
     ) -> Self {
-        let physical_size = window.inner_size();
+        let physical_size = window.surface_size();
         // let scale_factor = window.scale_factor();
 
         Self {
@@ -306,6 +306,8 @@ pub struct UIDisplay {
     /// Last sent, so it is only sent when changed
     display_info: Option<DisplayInfo>,
     ui_content: TrackedEncapsulatedLock<PrimitiveScene>,
+    /// From the proxy, which wakes the event loop to read them
+    requests: std::sync::mpsc::Receiver<DisplayRequest>,
 
     // width: u32,
     // height: u32,
@@ -480,16 +482,19 @@ impl UIDisplay {
         proxy_tx: std::sync::mpsc::Sender<DisplayProxy>,
         display_notification_queue: Sender<DisplayNotification>,
     ) {
-        let event_loop = smithay::reexports::winit::event_loop::EventLoop::with_user_event()
+        let event_loop = smithay::reexports::winit::event_loop::EventLoop::builder()
             .with_wayland()
             .with_any_thread(true)
             .build()
             .unwrap();
-        let proxy: EventLoopProxy<DisplayRequest> = event_loop.create_proxy();
+        let proxy: EventLoopProxy = event_loop.create_proxy();
+        let (request_tx, requests) = std::sync::mpsc::channel();
         proxy_tx
             .send(Box::new(move |request| {
                 // errs only if the display already closed
-                let _ = proxy.send_event(request);
+                if request_tx.send(request).is_ok() {
+                    proxy.wake_up();
+                }
             }))
             .unwrap();
         let Gpu {
@@ -498,12 +503,13 @@ impl UIDisplay {
             instance,
             adapter,
         } = gpu;
-        let mut app = Self {
+        let app = Self {
             is_running,
             event_queue,
             display_notification_queue,
             display_info: None,
             ui_content,
+            requests,
             // width: 256,
             // height: 256,
             key_modifiers: KeyModifiers::NONE,
@@ -517,7 +523,7 @@ impl UIDisplay {
             instance,
             adapter,
         };
-        event_loop.run_app(&mut app).unwrap();
+        event_loop.run_app(app).unwrap();
 
         // // All Wayland apps start by connecting the compositor (server).
         // let conn = Connection::connect_to_env().unwrap();

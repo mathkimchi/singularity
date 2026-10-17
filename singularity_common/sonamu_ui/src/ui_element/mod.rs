@@ -2,7 +2,7 @@ use crate::{
     color::Color,
     display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
 };
-pub use smithay::reexports::winit::window::CursorIcon;
+pub use smithay::reexports::winit::cursor::CursorIcon;
 use std::sync::Arc;
 use wgpu::TextureView;
 

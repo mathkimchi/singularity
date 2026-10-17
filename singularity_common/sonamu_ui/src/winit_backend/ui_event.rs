@@ -167,7 +167,7 @@ impl From<winit::event::Modifiers> for KeyModifiers {
             shift: value.state().shift_key(),
             // TODO
             caps_lock: false,
-            logo: value.state().super_key(),
+            logo: value.state().meta_key(),
             // num_lock,
         }
     }

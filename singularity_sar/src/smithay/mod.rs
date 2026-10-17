@@ -7,7 +7,7 @@ use singularity_common::sap::packets::{NewWlSurface, StandardEvent, WlSurfaceEve
 use slotmap::SlotMap;
 use smithay::{
     backend::{
-        input::{Axis, AxisSource, ButtonState, KeyState, Keycode},
+        input::{Axis, AxisSource, ButtonState, InputTime, KeyState, Keycode},
         renderer::{
             BufferType, buffer_type,
             utils::{
@@ -23,6 +23,7 @@ use smithay::{
         Seat, SeatHandler, SeatState,
         dnd::{DnDGrab, DndGrabHandler, DndTarget, GrabType, Source},
         keyboard::FilterResult,
+        tablet::TabletSeatHandler,
         pointer::{
             AxisFrame, ButtonEvent, CursorImageStatus, CursorImageSurfaceData, Focus, MotionEvent,
             PointerHandle, RelativeMotionEvent,
@@ -55,8 +56,7 @@ use smithay::{
             with_pointer_constraint,
         },
         relative_pointer::RelativePointerManagerState,
-        tablet_manager::TabletSeatHandler,
-        text_input::{TextInputManagerState, TextInputSeat as _},
+        text_input::{TextInputActivation, TextInputManagerState, TextInputSeat as _},
         xdg_activation::{
             XdgActivationHandler, XdgActivationState, XdgActivationToken, XdgActivationTokenData,
         },
@@ -106,9 +106,10 @@ impl ClientData for ClientState {
     /// Notification that a client is disconnected
     fn disconnected(
         &self,
-        _client_id: smithay::reexports::wayland_server::backend::ClientId,
-        _reason: smithay::reexports::wayland_server::backend::DisconnectReason,
+        client_id: smithay::reexports::wayland_server::backend::ClientId,
+        reason: smithay::reexports::wayland_server::backend::DisconnectReason,
     ) {
+        eprintln!("Client {client_id:?} disconnected: {reason:?}");
     }
 }
 
@@ -451,8 +452,8 @@ impl SmithayState {
     }
 
     /// Input event time in CLOCK_MONOTONIC ms, the same clock as libinput's (like niri)
-    fn now_msec(&self) -> u32 {
-        Duration::from(self.clock.now()).as_millis() as u32
+    fn now_input_time(&self) -> InputTime {
+        InputTime::from_micros(Duration::from(self.clock.now()).as_micros() as u64)
     }
 
     /// Px in the Sonamu window to the logical units wl clients use
@@ -1157,7 +1158,7 @@ impl AppletRunner {
             Keycode::new(keycode),
             key_state,
             SERIAL_COUNTER.next_serial(),
-            self.smithay_state.now_msec(),
+            self.smithay_state.now_input_time(),
             |_, _, _| FilterResult::Forward,
         );
     }
@@ -1248,7 +1249,7 @@ impl CompositorHandler for AppletRunner {
     }
 
     fn commit(&mut self, surface: &WlSurface) {
-        dbg!("Committed");
+        // dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
         self.register_toplevel(surface);
         self.layer_surface_committed(surface);
@@ -1574,7 +1575,13 @@ impl PointerConstraintsHandler for AppletRunner {
     }
 
     /// The window's grab is released by `AppletRunner::update_pointer_grab`
-    fn remove_constraint(&mut self, _surface: &WlSurface, _pointer: &PointerHandle<Self>) {}
+    fn remove_constraint(
+        &mut self,
+        _surface: &WlSurface,
+        _pointer: &PointerHandle<Self>,
+        _remove: smithay::wayland::pointer_constraints::ConstraintRemove,
+    ) {
+    }
 
     /// Where the pointer goes when the lock ends, like anvil.
     /// Converted to window px now, while the surface's position is known.
@@ -1646,7 +1653,7 @@ impl AppletRunner {
                         &MotionEvent {
                             location,
                             serial: SERIAL_COUNTER.next_serial(),
-                            time: self.smithay_state.now_msec(),
+                            time: self.smithay_state.now_input_time(),
                         },
                     );
                     pointer.frame(self);
@@ -1683,7 +1690,10 @@ impl AppletRunner {
         time_msec: Option<u32>,
     ) {
         let pointer = self.smithay_state.seat.get_pointer().unwrap();
-        let time = time_msec.unwrap_or_else(|| self.smithay_state.now_msec());
+        let time = time_msec.map_or_else(
+            || self.smithay_state.now_input_time(),
+            InputTime::from_millis,
+        );
 
         // like niri, only real motion reaches clients (not one before every button/scroll)
         let moved = kind == MouseEventKind::Motion
@@ -1771,7 +1781,7 @@ impl AppletRunner {
                 delta,
                 // winit's delta is raw, so both are the same
                 delta_unaccel: delta,
-                utime: Duration::from(self.smithay_state.clock.now()).as_micros() as u64,
+                time: self.smithay_state.now_input_time(),
             },
         );
         pointer.frame(self);
@@ -1819,4 +1829,9 @@ impl FractionalScaleHandler for AppletRunner {
 }
 
 /// Needed by cursor shape; there's no tablet support, so the default does nothing
-impl TabletSeatHandler for AppletRunner {}
+impl TabletSeatHandler for AppletRunner {
+    type ToolFocus = WlSurface;
+}
+
+/// Needed by text input; the IME's state is sent through the display instead
+impl TextInputActivation for AppletRunner {}
