@@ -38,7 +38,7 @@ The user's request (2026-10-16): a project node should hold everything in the pr
 
 - `ProjectApplet` is a raw client (`RawClientInitializer<NodeRequest>`, own loop, like the root), not a `StandardApplet`:
   its pluck/place must wait on inner applets, which the sync `StandardApplet::pluck`/`place` can't.
-- ~~**Treeview**: root `◆ Project`, with the inner tree's root as its only child~~ (superseded by Round 2).
+- ~~**Treeview**: root `Project`, with the inner tree's root as its only child~~ (superseded by Round 2).
   Its rows show dimmer, like other inner elements.
 - **Making one** (Super+P, hub `project`, `SetProject(true)`): after the batch (detach panics in a request callback),
   the node's subtree is detached and becomes the inner tree of a new project node in its place, focused `Inner`.
@@ -61,12 +61,12 @@ The user's request (2026-10-16): a project node should hold everything in the pr
 ## Round 2 (2026-10-16): collapsible nodes, projects get children
 
 The user: all nodes with inner trees should be collapsible; project nodes couldn't get children
-(the `◆ Project` row only ever had its single root under it).
+(the `Project` row only ever had its single root under it).
 
 ### Projects get children
 
 - **A project's tree root is a container** (no main, `Layout::Single`) and *is* the project's row: its treeview is its
-  tree, with the root labeled `◆ Project`. Making a project puts the node's subtree under that container.
+  tree, with the root labeled `Project`. Making a project puts the node's subtree under that container.
   Paths of a project are plain tree paths again (no `[0]` prefix).
 - **A project node is never `Focusing` itself**: `NodeTree::focus_into_project` (after each batch) turns it into `Inner`
   and sends `Focus([])`, focusing the container. The project publishes an empty focus path then, so the root draws it as
@@ -89,7 +89,7 @@ The user: all nodes with inner trees should be collapsible; project nodes couldn
   main has inner elements (or are collapsed) toggle. With focus inside a project below its row, the project gets the key
   (it collapses its own focused node), like Super+P.
 - Labels: `▾` before a node with inner elements, `▸` before a collapsed one (whose inner rows are hidden).
-  A project's row is `▾ ◆ Project`.
+  A project's row is `▾ Project`.
 - If the focused row is hidden in a collapsed node, that node's row shows the focus (longest visible row prefix).
 - Not done: collapsing with the mouse (no click target on the arrow), keeping collapsed state through pluck/place,
   collapsing a node's child nodes (only its main's inner tree collapses).
@@ -110,7 +110,7 @@ Enter only confirms, modifier keys don't leave the selector.
 Superseding round 2:
 - **On the project (`[[p]]`) and inside it at its inner root (`[[p], []]`) are distinct again.** Removed
   `focus_into_project`, `leave_project`, the empty published focus and the project-row border special case.
-  The inner world's root is still a container labeled `◆ Project` (shown on the project's row, as an inner root is).
+  The inner world's root is still a container labeled `Project` (shown on the project's row, as an inner root is).
   Making a project focuses the project node itself.
 - **Keybinds in the treeview selector act on the selected node** (`NodeTree::keybind_request`, for every focused node
   now, not just ones with no main): so Ctrl+Shift++ on a project (not inside) adds a child to the project node in the

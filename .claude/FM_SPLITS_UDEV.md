@@ -243,7 +243,7 @@ The dead-applet guard and `remove_wl_surface` weren't exercised (no panicking ap
 - **A project is a node flag** (`Node::project`, carried by `DetachedTree::project`, so plucked projects stay projects).
   Made by **Super+P** (toggles the focused node) or the hub's **`project` / `project off`** (its own node;
   `NodeRequest::SetProject`, which the file manager forwards for documents). Marking a node makes it the view root
-  (you're working in it). Treeview label: `◆ ` before its title.
+  (you're working in it).
 - **Narrowing**: when focus moves into a project inside the view (from outside it), the view root becomes the outermost such project.
   **Widening**: when focus leaves the view root (eg `a` on it goes to its parent, `w`/`s` to a sibling, `q` to the root),
   it widens to the closest ancestor holding the focus. Both in `NodeTree::update_view_root`, after each event batch
