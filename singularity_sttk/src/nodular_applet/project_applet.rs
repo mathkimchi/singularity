@@ -22,7 +22,7 @@ use sonamu_ui::{
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 /// Its inner tree root's label
-const LABEL: &str = "◆ Project";
+const LABEL: &str = "Project";
 
 /// Shows its contents' panes; the root's treeview shows its contents as its node's inner tree.
 /// Its inner tree's root is a container (no main), so focus inside the project at its root (`[[project], []]`)
