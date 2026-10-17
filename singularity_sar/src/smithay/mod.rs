@@ -1,3 +1,5 @@
+mod capture;
+
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
 use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId};
@@ -140,6 +142,7 @@ pub struct SmithayState {
     _text_input_state: TextInputManagerState,
     _pointer_constraints_state: PointerConstraintsState,
     _relative_pointer_state: RelativePointerManagerState,
+    capture: capture::CaptureState,
     /// The last surface the pointer was sent to and its origin, for relative motion
     pointer_focus: Option<(WlSurface, Point<f64, Logical>)>,
     /// From the last redraw, in Sonamu window px
@@ -280,6 +283,7 @@ impl SmithayState {
         self.output
             .change_current_state(Some(mode), None, None, None);
         self.output.set_preferred(mode);
+        self.update_capture_constraints();
     }
 
     /// Updates the output, and every surface's preferred scale and toplevel's size
@@ -473,6 +477,7 @@ impl SmithayState {
             PointerConstraintsState::new::<AppletRunner>(&display_handle);
         let relative_pointer_state =
             RelativePointerManagerState::new::<AppletRunner>(&display_handle);
+        let capture = capture::CaptureState::new(&display_handle);
         let clock = Clock::<Monotonic>::new();
         let presentation_state =
             PresentationState::new::<AppletRunner>(&display_handle, clock.id() as u32);
@@ -549,6 +554,7 @@ impl SmithayState {
             _text_input_state: text_input_state,
             _pointer_constraints_state: pointer_constraints_state,
             _relative_pointer_state: relative_pointer_state,
+            capture,
             pointer_focus: None,
             tile_areas: HashMap::new(),
             lock_end_position: None,

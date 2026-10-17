@@ -80,8 +80,11 @@ impl WgpuData {
         } else {
             CompositeAlphaMode::Auto
         };
+        // copying out is only needed for screen capture
+        let usage = TextureUsages::RENDER_ATTACHMENT
+            | (capabilities.usages & TextureUsages::COPY_SRC);
         let surface_config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
+            usage,
             format: swapchain_format,
             width: physical_size.width,
             height: physical_size.height,
@@ -240,6 +243,8 @@ pub enum DisplayRequest {
     SetPointerGrab(PointerGrab),
     /// Moves the pointer to a position in the window (physical px)
     WarpPointer([f64; 2]),
+    /// Draws (even if the content is unchanged) and sends the frame back as `DisplayNotification::Captured`
+    Capture,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PointerGrab {
@@ -264,6 +269,16 @@ pub enum DisplayNotification {
     /// Raw mouse movement, which still arrives while the pointer is locked.
     /// Only wl clients use it so far.
     RelativeMotion([f64; 2]),
+    /// For a `DisplayRequest::Capture`; `None` if the frame couldn't be copied
+    Captured(Option<CapturedFrame>),
+}
+/// A drawn frame, copied out of the display
+#[derive(Debug, Clone)]
+pub struct CapturedFrame {
+    pub width: u32,
+    pub height: u32,
+    /// Rows of B,G,R,A bytes with no padding (ie little-endian `wl_shm` Argb8888)
+    pub bgra: Vec<u8>,
 }
 #[derive(Debug, Clone)]
 pub enum ImeEvent {
@@ -301,6 +316,8 @@ pub struct UIDisplay {
     drawn_cursors: CursorAreas,
     /// What the window's cursor is set to; `None` is the default cursor
     applied_cursor: Option<Cursor>,
+    /// The next draw is sent back (`DisplayRequest::Capture`)
+    capture: bool,
 
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -493,6 +510,7 @@ impl UIDisplay {
             cursor_position: [0.0, 0.0],
             drawn_cursors: CursorAreas::default(),
             applied_cursor: None,
+            capture: false,
             winit_data: None,
             device,
             queue,

@@ -64,6 +64,9 @@ impl UIHandle {
                     DisplayNotification::RelativeMotion(delta) => {
                         runner.relative_pointer_motion(delta);
                     }
+                    DisplayNotification::Captured(captured) => {
+                        runner.smithay_state.frames_captured(captured.as_ref());
+                    }
                 }
             })
             .unwrap();
@@ -144,6 +147,11 @@ impl UIHandle {
     /// `position` is in window px
     pub fn warp_pointer(&self, position: [f64; 2]) {
         (self.display_proxy)(DisplayRequest::WarpPointer(position));
+    }
+
+    /// The display sends back its next drawn frame (`DisplayNotification::Captured`)
+    pub fn capture(&self) {
+        (self.display_proxy)(DisplayRequest::Capture);
     }
 
     pub fn set_pointer_grab(&self, grab: PointerGrab) {

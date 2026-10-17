@@ -113,6 +113,8 @@ impl StandardApplet for ProjectApplet {
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
             | StandardEvent::Focus(_) => {}
+            // only the root gets these
+            StandardEvent::Capturing(_) => {}
         }
     }
 

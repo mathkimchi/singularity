@@ -11,6 +11,7 @@ use crate::{
 use calloop::{
     EventLoop, LoopHandle,
     channel::{Channel, Sender},
+    timer::{TimeoutAction, Timer},
 };
 use singularity_common::{
     sap::{
@@ -50,6 +51,10 @@ pub struct RootNodeApplet {
     treeview_shown: bool,
     /// Shown in the strip at the top, above the treeview and the tree
     status_text: String,
+    /// A wl client is capturing the screen (eg recording)
+    capturing: bool,
+    /// The bar's `REC`, which flashes while capturing
+    rec_shown: bool,
 }
 
 /// A help node, and where it was opened
@@ -107,10 +112,19 @@ impl RootNodeApplet {
             holder,
             treeview_pointer,
             status_text,
+            rec_shown,
             ..
         } = self;
         self.surface.flush(
-            || Self::get_window(&holder.tree, treeview_pointer, treeview_width, status_text),
+            || {
+                Self::get_window(
+                    &holder.tree,
+                    treeview_pointer,
+                    treeview_width,
+                    status_text,
+                    *rec_shown,
+                )
+            },
             &self.request_sender,
         );
     }
@@ -156,6 +170,8 @@ impl RootNodeApplet {
             // the root node starts focused
             treeview_shown: true,
             status_text: String::new(),
+            capturing: false,
+            rec_shown: false,
         }
     }
 
@@ -205,6 +221,19 @@ impl RootNodeApplet {
                     )
                     .unwrap();
                 status_bar::spawn_ticker(status_sender);
+                event_loop
+                    .handle()
+                    .insert_source(
+                        Timer::from_duration(status_bar::REC_FLASH),
+                        |_, &mut (), root: &mut RootNodeApplet| {
+                            if root.capturing {
+                                root.rec_shown = !root.rec_shown;
+                                root.surface.damage();
+                            }
+                            TimeoutAction::ToDuration(status_bar::REC_FLASH)
+                        },
+                    )
+                    .unwrap();
 
                 let mut root = RootNodeApplet::new(
                     self.root_initializer,
@@ -276,6 +305,11 @@ impl RootNodeApplet {
                 self.holder.start_place(path.as_ref(), tree);
             }
             StandardEvent::Focus(path) => self.holder.focus(&path),
+            StandardEvent::Capturing(capturing) => {
+                self.capturing = capturing;
+                self.rec_shown = capturing;
+                self.surface.damage();
+            }
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
                 modifiers: KeyModifiers { logo: true, .. },
@@ -416,6 +450,7 @@ impl RootNodeApplet {
         // 0 while hidden
         treeview_width: u32,
         status_text: &str,
+        rec_shown: bool,
     ) -> UITree {
         let content = if treeview_width == 0 {
             tree.get_window()
@@ -432,7 +467,7 @@ impl RootNodeApplet {
                 ],
                 ..sonamu_ui::ui_element::Style::full_size()
             },
-            vec![status_bar::render(status_text), content],
+            vec![status_bar::render(status_text, rec_shown), content],
         )
     }
 

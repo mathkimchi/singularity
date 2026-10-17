@@ -1,7 +1,7 @@
 use calloop::channel::Sender;
 use sonamu_ui::{
     color::Color,
-    ui_element::{FONT_SIZE_F, Style, UIElement, UITree},
+    ui_element::{Display, FONT_SIZE_F, Style, TrackSize, UIElement, UITree},
 };
 use std::{fs, process::Command, thread, time::Duration};
 
@@ -83,14 +83,36 @@ fn volume() -> Option<String> {
     Some(format!("vol {:.0}%{muted}", volume * 100.0))
 }
 
-/// The bar, `STATUS_BAR_HEIGHT` tall
-pub fn render(text: &str) -> UITree {
+/// How long `REC` is shown, then hidden, while the screen is captured
+pub const REC_FLASH: Duration = Duration::from_millis(500);
+const REC_WIDTH: f32 = FONT_SIZE_F * 3.0;
+
+/// The bar, `STATUS_BAR_HEIGHT` tall. `rec` shows a red `REC` at the right end.
+pub fn render(text: &str, rec: bool) -> UITree {
+    let text = UITree::leaf_styled(
+        UIElement::Text(vec![(text.to_string(), UIElement::glyphon_attr(BAR_TEXT))]),
+        Style::absolute([8.0, 4.0], [4096.0, FONT_SIZE_F]),
+    );
+    let rec = if rec {
+        UITree::new_styled(
+            UIElement::Backgrounded(Color::RED),
+            Style::full_size(),
+            vec![UITree::leaf_styled(
+                UIElement::Text(vec![("REC".to_string(), UIElement::glyphon_attr(Color::WHITE))]),
+                Style::absolute([4.0, 4.0], [REC_WIDTH, FONT_SIZE_F]),
+            )],
+        )
+    } else {
+        UITree::leaf(UIElement::Nothing)
+    };
     UITree::new_styled(
         UIElement::Backgrounded(BAR_BG),
-        Style::full_size(),
-        vec![UITree::leaf_styled(
-            UIElement::Text(vec![(text.to_string(), UIElement::glyphon_attr(BAR_TEXT))]),
-            Style::absolute([8.0, 4.0], [4096.0, FONT_SIZE_F]),
-        )],
+        Style {
+            display: Display::Grid,
+            grid_template_columns: vec![TrackSize::Fr(1.0), TrackSize::Px(REC_WIDTH)],
+            ..Style::full_size()
+        },
+        // the text is absolute, so out of the grid; the empty cell keeps `REC` in the right column
+        vec![text, UITree::leaf(UIElement::Nothing), rec],
     )
 }

@@ -108,6 +108,9 @@ impl AppletRunner {
         unsafe {
             std::env::set_var("SONAMU_WAYLAND_DISPLAY", &smithay_state.socket_name);
         }
+        if on_tty {
+            Self::export_session_env(&smithay_state.socket_name);
+        }
 
         let mut runner = Self::new(
             &event_loop.handle(),
@@ -132,6 +135,22 @@ impl AppletRunner {
                 runner.smithay_state.flush_clients();
             })
             .unwrap();
+    }
+
+    /// For services D-Bus starts, eg xdg-desktop-portal-wlr (screen sharing) connects here
+    /// and xdg-desktop-portal reads `sonamu-portals.conf` (see `assets/portal`).
+    /// Only as the actual compositor, since in a window it would take over the host's session.
+    fn export_session_env(socket_name: &std::ffi::OsStr) {
+        let mut wayland_display = std::ffi::OsString::from("WAYLAND_DISPLAY=");
+        wayland_display.push(socket_name);
+        let result = std::process::Command::new("dbus-update-activation-environment")
+            .arg("--systemd")
+            .arg(wayland_display)
+            .arg("XDG_CURRENT_DESKTOP=sonamu")
+            .status();
+        if !result.as_ref().is_ok_and(std::process::ExitStatus::success) {
+            eprintln!("Failed to export the session env, so portals may not work: {result:?}");
+        }
     }
 
     pub(crate) fn handle_ui_event(&mut self, event: UIEvent) {
@@ -227,5 +246,8 @@ impl AppletRunner {
                 .map(|&(surface_id, area)| (WlSurfaceId::from_u64(surface_id), area)),
         );
         self.ui_handle.set_ui_content(scene);
+        if self.smithay_state.wants_capture() {
+            self.ui_handle.capture();
+        }
     }
 }

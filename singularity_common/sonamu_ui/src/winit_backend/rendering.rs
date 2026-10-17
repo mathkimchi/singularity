@@ -1,6 +1,6 @@
 //! Since this is a private module, I can just make all the structs and fields pub as needed
 
-use super::UIDisplay;
+use super::{CapturedFrame, UIDisplay};
 use crate::{
     display_units::DisplayAreaPx,
     ui_element::{
@@ -10,7 +10,7 @@ use crate::{
 };
 use glyphon::{AttrsOwned, Metrics, TextRenderer};
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
-use std::iter;
+use std::{iter, sync::mpsc};
 use wgpu::{
     BindGroup, BindGroupLayout, Device, MultisampleState, PipelineCompilationOptions,
     RenderPipeline, SurfaceConfiguration, TextureView, include_wgsl, util::DeviceExt as _,
@@ -1223,9 +1223,100 @@ impl DrawingSharedData<'_> {
     }
 }
 
+/// `UIDisplay::draw` didn't draw this time (eg the surface needed reconfiguring)
+pub(super) struct Skipped;
+
+/// A drawn frame being copied into a buffer
+struct FrameCopy {
+    buffer: wgpu::Buffer,
+    width: u32,
+    height: u32,
+    /// Rows are padded to `wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`
+    padded_row: u32,
+    /// The frame is R,G,B,A rather than B,G,R,A
+    swap_red_blue: bool,
+}
+impl FrameCopy {
+    /// Copies `texture` once `encoder` is submitted; `None` if it can't be copied
+    fn start(
+        device: &Device,
+        encoder: &mut wgpu::CommandEncoder,
+        texture: &wgpu::Texture,
+    ) -> Option<Self> {
+        if !texture.usage().contains(wgpu::TextureUsages::COPY_SRC) {
+            return None;
+        }
+        let swap_red_blue = match texture.format() {
+            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => false,
+            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => true,
+            _ => return None,
+        };
+        let (width, height) = (texture.width(), texture.height());
+        let padded_row = (width * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("capture_buffer"),
+            size: u64::from(padded_row * height),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        encoder.copy_texture_to_buffer(
+            texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded_row),
+                    rows_per_image: None,
+                },
+            },
+            texture.size(),
+        );
+        Some(Self {
+            buffer,
+            width,
+            height,
+            padded_row,
+            swap_red_blue,
+        })
+    }
+
+    /// Blocks until the copy is done
+    fn finish(self, device: &Device) -> Option<CapturedFrame> {
+        let (tx, rx) = mpsc::channel();
+        self.buffer.map_async(wgpu::MapMode::Read, .., move |result| {
+            let _ = tx.send(result);
+        });
+        device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        rx.recv().ok()?.ok()?;
+
+        let mapped = self.buffer.get_mapped_range(..);
+        let row_len = self.width as usize * 4;
+        let mut bgra = Vec::with_capacity(row_len * self.height as usize);
+        for row in mapped.chunks_exact(self.padded_row as usize) {
+            bgra.extend_from_slice(&row[..row_len]);
+        }
+        if self.swap_red_blue {
+            for pixel in bgra.as_chunks_mut::<4>().0 {
+                pixel.swap(0, 2);
+            }
+        }
+        Some(CapturedFrame {
+            width: self.width,
+            height: self.height,
+            bgra,
+        })
+    }
+}
+
 impl UIDisplay {
+    /// With `capture`, also copies the frame out (`Ok(None)` if it couldn't be)
+    ///
     /// REVIEW: move somewhere else?
-    pub(super) fn draw(wgpu_data: &mut WgpuData, content: &PrimitiveScene) {
+    pub(super) fn draw(
+        wgpu_data: &mut WgpuData,
+        content: &PrimitiveScene,
+        capture: bool,
+    ) -> Result<Option<CapturedFrame>, Skipped> {
         let WgpuData {
             // window,
             device,
@@ -1258,15 +1349,15 @@ impl UIDisplay {
             }
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                 // skip this frame and try again later
-                return;
+                return Err(Skipped);
             }
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 surface.configure(device, surface_config);
-                return;
+                return Err(Skipped);
             }
             wgpu::CurrentSurfaceTexture::Validation => {
                 log::error!("wgpu surface validation error while acquiring frame");
-                return;
+                return Err(Skipped);
             }
         };
         let view = output
@@ -1333,8 +1424,12 @@ impl UIDisplay {
             drawing_shared_data.draw_primitive_scene(content);
         }
 
+        let copy = capture
+            .then(|| FrameCopy::start(device, &mut encoder, &output.texture))
+            .flatten();
         queue.submit(iter::once(encoder.finish()));
         output.present();
+        let captured = copy.and_then(|copy| copy.finish(device));
 
         // let stride = self.width as i32 * 4;
 
@@ -1395,6 +1490,8 @@ impl UIDisplay {
         //     .attach_to(self.window.wl_surface())
         //     .expect("buffer attach");
         // self.window.commit();
+
+        Ok(captured)
     }
 }
 

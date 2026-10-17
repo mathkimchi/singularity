@@ -107,6 +107,8 @@ pub enum StandardEvent {
     Place(Option<WorldTreePath>, DetachedTree),
     /// Focus the element at this path of the client's treeview (eg it was clicked in the root's treeview)
     Focus(WorldTreePath),
+    /// A wl client started (`true`) or stopped capturing the screen (eg recording). Only the root gets these.
+    Capturing(bool),
 }
 
 /// Wl surface applet to compositor

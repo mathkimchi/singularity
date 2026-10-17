@@ -72,6 +72,8 @@ struct DrmDisplay {
     /// The last scene, redrawn when only the pointer moves
     scene: PrimitiveScene,
     needs_draw: bool,
+    /// The next draw is sent back (`DisplayRequest::Capture`)
+    capture: bool,
     size: DisplayContainerSize,
 
     pointer: [f64; 2],
@@ -275,6 +277,7 @@ impl DrmDisplay {
             wgpu_data,
             scene: PrimitiveScene::new_empty(),
             needs_draw: true,
+            capture: false,
             size,
             pointer: [f64::from(size.width) / 2.0, f64::from(size.height) / 2.0],
             pointer_grab: PointerGrab::None,
@@ -293,6 +296,10 @@ impl DrmDisplay {
     fn handle_request(&mut self, request: DisplayRequest) {
         match request {
             DisplayRequest::Redraw => self.needs_draw = true,
+            DisplayRequest::Capture => {
+                self.capture = true;
+                self.needs_draw = true;
+            }
             // the pointer never leaves the monitor anyway; a lock just stops moving it
             DisplayRequest::SetPointerGrab(grab) => self.pointer_grab = grab,
             DisplayRequest::WarpPointer(position) => {
@@ -315,8 +322,8 @@ impl DrmDisplay {
             .cursor_at(self.pointer)
             .cloned()
             .unwrap_or(Cursor::Named(CursorIcon::Default));
-        if cursor == Cursor::Hidden {
-            UIDisplay::draw(&mut self.wgpu_data, &self.scene);
+        let drawn = if cursor == Cursor::Hidden {
+            UIDisplay::draw(&mut self.wgpu_data, &self.scene, self.capture)
         } else {
             if self.cursor_image.as_ref().is_none_or(|(drawn, _)| *drawn != cursor) {
                 let image = self.load_cursor(&cursor);
@@ -347,13 +354,21 @@ impl DrmDisplay {
                     DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
                 ),
             });
-            UIDisplay::draw(&mut self.wgpu_data, &scene);
-        }
+            UIDisplay::draw(&mut self.wgpu_data, &scene, self.capture)
+        };
 
         if presented {
             let _ = self
                 .display_notification_queue
                 .send(DisplayNotification::Presented);
+        }
+        // a skipped frame is captured on the next draw
+        if let Ok(captured) = drawn
+            && std::mem::take(&mut self.capture)
+        {
+            let _ = self
+                .display_notification_queue
+                .send(DisplayNotification::Captured(captured));
         }
     }
 

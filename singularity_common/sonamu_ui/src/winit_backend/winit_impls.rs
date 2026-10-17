@@ -67,6 +67,10 @@ impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
         let window = &winit_data.window;
         match request {
             DisplayRequest::Redraw => window.request_redraw(),
+            DisplayRequest::Capture => {
+                self.capture = true;
+                window.request_redraw();
+            }
             DisplayRequest::SetPointerGrab(grab) => {
                 let result = match grab {
                     PointerGrab::None => window.set_cursor_grab(CursorGrabMode::None),
@@ -232,9 +236,22 @@ impl winit::application::ApplicationHandler<DisplayRequest> for UIDisplay {
                 Self::send_mouse_event(&self.event_queue, self.cursor_position, kind);
             }
             winit::event::WindowEvent::RedrawRequested => {
-                if let Some(content) = self.ui_content.get_if_dirty() {
-                    if let Some(winit_data) = &mut self.winit_data {
-                        Self::draw(&mut winit_data.wgpu_data, &content);
+                // a capture draws even if nothing changed
+                let content = if self.capture {
+                    Some(self.ui_content.get().0)
+                } else {
+                    self.ui_content.get_if_dirty()
+                };
+                if let Some(content) = content {
+                    if let Some(winit_data) = &mut self.winit_data
+                        // a skipped frame is captured on the next draw
+                        && let Ok(captured) =
+                            Self::draw(&mut winit_data.wgpu_data, &content, self.capture)
+                        && std::mem::take(&mut self.capture)
+                    {
+                        self.display_notification_queue
+                            .send(DisplayNotification::Captured(captured))
+                            .unwrap();
                     }
                     self.display_notification_queue
                         .send(DisplayNotification::Presented)

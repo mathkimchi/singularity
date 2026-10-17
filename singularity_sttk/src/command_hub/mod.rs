@@ -525,7 +525,8 @@ impl StandardApplet for CommandHubApplet {
             StandardEvent::WlSurfaceRegistered { .. }
             | StandardEvent::FocusWlSurface(_)
             | StandardEvent::WlSurfaceDestroyed(_)
-            | StandardEvent::WlSurfaceTitle(..) => {}
+            | StandardEvent::WlSurfaceTitle(..)
+            | StandardEvent::Capturing(_) => {}
         }
     }
 
