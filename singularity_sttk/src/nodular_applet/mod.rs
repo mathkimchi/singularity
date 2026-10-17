@@ -5,10 +5,9 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree},
-        packets::{
-            StandardEvent, StandardRequest, StateKind, Treeview, WlSurfaceEvent, WlSurfaceId,
-        },
+        packets::{AwaitedWl, NewWlSurface, StandardEvent, StandardRequest, StateKind, Treeview},
         raw_client_initializer::RawClientInitializer,
+        session::SavedApplet,
         shared_state::{SharedState, StatePublisher},
     },
     utils::tree::world_tree::{
@@ -99,13 +98,21 @@ pub trait StandardApplet {
         true
     }
 
-    /// A new wl surface while focus is inside this applet. `Err` gives it back, and its node gets it as a child.
-    fn take_wl_surface(
-        &mut self,
-        surface_id: WlSurfaceId,
-        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    ) -> Result<(), (WlSurfaceId, Sender<(WlSurfaceId, WlSurfaceEvent)>)> {
-        Err((surface_id, wl_event_queue))
+    /// A new wl surface while focus is inside this applet, or one it awaits (`awaiting_wl`).
+    /// `Err` gives it back, and its node gets it as a child.
+    fn take_wl_surface(&mut self, surface: NewWlSurface) -> Result<(), NewWlSurface> {
+        Err(surface)
+    }
+
+    /// How to make it again on the next start (see `.claude/SESSIONS.md`); `None` isn't saved.
+    /// Published with the treeview, so call `AppletContext::damage_treeview` when it changes
+    fn save(&self) -> Option<SavedApplet> {
+        None
+    }
+
+    /// Restored wl clients inside it waiting for their toplevel; published with the treeview
+    fn awaiting_wl(&self) -> Vec<AwaitedWl> {
+        Vec::new()
     }
 
     /// A request from an applet this applet embedded (`AppletContext::embed`)
@@ -181,10 +188,7 @@ pub enum NodeRequest {
     /// Starts a program without waiting for it (eg a wl client)
     Run(&'static str),
     /// A wl surface the applet didn't take (`StandardApplet::take_wl_surface`), as a child of its node
-    AddWlSurface {
-        surface_id: WlSurfaceId,
-        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    },
+    AddWlSurface(NewWlSurface),
 }
 
 /// Makes an applet from a detached subtree (`NodeRequest::Wrap`)
@@ -353,17 +357,11 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                         let _ = state.request_sender.send(NodeRequest::Close);
                     }
                 }
-                calloop::channel::Event::Msg(StandardEvent::WlSurfaceRegistered {
-                    surface_id,
-                    wl_event_queue,
-                }) => {
-                    if let Err((surface_id, wl_event_queue)) =
-                        state.applet.take_wl_surface(surface_id, wl_event_queue)
-                    {
-                        let _ = state.request_sender.send(NodeRequest::AddWlSurface {
-                            surface_id,
-                            wl_event_queue,
-                        });
+                calloop::channel::Event::Msg(StandardEvent::WlSurfaceRegistered(surface)) => {
+                    if let Err(surface) = state.applet.take_wl_surface(surface) {
+                        let _ = state
+                            .request_sender
+                            .send(NodeRequest::AddWlSurface(surface));
                     }
                 }
                 calloop::channel::Event::Msg(event) => {
@@ -429,6 +427,8 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                         tree: state.applet.get_treeview(),
                         focus: state.applet.get_focus_path(),
                         traversing: state.applet.is_traversing(),
+                        saved: state.applet.save(),
+                        awaiting_wl: state.applet.awaiting_wl(),
                     },
                     &state.request_sender,
                 );

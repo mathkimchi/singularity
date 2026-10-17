@@ -2,7 +2,7 @@ mod capture;
 
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
-use singularity_common::sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId};
+use singularity_common::sap::packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId};
 use slotmap::SlotMap;
 use smithay::{
     backend::{
@@ -163,6 +163,8 @@ pub struct SmithayState {
     // _main_client: Option<Client>,
     // surface: Option<WlSurface>,
     surfaces: SlotMap<WlSurfaceId, WlSurface>,
+    /// Toplevels not yet told to the root: they are on their first commit, once they have set their app id
+    unregistered: Vec<WlSurfaceId>,
     // image: Arc<Mutex<Option<RgbaImage>>>,
     // // I think it might be more efficient to share the seat
     // // but this is easier for me to implement
@@ -565,6 +567,7 @@ impl SmithayState {
             output,
             socket_name,
             surfaces: SlotMap::with_key(),
+            unregistered: Vec::new(),
             wl_event_queue,
         }
     }
@@ -1185,6 +1188,48 @@ impl AppletRunner {
             self.wl_key_input(keycode, KeyState::Released);
         }
     }
+
+    /// Tells the root about a new toplevel on its first commit, when its app id is set
+    /// (it is matched by pid and app id to a restored tile)
+    fn register_toplevel(&mut self, surface: &WlSurface) {
+        let state = &mut self.smithay_state;
+        let Some(index) = state
+            .unregistered
+            .iter()
+            .position(|&id| state.surfaces.get(id) == Some(surface))
+        else {
+            return;
+        };
+        let surface_id = state.unregistered.remove(index);
+        let (app_id, title) = with_states(surface, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .map(|data| {
+                    let data = data.lock().unwrap();
+                    (data.app_id.clone(), data.title.clone())
+                })
+                .unwrap_or_default()
+        });
+        let pid = state
+            .display_handle
+            .get_client(surface.id())
+            .ok()
+            .and_then(|client| client.get_credentials(&state.display_handle).ok())
+            .and_then(|credentials| u32::try_from(credentials.pid).ok());
+        self.root_client
+            .send_event(StandardEvent::WlSurfaceRegistered(NewWlSurface {
+                surface_id,
+                wl_event_queue: state.wl_event_queue.clone(),
+                pid,
+                app_id,
+            }));
+        // set before, when the root couldn't be told
+        if let Some(title) = title {
+            self.root_client
+                .send_event(StandardEvent::WlSurfaceTitle(surface_id, title));
+        }
+    }
 }
 
 impl SeatHandler for AppletRunner {
@@ -1222,6 +1267,7 @@ impl CompositorHandler for AppletRunner {
     fn commit(&mut self, surface: &WlSurface) {
         dbg!("Committed");
         on_commit_buffer_handler::<Self>(surface);
+        self.register_toplevel(surface);
 
         // covers new subsurfaces, popups and cursors; does nothing if already sent
         self.smithay_state.send_scale(surface);
@@ -1294,20 +1340,12 @@ impl XdgShellHandler for AppletRunner {
 
         // keyboard focus is given once Sonamu focus reaches the new tile (`StandardRequest::WlKeyboardFocus`)
 
-        // add surface to list of surfaces
+        // add surface to list of surfaces; the root is told on its first commit (`register_toplevel`)
         let surface_id = self
             .smithay_state
             .surfaces
             .insert(surface.wl_surface().clone());
-
-        // let root applet know abt new surface
-        self.root_client
-            .send_event(StandardEvent::WlSurfaceRegistered {
-                surface_id,
-                wl_event_queue: self.smithay_state.wl_event_queue.clone(),
-            });
-
-        println!("New toplevel surface registered");
+        self.smithay_state.unregistered.push(surface_id);
     }
 
     fn title_changed(&mut self, surface: ToplevelSurface) {
@@ -1345,6 +1383,16 @@ impl XdgShellHandler for AppletRunner {
             return;
         };
         self.smithay_state.surfaces.remove(surface_id);
+        // the root never heard of it
+        if let Some(index) = self
+            .smithay_state
+            .unregistered
+            .iter()
+            .position(|&id| id == surface_id)
+        {
+            self.smithay_state.unregistered.remove(index);
+            return;
+        }
 
         // its tile may be plucked, out of the root's tree
         if let Some(plucked) = &mut self.plucked

@@ -43,7 +43,8 @@ fn main() {
     } else {
         FileManagerApplet::get_boxed_initiator(dir.clone())
     };
-    let init = RootNodeApplet::get_initializer(root_init, registry);
+    let session = std::env::var_os("SONAMU_SESSION").map(std::path::PathBuf::from);
+    let init = RootNodeApplet::get_initializer(root_init, registry, session);
 
     let surface = SharedState::new(StateKind::Surface, UITree::leaf(UIElement::Nothing));
     let treeview = SharedState::new(StateKind::Treeview, Treeview::new(WorldTree::new_base(String::new())));
@@ -121,12 +122,16 @@ fn main() {
                 wl_queues.push(rx);
                 server
                     .events
-                    .send(StandardEvent::WlSurfaceRegistered {
-                        surface_id: singularity_common::sap::packets::WlSurfaceId::from_u64(
-                            (1 << 32) | wl_queues.len() as u64,
-                        ),
-                        wl_event_queue: tx,
-                    })
+                    .send(StandardEvent::WlSurfaceRegistered(
+                        singularity_common::sap::packets::NewWlSurface {
+                            surface_id: singularity_common::sap::packets::WlSurfaceId::from_u64(
+                                (1 << 32) | wl_queues.len() as u64,
+                            ),
+                            wl_event_queue: tx,
+                            pid: None,
+                            app_id: None,
+                        },
+                    ))
                     .unwrap();
             }
             // the last wl toplevel is destroyed

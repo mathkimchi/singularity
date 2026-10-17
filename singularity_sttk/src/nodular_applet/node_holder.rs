@@ -5,12 +5,12 @@ use crate::nodular_applet::{
     AppletClient, AppletSpawnerRegistry, NodeRequest, WrapInitializer,
     node_tree::{AttachClient, NodeId, NodeTree, SpawnClient},
 };
-use calloop::{LoopHandle, channel::Sender};
+use calloop::LoopHandle;
 use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{DetachedClient, DetachedTree},
-        packets::{StandardEvent, StandardRequest, WlSurfaceEvent, WlSurfaceId},
+        packets::{NewWlSurface, StandardEvent, StandardRequest, WlSurfaceId},
     },
     utils::tree::world_tree::WorldTreePath,
 };
@@ -72,6 +72,8 @@ pub struct NodeHolder {
     focused_wl_surface: Option<WlSurfaceId>,
     /// A project's root was closed, so the project should give its contents back
     pub dissolve: bool,
+    /// An applet asked to quit everything; the holder passes it on after the batch
+    pub quit: bool,
 }
 impl NodeHolder {
     pub fn new(tree: NodeTree, send: Box<dyn Fn(StandardRequest)>, project: bool) -> Self {
@@ -84,6 +86,7 @@ impl NodeHolder {
             to_wrap: None,
             focused_wl_surface: None,
             dissolve: false,
+            quit: false,
         }
     }
 
@@ -183,24 +186,18 @@ impl NodeHolder {
         self.send(StandardRequest::Placed(None));
     }
 
-    /// Into the focused node's main if focus is inside it (it may take it or give it back with `AddWlSurface`),
-    /// otherwise under the focused node
-    pub fn add_wl_surface(
-        &mut self,
-        surface_id: WlSurfaceId,
-        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    ) {
+    /// To the restored tile awaiting it, if any. Otherwise into the focused node's main if focus is inside it
+    /// (it may take it or give it back with `AddWlSurface`), otherwise under the focused node.
+    pub fn add_wl_surface(&mut self, surface: NewWlSurface) {
+        let Err(surface) = self.tree.claim_wl_surface(surface) else {
+            return;
+        };
         let id = self.tree.focused_node();
         if self.tree.is_inner(id) {
-            self.tree.send_event(
-                id,
-                StandardEvent::WlSurfaceRegistered {
-                    surface_id,
-                    wl_event_queue,
-                },
-            );
+            self.tree
+                .send_event(id, StandardEvent::WlSurfaceRegistered(surface));
         } else {
-            self.tree.add_wl_surface(id, surface_id, wl_event_queue);
+            self.tree.add_wl_surface(id, surface);
         }
     }
 
@@ -237,8 +234,8 @@ impl NodeHolder {
     pub fn handle_node_request(&mut self, id: NodeId, request: NodeRequest) -> Option<NodeRequest> {
         match request {
             NodeRequest::Standard(StandardRequest::Damage(_)) => self.tree.damage(),
-            // eg Ctrl+Shift+Q; quits everything
-            NodeRequest::Standard(StandardRequest::Quit) => self.send(StandardRequest::Quit),
+            // eg Ctrl+Shift+Q; quits everything, after the batch (so the root can save first)
+            NodeRequest::Standard(StandardRequest::Quit) => self.quit = true,
             // the main is a holder too
             NodeRequest::Standard(StandardRequest::WlKeyboardFocus(surface_id)) => {
                 self.tree.set_inner_wl_focus(id, surface_id);
@@ -301,10 +298,7 @@ impl NodeHolder {
                     log::warn!("Failed to start {program}: {err}");
                 }
             }
-            NodeRequest::AddWlSurface {
-                surface_id,
-                wl_event_queue,
-            } => self.tree.add_wl_surface(id, surface_id, wl_event_queue),
+            NodeRequest::AddWlSurface(surface) => self.tree.add_wl_surface(id, surface),
         }
         None
     }

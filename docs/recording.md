@@ -23,7 +23,7 @@ Record through the host compositor: in OBS, add a "Screen Capture (PipeWire)" so
      };
    };
    ```
-   Elsewhere, install xdg-desktop-portal-wlr (0.8+) and copy `sonamu-portals.conf` to `~/.config/xdg-desktop-portal/`.
+   Elsewhere, install xdg-desktop-portal-wlr (0.8+) and copy `assets/portal/sonamu-portals.conf` to `~/.config/xdg-desktop-portal/`.
 2. So the portal shares the one output without asking:
    ```sh
    mkdir -p ~/.config/xdg-desktop-portal-wlr

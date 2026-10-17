@@ -18,6 +18,14 @@ Decisions and details: `.claude/FM_SPLITS_UDEV.md`. Delete a line when done.
 - [ ] Make the treeview look nice
 - [ ] Delete the throwaway harness `singularity_sde/examples/headless.rs` and its dev-dependencies in `singularity_sde/Cargo.toml`
 
+## Sessions (2026-10-17)
+
+Done: save and restore the tree (`.claude/SESSIONS.md`). Left, from its "Issues found":
+
+- [ ] Keep `awaiting` when a "Starting ..." tile is plucked or wrapped
+- [ ] Skip or nest dialogs (toplevels with a parent)
+- [ ] Try qutebrowser, firefox and foot
+
 ## Wayland
 
 Non-major Wayland features. Delete a line when done.

@@ -23,6 +23,7 @@ DEVLOG.md is 10k+ lines, read it with tail.
 - Every node's main is an applet on its own thread, behind a `ClientHandle`; wl tiles are `WlSurfaceApplet`s, and `NodeTree::wl_surfaces` maps each surface to its node. Applets talk to their node only through `NodeRequest`s, sent via `AppletContext`; their requests are tagged with the node's `NodeId`.
 - Client state the holder reads (surface, treeview) uses `SharedState`/`StatePublisher`: the client publishes and sends `Damage(kind)`, the holder reads and sends `DamageAck(kind)`. At most one unread publish at a time.
 - An applet owns its inner tree directly; it changes its children only by requests to its node. See `.claude/CLIENT_HANDLE_REFACTOR.md`.
+- Sessions: applets publish `StandardApplet::save` with their treeview; the root saves the tree every 2 s and restores it on start (wl clients by command line, matched back by pid/app id). See `.claude/SESSIONS.md`.
 - World tree, paths ("inside" a node), focus, selectors, and who owns what (incl. projects, which are plain applets holding a `NodeTree`): `.claude/WORLD_TREE.md`.
 
 # Rules

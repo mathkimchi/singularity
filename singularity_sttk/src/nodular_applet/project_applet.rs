@@ -2,15 +2,16 @@
 //! Its node doesn't know it is a project; it only sees an applet with an inner tree.
 
 use crate::nodular_applet::{
-    Answer, AppletContext, EmbeddedId, NodeRequest, StandardApplet, WrapInitializer,
+    Answer, AppletContext, EmbeddedId, NodeRequest, NodularAppletInitializer, StandardApplet,
+    WrapInitializer,
     node_holder::NodeHolder,
     node_tree::{AttachClient, NodeId, NodeTree, SpawnClient, root_label_mut},
 };
-use calloop::channel::Sender;
 use singularity_common::{
     sap::{
         detached::{DetachedClient, DetachedTree, Layout},
-        packets::{StandardEvent, StandardRequest, WlSurfaceEvent, WlSurfaceId},
+        packets::{AwaitedWl, NewWlSurface, StandardEvent, StandardRequest},
+        session::{SavedApplet, SavedTree},
     },
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
@@ -44,6 +45,15 @@ impl ProjectApplet {
         })
     }
 
+    /// Makes a saved project again, holding its saved contents
+    pub fn restorer(contents: SavedTree) -> NodularAppletInitializer {
+        Box::new(move |hook| {
+            Box::new(Self::with_tree(hook, |spawn_client, attach_client| {
+                NodeTree::restore(contents, spawn_client, attach_client)
+            })) as Box<dyn StandardApplet>
+        })
+    }
+
     fn new(subtree: DetachedTree, hook: AppletContext) -> Self {
         let contents = DetachedTree {
             main: None,
@@ -51,6 +61,16 @@ impl ProjectApplet {
             wl_surface: None,
             children: vec![subtree],
         };
+        Self::with_tree(hook, |spawn_client, attach_client| {
+            NodeTree::from_detached(contents, spawn_client, attach_client)
+        })
+    }
+
+    /// Holds the tree made with clients embedded in it
+    fn with_tree(
+        hook: AppletContext,
+        make_tree: impl FnOnce(SpawnClient, AttachClient) -> NodeTree,
+    ) -> Self {
         let nodes: Rc<RefCell<HashMap<EmbeddedId, NodeId>>> = Rc::default();
         let spawn_client: SpawnClient = {
             let hook = hook.clone();
@@ -70,7 +90,7 @@ impl ProjectApplet {
                 handle
             })
         };
-        let tree = NodeTree::from_detached(contents, spawn_client, attach_client);
+        let tree = make_tree(spawn_client, attach_client);
         let send = {
             let hook = hook.clone();
             Box::new(move |request: StandardRequest| hook.request(request.into()))
@@ -109,7 +129,7 @@ impl StandardApplet for ProjectApplet {
             // handled by the applet's client
             StandardEvent::CloseRequest
             | StandardEvent::DamageAck(_)
-            | StandardEvent::WlSurfaceRegistered { .. }
+            | StandardEvent::WlSurfaceRegistered(_)
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
             | StandardEvent::Focus(_) => {}
@@ -179,16 +199,23 @@ impl StandardApplet for ProjectApplet {
         false
     }
 
-    fn take_wl_surface(
-        &mut self,
-        surface_id: WlSurfaceId,
-        wl_event_queue: Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    ) -> Result<(), (WlSurfaceId, Sender<(WlSurfaceId, WlSurfaceEvent)>)> {
+    fn take_wl_surface(&mut self, surface: NewWlSurface) -> Result<(), NewWlSurface> {
         if self.dissolved {
-            return Err((surface_id, wl_event_queue));
+            return Err(surface);
         }
-        self.holder.add_wl_surface(surface_id, wl_event_queue);
+        self.holder.add_wl_surface(surface);
         Ok(())
+    }
+
+    fn save(&self) -> Option<SavedApplet> {
+        (!self.dissolved).then(|| SavedApplet::Project(Box::new(self.holder.tree.save())))
+    }
+
+    fn awaiting_wl(&self) -> Vec<AwaitedWl> {
+        if self.dissolved {
+            return Vec::new();
+        }
+        self.holder.tree.awaiting_wl()
     }
 
     /// From a main of its contents
@@ -212,6 +239,9 @@ impl StandardApplet for ProjectApplet {
             return;
         }
         self.holder.finish();
+        if std::mem::take(&mut self.holder.quit) {
+            self.hook.quit();
+        }
         // eg `q` inside it: out to its node
         if let Some(operation) = self.holder.tree.take_escaped() {
             self.hook.change_focus(operation);

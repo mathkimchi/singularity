@@ -522,7 +522,7 @@ impl StandardApplet for CommandHubApplet {
             | StandardEvent::Place(..)
             | StandardEvent::Focus(_) => {}
             // doesn't show wl surfaces (only the root gets these)
-            StandardEvent::WlSurfaceRegistered { .. }
+            StandardEvent::WlSurfaceRegistered(_)
             | StandardEvent::FocusWlSurface(_)
             | StandardEvent::WlSurfaceDestroyed(_)
             | StandardEvent::WlSurfaceTitle(..)
@@ -547,6 +547,13 @@ impl StandardApplet for CommandHubApplet {
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.title.clone())
+    }
+
+    fn save(&self) -> Option<singularity_common::sap::session::SavedApplet> {
+        Some(singularity_common::sap::session::SavedApplet::Spawner {
+            name: "command_hub".to_string(),
+            args: Vec::new(),
+        })
     }
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {

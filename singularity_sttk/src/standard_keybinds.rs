@@ -15,7 +15,7 @@ use crate::{
 /// Handle the standard keybinds like:
 /// - `Ctrl+Shift+Q` - Quit
 /// - `Super+W` - Close tab
-/// - `Super+T` / `Super+N` - Start alacritty / firefox
+/// - `Super+T` / `Super+N` - Start foot / qutebrowser
 /// - `Ctrl+Shift+Plus` - Add child
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Super+P` - Put the node in a project
@@ -74,12 +74,12 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         ..
     } = &ui_event
         && let Some(program) = match key.to_char() {
-            Some('t') => Some("alacritty"),
-            Some('n') => Some("firefox"),
+            Some('t') => Some("foot"),
+            Some('n') => Some("qutebrowser"),
             _ => None,
         }
     {
-        // Super+T / Super+N -> start alacritty / firefox
+        // Super+T / Super+N -> start foot / qutebrowser
         Some(NodeRequest::Run(program))
     } else if let UIEvent::Key {
         symbol: Some(key),

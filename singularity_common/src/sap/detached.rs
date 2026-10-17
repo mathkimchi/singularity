@@ -59,7 +59,7 @@ impl std::fmt::Debug for DetachedClient {
 }
 
 /// How a node shows itself and its children
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Layout {
     /// Its main, or the focused child
     #[default]
@@ -78,7 +78,7 @@ impl Layout {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Axis {
     /// Left to right
     Horizontal,

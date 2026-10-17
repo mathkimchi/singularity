@@ -23,7 +23,7 @@ use singularity_standard_tabs::{
 };
 use singularity_sttk::{
     command_hub::CommandHubApplet, help::HelpApplet,
-    nodular_applet::root_node_applet::RootNodeApplet,
+    nodular_applet::root_node_applet::RootNodeApplet, session,
 };
 use std::collections::BTreeMap;
 use tracing_subscriber::EnvFilter;
@@ -56,6 +56,7 @@ fn main() {
             ),
             ("help".to_string(), HelpApplet::get_applet_spawner()),
         ]),
+        session::session_path(),
     ))
 }
 

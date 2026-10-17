@@ -7,6 +7,7 @@ use crate::{
         status_bar::{self, STATUS_BAR_HEIGHT},
         treeview::{TreeviewAction, TreeviewPointer, TreeviewRow, treeview_rows},
     },
+    session,
 };
 use calloop::{
     EventLoop, LoopHandle,
@@ -17,6 +18,7 @@ use singularity_common::{
     sap::{
         packets::{StandardEvent, StandardRequest, StateKind, Treeview},
         raw_client_initializer::RawClientInitializer,
+        session::Session,
         shared_state::{SharedState, StatePublisher},
     },
     utils::tree::world_tree::WorldTreePath,
@@ -28,6 +30,7 @@ use sonamu_ui::{
 };
 use std::{
     collections::BTreeMap,
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
@@ -55,6 +58,10 @@ pub struct RootNodeApplet {
     capturing: bool,
     /// The bar's `REC`, which flashes while capturing
     rec_shown: bool,
+    /// Where the session is saved, if anywhere
+    session_path: Option<PathBuf>,
+    /// The last one written, so unchanged ones aren't written again
+    saved_session: Option<Session>,
 }
 
 /// A help node, and where it was opened
@@ -67,6 +74,8 @@ struct OpenHelp {
 impl RootNodeApplet {
     /// Of the width
     const TREEVIEW_PERCENT: u32 = 20;
+    /// How often the session is saved (if it changed), besides before quitting
+    const SAVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
     /// Show the treeview only while traversing (focus is on a node or inner element, not inside an applet).
     /// Otherwise the applets get the full width.
     const TREEVIEW_ONLY_WHILE_TRAVERSING: bool = true;
@@ -133,10 +142,36 @@ impl RootNodeApplet {
         self.request_sender.send(request).unwrap();
     }
 
+    /// Writes the session if it changed since the last write
+    fn save_session(&mut self) {
+        let Some(path) = &self.session_path else {
+            return;
+        };
+        let session = Session {
+            tree: self.holder.tree.save(),
+            focus: self.holder.tree.get_focus_path().0.into_vec(),
+        };
+        if self.saved_session.as_ref() == Some(&session) {
+            return;
+        }
+        match session::write(path, &session) {
+            Ok(()) => self.saved_session = Some(session),
+            Err(err) => log::warn!("Couldn't save the session to {}: {err}", path.display()),
+        }
+    }
+
+    /// Saves first, since the runner may end the process right after
+    fn quit(&mut self) {
+        self.save_session();
+        self.send_request(StandardRequest::Quit);
+    }
+
+    /// The saved session if there is one, else `root_initializer` at the root
     #[must_use]
     fn new(
         root_initializer: NodularAppletInitializer,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
+        session_path: Option<PathBuf>,
         surface: SharedState<UITree>,
         request_sender: Sender<StandardRequest>,
         event_loop: &LoopHandle<'static, Self>,
@@ -149,7 +184,15 @@ impl RootNodeApplet {
                 root.handle_node_request(id, request);
             },
         );
-        let tree = NodeTree::new(root_initializer, spawn_client, attach_client);
+        let saved_session = session_path.as_deref().and_then(session::load);
+        let tree = match &saved_session {
+            Some(saved) => {
+                let mut tree = NodeTree::restore(saved.tree.clone(), spawn_client, attach_client);
+                tree.focus_path(&WorldTreePath(saved.focus.clone().into_boxed_slice()));
+                tree
+            }
+            None => NodeTree::new(root_initializer, spawn_client, attach_client),
+        };
         let send = {
             let request_sender = request_sender.clone();
             // the runner may already be gone while shutting down
@@ -172,16 +215,22 @@ impl RootNodeApplet {
             status_text: String::new(),
             capturing: false,
             rec_shown: false,
+            session_path,
+            saved_session,
         }
     }
 
+    /// Restores the session at `session_path` if there is one (else starts with `root_initializer` at the root),
+    /// and keeps it saved there
     pub fn get_initializer(
         root_initializer: NodularAppletInitializer,
         applet_spawner_registry: BTreeMap<String, AppletSpawner>,
+        session_path: Option<PathBuf>,
     ) -> Box<dyn RawClientInitializer> {
         struct Initializer {
             root_initializer: NodularAppletInitializer,
             applet_spawner_registry: BTreeMap<String, AppletSpawner>,
+            session_path: Option<PathBuf>,
         }
         impl RawClientInitializer for Initializer {
             fn init(
@@ -234,10 +283,21 @@ impl RootNodeApplet {
                         },
                     )
                     .unwrap();
+                event_loop
+                    .handle()
+                    .insert_source(
+                        Timer::from_duration(RootNodeApplet::SAVE_INTERVAL),
+                        |_, &mut (), root: &mut RootNodeApplet| {
+                            root.save_session();
+                            TimeoutAction::ToDuration(RootNodeApplet::SAVE_INTERVAL)
+                        },
+                    )
+                    .unwrap();
 
                 let mut root = RootNodeApplet::new(
                     self.root_initializer,
                     self.applet_spawner_registry,
+                    self.session_path,
                     surface,
                     request_sender,
                     &event_loop.handle(),
@@ -247,6 +307,9 @@ impl RootNodeApplet {
                 event_loop
                     .run(None, &mut root, |root| {
                         root.holder.finish();
+                        if std::mem::take(&mut root.holder.quit) {
+                            root.quit();
+                        }
                         root.holder.tree.update_view_root();
                         root.damage_if_tree_changed();
                         root.update_treeview_visibility();
@@ -260,6 +323,7 @@ impl RootNodeApplet {
         Box::new(Initializer {
             root_initializer,
             applet_spawner_registry,
+            session_path,
         })
     }
 
@@ -280,13 +344,10 @@ impl RootNodeApplet {
             // the treeview is drawn into the surface
             StandardEvent::DamageAck(StateKind::Treeview) => {}
             // the root can't close without ending everything
-            StandardEvent::CloseRequest => self.send_request(StandardRequest::Quit),
-            StandardEvent::WlSurfaceRegistered {
-                surface_id,
-                wl_event_queue,
-            } => {
-                // where the user is working (eg under the command hub that ran it)
-                self.holder.add_wl_surface(surface_id, wl_event_queue);
+            StandardEvent::CloseRequest => self.quit(),
+            StandardEvent::WlSurfaceRegistered(surface) => {
+                // a restored tile, else where the user is working (eg under the command hub that ran it)
+                self.holder.add_wl_surface(surface);
             }
             // TODO: surfaces inside projects
             StandardEvent::FocusWlSurface(surface_id) => {

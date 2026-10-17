@@ -2929,6 +2929,7 @@ dependencies = [
  "calloop 0.14.4",
  "log",
  "regex",
+ "serde_json",
  "singularity_common",
  "slotmap",
  "sonamu_ui",

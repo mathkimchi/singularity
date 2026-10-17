@@ -696,6 +696,11 @@ impl StandardApplet for FileManagerApplet {
         )))
     }
 
+    /// Only its root; its open documents aren't saved
+    fn save(&self) -> Option<singularity_common::sap::session::SavedApplet> {
+        singularity_sttk::session::saved_with_path("file_manager", &self.root)
+    }
+
     /// On the selected element while selecting; otherwise inside the active document while the document pane has
     /// the keys, or inside the file manager itself (the file list)
     fn get_focus_path(&self) -> WorldTreePath {
@@ -788,7 +793,7 @@ impl StandardApplet for FileManagerApplet {
             | NodeRequest::Split { .. }
             | NodeRequest::Wrap(_)
             | NodeRequest::Run(_)
-            | NodeRequest::AddWlSurface { .. }) => {
+            | NodeRequest::AddWlSurface(_)) => {
                 self.hook.request(request);
             }
             // eg Alt+q: out of the document, to it in the selector

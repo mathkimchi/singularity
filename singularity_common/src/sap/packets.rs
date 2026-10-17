@@ -1,5 +1,5 @@
 use crate::{
-    sap::detached::DetachedTree,
+    sap::{detached::DetachedTree, session::SavedApplet},
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use slotmap::KeyData;
@@ -26,16 +26,41 @@ pub struct Treeview {
     /// The client is selecting a node in its tree (eg a project's own treeview selector),
     /// rather than taking input itself
     pub traversing: bool,
+    /// How to make the client again on the next start; `None` if it isn't saved (eg the help)
+    pub saved: Option<SavedApplet>,
+    /// Restored wl clients inside the client whose tiles wait for their toplevel (eg in a project)
+    pub awaiting_wl: Vec<AwaitedWl>,
 }
 impl Treeview {
-    /// Focus inside the root, not traversing
+    /// Focus inside the root, not traversing, not saved
     pub fn new(tree: WorldTree<String>) -> Self {
         Self {
             tree,
             focus: WorldTreePath::new_into(),
             traversing: false,
+            saved: None,
+            awaiting_wl: Vec::new(),
         }
     }
+}
+
+/// A restored wl client's tile, waiting for the client's toplevel
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AwaitedWl {
+    /// Of the process it started
+    pub pid: u32,
+    /// For clients that hand the window to a running instance (eg a browser), so it comes from another pid
+    pub app_id: Option<String>,
+}
+
+/// A new wl toplevel, registered on its first commit (once it has set its app id)
+#[derive(Clone, Debug)]
+pub struct NewWlSurface {
+    pub surface_id: WlSurfaceId,
+    pub wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    /// Of the client, if known
+    pub pid: Option<u32>,
+    pub app_id: Option<String>,
 }
 
 /// Client to server
@@ -85,12 +110,7 @@ pub enum StandardEvent {
 
     /// NOTE: ts is kinda niche; dk if it belongs here
     /// Currently doing by surface instead of by wl client
-    WlSurfaceRegistered {
-        surface_id: WlSurfaceId,
-        /// REVIEW: this field prevents standard event from being Copy, I feel like I should avoid that
-        wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
-        // surface_updated: calloop::channel::Channel<()>,
-    },
+    WlSurfaceRegistered(NewWlSurface),
     /// Focus whichever applet shows this surface (eg for xdg-activation).
     /// Sent from the root down; applets that don't contain it ignore it.
     FocusWlSurface(WlSurfaceId),

@@ -403,4 +403,8 @@ impl StandardApplet for CodeEditorApplet {
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {
         singularity_common::utils::tree::world_tree::WorldTree::Base(self.get_title())
     }
+
+    fn save(&self) -> Option<singularity_common::sap::session::SavedApplet> {
+        singularity_sttk::session::saved_with_path("code_editor", &self.file_path)
+    }
 }

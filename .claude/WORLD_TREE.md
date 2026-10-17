@@ -88,7 +88,7 @@ Generic hooks that make this possible (`StandardApplet`, run by `AppletClient`):
 
 - `pluck`/`place` return `Answer::Later` to answer by themselves afterwards (a project asks the applets inside it).
 - `close_requested` decides what `CloseRequest` does (default: close; wl tiles ask the client; projects dissolve).
-- `take_wl_surface` takes a wl surface registered while focus is inside it; by default it is given back with
+- `take_wl_surface` takes a wl surface registered while focus is inside it (or one a restored tile inside it awaits, `awaiting_wl`); by default it is given back with
   `NodeRequest::AddWlSurface` and becomes the node's child. Its wl keyboard focus goes up as `WlKeyboardFocus`.
 - `update` runs after each batch of events (a project finishes plucks and wraps there, outside request callbacks).
 - `is_traversing` and `focus` are its own selector, above.

@@ -1,0 +1,107 @@
+# Sessions: remembering and restoring the tree (2026-10-17)
+
+Sonamu saves the whole tree (layout, native applets, projects, wl clients, focus) and rebuilds it on the next start.
+Sonamu owns the session; apps' own session restore should be off.
+
+## How it works
+
+- **Saved form** (`singularity_common/src/sap/session.rs`): `Session { tree: SavedTree, focus }`.
+  `SavedTree { main: Option<SavedApplet>, layout, children }`.
+  `SavedApplet` is one of `Spawner { name, args }` (made again by the registered applet spawner, like the command hub does),
+  `Project(SavedTree)`, or `Wl(SavedWl { argv, cwd, app_id, title })`.
+- **Publishing**: every applet publishes `StandardApplet::save()` as `Treeview::saved`, so a holder reads it
+  synchronously like the treeview. `None` (the default, eg the help) leaves the node out, its children taking its place.
+  A split left with one pane is left out too. A project saves its whole `NodeTree` (`NodeTree::save`).
+- **Writing** (`RootNodeApplet::save_session`): every 2 s if changed, and before quitting. Atomic (temp + rename).
+  Path: `$SONAMU_SESSION` (set but empty: no session), else `$XDG_STATE_HOME/sonamu/session.json`
+  (`~/.local/state/sonamu/session.json`). An unparsable file is moved to `.json.bad`.
+- **Restoring** (`NodeTree::restore`, `session::restore`): on start, if there's a session, `root_initializer` is ignored.
+  Spawners are looked up on the applet's own thread (`AppletContext::find_applet_spawner`).
+  Missing ones become a `RestoringApplet` placeholder ("Couldn't restore ...") that stays saved as it was until Ctrl+W.
+- **Wl clients**:
+  - Saved from `/proc/<pid>`: `cmdline`, and the cwd of its first child (eg a terminal's shell), else its own.
+    The pid comes from the client's socket credentials.
+  - The compositor now tells the root about a toplevel on its **first commit** (`register_toplevel`), not in
+    `new_toplevel`, so its app id is set. Its title is sent right after, since `title_changed` came before the root knew.
+  - Restoring spawns the command (on the holder's thread). The node gets `awaiting: AwaitedWl { pid, app_id }`
+    and a `RestoringApplet` ("Starting ..."). The child is reaped on a thread.
+  - `NodeHolder::add_wl_surface` first tries `NodeTree::claim_wl_surface`: a tile awaiting the pid, else the app id
+    (for single-instance apps whose window comes from the running instance). Tiles inside a main (projects) are found
+    through `Treeview::awaiting_wl`, and the surface is sent to that main, whose holder claims it.
+    A claimed tile's main is replaced by a `WlSurfaceApplet`.
+  - Restore command (`restore_command`):
+    - qutebrowser (app id `org.qutebrowser.qutebrowser`): `qutebrowser --target window [url]`.
+    - firefox with a url: `firefox --new-window url`.
+    - Anything else: the saved argv. A `/nix/store/...` program is replaced by its name, minus a `.foo-wrapped` wrapper
+      prefix/suffix, since the store path may be garbage collected.
+  - The url comes from the title, after its last ` | ` (`SavedWl::url`), so the browser has to put it there.
+
+## Decisions
+
+- Sonamu owns the session, not the apps: the alternative means guessing which restored window goes in which tile.
+- Saved state is published with the treeview, not collected by request and answer: synchronous, no new messages,
+  and projects nest for free.
+- Matching by pid first, then by app id. No `xdg-activation` tokens yet (apps don't all pass them on;
+  pid covers one-process-per-window apps, app id covers the rest). `xx-session-management` isn't used yet (almost no apps support it).
+- Restores happen at start only. There's no "restore now" command.
+- `NodeRequest::Standard(Quit)` now sets `NodeHolder::quit`, handled after the batch (projects pass it on, the root saves then
+  quits), because the runner may end the process right after `Quit`.
+- `StandardEvent::WlSurfaceRegistered` and `NodeRequest::AddWlSurface` now carry a `NewWlSurface`
+  (`surface_id`, `wl_event_queue`, `pid`, `app_id`), and `take_wl_surface` takes and gives back one.
+- Saved paths (code editor, image viewer, file manager root) are made absolute.
+- Spawner names are hardcoded in each applet's `save` and must match `singularity_sde/src/main.rs`.
+- `headless` example reads `SONAMU_SESSION` too (unset: no session).
+
+## Recommended apps / settings (not installed)
+
+User-facing setup (incl. NixOS / Home Manager) is in `docs/persistent_apps.md`.
+
+- **Browser: qutebrowser**, in `config.py`:
+  ```python
+  c.tabs.tabs_are_windows = True          # one page per window
+  c.new_instance_open_target = 'window'
+  c.window.title_format = '{perc}{current_title} | {current_url}'   # Sonamu reads the url from here
+  c.auto_save.session = False             # Sonamu restores the windows
+  c.session.lazy_restore = False
+  ```
+  Firefox works without urls (it's restored as a blank window) unless its title has ` | url` (needs an extension).
+  Firefox also wants `browser.link.open_newwindow = 2` and its session restore off.
+- **Terminal: foot**, one process per window (`foot`, not `foot --server`/`footclient`), so pid matching works and the
+  shell's cwd is known. Have the prompt put `$PWD` in the title so a `cd` republishes the cwd. To keep processes alive
+  across restarts, run the shell in `shpool`/`dtach`/`abduco` (eg `foot -e shpool attach main`): the argv is saved as is.
+  Tested here with alacritty and `kitty -1` too.
+
+## Testing done
+
+- Nested (winit in niri): alacritty saved with argv/cwd/app id, restored into the same tile in the same cwd.
+- Two `kitty -1` windows (one instance): both restored into their tiles (second matched by app id).
+- Alacritty inside a project (hand-written session): restored and claimed inside the project.
+- Headless: Super+P on a wl tile, saved as a project, restored as a project with its placeholder kept saved.
+- `singularity_common/tests/session_test.rs`: `SavedWl::url`.
+- Not tested: qutebrowser and firefox (not installed), foot, the TTY backend.
+
+## Issues found / limits
+
+- Single-instance apps (kitty `-1`, qutebrowser, firefox): every window has the instance's pid, so all share the
+  first window's cwd, and two awaiting tiles of the same app may get each other's windows (urls swapped).
+- Plucking or wrapping a tile while it is still "Starting ..." drops its `awaiting` (`DetachedTree` has no field for it):
+  the placeholder stays, and the window opens at the focus instead.
+- Every toplevel is a tile, so dialogs are saved and restored as windows too (no `xdg_toplevel.parent` check).
+- A wl tile's saved cwd only updates when it publishes (eg a title change).
+- A placeholder for a client that never opens a window stays "Starting ..." forever (Ctrl+W drops it). No timeout.
+- Not saved: the view root (Super+V), collapsed nodes, the file manager's open documents, unsaved editor buffers.
+- Killed with SIGKILL / crash: up to 2 s of changes are lost.
+- `NodeRequest::Run` and the command hub's `$` still leave zombies when their child exits (pre-existing).
+- On restore, every wl client is spawned while the root starts, before the compositor loop runs; they connect once it does.
+
+## Questions for the user
+
+- Should restoring be opt-out per start (eg `sonamu --fresh`), besides `SONAMU_SESSION=`?
+- Placeholders that never get a window: drop after a timeout, or keep (current)?
+- Save dialogs/transient toplevels or skip them (needs the parent from smithay)?
+- Is the ` | url` title convention fine, or do you prefer qutebrowser IPC / a userscript writing urls to a file?
+
+## Suggested CLAUDE.md updates
+
+- Architecture: "Every applet publishes `StandardApplet::save` with its treeview; the root saves the tree and restores it
+  on start. See `.claude/SESSIONS.md`." (added)

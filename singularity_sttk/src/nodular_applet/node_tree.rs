@@ -1,6 +1,7 @@
 use crate::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{NodeRequest, NodularAppletInitializer, WrapInitializer},
+    session,
     standard_keybinds::standard_keybind_request,
     wl_surface_applet::WlSurfaceApplet,
 };
@@ -8,7 +9,8 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree, Layout},
-        packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId},
+        packets::{AwaitedWl, NewWlSurface, StandardEvent, WlSurfaceId},
+        session::SavedTree,
     },
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -53,6 +55,8 @@ struct Node {
     collapsed: bool,
     /// The child focus was last on; shown by a container (no main, not a split) while it is focused itself
     last_child: usize,
+    /// A restored wl client's tile (its main stands in) waiting for the client's toplevel
+    awaiting: Option<AwaitedWl>,
 }
 impl Node {
     const fn new(main: Option<ClientHandle>, layout: Layout, parent: Option<NodeId>) -> Self {
@@ -66,6 +70,7 @@ impl Node {
             inner_wl_focus: None,
             collapsed: false,
             last_child: 0,
+            awaiting: None,
         }
     }
 
@@ -251,6 +256,17 @@ impl NodeTree {
         })
     }
 
+    /// A saved tree, made again (`session::restore`)
+    pub fn restore(
+        root: SavedTree,
+        spawn_client: SpawnClient,
+        attach_client: AttachClient,
+    ) -> Self {
+        Self::with_root(spawn_client, attach_client, |tree| {
+            tree.restore_subtree(None, root)
+        })
+    }
+
     fn with_root(
         spawn_client: SpawnClient,
         attach_client: AttachClient,
@@ -330,6 +346,134 @@ impl NodeTree {
             self.nodes[id].children.push(child);
         }
         id
+    }
+
+    /// Makes the saved node and its descendants under `parent` (not added to its children)
+    fn restore_subtree(&mut self, parent: Option<NodeId>, saved: SavedTree) -> NodeId {
+        let (main, awaiting) = saved.main.map(session::restore).unzip();
+        let spawn_client = &self.spawn_client;
+        let id = self.nodes.insert_with_key(|id| Node {
+            awaiting: awaiting.flatten(),
+            ..Node::new(
+                main.map(|initializer| spawn_client(id, initializer)),
+                saved.layout,
+                parent,
+            )
+        });
+        self.send_initial_size(id);
+        for child in saved.children {
+            let child = self.restore_subtree(Some(id), child);
+            self.nodes[id].children.push(child);
+        }
+        id
+    }
+
+    /// What to restore on the next start.
+    /// Nodes whose main isn't saved (eg the help) are left out, their children taking their place.
+    pub fn save(&self) -> SavedTree {
+        let mut saved = self.save_subtree(self.root);
+        match saved.len() {
+            1 => saved.pop().unwrap(),
+            _ => SavedTree {
+                main: None,
+                layout: Layout::Single,
+                children: saved,
+            },
+        }
+    }
+
+    /// The node, or its children if it is left out (a split left with one pane is too)
+    fn save_subtree(&self, id: NodeId) -> Vec<SavedTree> {
+        let node = &self.nodes[id];
+        let children: Vec<_> = node
+            .children
+            .iter()
+            .flat_map(|&child| self.save_subtree(child))
+            .collect();
+        let main = match &node.main {
+            Some(main) => match main.get_treeview().saved {
+                Some(saved) => Some(saved),
+                None => return children,
+            },
+            None if matches!(node.layout, Layout::Split(_)) && children.len() <= 1 => {
+                return children;
+            }
+            None => None,
+        };
+        vec![SavedTree {
+            main,
+            layout: node.layout,
+            children,
+        }]
+    }
+
+    /// Restored wl clients waiting for their toplevel, in this tree and inside its mains (eg projects)
+    pub fn awaiting_wl(&self) -> Vec<AwaitedWl> {
+        self.nodes
+            .values()
+            .flat_map(|node| {
+                let inner = node
+                    .main
+                    .as_ref()
+                    .map(|main| main.get_treeview().awaiting_wl)
+                    .unwrap_or_default();
+                node.awaiting.clone().into_iter().chain(inner)
+            })
+            .collect()
+    }
+
+    /// Gives the surface to the restored tile awaiting it, by its pid, else its app id
+    /// (eg a browser's window comes from its running instance, not the process the tile started).
+    /// A tile inside a main (eg a project) is given it by the main. `Err` if none awaits it.
+    pub fn claim_wl_surface(&mut self, surface: NewWlSurface) -> Result<(), NewWlSurface> {
+        let matches = |awaited: &AwaitedWl, by_pid: bool| {
+            if by_pid {
+                surface.pid == Some(awaited.pid)
+            } else {
+                awaited.app_id.is_some() && awaited.app_id == surface.app_id
+            }
+        };
+        for by_pid in [true, false] {
+            let own = self.nodes.iter().find_map(|(id, node)| {
+                node.awaiting
+                    .as_ref()
+                    .is_some_and(|awaited| matches(awaited, by_pid))
+                    .then_some(id)
+            });
+            if let Some(id) = own {
+                self.fill_awaiting(id, surface);
+                return Ok(());
+            }
+            let inside = self.nodes.iter().find_map(|(id, node)| {
+                node.main
+                    .as_ref()
+                    .is_some_and(|main| {
+                        main.get_treeview()
+                            .awaiting_wl
+                            .iter()
+                            .any(|awaited| matches(awaited, by_pid))
+                    })
+                    .then_some(id)
+            });
+            if let Some(id) = inside {
+                self.send_event(id, StandardEvent::WlSurfaceRegistered(surface));
+                return Ok(());
+            }
+        }
+        Err(surface)
+    }
+
+    /// The tile shows the surface in place of the applet standing in for it
+    fn fill_awaiting(&mut self, id: NodeId, surface: NewWlSurface) {
+        self.wl_surfaces.insert(surface.surface_id, id);
+        let main = (self.spawn_client)(id, WlSurfaceApplet::get_boxed_initiator(surface));
+        let node = &mut self.nodes[id];
+        node.awaiting = None;
+        node.main = Some(main);
+        // so the new applet gets its size
+        node.size = None;
+        self.send_initial_size(id);
+        self.damaged = true;
     }
 
     /// Detaches every node; the tree can't be used after
@@ -656,16 +800,9 @@ impl NodeTree {
     }
 
     /// Adds a tile for the surface as the parent's last child, and focuses inside it (so it's shown and gets keys)
-    pub fn add_wl_surface(
-        &mut self,
-        parent: NodeId,
-        surface_id: WlSurfaceId,
-        wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    ) {
-        if let Some(id) = self.add_child(
-            parent,
-            WlSurfaceApplet::get_boxed_initiator((surface_id, wl_event_queue)),
-        ) {
+    pub fn add_wl_surface(&mut self, parent: NodeId, surface: NewWlSurface) {
+        let surface_id = surface.surface_id;
+        if let Some(id) = self.add_child(parent, WlSurfaceApplet::get_boxed_initiator(surface)) {
             self.wl_surfaces.insert(surface_id, id);
             self.focus(id, true);
         }

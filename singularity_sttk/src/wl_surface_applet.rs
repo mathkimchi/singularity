@@ -1,10 +1,14 @@
 use crate::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{AppletContext, NodeRequest, StandardApplet},
+    session,
     standard_keybinds::standard_keybind_request,
 };
 use singularity_common::{
-    sap::packets::{StandardEvent, WlSurfaceEvent, WlSurfaceId},
+    sap::{
+        packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId},
+        session::SavedApplet,
+    },
     utils::tree::world_tree::WorldTree,
 };
 use sonamu_ui::{
@@ -23,25 +27,19 @@ pub struct WlSurfaceApplet {
     hook: AppletContext,
     /// The toplevel's title, empty until the client sets one
     title: String,
+    /// Of the client, to save how to start it again
+    pid: Option<u32>,
+    app_id: Option<String>,
 }
-impl
-    CreatableNodularApplet<(
-        WlSurfaceId,
-        calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
-    )> for WlSurfaceApplet
-{
-    fn new(
-        (surface_id, wl_event_queue): (
-            WlSurfaceId,
-            calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
-        ),
-        hook: AppletContext,
-    ) -> Self {
+impl CreatableNodularApplet<NewWlSurface> for WlSurfaceApplet {
+    fn new(surface: NewWlSurface, hook: AppletContext) -> Self {
         Self {
-            surface_id,
-            wl_event_queue,
+            surface_id: surface.surface_id,
+            wl_event_queue: surface.wl_event_queue,
             hook,
             title: String::new(),
+            pid: surface.pid,
+            app_id: surface.app_id,
         }
     }
 }
@@ -104,5 +102,14 @@ impl StandardApplet for WlSurfaceApplet {
         } else {
             self.title.clone()
         })
+    }
+
+    /// Read from `/proc` on each publish (eg a title change), so the saved working directory may lag behind
+    fn save(&self) -> Option<SavedApplet> {
+        Some(SavedApplet::Wl(session::saved_wl(
+            self.pid,
+            self.app_id.clone(),
+            &self.title,
+        )))
     }
 }
