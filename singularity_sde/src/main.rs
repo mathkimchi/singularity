@@ -20,7 +20,6 @@
 use singularity_sar::runner::AppletRunner;
 use singularity_standard_tabs::{
     code_editor::CodeEditorApplet, file_manager::FileManagerApplet, image_viewer::ImageViewerApplet,
-    one_char_render_test::OneCharRenderTestApplet,
 };
 use singularity_sttk::{
     command_hub::CommandHubApplet, help::HelpApplet,
@@ -54,10 +53,6 @@ fn main() {
             (
                 "image_viewer".to_string(),
                 ImageViewerApplet::get_applet_spawner(),
-            ),
-            (
-                "char_render_test".to_string(),
-                OneCharRenderTestApplet::get_applet_spawner(),
             ),
             ("help".to_string(), HelpApplet::get_applet_spawner()),
         ]),

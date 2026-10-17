@@ -6,7 +6,6 @@ pub mod terminal;
 pub mod code_editor;
 // pub mod editor;
 pub mod image_viewer;
-pub mod one_char_render_test;
 pub mod pdf_viewer;
 pub mod file_manager;
 // pub mod task_organizer;

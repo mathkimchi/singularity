@@ -4,6 +4,7 @@ use crate::{
         AppletSpawner, NodeRequest, NodularAppletInitializer,
         node_holder::{NodeHolder, client_spawners},
         node_tree::{NodeId, NodeTree},
+        status_bar::{self, STATUS_BAR_HEIGHT},
         treeview::{TreeviewAction, TreeviewPointer, TreeviewRow, treeview_rows},
     },
 };
@@ -47,6 +48,8 @@ pub struct RootNodeApplet {
     help: Option<OpenHelp>,
     /// See `TREEVIEW_ONLY_WHILE_TRAVERSING`
     treeview_shown: bool,
+    /// Shown in the strip at the top, above the treeview and the tree
+    status_text: String,
 }
 
 /// A help node, and where it was opened
@@ -76,7 +79,7 @@ impl RootNodeApplet {
     fn inner_applet_size(&self) -> DisplayContainerSize {
         DisplayContainerSize::new(
             self.latest_size.width - self.treeview_width(),
-            self.latest_size.height,
+            self.latest_size.height.saturating_sub(STATUS_BAR_HEIGHT),
         )
     }
 
@@ -103,10 +106,11 @@ impl RootNodeApplet {
         let Self {
             holder,
             treeview_pointer,
+            status_text,
             ..
         } = self;
         self.surface.flush(
-            || Self::get_window(&holder.tree, treeview_pointer, treeview_width),
+            || Self::get_window(&holder.tree, treeview_pointer, treeview_width, status_text),
             &self.request_sender,
         );
     }
@@ -151,6 +155,7 @@ impl RootNodeApplet {
             help: None,
             // the root node starts focused
             treeview_shown: true,
+            status_text: String::new(),
         }
     }
 
@@ -185,6 +190,21 @@ impl RootNodeApplet {
                         root.handle_event(event);
                     })
                     .unwrap();
+
+                let (status_sender, status_receiver) = calloop::channel::channel();
+                event_loop
+                    .handle()
+                    .insert_source(
+                        status_receiver,
+                        |event, &mut (), root: &mut RootNodeApplet| {
+                            if let calloop::channel::Event::Msg(text) = event {
+                                root.status_text = text;
+                                root.surface.damage();
+                            }
+                        },
+                    )
+                    .unwrap();
+                status_bar::spawn_ticker(status_sender);
 
                 let mut root = RootNodeApplet::new(
                     self.root_initializer,
@@ -311,6 +331,12 @@ impl RootNodeApplet {
     fn handle_mouse(&mut self, mut mouse_event: MouseEvent) {
         // 0 while the treeview is hidden
         let left = self.treeview_width();
+        // the bar is above everything else
+        let top = f64::from(STATUS_BAR_HEIGHT);
+        if mouse_event.position[1] < top {
+            return;
+        }
+        mouse_event.position[1] -= top;
         let in_treeview = mouse_event.position[0] < f64::from(left);
         // a hidden treeview has no rows to hit
         let rows = if self.treeview_shown {
@@ -389,10 +415,32 @@ impl RootNodeApplet {
         treeview_pointer: &TreeviewPointer,
         // 0 while hidden
         treeview_width: u32,
+        status_text: &str,
     ) -> UITree {
-        if treeview_width == 0 {
-            return tree.get_window();
-        }
+        let content = if treeview_width == 0 {
+            tree.get_window()
+        } else {
+            Self::get_window_with_treeview(tree, treeview_pointer, treeview_width)
+        };
+        UITree::new_container_styled(
+            sonamu_ui::ui_element::Style {
+                display: sonamu_ui::ui_element::Display::Grid,
+                grid_template_columns: vec![TrackSize::Fr(1.0)],
+                grid_template_rows: vec![
+                    TrackSize::Px(STATUS_BAR_HEIGHT as f32),
+                    TrackSize::Fr(1.0),
+                ],
+                ..sonamu_ui::ui_element::Style::full_size()
+            },
+            vec![status_bar::render(status_text), content],
+        )
+    }
+
+    fn get_window_with_treeview(
+        tree: &NodeTree,
+        treeview_pointer: &TreeviewPointer,
+        treeview_width: u32,
+    ) -> UITree {
         let rows = view_rows(tree);
         let treeview =
             treeview_pointer.render(&rows, treeview_width as f32, &tree.get_focus_path());
