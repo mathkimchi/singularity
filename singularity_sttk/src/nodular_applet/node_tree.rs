@@ -210,13 +210,15 @@ pub struct NodeTree {
 struct Pane {
     node: NodeId,
     rect: [u32; 4],
+    /// 0 when it is the only pane, unless `BORDER_LONE_PANE`
+    border: u32,
 }
 impl Pane {
     /// Inside the border
     const fn inner_size(&self) -> DisplayContainerSize {
         DisplayContainerSize::new(
-            self.rect[2].saturating_sub(2 * PANE_BORDER),
-            self.rect[3].saturating_sub(2 * PANE_BORDER),
+            self.rect[2].saturating_sub(2 * self.border),
+            self.rect[3].saturating_sub(2 * self.border),
         )
     }
 
@@ -227,6 +229,8 @@ impl Pane {
 }
 
 const PANE_BORDER: u32 = 1;
+/// Whether a pane alone in its tree gets a border
+const BORDER_LONE_PANE: bool = false;
 /// Focus is inside the pane's applet (keys go to it)
 const BORDER_INNER: Color = Color::LIGHT_GREEN;
 /// Focus is on the pane's node itself (traversal keys move it)
@@ -1180,8 +1184,8 @@ impl NodeTree {
                 self.nodes[pane.node].focus = FocusIndex::Inner;
             }
         }
-        mouse_event.position[0] -= f64::from(pane.rect[0] + PANE_BORDER);
-        mouse_event.position[1] -= f64::from(pane.rect[1] + PANE_BORDER);
+        mouse_event.position[0] -= f64::from(pane.rect[0] + pane.border);
+        mouse_event.position[1] -= f64::from(pane.rect[1] + pane.border);
         self.send_event(pane.node, StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)));
     }
 
@@ -1207,6 +1211,9 @@ impl NodeTree {
         };
         let mut panes = Vec::new();
         self.push_panes(self.view_root, [0, 0, size.width, size.height], &mut panes);
+        if let (false, [pane]) = (BORDER_LONE_PANE, panes.as_mut_slice()) {
+            pane.border = 0;
+        }
         for pane in &panes {
             self.resize(pane.node, pane.inner_size());
         }
@@ -1223,7 +1230,11 @@ impl NodeTree {
         let id = self.displayed_node(id);
         let node = &self.nodes[id];
         let Layout::Split(axis) = node.layout else {
-            panes.push(Pane { node: id, rect });
+            panes.push(Pane {
+                node: id,
+                rect,
+                border: PANE_BORDER,
+            });
             return;
         };
 
@@ -1245,7 +1256,7 @@ impl NodeTree {
         }
     }
 
-    /// Every pane, bordered; the focused one's border shows whether focus is inside it
+    /// Every pane, bordered unless it is the only one; the focused one's border shows whether focus is inside it
     pub fn get_window(&self) -> UITree {
         let focused = self.focused_node();
         let panes = self
@@ -1266,7 +1277,7 @@ impl NodeTree {
                 UITree::new_styled(
                     UIElement::Bordered(border),
                     Style {
-                        border: Length::uniform_rect(Length::Px(PANE_BORDER as f32)),
+                        border: Length::uniform_rect(Length::Px(pane.border as f32)),
                         ..Style::absolute([x, y], [width, height])
                     },
                     vec![surface],
