@@ -254,7 +254,7 @@ impl AppletRunner {
             StandardRequest::Plucked(plucked) => self.plucked(plucked),
             StandardRequest::Placed(given_back) => self.placed(given_back),
             StandardRequest::RequestPluck(path) => self.pluck(Some(path)),
-            StandardRequest::RequestPlace(path) => self.request_place(path),
+            StandardRequest::RequestPlace(path, position) => self.request_place(path, position),
         }
     }
 

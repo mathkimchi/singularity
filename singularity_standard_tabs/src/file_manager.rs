@@ -6,7 +6,7 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::DetachedTree,
-        packets::{StandardEvent, StandardRequest},
+        packets::{SpawnPosition, StandardEvent, StandardRequest},
     },
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -780,6 +780,7 @@ impl StandardApplet for FileManagerApplet {
     fn place(
         &mut self,
         _path: &WorldTreePath,
+        _position: SpawnPosition,
         tree: DetachedTree,
     ) -> Answer<Result<(), DetachedTree>> {
         // TODO: wl surfaces inside inner trees; children of documents
@@ -807,8 +808,8 @@ impl StandardApplet for FileManagerApplet {
             NodeRequest::Standard(StandardRequest::RequestPluck(path)) => self.hook.request(
                 StandardRequest::RequestPluck(document_path(index, path)).into(),
             ),
-            NodeRequest::Standard(StandardRequest::RequestPlace(path)) => self.hook.request(
-                StandardRequest::RequestPlace(document_path(index, path)).into(),
+            NodeRequest::Standard(StandardRequest::RequestPlace(path, position)) => self.hook.request(
+                StandardRequest::RequestPlace(document_path(index, path), position).into(),
             ),
             NodeRequest::Standard(_) => return,
             // documents can't hold children, split, be wrapped or hold wl surfaces here, so this node does

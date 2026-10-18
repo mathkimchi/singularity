@@ -16,6 +16,15 @@ pub enum StateKind {
     Treeview,
 }
 
+/// Where a placed tree goes among the children of the node at the place path
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SpawnPosition {
+    #[default]
+    AppendChild,
+    /// Before the child at this index (appended if it's past the end)
+    InsertChild { child_index: usize },
+}
+
 /// A client's inner tree and where focus is in it, published as `StateKind::Treeview`
 #[derive(Clone)]
 pub struct Treeview {
@@ -79,7 +88,7 @@ pub enum StandardRequest {
     /// Asks the server to pluck at this path of the client's treeview (eg a drag started there)
     RequestPluck(WorldTreePath),
     /// Asks the server to place what it plucked at this path of the client's treeview
-    RequestPlace(WorldTreePath),
+    RequestPlace(WorldTreePath, SpawnPosition),
 }
 
 slotmap::new_key_type! {
@@ -124,7 +133,7 @@ pub enum StandardEvent {
     Pluck(Option<WorldTreePath>),
     /// Take ownership of the tree at this path (`None`: at its focus),
     /// and answer with `StandardRequest::Placed`
-    Place(Option<WorldTreePath>, DetachedTree),
+    Place(Option<WorldTreePath>, SpawnPosition, DetachedTree),
     /// Focus the element at this path of the client's treeview (eg it was clicked in the root's treeview)
     Focus(WorldTreePath),
     /// Collapse or expand the element at this path of the client's treeview (eg its `▾` was clicked in the root's treeview)

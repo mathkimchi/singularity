@@ -6,7 +6,7 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree},
-        packets::{AwaitedWl, NewWlSurface, StandardEvent, StandardRequest, StateKind, Treeview},
+        packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, StateKind, Treeview},
         raw_client_initializer::RawClientInitializer,
         session::SavedApplet,
         shared_state::{SharedState, StatePublisher},
@@ -91,11 +91,13 @@ pub trait StandardApplet {
     }
 
     /// Takes ownership of `tree` at `path` (in the inner tree).
+    /// `position` is among the children of the node at `path`.
     /// `Now(Err)` gives it back, and the node adds it as its last child.
     /// `Later`: the applet answers itself with `StandardRequest::Placed`.
     fn place(
         &mut self,
         _path: &WorldTreePath,
+        _position: SpawnPosition,
         tree: DetachedTree,
     ) -> Answer<Result<(), DetachedTree>> {
         Answer::Now(Err(tree))
@@ -352,9 +354,9 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                             .send(StandardRequest::Plucked(plucked).into());
                     }
                 }
-                calloop::channel::Event::Msg(StandardEvent::Place(path, tree)) => {
+                calloop::channel::Event::Msg(StandardEvent::Place(path, position, tree)) => {
                     let path = path.unwrap_or_else(|| state.applet.get_focus_path());
-                    if let Answer::Now(placed) = state.applet.place(&path, tree) {
+                    if let Answer::Now(placed) = state.applet.place(&path, position, tree) {
                         let _ = state
                             .request_sender
                             .send(StandardRequest::Placed(placed.err()).into());
