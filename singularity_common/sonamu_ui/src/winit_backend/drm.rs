@@ -6,7 +6,7 @@
 use crate::{
     display_units::{DisplayAreaPx, DisplayContainerSize},
     ui_element::{Cursor, CursorIcon, PrimitiveScene, RoundRect, UIPrimitiveElement},
-    ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
+    ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, SwipeDirection, UIEvent},
     winit_backend::{
         DisplayInfo, DisplayNotification, DisplayProxy, DisplayRequest, Gpu, PointerGrab,
         UIDisplay, WgpuData,
@@ -21,7 +21,8 @@ use smithay::{
     backend::{
         drm::{DrmDeviceFd, DrmNode},
         input::{
-            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event as _, InputEvent, KeyState, KeyboardKeyEvent,
+            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event as _, GestureBeginEvent as _,
+            GestureSwipeUpdateEvent as _, InputEvent, KeyState, KeyboardKeyEvent,
             PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
         },
         libinput::{LibinputInputBackend, LibinputSessionInterface},
@@ -51,6 +52,8 @@ const SCROLL_PER_NOTCH: f64 = 15.0;
 const NATURAL_SCROLL: bool = true;
 /// Size of the fallback box, when the cursor theme has no image
 const CURSOR_SIZE: [u32; 2] = [12, 18];
+/// How far (px) the fingers have to move for each step of a swipe
+const SWIPE_DISTANCE: f64 = 50.0;
 
 /// A cursor uploaded to the GPU
 struct CursorImage {
@@ -84,6 +87,8 @@ struct DrmDisplay {
     keyboard: xkb::State,
     /// The key being repeated (xkb keycode) and its timer
     repeat: Option<(Keycode, RegistrationToken)>,
+    /// The swipe going on: its fingers, how far they moved since its last step, and whether it had a step
+    swipe: Option<(u32, [f64; 2], bool)>,
 
     /// Keeps the device open for the surface
     _drm: DrmDeviceFd,
@@ -287,6 +292,7 @@ impl DrmDisplay {
             cursor_image: None,
             keyboard: xkb::State::new(&keymap),
             repeat: None,
+            swipe: None,
             _drm: drm,
             session,
             libinput,
@@ -532,6 +538,36 @@ impl DrmDisplay {
                     event.time().millis(),
                 );
             }
+            InputEvent::GestureSwipeBegin { event } => {
+                self.swipe = Some((event.fingers(), [0.0; 2], false));
+            }
+            InputEvent::GestureSwipeUpdate { event } => {
+                let Some((fingers, moved, repeat)) = &mut self.swipe else {
+                    return;
+                };
+                let delta = event.delta();
+                moved[0] += delta.x;
+                moved[1] += delta.y;
+                let [x, y] = *moved;
+                // a step each time, like scrolling
+                if x.hypot(y) >= SWIPE_DISTANCE {
+                    let direction = match (x.abs() > y.abs(), x > 0.0, y > 0.0) {
+                        (true, true, _) => SwipeDirection::Right,
+                        (true, false, _) => SwipeDirection::Left,
+                        (false, _, true) => SwipeDirection::Down,
+                        (false, _, false) => SwipeDirection::Up,
+                    };
+                    let event = UIEvent::Swipe {
+                        fingers: *fingers,
+                        direction,
+                        repeat: *repeat,
+                    };
+                    *moved = [0.0; 2];
+                    *repeat = true;
+                    self.send(event);
+                }
+            }
+            InputEvent::GestureSwipeEnd { .. } => self.swipe = None,
             _ => {}
         }
     }

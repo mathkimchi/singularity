@@ -1,5 +1,6 @@
 //! This is where the hierarchy stuff is implemented.
 
+use crate::standard_keybinds::{is_dfs_swipe, standard_keybind_request};
 use calloop::{EventLoop, LoopHandle, LoopSignal, channel::Sender};
 use singularity_common::{
     sap::{
@@ -66,6 +67,12 @@ pub trait StandardApplet {
     /// Whether it is selecting an element of its inner tree (its own treeview selector, so the root shows the treeview),
     /// rather than taking input; published with the treeview
     fn is_traversing(&self) -> bool {
+        false
+    }
+
+    /// Whether it gets 3 finger swipes (`is_dfs_swipe`), eg a project, to move through its own tree.
+    /// Otherwise they go straight to its node, so they work in any applet.
+    fn handles_dfs_swipes(&self) -> bool {
         false
     }
 
@@ -361,6 +368,13 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                         let _ = state
                             .request_sender
                             .send(NodeRequest::AddWlSurface(surface));
+                    }
+                }
+                calloop::channel::Event::Msg(StandardEvent::UIEvent(ui_event))
+                    if is_dfs_swipe(&ui_event) && !state.applet.handles_dfs_swipes() =>
+                {
+                    if let Some(request) = standard_keybind_request(&ui_event) {
+                        let _ = state.request_sender.send(request);
                     }
                 }
                 calloop::channel::Event::Msg(event) => {

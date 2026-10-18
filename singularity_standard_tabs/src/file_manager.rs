@@ -365,7 +365,11 @@ impl FileManagerApplet {
             self.handle_key(ui_event);
             return;
         };
+        self.traverse_selector(selected, operation);
+    }
 
+    /// Moves its own selector, or out of it to its node
+    fn traverse_selector(&mut self, selected: Selected, operation: WorldTreeTraversalOperation) {
         let last = self.documents.len().checked_sub(1);
         match (selected, operation) {
             // out of its inner tree, to its node
@@ -423,16 +427,36 @@ impl FileManagerApplet {
         self.documents.get(self.active?)
     }
 
+    /// A standard keybind in the file list; returns whether it was one
+    fn handle_files_keybind(&mut self, ui_event: &UIEvent) -> bool {
+        // eg Alt+q: out of the file list, to its own selector
+        if let Some(NodeRequest::ChangeFocus(WorldTreeTraversalOperation::PrevLayer)) =
+            standard_keybind_request(ui_event)
+        {
+            self.set_selecting(Some(Selected::Root));
+            return true;
+        }
+        handle_standard_keybinds(ui_event, &self.hook)
+    }
+
     fn handle_key(&mut self, ui_event: UIEvent) {
         if let Some(selected) = self.selecting {
-            // releases, and modifiers on their own, stay in the selector
-            if let UIEvent::Key {
-                symbol: Some(key),
-                pressed: true,
-                ..
-            } = ui_event
-            {
-                self.handle_selector_key(selected, key, ui_event);
+            match ui_event {
+                UIEvent::Key {
+                    symbol: Some(key),
+                    pressed: true,
+                    ..
+                } => self.handle_selector_key(selected, key, ui_event),
+                // eg 4 fingers up / down like Alt+q / `e`
+                UIEvent::Swipe { .. } => {
+                    if let Some(NodeRequest::ChangeFocus(operation)) =
+                        standard_keybind_request(&ui_event)
+                    {
+                        self.traverse_selector(selected, operation);
+                    }
+                }
+                // releases, and modifiers on their own, stay in the selector
+                _ => {}
             }
             return;
         }
@@ -443,10 +467,16 @@ impl FileManagerApplet {
             ..
         } = ui_event
         else {
-            if self.pane == Pane::Document
-                && let Some(document) = self.active_document()
-            {
-                document.handle.send_event(StandardEvent::UIEvent(ui_event));
+            match self.pane {
+                Pane::Document => {
+                    if let Some(document) = self.active_document() {
+                        document.handle.send_event(StandardEvent::UIEvent(ui_event));
+                    }
+                }
+                // eg swipes
+                Pane::Files => {
+                    self.handle_files_keybind(&ui_event);
+                }
             }
             return;
         };
@@ -469,14 +499,7 @@ impl FileManagerApplet {
                 }
             }
             Pane::Files => {
-                // eg Alt+q: out of the file list, to its own selector
-                if let Some(NodeRequest::ChangeFocus(WorldTreeTraversalOperation::PrevLayer)) =
-                    standard_keybind_request(&ui_event)
-                {
-                    self.set_selecting(Some(Selected::Root));
-                    return;
-                }
-                if handle_standard_keybinds(&ui_event, &self.hook) {
+                if self.handle_files_keybind(&ui_event) {
                     return;
                 }
                 match (key, modifiers) {
@@ -801,6 +824,10 @@ impl StandardApplet for FileManagerApplet {
                 WorldTreeTraversalOperation::PrevLayer
                 | WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::Parent),
             ) => self.set_selecting(Some(Selected::Document(index))),
+            // eg 3 finger swipes: prev / next node from this one
+            request @ NodeRequest::ChangeFocus(WorldTreeTraversalOperation::Layerwise(
+                TreeTraverseOperation::BfsPrev | TreeTraverseOperation::BfsNext,
+            )) => self.hook.request(request),
             // TODO: a placed project dissolving here loses its contents (they'd need to be the node's children)
             NodeRequest::ChangeFocus(_) | NodeRequest::Unwrap(_) => return,
             NodeRequest::Close => {

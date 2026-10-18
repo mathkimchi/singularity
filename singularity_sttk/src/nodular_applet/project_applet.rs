@@ -166,6 +166,11 @@ impl StandardApplet for ProjectApplet {
         !self.dissolved && self.holder.tree.is_traversing()
     }
 
+    /// Through its own tree, while focus is in it
+    fn handles_dfs_swipes(&self) -> bool {
+        !self.dissolved
+    }
+
     fn focus(&mut self, path: &WorldTreePath) {
         if !self.dissolved {
             self.holder.focus(path);

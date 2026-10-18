@@ -78,6 +78,8 @@ impl StandardApplet for WlSurfaceApplet {
                 },
                 UIEvent::Mouse(mouse_event) => WlSurfaceEvent::Mouse(mouse_event),
                 UIEvent::WindowResized(new_size) => WlSurfaceEvent::Resize(new_size),
+                // the other swipes aren't forwarded to clients yet
+                UIEvent::Swipe { .. } => return,
             },
         };
         // the compositor may be gone while shutting down

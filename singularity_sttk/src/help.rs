@@ -219,7 +219,7 @@ impl StandardApplet for HelpApplet {
                 self.size = size;
                 self.scroll = self.scroll.min(self.max_scroll());
             }
-            UIEvent::Key { .. } => {}
+            UIEvent::Key { .. } | UIEvent::Swipe { .. } => {}
         }
     }
 

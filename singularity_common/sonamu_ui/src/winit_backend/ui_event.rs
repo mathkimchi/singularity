@@ -19,6 +19,21 @@ pub enum UIEvent {
     },
     WindowResized(DisplayContainerSize),
     Mouse(MouseEvent),
+    /// A step of a touchpad swipe, sent each time the fingers move far enough, like scrolling
+    Swipe {
+        fingers: u32,
+        direction: SwipeDirection,
+        /// Not the swipe's first step
+        repeat: bool,
+    },
+}
+/// Which way the fingers moved
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwipeDirection {
+    Up,
+    Down,
+    Left,
+    Right,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseEvent {

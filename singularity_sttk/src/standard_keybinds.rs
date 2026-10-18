@@ -5,7 +5,7 @@ use singularity_common::{
         world_tree::world_tree_traversal::WorldTreeTraversalOperation,
     },
 };
-use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, UIEvent};
+use sonamu_ui::ui_event::{KeyModifiers, KeyTrait, SwipeDirection, UIEvent};
 
 use crate::{
     command_hub::CommandHubApplet,
@@ -20,6 +20,8 @@ use crate::{
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Super+P` - Put the node in a project
 /// - `Alt+<traversal key>` - traversal
+/// - Touchpad 4 fingers up / down - out of / into a layer (`Alt+q` / `e`);
+///   3 fingers up / down - prev / next node (`Alt+Shift+Tab` / `Alt+Tab`)
 ///
 /// Returns whether or not the keypress was used.
 ///
@@ -143,6 +145,47 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
             }),
         ))
     } else {
-        None
+        swipe_request(ui_event)
     }
+}
+
+/// 4 fingers up / down -> out of / into a layer, like Alt+q / `e`;
+/// 3 fingers up / down -> prev / next node in tree order, a node per step (see `is_dfs_swipe`)
+fn swipe_request(ui_event: &UIEvent) -> Option<NodeRequest> {
+    let UIEvent::Swipe {
+        fingers,
+        direction,
+        repeat,
+    } = *ui_event
+    else {
+        return None;
+    };
+    let operation = match (fingers, direction) {
+        // once per swipe
+        (4, _) if repeat => return None,
+        (4, SwipeDirection::Up) => WorldTreeTraversalOperation::PrevLayer,
+        (4, SwipeDirection::Down) => WorldTreeTraversalOperation::NextLayer,
+        (3, SwipeDirection::Up) => {
+            WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsPrev)
+        }
+        (3, SwipeDirection::Down) => {
+            WorldTreeTraversalOperation::Layerwise(TreeTraverseOperation::BfsNext)
+        }
+        _ => return None,
+    };
+    Some(NodeRequest::ChangeFocus(operation))
+}
+
+/// 3 fingers up / down: these go to the applet's node even when focus is inside the applet,
+/// so an applet can't swallow them (see `StandardApplet::handles_dfs_swipes`)
+#[must_use]
+pub fn is_dfs_swipe(ui_event: &UIEvent) -> bool {
+    matches!(
+        ui_event,
+        UIEvent::Swipe {
+            fingers: 3,
+            direction: SwipeDirection::Up | SwipeDirection::Down,
+            ..
+        }
+    )
 }

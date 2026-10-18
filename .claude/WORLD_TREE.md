@@ -61,6 +61,13 @@ An applet with an inner world can have its own selector over it, with the same k
 the file manager by hand over its root and documents). While it does, it publishes `traversing: true`.
 Alt+Q inside an applet goes to its own selector if it has one (eg the file manager's list or a document), else to its node.
 
+Touchpad swipes (DRM backend only: `UIEvent::Swipe`, a step each time the fingers move `SWIPE_DISTANCE`, like
+scrolling; 3 finger swipes act on every step, 4 finger ones only on the first) map to
+keybinds in `standard_keybind_request`: 4 fingers up / down is Alt+Q / `e` (out of / into a layer), 3 fingers up / down
+is Alt+Shift+Tab / Alt+Tab (previous / next node in depth-first order, landing on the node, not inside its applet).
+3 finger swipes skip the applet: its loop (`AppletClient`) sends them straight to its node, unless it
+`handles_dfs_swipes` (a project, to move through its own tree). The file manager passes its documents' ones to its node.
+
 ## Who owns what
 
 There is no single global tree object. Each part is owned by whoever manages it, and parts are stitched together through

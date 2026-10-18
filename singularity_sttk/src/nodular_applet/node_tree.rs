@@ -1025,7 +1025,7 @@ impl NodeTree {
     }
 
     /// Focuses the node after (or before) `from` in depth-first order of the shown subtree, wrapping around.
-    /// Lands inside the node's main if it has one, else on the node.
+    /// Lands on the node (the selector), not inside its main.
     fn focus_next_in_order(&mut self, from: NodeId, forward: bool) {
         let mut order = Vec::new();
         let mut stack = vec![self.view_root];
@@ -1039,15 +1039,7 @@ impl NodeTree {
         let len = order.len();
         let target = order[(position + if forward { 1 } else { len - 1 }) % len];
         self.focus_node(target);
-        let node = &mut self.nodes[target];
-        match &node.main {
-            Some(main) => {
-                node.focus = FocusIndex::Inner;
-                main.send_event(StandardEvent::Focus(WorldTreePath::new_into()));
-            }
-            None => node.focus = FocusIndex::Focusing,
-        }
-        self.damaged = true;
+        self.nodes[target].focus = FocusIndex::Focusing;
     }
 
     /// Focuses down to the node showing the surface.
@@ -1111,6 +1103,11 @@ impl NodeTree {
             }
             return;
         };
+        if let Some(request) = standard_keybind_request(&ui_event) {
+            // on the node itself, eg Ctrl+Shift++ adds a child to it
+            self.keybind_request = Some((id, request));
+            return;
+        }
         // releases, and modifiers on their own, stay in the selector
         let UIEvent::Key {
             symbol: Some(key),
@@ -1120,10 +1117,7 @@ impl NodeTree {
         else {
             return;
         };
-        if let Some(request) = standard_keybind_request(&ui_event) {
-            // on the node itself, eg Ctrl+Shift++ adds a child to it
-            self.keybind_request = Some((id, request));
-        } else if matches!(key, KeySymbol::Char(' ')) {
+        if matches!(key, KeySymbol::Char(' ')) {
             self.toggle_collapsed(id);
         } else if matches!(key, KeySymbol::Enter) {
             // confirms the selection: into its main
