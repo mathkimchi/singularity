@@ -27,7 +27,8 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 
 - `singularity_common::settings`: `Settings` (palette, border, gap, radius, font_size), `load(dir)`, `config_dir()` (`$SONAMU_CONFIG` overrides), global `get()`/`reload()`/`subscribe()`. `load_and_watch()` (called in `singularity_sde` main) loads once, then a `notify` thread reloads on changes. Applets are in-process threads, so they read `settings::get()` directly when they draw (no request needed; see #94 for an event).
 - Watching goes through parent dirs (non-recursive), so atomically replaced files are seen. Watched: `settings`, `settings.json` (only while there is no program), and `watch` paths (relative ones resolve against the config dir). Changes are debounced 100 ms.
-- Loop detection: after a program run, any `watch` path that changed during the run (+100 ms) is assumed written by the program; it's logged and ignored until restart. Changes to other watched paths in that window cause another reload.
+- A change during a program run (+100 ms) causes another reload.
+- Loop detection is commented out in `Watcher::run`: it ignored a `watch` path that changed during program runs (first after 1 run, then after 3 in a row), but DMS writes its `settings.json` on theme changes and continuously while a slider is dragged, so it kept ignoring DMS's settings. A program that changes its own `watch` files now reloads forever.
 - Broadcast: on an actual change (`!=`), each `subscribe`d calloop sender is pinged; dead ones are dropped. `AppletClient` and the root applet subscribe and damage their surface. No applet hook yet; applets that cache settings would need one.
 - `Color` parses/deserializes `#rrggbb`/`#rrggbbaa`.
 - Defaults reproduce the old hardcoded look (focus-inside border green, traversal yellow, unfocused #3b4049, black bg, 46 px font).

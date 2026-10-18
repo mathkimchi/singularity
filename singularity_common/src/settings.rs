@@ -260,6 +260,7 @@ pub fn load_and_watch() {
         dir,
         dirs: HashSet::new(),
         extra: HashSet::new(),
+        // suspects: HashMap::new(),
         ignored: HashSet::new(),
     };
     watcher.sync(extra.unwrap_or_default());
@@ -268,6 +269,9 @@ pub fn load_and_watch() {
 
 /// How long changes must stop before reloading
 const SETTLE: Duration = Duration::from_millis(100);
+// /// Runs in a row a file must change during before it's taken as written by the program.
+// /// Once could be a coincidence (eg DMS writes its settings while the program reads its colors).
+// const LOOP_RUNS: u32 = 3;
 
 struct Watcher {
     watcher: notify::RecommendedWatcher,
@@ -276,6 +280,8 @@ struct Watcher {
     dirs: HashSet<PathBuf>,
     /// The extra paths from the last load
     extra: HashSet<PathBuf>,
+    // /// Extra paths that changed while the program ran, by how many runs in a row
+    // suspects: HashMap<PathBuf, u32>,
     /// Extra paths the program changes itself, which would reload forever
     ignored: HashSet<PathBuf>,
 }
@@ -288,23 +294,32 @@ impl Watcher {
             let mut pending = true;
             while pending {
                 self.settle(events);
-                let ran_program = is_executable(&self.dir.join("settings"));
+                // let ran_program = is_executable(&self.dir.join("settings"));
                 if let Some(extra) = reload_from(&self.dir) {
                     self.sync(extra);
                 }
-                // changed while loading
-                pending = false;
-                for path in self.settle(events) {
-                    if ran_program && self.extra.contains(&path) {
-                        log::warn!(
-                            "The settings program changes {}, ignoring it so settings don't reload forever",
-                            path.display()
-                        );
-                        self.ignored.insert(path);
-                    } else {
-                        pending = true;
-                    }
-                }
+                // changed while loading: reload again
+                let changed = self.settle(events);
+                // Loop detection is off: DMS writes its settings continuously (eg while dragging a slider),
+                // which looked like the program changing them. A program that changes its own `watch` files
+                // reloads forever.
+                // self.suspects.retain(|path, _| ran_program && changed.contains(path));
+                // for path in &changed {
+                //     if !ran_program || !self.extra.contains(path) {
+                //         continue;
+                //     }
+                //     let runs = self.suspects.entry(path.clone()).or_default();
+                //     *runs += 1;
+                //     if *runs >= LOOP_RUNS {
+                //         log::warn!(
+                //             "The settings program changes {}, ignoring it so settings don't reload forever",
+                //             path.display()
+                //         );
+                //         self.suspects.remove(path);
+                //         self.ignored.insert(path.clone());
+                //     }
+                // }
+                pending = changed.iter().any(|path| !self.ignored.contains(path));
             }
         }
     }
