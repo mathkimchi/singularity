@@ -2,9 +2,12 @@
 //!
 //! Rows are placed at a fixed height, so the root can hit-test them itself.
 
-use singularity_common::utils::tree::{
-    tree_node_path::{TraversableTree, TreeNodePath},
-    world_tree::{WorldTree, WorldTreePath},
+use singularity_common::{
+    sap::packets::SpawnPosition,
+    utils::tree::{
+        tree_node_path::{TraversableTree, TreeNodePath},
+        world_tree::{WorldTree, WorldTreePath},
+    },
 };
 use sonamu_ui::{
     color::Color,
@@ -51,6 +54,9 @@ const MARKER_FOCUSING: Color = with_opacity(Color::LIGHT_YELLOW);
 /// Focus is inside the node's applet (keys go to it)
 const MARKER_INNER: Color = with_opacity(Color::LIGHT_GREEN);
 const DROP_TARGET: Color = with_opacity(Color::CYAN);
+/// The share of a row's height at its top and at its bottom that drops between siblings
+const EDGE_ZONE: f32 = 0.25;
+const INSERT_LINE_HEIGHT: f32 = 3.0;
 
 pub struct TreeviewRow {
     pub path: WorldTreePath,
@@ -186,12 +192,45 @@ fn rect(color: Color, position: [f32; 2], size: [f32; 2]) -> UITree {
 #[derive(Default)]
 pub struct TreeviewPointer {
     hovered: Option<usize>,
+    /// Where in the hovered row the pointer is
+    zone: DropZone,
     press: Option<Press>,
     /// The first row shown
     scroll: usize,
     /// The focused row last scrolled to, so it is scrolled to again only when focus moves
     followed: Option<WorldTreePath>,
 }
+
+/// Where in a row the pointer is: the middle appends a child, the edges insert a sibling
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum DropZone {
+    Top,
+    #[default]
+    Middle,
+    Bottom,
+}
+
+/// Where a drop on `row` goes: the path of the parent, and the position among its children.
+/// Only nodes of the tree have siblings, so anything else (eg an applet's inner tree) is appended to.
+fn drop_target(row: &TreeviewRow, zone: DropZone) -> (WorldTreePath, SpawnPosition) {
+    let append = || (row.path.clone(), SpawnPosition::AppendChild);
+    let [node] = &*row.path.0 else {
+        return append();
+    };
+    let Some((&index, parent)) = node.0.split_last().filter(|_| !row.inner) else {
+        return append();
+    };
+    let child_index = match zone {
+        DropZone::Middle => return append(),
+        DropZone::Top => index,
+        DropZone::Bottom => index + 1,
+    };
+    (
+        WorldTreePath(Box::new([TreeNodePath(parent.to_vec())])),
+        SpawnPosition::InsertChild { child_index },
+    )
+}
+
 struct Press {
     path: WorldTreePath,
     position: [f64; 2],
@@ -207,7 +246,7 @@ pub enum TreeviewAction {
     /// Pluck at this path
     StartDrag(WorldTreePath),
     /// Place at this path, or at the focus if dropped outside the treeview
-    Drop(Option<WorldTreePath>),
+    Drop(Option<(WorldTreePath, SpawnPosition)>),
 }
 
 pub struct TreeviewResponse {
@@ -239,7 +278,16 @@ impl TreeviewPointer {
             .then(|| self.scroll + ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)) as usize)
             .filter(|&index| index < rows.len());
 
+        let within = ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)).fract() as f32;
+        let zone = if row.is_none() || (EDGE_ZONE..=1.0 - EDGE_ZONE).contains(&within) {
+            DropZone::Middle
+        } else if within < EDGE_ZONE {
+            DropZone::Top
+        } else {
+            DropZone::Bottom
+        };
         let mut damaged = std::mem::replace(&mut self.hovered, row) != row;
+        damaged |= std::mem::replace(&mut self.zone, zone) != zone;
         let mut action = None;
         let consumed = in_treeview || self.press.is_some();
 
@@ -276,11 +324,13 @@ impl TreeviewPointer {
                 pressed: false,
             } => {
                 if let Some(press) = self.press.take() {
-                    let target = row.map(|index| rows[index].path.clone());
                     action = if press.dragging {
-                        Some(TreeviewAction::Drop(target))
+                        Some(TreeviewAction::Drop(
+                            row.map(|index| drop_target(&rows[index], zone)),
+                        ))
                     } else {
                         // a click: pressed and released on the same row
+                        let target = row.map(|index| rows[index].path.clone());
                         target.filter(|target| *target == press.path).map(|target| {
                             if press.on_triangle {
                                 TreeviewAction::ToggleCollapsed(target)
@@ -389,7 +439,21 @@ impl TreeviewPointer {
                 );
             }
 
-            if dragging.is_some() && is_hovered && !is_dragged {
+            let hovered_drop = dragging.is_some() && is_hovered && !is_dragged;
+            if hovered_drop && drop_target(row, self.zone).1 != SpawnPosition::AppendChild {
+                // a line between siblings
+                let line_left = LEFT_PAD + row.depth as f32 * INDENT;
+                let line_top = if self.zone == DropZone::Top {
+                    0.0
+                } else {
+                    ROW_HEIGHT - INSERT_LINE_HEIGHT
+                };
+                parts.push(rect(
+                    DROP_TARGET,
+                    [line_left, line_top],
+                    [(width - line_left - 4.0).max(0.0), INSERT_LINE_HEIGHT],
+                ));
+            } else if hovered_drop {
                 parts.push(UITree::leaf_styled(
                     UIElement::Bordered(DROP_TARGET),
                     Style {
