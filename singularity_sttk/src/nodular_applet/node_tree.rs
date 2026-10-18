@@ -40,6 +40,9 @@ slotmap::new_key_type! {
 }
 
 /// Shows its main applet or the focused child, or all its children at once (a split).
+/// Starts the label of an inactive node's row in the treeview (after any `▾`/`▸`)
+pub(crate) const INACTIVE_MARK: &str = "⏾ ";
+
 struct Node {
     /// Dropping it ends the applet. `None` for splits.
     main: Option<ClientHandle>,
@@ -57,6 +60,8 @@ struct Node {
     last_child: usize,
     /// A restored wl client's tile (its main stands in) waiting for the client's toplevel
     awaiting: Option<AwaitedWl>,
+    /// Hibernating: shown grey in the treeview
+    inactive: bool,
 }
 impl Node {
     const fn new(main: Option<ClientHandle>, layout: Layout, parent: Option<NodeId>) -> Self {
@@ -71,6 +76,7 @@ impl Node {
             collapsed: false,
             last_child: 0,
             awaiting: None,
+            inactive: false,
         }
     }
 
@@ -940,6 +946,9 @@ impl NodeTree {
             return WorldTree::Base(node.layout.label().to_string());
         };
         let mut treeview = main.get_treeview().tree;
+        if node.inactive {
+            root_label_mut(&mut treeview).insert_str(0, INACTIVE_MARK);
+        }
         if node.collapsed {
             return WorldTree::Base(format!("▸ {}", treeview.get_root_value()));
         }
@@ -947,6 +956,15 @@ impl NodeTree {
             root_label_mut(&mut treeview).insert_str(0, "▾ ");
         }
         treeview
+    }
+
+    /// Marks the node active or inactive (grey in the treeview)
+    pub fn set_inactive(&mut self, id: NodeId, inactive: bool) {
+        if let Some(node) = self.nodes.get_mut(id)
+            && std::mem::replace(&mut node.inactive, inactive) != inactive
+        {
+            self.damaged = true;
+        }
     }
 
     /// Hides or shows the inner tree of the node's main in the treeview, if it has one

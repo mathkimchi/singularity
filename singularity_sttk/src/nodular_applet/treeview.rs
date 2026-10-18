@@ -2,6 +2,7 @@
 //!
 //! Rows are placed at a fixed height, so the root can hit-test them itself.
 
+use super::node_tree::INACTIVE_MARK;
 use singularity_common::{
     sap::packets::SpawnPosition,
     utils::tree::{
@@ -46,6 +47,7 @@ const GUIDE: Color = with_opacity(Color([11, 13, 17, 0]));
 const INNER_BOX_BG: Color = with_opacity(Color([3, 3, 5, 0]));
 const INNER_BOX_BORDER: Color = GUIDE;
 const TEXT: Color = with_opacity(Color::LIGHT_GRAY);
+const INACTIVE_TEXT: Color = with_opacity(Color([0x70, 0x75, 0x80, 0]));
 const DRAGGED_TEXT: Color = with_opacity(Color([0x55, 0x5A, 0x64, 0]));
 /// Focus is on the node itself (traversal keys move it)
 const MARKER_FOCUSING: Color = with_opacity(Color::LIGHT_YELLOW);
@@ -413,6 +415,8 @@ impl TreeviewPointer {
             let text_top = (ROW_HEIGHT - FONT_SIZE_F) / 2.0;
             let text_color = if is_dragged {
                 DRAGGED_TEXT
+            } else if is_inactive(row) {
+                INACTIVE_TEXT
             } else {
                 TEXT
             };
@@ -510,6 +514,13 @@ fn inner_box_trees(
             ]
         })
         .collect()
+}
+
+/// Its node is inactive (see `INACTIVE_MARK`)
+fn is_inactive(row: &TreeviewRow) -> bool {
+    row.label
+        .trim_start_matches(['▾', '▸', ' '])
+        .starts_with(INACTIVE_MARK.trim_end())
 }
 
 /// Its label starts with a `▾`/`▸` that collapses or expands it when clicked
