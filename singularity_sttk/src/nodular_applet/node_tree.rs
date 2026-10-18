@@ -10,7 +10,7 @@ use singularity_common::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree, Layout},
         packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, WlSurfaceId},
-        session::SavedTree,
+        session::{SavedApplet, SavedTree, SavedWl},
     },
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -62,6 +62,8 @@ struct Node {
     awaiting: Option<AwaitedWl>,
     /// Hibernating: shown grey in the treeview
     inactive: bool,
+    /// A restored wl client not started yet (its main stands in); started when focused
+    hibernated: Option<SavedWl>,
 }
 impl Node {
     const fn new(main: Option<ClientHandle>, layout: Layout, parent: Option<NodeId>) -> Self {
@@ -77,6 +79,7 @@ impl Node {
             last_child: 0,
             awaiting: None,
             inactive: false,
+            hibernated: None,
         }
     }
 
@@ -360,10 +363,15 @@ impl NodeTree {
 
     /// Makes the saved node and its descendants under `parent` (not added to its children)
     fn restore_subtree(&mut self, parent: Option<NodeId>, saved: SavedTree) -> NodeId {
-        let (main, awaiting) = saved.main.map(session::restore).unzip();
+        let hibernated = match &saved.main {
+            Some(SavedApplet::Wl(wl)) => Some(wl.clone()),
+            _ => None,
+        };
+        let main = saved.main.map(session::restore);
         let spawn_client = &self.spawn_client;
         let id = self.nodes.insert_with_key(|id| Node {
-            awaiting: awaiting.flatten(),
+            inactive: hibernated.is_some(),
+            hibernated,
             ..Node::new(
                 main.map(|initializer| spawn_client(id, initializer)),
                 saved.layout,
@@ -956,6 +964,24 @@ impl NodeTree {
             root_label_mut(&mut treeview).insert_str(0, "▾ ");
         }
         treeview
+    }
+
+    /// Starts the focused node's wl client if it is hibernating
+    pub fn wake_focused(&mut self) {
+        let id = self.focused_node();
+        let Some(wl) = self.nodes[id].hibernated.take() else {
+            return;
+        };
+        let (initializer, awaiting) = session::wake(&wl);
+        let main = (self.spawn_client)(id, initializer);
+        let node = &mut self.nodes[id];
+        node.main = Some(main);
+        node.awaiting = awaiting;
+        node.inactive = false;
+        // so the new applet gets its size
+        node.size = None;
+        self.send_initial_size(id);
+        self.damaged = true;
     }
 
     /// Marks the node active or inactive (grey in the treeview)

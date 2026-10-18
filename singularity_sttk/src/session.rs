@@ -79,8 +79,8 @@ pub fn saved_with_path(name: &str, path: &Path) -> Option<SavedApplet> {
     })
 }
 
-/// Makes the saved applet again. A wl client is started, and its tile awaits its toplevel.
-pub fn restore(saved: SavedApplet) -> (NodularAppletInitializer, Option<AwaitedWl>) {
+/// Makes the saved applet again. A wl client isn't started: its tile hibernates until `wake`.
+pub fn restore(saved: SavedApplet) -> NodularAppletInitializer {
     match &saved {
         SavedApplet::Spawner { name, args } => {
             let (name, args) = (name.clone(), args.clone());
@@ -98,27 +98,34 @@ pub fn restore(saved: SavedApplet) -> (NodularAppletInitializer, Option<AwaitedW
                     }),
                 }
             });
-            (initializer, None)
+            initializer
         }
-        SavedApplet::Project(tree) => (ProjectApplet::restorer((**tree).clone()), None),
+        SavedApplet::Project(tree) => ProjectApplet::restorer((**tree).clone()),
         SavedApplet::Wl(wl) => {
-            let name = wl_label(wl);
-            let (label, awaiting) = match restore_command(wl).map(|mut command| command.spawn()) {
-                Some(Ok(mut child)) => {
-                    let awaiting = AwaitedWl {
-                        pid: child.id(),
-                        app_id: wl.app_id.clone(),
-                    };
-                    // reaped, so it doesn't stay a zombie
-                    std::thread::spawn(move || child.wait());
-                    (format!("Starting {name}…"), Some(awaiting))
-                }
-                Some(Err(err)) => (format!("Couldn't start {name}: {err}"), None),
-                None => (format!("Couldn't restore {name}: no command"), None),
-            };
-            (RestoringApplet::initializer(saved, label), awaiting)
+            let label = format!("{} (inactive)", wl_label(wl));
+            RestoringApplet::initializer(saved, label)
         }
     }
+}
+
+/// Starts a hibernating wl client. Its tile stands in as "Starting ..." and awaits its toplevel.
+pub fn wake(wl: &SavedWl) -> (NodularAppletInitializer, Option<AwaitedWl>) {
+    let name = wl_label(wl);
+    let (label, awaiting) = match restore_command(wl).map(|mut command| command.spawn()) {
+        Some(Ok(mut child)) => {
+            let awaiting = AwaitedWl {
+                pid: child.id(),
+                app_id: wl.app_id.clone(),
+            };
+            // reaped, so it doesn't stay a zombie
+            std::thread::spawn(move || child.wait());
+            (format!("Starting {name}…"), Some(awaiting))
+        }
+        Some(Err(err)) => (format!("Couldn't start {name}: {err}"), None),
+        None => (format!("Couldn't restore {name}: no command"), None),
+    };
+    let saved = SavedApplet::Wl(wl.clone());
+    (RestoringApplet::initializer(saved, label), awaiting)
 }
 
 fn wl_label(wl: &SavedWl) -> String {
