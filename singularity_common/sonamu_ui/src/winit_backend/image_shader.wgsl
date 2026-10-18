@@ -12,6 +12,9 @@ struct InstanceInput {
     // top left corner
     @location(1) origin: vec2<f32>,
     @location(2) size: vec2<f32>,
+    @location(3) clip_origin: vec2<f32>,
+    @location(4) clip_size: vec2<f32>,
+    @location(5) clip_radius: f32,
 }
 
 // is also the input of the fragment shader
@@ -25,6 +28,9 @@ struct VertexOutput {
     // top left corner
     @location(0) origin: vec2<f32>,
     @location(1) size: vec2<f32>,
+    @location(2) clip_origin: vec2<f32>,
+    @location(3) clip_size: vec2<f32>,
+    @location(4) clip_radius: f32,
 };
 
 fn remap_range(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
@@ -44,7 +50,19 @@ fn vs_main(
     // );
     out.origin = instance.origin;
     out.size = instance.size;
+    out.clip_origin = instance.clip_origin;
+    out.clip_size = instance.clip_size;
+    out.clip_radius = instance.clip_radius;
     return out;
+}
+
+/// How much of the pixel centered at `p` is inside the rounded box (see `rectangle_shader.wgsl`)
+fn coverage(p: vec2<f32>, origin: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
+    let half = max(size, vec2<f32>(0.0)) * 0.5;
+    let r = min(radius, min(half.x, half.y));
+    let q = abs(p - origin - half) - half + vec2<f32>(r);
+    let sdf = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - r;
+    return clamp(0.5 - sdf, 0.0, 1.0);
 }
 
 // Fragment shader
@@ -66,7 +84,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         (0. <= tex_coords.y && tex_coords.y <= 1.) {
         // // turn ARGB => RGBA for wl stuff
         // return textureSample(t_diffuse, s_diffuse, tex_coords).yzwx;
-        return textureSample(t_diffuse, s_diffuse, tex_coords);
+        return textureSample(t_diffuse, s_diffuse, tex_coords)
+            * coverage(in.clip_position.xy, in.clip_origin, in.clip_size, in.clip_radius);
     } else {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }

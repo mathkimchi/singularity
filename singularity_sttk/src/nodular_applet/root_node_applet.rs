@@ -22,6 +22,7 @@ use singularity_common::{
         session::Session,
         shared_state::{SharedState, StatePublisher},
     },
+    settings,
     utils::tree::world_tree::WorldTreePath,
 };
 use sonamu_ui::{
@@ -250,7 +251,7 @@ impl RootNodeApplet {
                     .unwrap();
 
                 let (settings_tx, settings_rx) = calloop::channel::channel();
-                singularity_common::settings::subscribe(settings_tx);
+                settings::subscribe(settings_tx);
                 event_loop
                     .handle()
                     .insert_source(settings_rx, |event, &mut (), root: &mut RootNodeApplet| {

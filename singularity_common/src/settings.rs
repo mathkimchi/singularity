@@ -25,8 +25,11 @@ const PROGRAM_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct Settings {
     pub palette: Palette,
     pub border: Border,
+    /// Between panes and around them, in px
     pub gap: f32,
+    /// Of pane corners, in px
     pub radius: f32,
+    /// Text height in px (Sonamu's own UI isn't scaled)
     pub font_size: f32,
 }
 impl Default for Settings {
@@ -36,7 +39,7 @@ impl Default for Settings {
             border: Border::default(),
             gap: 0.0,
             radius: 0.0,
-            font_size: 16.0,
+            font_size: 46.0,
         }
     }
 }
@@ -44,9 +47,13 @@ impl Default for Settings {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Palette {
+    /// Unused for now: behind the panes is the background layer (eg a wallpaper)
     pub bg: Color,
+    /// Text of the treeview and projects
     pub fg: Color,
+    /// Focus on a node itself (traversal keys move it): its border and treeview marker
     pub accent: Color,
+    /// Text of inactive (eg hibernated) nodes in the treeview
     pub inactive: Color,
 }
 impl Default for Palette {
@@ -55,7 +62,7 @@ impl Default for Palette {
             bg: Color::BLACK,
             fg: Color::LIGHT_GRAY,
             accent: Color::LIGHT_YELLOW,
-            inactive: Color::MEDIUM_GRAY,
+            inactive: Color([0x70, 0x75, 0x80, 0xFF]),
         }
     }
 }
@@ -63,7 +70,9 @@ impl Default for Palette {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Border {
+    /// Of panes, in px
     pub width: f32,
+    /// Focus is inside the pane's applet (keys go to it); also its treeview marker
     pub focused: Color,
     pub unfocused: Color,
 }
@@ -71,8 +80,8 @@ impl Default for Border {
     fn default() -> Self {
         Self {
             width: 1.0,
-            focused: Color::LIGHT_YELLOW,
-            unfocused: Color::LIGHT_GREEN,
+            focused: Color::LIGHT_GREEN,
+            unfocused: Color([0x3B, 0x40, 0x49, 0xFF]),
         }
     }
 }
@@ -208,6 +217,8 @@ pub fn reload() {
 fn reload_from(dir: &Path) -> Option<Vec<PathBuf>> {
     match load(dir) {
         Ok(Loaded { settings, watch }) => {
+            // read by sonamu_ui itself (eg char grid sizes), which can't see the settings
+            sonamu_ui::ui_element::set_font_size(settings.font_size);
             let changed = {
                 let mut current = CURRENT.write().unwrap_or_else(PoisonError::into_inner);
                 std::mem::replace(&mut *current, settings) != *current

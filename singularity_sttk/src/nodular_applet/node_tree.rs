@@ -6,6 +6,7 @@ use crate::{
     wl_surface_applet::WlSurfaceApplet,
 };
 use singularity_common::{
+    settings,
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree, Layout},
@@ -20,7 +21,6 @@ use singularity_common::{
 };
 use slotmap::SlotMap;
 use sonamu_ui::{
-    color::Color,
     display_units::DisplayContainerSize,
     ui_element::{Length, Style, UIElement, UITree},
     ui_event::{KeySymbol, KeyTrait, MouseEvent, MouseEventKind, UIEvent},
@@ -219,7 +219,7 @@ pub struct NodeTree {
 struct Pane {
     node: NodeId,
     rect: [u32; 4],
-    /// 0 when it is the only pane, unless `BORDER_LONE_PANE`
+    /// From the settings; 0 when it is the only pane, unless `BORDER_LONE_PANE`
     border: u32,
 }
 impl Pane {
@@ -237,15 +237,8 @@ impl Pane {
     }
 }
 
-const PANE_BORDER: u32 = 1;
-/// Whether a pane alone in its tree gets a border
+/// Whether a pane alone in its tree gets a border, gap and rounded corners
 const BORDER_LONE_PANE: bool = false;
-/// Focus is inside the pane's applet (keys go to it)
-const BORDER_INNER: Color = Color::LIGHT_GREEN;
-/// Focus is on the pane's node itself (traversal keys move it)
-const BORDER_FOCUSING: Color = Color::LIGHT_YELLOW;
-/// Rect colors are drawn as linear, so this shows as about #3a3f4a
-const BORDER_UNFOCUSED: Color = Color([11, 13, 17, 0xFF]);
 
 impl NodeTree {
     pub fn new(
@@ -1306,9 +1299,23 @@ impl NodeTree {
         let Some(size) = self.latest_size else {
             return;
         };
+        let settings = settings::get();
+        let gap = settings.gap.round() as u32;
+        let border = settings.border.width.round() as u32;
         let mut panes = Vec::new();
-        self.push_panes(self.view_root, [0, 0, size.width, size.height], &mut panes);
+        self.push_panes(
+            self.view_root,
+            [
+                gap,
+                gap,
+                size.width.saturating_sub(2 * gap),
+                size.height.saturating_sub(2 * gap),
+            ],
+            [gap, border],
+            &mut panes,
+        );
         if let (false, [pane]) = (BORDER_LONE_PANE, panes.as_mut_slice()) {
+            pane.rect = [0, 0, size.width, size.height];
             pane.border = 0;
         }
         for pane in &panes {
@@ -1323,14 +1330,15 @@ impl NodeTree {
         self.panes = panes;
     }
 
-    fn push_panes(&self, id: NodeId, rect: [u32; 4], panes: &mut Vec<Pane>) {
+    /// Splits leave `gap` between their children
+    fn push_panes(&self, id: NodeId, rect: [u32; 4], [gap, border]: [u32; 2], panes: &mut Vec<Pane>) {
         let id = self.displayed_node(id);
         let node = &self.nodes[id];
         let Layout::Split(axis) = node.layout else {
             panes.push(Pane {
                 node: id,
                 rect,
-                border: PANE_BORDER,
+                border,
             });
             return;
         };
@@ -1341,30 +1349,36 @@ impl NodeTree {
             Axis::Horizontal => width,
             Axis::Vertical => height,
         };
+        let length = length.saturating_sub(gap * count.saturating_sub(1));
         for (index, &child) in (0..).zip(&node.children) {
             // the last pane takes the rounding leftovers
-            let start = length * index / count;
-            let end = length * (index + 1) / count;
+            let start = length * index / count + gap * index;
+            let end = length * (index + 1) / count + gap * index;
             let child_rect = match axis {
                 Axis::Horizontal => [x + start, y, end - start, height],
                 Axis::Vertical => [x, y + start, width, end - start],
             };
-            self.push_panes(child, child_rect, panes);
+            self.push_panes(child, child_rect, [gap, border], panes);
         }
     }
 
     /// Every pane, bordered unless it is the only one; the focused one's border shows whether focus is inside it
     pub fn get_window(&self) -> UITree {
         let focused = self.focused_node();
+        let settings = settings::get();
+        let radius = match self.panes.as_slice() {
+            [_] if !BORDER_LONE_PANE => 0.0,
+            _ => settings.radius,
+        };
         let panes = self
             .panes
             .iter()
             .map(|pane| {
                 let node = &self.nodes[pane.node];
                 let border = match node.focus {
-                    _ if pane.node != focused => BORDER_UNFOCUSED,
-                    FocusIndex::Inner => BORDER_INNER,
-                    _ => BORDER_FOCUSING,
+                    _ if pane.node != focused => settings.border.unfocused,
+                    FocusIndex::Inner => settings.border.focused,
+                    _ => settings.palette.accent,
                 };
                 let surface = node.main.as_ref().map_or_else(
                     || UITree::leaf(UIElement::Nothing),
@@ -1372,7 +1386,10 @@ impl NodeTree {
                 );
                 let [x, y, width, height] = pane.rect.map(|value| value as f32);
                 UITree::new_styled(
-                    UIElement::Bordered(border),
+                    UIElement::Bordered {
+                        color: border,
+                        radius,
+                    },
                     Style {
                         border: Length::uniform_rect(Length::Px(pane.border as f32)),
                         ..Style::absolute([x, y], [width, height])

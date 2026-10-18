@@ -347,6 +347,7 @@ impl DrmDisplay {
                     (
                         UIPrimitiveElement::Texture(image.texture.clone()),
                         DisplayAreaPx::new(x, y, x + image.size[0], y + image.size[1]),
+                        None,
                     )
                 }
                 // a white box with a black outline
@@ -358,6 +359,7 @@ impl DrmDisplay {
                         border_color: [0.0, 0.0, 0.0, 1.0],
                     }),
                     DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
+                    None,
                 ),
             });
             UIDisplay::draw(&mut self.wgpu_data, &scene, self.capture)

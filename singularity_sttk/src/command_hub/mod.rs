@@ -49,17 +49,15 @@ const MAX_OUTPUT_LINES: usize = 500;
 const SCROLL_STEP: usize = 3;
 const PROMPT: &str = "> ";
 
-// Char grid colors are drawn as linear (like rects, see `nodular_applet/treeview.rs`), so these are darker than they look:
-// they show as about #0f1115, #262a33, #5fd787, #c8ccd4, #8a93a6, #ff6b6b, #e5c07b, #dadada.
-// The help applet uses them too.
-pub(crate) const BG: Color = with_opacity(Color([1, 1, 2, 0]));
-pub(crate) const BAR_BG: Color = with_opacity(Color([5, 6, 8, 0]));
-pub(crate) const ACCENT: Color = Color([29, 173, 62, 0xFF]);
-pub(crate) const OUTPUT: Color = Color([147, 154, 168, 0xFF]);
-pub(crate) const DIM: Color = Color([65, 74, 97, 0xFF]);
-const ERROR: Color = Color([255, 37, 37, 0xFF]);
-pub(crate) const RUNNING: Color = Color([200, 134, 50, 0xFF]);
-pub(crate) const CURSOR: Color = Color([180, 180, 180, 0xFF]);
+// The help applet uses these too
+pub(crate) const BG: Color = with_opacity(Color([0x0D, 0x0D, 0x16, 0]));
+pub(crate) const BAR_BG: Color = with_opacity(Color([0x26, 0x2A, 0x32, 0]));
+pub(crate) const ACCENT: Color = Color([0x5F, 0xD7, 0x87, 0xFF]);
+pub(crate) const OUTPUT: Color = Color([0xC8, 0xCC, 0xD4, 0xFF]);
+pub(crate) const DIM: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
+const ERROR: Color = Color([0xFF, 0x6A, 0x6A, 0xFF]);
+pub(crate) const RUNNING: Color = Color([0xE5, 0xC0, 0x7A, 0xFF]);
+pub(crate) const CURSOR: Color = Color([0xDB, 0xDB, 0xDB, 0xFF]);
 const COMMAND: Color = Color::WHITE;
 
 enum Output {

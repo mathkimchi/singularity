@@ -15,6 +15,9 @@ struct InstanceInput {
     // character width and height; technically I can just say `num char / width = height` but as they say, KISS
     // u16 would work, but wgsl doesn't have it. I could use one u32 then split it later but again, KISS
     @location(3) grid_size: vec2<u32>,
+    @location(4) clip_origin: vec2<f32>,
+    @location(5) clip_size: vec2<f32>,
+    @location(6) clip_radius: f32,
 }
 
 // is also the input of the fragment shader
@@ -29,6 +32,9 @@ struct VertexOutput {
     @location(0) origin: vec2<f32>,
     @location(1) size: vec2<f32>,
     @location(2) grid_size: vec2<u32>,
+    @location(3) clip_origin: vec2<f32>,
+    @location(4) clip_size: vec2<f32>,
+    @location(5) clip_radius: f32,
 };
 
 fn remap_range(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
@@ -49,6 +55,9 @@ fn vs_main(
     out.origin = instance.origin;
     out.size = instance.size;
     out.grid_size = instance.grid_size;
+    out.clip_origin = instance.clip_origin;
+    out.clip_size = instance.clip_size;
+    out.clip_radius = instance.clip_radius;
     return out;
 }
 
@@ -70,8 +79,28 @@ fn median(v: vec3<f32>) -> f32 {
     return max(min(v.x, v.y), min(max(v.x, v.y), v.z));
 }
 
+/// How much of the pixel centered at `p` is inside the rounded box (see `rectangle_shader.wgsl`)
+fn coverage(p: vec2<f32>, origin: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
+    let half = max(size, vec2<f32>(0.0)) * 0.5;
+    let r = min(radius, min(half.x, half.y));
+    let q = abs(p - origin - half) - half + vec2<f32>(r);
+    let sdf = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - r;
+    return clamp(0.5 - sdf, 0.0, 1.0);
+}
+
+/// Colors are given as sRGB, but the surface wants linear
+fn srgb_to_linear(c: vec4<f32>) -> vec4<f32> {
+    let low = c.rgb / 12.92;
+    let high = pow((c.rgb + 0.055) / 1.055, vec3<f32>(2.4));
+    return vec4<f32>(select(high, low, c.rgb <= vec3<f32>(0.04045)), c.a);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    return cell_color(in) * coverage(in.clip_position.xy, in.clip_origin, in.clip_size, in.clip_radius);
+}
+
+fn cell_color(in: VertexOutput) -> vec4<f32> {
     // 0 to 1 placing this pixel relative to the whole char grid
     let tex_coords = vec2<f32>(
         remap_range(in.clip_position.x, in.origin.x, in.origin.x + in.size.x, 0., 1.),
@@ -95,8 +124,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // ^-- never mind, https://www.w3.org/TR/WGSL/#textureload for texture_storage_2d, you don't specify mip level.
         let char = textureLoad(characters, char_idx);
         let char_type= char.x;
-        let fg = unpack4x8unorm(char.y);
-        let bg = unpack4x8unorm(char.z);
+        let fg = srgb_to_linear(unpack4x8unorm(char.y));
+        let bg = srgb_to_linear(unpack4x8unorm(char.z));
         let style = char.w;
 
         // save bit 0 and 1 for bold and italic

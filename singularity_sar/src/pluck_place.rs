@@ -10,7 +10,7 @@ use singularity_common::{
 };
 use sonamu_ui::{
     color::Color,
-    ui_element::{FONT_SIZE_F, Length, Style, UIElement, UITree},
+    ui_element::{Length, Style, UIElement, UITree, font_size},
 };
 use std::fmt::Write;
 
@@ -30,8 +30,6 @@ pub(crate) enum PluckPlace {
 
 const GHOST_OFFSET: f32 = 16.0;
 const GHOST_PADDING: f32 = 10.0;
-/// Rough monospace advance at `FONT_SIZE_F`
-const CHAR_WIDTH: f32 = FONT_SIZE_F * 0.6;
 
 impl AppletRunner {
     /// Alt+P: pluck at the root's focus, or place there if something is plucked
@@ -116,20 +114,21 @@ impl AppletRunner {
         }
 
         let [x, y] = self.pointer_position.map(|coord| coord as f32);
+        let font_size = font_size();
         let size = [
-            label.chars().count() as f32 * CHAR_WIDTH + GHOST_PADDING * 2.0,
-            FONT_SIZE_F + GHOST_PADDING * 2.0,
+            // rough monospace advance
+            label.chars().count() as f32 * font_size * 0.6 + GHOST_PADDING * 2.0,
+            font_size + GHOST_PADDING * 2.0,
         ];
         let text = UITree::leaf_styled(
             UIElement::Text(vec![(label, UIElement::glyphon_attr(Color::WHITE))]),
-            Style::absolute([GHOST_PADDING, GHOST_PADDING], [size[0], FONT_SIZE_F]),
+            Style::absolute([GHOST_PADDING, GHOST_PADDING], [size[0], font_size]),
         );
         Some(UITree::new_styled(
-            // rect colors are drawn as linear; shows as about #1e2430
-            UIElement::Backgrounded(Color([3, 4, 7, 0xE0])),
+            UIElement::Backgrounded(Color([0x1C, 0x22, 0x2E, 0xE0])),
             Style::absolute([x + GHOST_OFFSET, y + GHOST_OFFSET], size),
             vec![UITree::new_styled(
-                UIElement::Bordered(Color::CYAN),
+                UIElement::border(Color::CYAN),
                 Style {
                     border: Length::uniform_rect(Length::Px(2.0)),
                     ..Style::full_size()

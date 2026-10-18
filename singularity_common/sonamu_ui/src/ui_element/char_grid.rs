@@ -1,5 +1,6 @@
 use crate::ui_element::{Dimension, Style, UIElement, UITree};
 use crate::{color::Color, display_units::DisplayContainerSize};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// 0 and 1 are planned to be bold and italic
 /// 2 is cursor line
@@ -88,15 +89,28 @@ impl Default for InternalCharCell {
     }
 }
 
-/// think this is height in pixels
-/// TODO: make this not-so-hardcoded...
-pub const FONT_SIZE_U: u32 = 46;
-pub const FONT_SIZE: i32 = FONT_SIZE_U as i32;
-pub const FONT_SIZE_F: f32 = FONT_SIZE as f32;
-/// The actual aspect ratio of DejaVu Mono is 1:1.933
-pub const FONT_WIDTH_U: u32 = 24;
-pub const FONT_WIDTH: i32 = FONT_WIDTH_U as i32;
-pub const FONT_WIDTH_F: f32 = FONT_WIDTH as f32;
+/// Font height in px, as `f32` bits; set from the settings
+static FONT_SIZE: AtomicU32 = AtomicU32::new(46.0_f32.to_bits());
+
+/// Font height in px
+pub fn font_size() -> f32 {
+    f32::from_bits(FONT_SIZE.load(Ordering::Relaxed))
+}
+
+/// Font height in px. Applets read it when they draw, so they should redraw after.
+pub fn set_font_size(px: f32) {
+    FONT_SIZE.store(px.max(1.0).to_bits(), Ordering::Relaxed);
+}
+
+/// Char grid cell height in px
+fn cell_height() -> u32 {
+    font_size().round() as u32
+}
+
+/// Char grid cell width in px. The actual aspect ratio of DejaVu Mono is 1:1.933
+fn cell_width() -> u32 {
+    (font_size() / 1.933).ceil() as u32
+}
 
 /// #[deprecated]
 /// Idk why I deprecated this. If anything, CharGrid should be better than Glyphon Richtext
@@ -179,21 +193,21 @@ impl CharGrid {
 
     /// Returns (width, height)
     #[must_use]
-    pub const fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
+    pub fn largest_fittable_size(container_size: DisplayContainerSize) -> (usize, usize) {
         // log::debug!("Largest fittable size called, container size: {container_size:?}");
         (
             // Font size is height, width is twice the height
             // I was gonna do size.width / (fontsize / 2) bc it is what is happening logically, but this is actually safer
-            (container_size.width / FONT_WIDTH_U) as usize,
-            (container_size.height / FONT_SIZE_U) as usize,
+            (container_size.width / cell_width()) as usize,
+            (container_size.height / cell_height()) as usize,
         )
     }
 
     #[must_use]
-    pub const fn display_size(&self) -> DisplayContainerSize {
+    pub fn display_size(&self) -> DisplayContainerSize {
         DisplayContainerSize {
-            width: (self.width as u32) * FONT_WIDTH_U,
-            height: (self.height as u32) * FONT_SIZE_U,
+            width: (self.width as u32) * cell_width(),
+            height: (self.height as u32) * cell_height(),
         }
     }
 

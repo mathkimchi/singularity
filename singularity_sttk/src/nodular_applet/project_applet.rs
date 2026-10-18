@@ -17,12 +17,13 @@ use singularity_common::{
         packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest},
         session::{SavedApplet, SavedTree},
     },
+    settings,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
-    ui_element::{FONT_SIZE_F, Style, UIElement, UITree},
+    ui_element::{Style, UIElement, UITree, font_size},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -31,7 +32,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 const LABEL: &str = "Project";
 
 /// The overview's rows: the name, a hint, its contents, then `NEW_ROWS`
-const ROW_HEIGHT: f32 = FONT_SIZE_F + 14.0;
+fn row_height() -> f32 {
+    font_size() + 14.0
+}
 const PAD: f32 = 16.0;
 /// Rows before its contents
 const CONTENTS_ROW: usize = 2;
@@ -41,7 +44,7 @@ const NEW_ROWS: [(&str, char, Option<&str>); 3] = [
     ("+ terminal  (t)", 't', Some(TERMINAL)),
     ("+ browser  (b)", 'b', Some(BROWSER)),
 ];
-const TEXT: Color = Color::LIGHT_GRAY;
+// Other text is the settings' `palette.fg`
 const HINT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
 const BTN_LEFT: u32 = 0x110;
 
@@ -177,7 +180,7 @@ impl ProjectApplet {
                 // non-negative, since `y >= PAD`
                 #[allow(clippy::cast_sign_loss)]
                 let row = (y >= f64::from(PAD))
-                    .then(|| ((y - f64::from(PAD)) / f64::from(ROW_HEIGHT)) as usize);
+                    .then(|| ((y - f64::from(PAD)) / f64::from(row_height())) as usize);
                 match row {
                     None => {}
                     Some(0) => self.renaming = Some(String::new()),
@@ -242,21 +245,22 @@ impl ProjectApplet {
             Some(name) => (format!("{name}▏"), "Enter: save, Esc: cancel"),
             None => (self.name.clone(), "r: rename, 1-9: select"),
         };
+        let text = settings::get().palette.fg;
         let contents = (1..)
             .zip(tree.children(tree.root()))
-            .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), TEXT));
-        let rows = [(title, TEXT), (hint.to_string(), HINT)]
+            .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), text));
+        let rows = [(title, text), (hint.to_string(), HINT)]
             .into_iter()
             .chain(contents)
-            .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), TEXT)));
+            .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), text)));
         let rows = (0..)
             .zip(rows)
             .map(|(index, (text, color))| {
                 UITree::leaf_styled(
                     UIElement::Text(vec![(text, UIElement::glyphon_attr(color))]),
                     Style::absolute(
-                        [PAD, PAD + index as f32 * ROW_HEIGHT],
-                        [(width - PAD).max(0.0), ROW_HEIGHT],
+                        [PAD, PAD + index as f32 * row_height()],
+                        [(width - PAD).max(0.0), row_height()],
                     ),
                 )
             })

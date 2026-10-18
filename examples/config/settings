@@ -15,7 +15,8 @@ print(json.dumps({
     "palette": {
         "bg": colors["background"],
         "fg": colors["on_surface"],
-        "accent": colors["primary"],
+        # focus on a node itself (traversing), so it differs from border.focused
+        "accent": colors["tertiary"],
         "inactive": colors["outline"],
     },
     "border": {
@@ -25,6 +26,7 @@ print(json.dumps({
     },
     "gap": 8.0,
     "radius": dms_settings.get("cornerRadius", 12),
-    "font_size": 16.0,
+    # physical px; Sonamu's own UI isn't scaled
+    "font_size": 24.0 * dms_settings.get("fontScale", 1.0),
     "watch": [str(colors_path), str(dms_settings_path)],
 }, indent=2))

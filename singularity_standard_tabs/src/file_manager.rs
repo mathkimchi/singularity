@@ -25,7 +25,7 @@ use singularity_sttk::{
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
-    ui_element::{FONT_SIZE_F, Style, UIElement, UITree},
+    ui_element::{Style, UIElement, UITree, font_size},
     ui_event::{KeyModifiers, KeySymbol, KeyTrait, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
@@ -33,18 +33,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const ROW_HEIGHT: f32 = FONT_SIZE_F + 10.0;
+fn row_height() -> f32 {
+    font_size() + 10.0
+}
 const INDENT: f32 = 28.0;
 const LEFT_PAD: f32 = 12.0;
 /// Of the width, for the file list
 const LIST_SPLIT: f32 = 0.3;
 const BTN_LEFT: u32 = 0x110;
 
-// Rect colors are drawn as linear (see `nodular_applet/treeview.rs`), so these are darker than they look
-const LIST_BG: Color = Color([2, 2, 3, 0xFF]);
-const SELECTED_BG: Color = Color([3, 12, 7, 0xFF]);
-const SELECTED_UNFOCUSED_BG: Color = Color([5, 6, 8, 0xFF]);
-const HEADER_BG: Color = Color([1, 1, 2, 0xFF]);
+const LIST_BG: Color = Color([0x16, 0x16, 0x1C, 0xFF]);
+const SELECTED_BG: Color = Color([0x1C, 0x3D, 0x2E, 0xFF]);
+const SELECTED_UNFOCUSED_BG: Color = Color([0x26, 0x2A, 0x32, 0xFF]);
+const HEADER_BG: Color = Color([0x0D, 0x0D, 0x16, 0xFF]);
 const DIR_TEXT: Color = Color([0x7A, 0xB8, 0xFF, 0xFF]);
 const FILE_TEXT: Color = Color::LIGHT_GRAY;
 const DIM_TEXT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
@@ -171,14 +172,14 @@ impl FileManagerApplet {
     fn document_size(&self) -> DisplayContainerSize {
         DisplayContainerSize::new(
             self.size.width.saturating_sub(self.list_width()),
-            self.size.height.saturating_sub(ROW_HEIGHT as u32),
+            self.size.height.saturating_sub(row_height() as u32),
         )
     }
 
     /// Entries that fit under the header
     #[allow(clippy::cast_sign_loss)]
     fn visible_rows(&self) -> usize {
-        ((self.size.height as f32 / ROW_HEIGHT) as usize)
+        ((self.size.height as f32 / row_height()) as usize)
             .saturating_sub(1)
             .max(1)
     }
@@ -531,7 +532,7 @@ impl FileManagerApplet {
                 self.set_pane(Pane::Document);
             }
             if let Some(document) = self.active_document() {
-                mouse_event.position = [x - list_width, y - f64::from(ROW_HEIGHT)];
+                mouse_event.position = [x - list_width, y - f64::from(row_height())];
                 document
                     .handle
                     .send_event(StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)));
@@ -547,8 +548,8 @@ impl FileManagerApplet {
                 self.set_pane(Pane::Files);
                 // non-negative, since it's past the header
                 #[allow(clippy::cast_sign_loss)]
-                let row = (y >= f64::from(ROW_HEIGHT))
-                    .then(|| ((y / f64::from(ROW_HEIGHT)) as usize - 1) + self.scroll)
+                let row = (y >= f64::from(row_height()))
+                    .then(|| ((y / f64::from(row_height())) as usize - 1) + self.scroll)
                     .filter(|&index| index < self.entries.len());
                 if let Some(index) = row {
                     self.select(index);
@@ -648,10 +649,10 @@ impl FileManagerApplet {
         };
         let header = UITree::new_styled(
             UIElement::Backgrounded(HEADER_BG),
-            Style::absolute([0.0, 0.0], [width, ROW_HEIGHT]),
+            Style::absolute([0.0, 0.0], [width, row_height()]),
             vec![UITree::leaf_styled(
                 UIElement::Text(header),
-                Style::absolute([LEFT_PAD, text_top()], [width, ROW_HEIGHT - text_top()]),
+                Style::absolute([LEFT_PAD, text_top()], [width, row_height() - text_top()]),
             )],
         );
 
@@ -662,7 +663,7 @@ impl FileManagerApplet {
         );
         let body = UITree::new_styled(
             UIElement::Nothing,
-            Style::absolute([0.0, ROW_HEIGHT], [size.width as f32, size.height as f32]),
+            Style::absolute([0.0, row_height()], [size.width as f32, size.height as f32]),
             vec![body],
         );
         UITree::new_styled(UIElement::Nothing, Style::full_size(), vec![header, body])
@@ -876,8 +877,8 @@ fn push_entries(dir: &Path, depth: usize, expanded: &HashSet<PathBuf>, entries: 
     }
 }
 
-const fn text_top() -> f32 {
-    (ROW_HEIGHT - FONT_SIZE_F) / 2.0
+fn text_top() -> f32 {
+    (row_height() - font_size()) / 2.0
 }
 
 fn text(left: f32, label: String, color: Color, width: f32) -> UITree {
@@ -885,7 +886,7 @@ fn text(left: f32, label: String, color: Color, width: f32) -> UITree {
         UIElement::Text(vec![(label, UIElement::glyphon_attr(color))]),
         Style::absolute(
             [left, text_top()],
-            [(width - left).max(0.0), ROW_HEIGHT - text_top()],
+            [(width - left).max(0.0), row_height() - text_top()],
         ),
     )
 }
@@ -898,7 +899,7 @@ fn row(index: usize, width: f32, background: Color, content: UITree) -> UITree {
     };
     UITree::new_styled(
         background,
-        Style::absolute([0.0, index as f32 * ROW_HEIGHT], [width, ROW_HEIGHT]),
+        Style::absolute([0.0, index as f32 * row_height()], [width, row_height()]),
         vec![content],
     )
 }

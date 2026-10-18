@@ -5,6 +5,7 @@
 use super::node_tree::INACTIVE_MARK;
 use singularity_common::{
     sap::packets::SpawnPosition,
+    settings,
     utils::tree::{
         tree_node_path::{TraversableTree, TreeNodePath},
         world_tree::{WorldTree, WorldTreePath},
@@ -12,17 +13,21 @@ use singularity_common::{
 };
 use sonamu_ui::{
     color::Color,
-    ui_element::{Cursor, CursorIcon, FONT_SIZE_F, Length, Style, UIElement, UITree},
+    ui_element::{Cursor, CursorIcon, Length, Style, UIElement, UITree, font_size},
     ui_event::{MouseEvent, MouseEventKind},
 };
 
-const ROW_HEIGHT: f32 = FONT_SIZE_F + 14.0;
+fn row_height() -> f32 {
+    font_size() + 14.0
+}
 const TOP_PAD: f32 = 8.0;
 const LEFT_PAD: f32 = 16.0;
 const INDENT: f32 = 32.0;
 const MARKER_WIDTH: f32 = 6.0;
 /// The clickable width of a row's `▾`/`▸`, from the start of its label
-const TRIANGLE_WIDTH: f32 = FONT_SIZE_F;
+fn triangle_width() -> f32 {
+    font_size()
+}
 /// How far the pointer moves while pressed before it's a drag
 const DRAG_THRESHOLD: f64 = 12.0;
 const BTN_LEFT: u32 = 0x110;
@@ -37,22 +42,15 @@ pub(crate) const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
     Color([r, g, b, OPACITY])
 }
 
-// Rect colors are drawn as linear (text colors aren't), so these are darker than they look:
-// they show as about #17191e, #262a33, #24402f, #3a3f4a
-const PANEL_BG: Color = with_opacity(Color([2, 2, 3, 0]));
-const HOVER_BG: Color = with_opacity(Color([5, 6, 8, 0]));
-const FOCUS_BG: Color = with_opacity(Color([3, 12, 7, 0]));
-const GUIDE: Color = with_opacity(Color([11, 13, 17, 0]));
+// Text and markers are from the settings' palette
+const PANEL_BG: Color = with_opacity(Color([0x16, 0x16, 0x1C, 0]));
+const HOVER_BG: Color = with_opacity(Color([0x26, 0x2A, 0x32, 0]));
+const FOCUS_BG: Color = with_opacity(Color([0x1C, 0x3D, 0x2E, 0]));
+const GUIDE: Color = with_opacity(Color([0x3B, 0x40, 0x49, 0]));
 /// An expanded inner tree's box
-const INNER_BOX_BG: Color = with_opacity(Color([3, 3, 5, 0]));
+const INNER_BOX_BG: Color = with_opacity(Color([0x1C, 0x1C, 0x26, 0]));
 const INNER_BOX_BORDER: Color = GUIDE;
-const TEXT: Color = with_opacity(Color::LIGHT_GRAY);
-const INACTIVE_TEXT: Color = with_opacity(Color([0x70, 0x75, 0x80, 0]));
-const DRAGGED_TEXT: Color = with_opacity(Color([0x55, 0x5A, 0x64, 0]));
-/// Focus is on the node itself (traversal keys move it)
-const MARKER_FOCUSING: Color = with_opacity(Color::LIGHT_YELLOW);
-/// Focus is inside the node's applet (keys go to it)
-const MARKER_INNER: Color = with_opacity(Color::LIGHT_GREEN);
+const DRAGGED_TEXT: Color = Color([0x55, 0x5A, 0x64, 0]);
 const DROP_TARGET: Color = with_opacity(Color::CYAN);
 /// The share of a row's height at its top and at its bottom that drops between siblings
 const EDGE_ZONE: f32 = 0.25;
@@ -278,10 +276,10 @@ impl TreeviewPointer {
         // non-negative, since `y >= TOP_PAD`
         #[allow(clippy::cast_sign_loss)]
         let row = (in_treeview && y >= f64::from(TOP_PAD))
-            .then(|| self.scroll + ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)) as usize)
+            .then(|| self.scroll + ((y - f64::from(TOP_PAD)) / f64::from(row_height())) as usize)
             .filter(|&index| index < rows.len());
 
-        let within = ((y - f64::from(TOP_PAD)) / f64::from(ROW_HEIGHT)).fract() as f32;
+        let within = ((y - f64::from(TOP_PAD)) / f64::from(row_height())).fract() as f32;
         let zone = if row.is_none() || (EDGE_ZONE..=1.0 - EDGE_ZONE).contains(&within) {
             DropZone::Middle
         } else if within < EDGE_ZONE {
@@ -317,7 +315,7 @@ impl TreeviewPointer {
                         position: event.position,
                         dragging: false,
                         on_triangle: has_triangle(row)
-                            && (text_left..text_left + f64::from(TRIANGLE_WIDTH))
+                            && (text_left..text_left + f64::from(triangle_width()))
                                 .contains(&event.position[0]),
                     });
                 }
@@ -383,7 +381,8 @@ impl TreeviewPointer {
         }
         self.scroll = self.scroll.min(max_scroll(rows.len(), height));
         let scroll = self.scroll;
-        let row_top = |index: usize| TOP_PAD + (index as f32 - scroll as f32) * ROW_HEIGHT;
+        let row_top = |index: usize| TOP_PAD + (index as f32 - scroll as f32) * row_height();
+        let settings = settings::get();
 
         let dragging = self.press.as_ref().filter(|press| press.dragging);
 
@@ -399,27 +398,27 @@ impl TreeviewPointer {
                 parts.push(rect(
                     GUIDE,
                     [LEFT_PAD + level as f32 * INDENT + INDENT / 2.0 - 1.0, 0.0],
-                    [2.0, ROW_HEIGHT],
+                    [2.0, row_height()],
                 ));
             }
             if is_focused {
                 let marker = if focus_inner {
-                    MARKER_INNER
+                    settings.border.focused
                 } else {
-                    MARKER_FOCUSING
+                    settings.palette.accent
                 };
-                parts.push(rect(marker, [0.0, 0.0], [MARKER_WIDTH, ROW_HEIGHT]));
+                parts.push(rect(with_opacity(marker), [0.0, 0.0], [MARKER_WIDTH, row_height()]));
             }
 
             let text_left = LEFT_PAD + row.depth as f32 * INDENT;
-            let text_top = (ROW_HEIGHT - FONT_SIZE_F) / 2.0;
-            let text_color = if is_dragged {
+            let text_top = (row_height() - font_size()) / 2.0;
+            let text_color = with_opacity(if is_dragged {
                 DRAGGED_TEXT
             } else if is_inactive(row) {
-                INACTIVE_TEXT
+                settings.palette.inactive
             } else {
-                TEXT
-            };
+                settings.palette.fg
+            });
             let label = if row.label.is_empty() {
                 "…".to_string()
             } else {
@@ -429,14 +428,14 @@ impl TreeviewPointer {
                 UIElement::Text(vec![(label, UIElement::glyphon_attr(text_color))]),
                 Style::absolute(
                     [text_left, text_top],
-                    [(width - text_left).max(0.0), ROW_HEIGHT - text_top],
+                    [(width - text_left).max(0.0), row_height() - text_top],
                 ),
             ));
             if has_triangle(row) {
                 parts.push(
                     UITree::leaf_styled(
                         UIElement::Nothing,
-                        Style::absolute([text_left, 0.0], [TRIANGLE_WIDTH, ROW_HEIGHT]),
+                        Style::absolute([text_left, 0.0], [triangle_width(), row_height()]),
                     )
                     .with_cursor(Some(Cursor::Named(CursorIcon::Pointer))),
                 );
@@ -449,7 +448,7 @@ impl TreeviewPointer {
                 let line_top = if self.zone == DropZone::Top {
                     0.0
                 } else {
-                    ROW_HEIGHT - INSERT_LINE_HEIGHT
+                    row_height() - INSERT_LINE_HEIGHT
                 };
                 parts.push(rect(
                     DROP_TARGET,
@@ -458,10 +457,10 @@ impl TreeviewPointer {
                 ));
             } else if hovered_drop {
                 parts.push(UITree::leaf_styled(
-                    UIElement::Bordered(DROP_TARGET),
+                    UIElement::border(DROP_TARGET),
                     Style {
                         border: Length::uniform_rect(Length::Px(2.0)),
-                        ..Style::absolute([2.0, 0.0], [(width - 4.0).max(0.0), ROW_HEIGHT])
+                        ..Style::absolute([2.0, 0.0], [(width - 4.0).max(0.0), row_height()])
                     },
                 ));
             }
@@ -475,7 +474,7 @@ impl TreeviewPointer {
             };
             UITree::new_styled(
                 background,
-                Style::absolute([0.0, row_top(index)], [width, ROW_HEIGHT]),
+                Style::absolute([0.0, row_top(index)], [width, row_height()]),
                 parts,
             )
         }));
@@ -500,12 +499,12 @@ fn inner_box_trees(
             let position = [left, row_top(holder + 1)];
             let size = [
                 (width - left - 4.0).max(0.0),
-                (end - holder) as f32 * ROW_HEIGHT,
+                (end - holder) as f32 * row_height(),
             ];
             [
                 rect(INNER_BOX_BG, position, size),
                 UITree::leaf_styled(
-                    UIElement::Bordered(INNER_BOX_BORDER),
+                    UIElement::border(INNER_BOX_BORDER),
                     Style {
                         border: Length::uniform_rect(Length::Px(2.0)),
                         ..Style::absolute(position, size)
@@ -531,7 +530,7 @@ fn has_triangle(row: &TreeviewRow) -> bool {
 /// How many rows fit
 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 fn shown_rows(height: f32) -> usize {
-    (((height - TOP_PAD) / ROW_HEIGHT).floor() as usize).max(1)
+    (((height - TOP_PAD) / row_height()).floor() as usize).max(1)
 }
 
 /// The furthest the rows can scroll: until the last one is at the bottom

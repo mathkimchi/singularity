@@ -4,7 +4,8 @@ use super::{CapturedFrame, UIDisplay};
 use crate::{
     display_units::DisplayAreaPx,
     ui_element::{
-        CharGrid, FONT_SIZE_F, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
+        CharGrid, Clip, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
+        font_size,
     },
     winit_backend::WgpuData,
 };
@@ -51,6 +52,32 @@ impl Vertex {
     }
 }
 
+/// A `Clip` as instance data; the shaders' `clip_coverage` reads it
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+pub(super) struct ClipInstance {
+    origin: [f32; 2],
+    size: [f32; 2],
+    radius: f32,
+}
+impl From<Option<Clip>> for ClipInstance {
+    fn from(clip: Option<Clip>) -> Self {
+        match clip {
+            Some(Clip { area, radius }) => Self {
+                origin: [area.0[0][0] as f32, area.0[0][1] as f32],
+                size: [area.size().width as f32, area.size().height as f32],
+                radius,
+            },
+            // covers any screen
+            None => Self {
+                origin: [-1e6, -1e6],
+                size: [2e6, 2e6],
+                radius: 0.0,
+            },
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 pub(super) struct RoundRectInstance {
@@ -59,20 +86,23 @@ pub(super) struct RoundRectInstance {
     origin: [f32; 2],
     /// Currently includes the border
     size: [f32; 2],
-    /// NOTE: currently being ignored
     corner_radius: f32,
     border_dist: f32,
     main_color: [f32; 4],
     border_color: [f32; 4],
+    clip: ClipInstance,
 }
 impl RoundRectInstance {
-    const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
+    const ATTRIBS: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
         1 => Float32x2,
         2 => Float32x2,
         3 => Float32,
         4 => Float32,
         5 => Float32x4,
-        6 => Float32x4
+        6 => Float32x4,
+        7 => Float32x2,
+        8 => Float32x2,
+        9 => Float32,
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -156,11 +186,15 @@ pub(super) struct ImageInstance {
     origin: [f32; 2],
     /// Currently includes the border
     size: [f32; 2],
+    clip: ClipInstance,
 }
 impl ImageInstance {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+    const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
         1 => Float32x2,
         2 => Float32x2,
+        3 => Float32x2,
+        4 => Float32x2,
+        5 => Float32,
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -171,7 +205,11 @@ impl ImageInstance {
         }
     }
 
-    fn set_instance_buffer(drawing_shared_data: &mut DrawingSharedData, area: DisplayAreaPx) {
+    fn set_instance_buffer(
+        drawing_shared_data: &mut DrawingSharedData,
+        area: DisplayAreaPx,
+        clip: Option<Clip>,
+    ) {
         let instances = vec![Self {
             // this currently takes in top left
             origin: [area.0[0][0] as f32, area.0[0][1] as f32],
@@ -179,6 +217,7 @@ impl ImageInstance {
                 (area.0[1][0] - area.0[0][0]) as f32,
                 (area.0[1][1] - area.0[0][1]) as f32,
             ],
+            clip: clip.into(),
         }];
 
         let instance_buffer =
@@ -300,12 +339,16 @@ pub(super) struct CharGridInstance {
     size: [f32; 2],
     /// In terms of characters
     grid_size: [u32; 2],
+    clip: ClipInstance,
 }
 impl CharGridInstance {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
+    const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
         1 => Float32x2,
         2 => Float32x2,
         3 => Uint32x2,
+        4 => Float32x2,
+        5 => Float32x2,
+        6 => Float32,
     ];
 
     pub(super) const fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -634,7 +677,12 @@ pub(super) struct DrawingSharedData<'a> {
     _surface_config: &'a SurfaceConfiguration,
 }
 impl DrawingSharedData<'_> {
-    fn draw_rect(&mut self, round_rect: &RoundRect, display_area_px: DisplayAreaPx) {
+    fn draw_rect(
+        &mut self,
+        round_rect: &RoundRect,
+        display_area_px: DisplayAreaPx,
+        clip: Option<Clip>,
+    ) {
         self.render_pass
             .set_pipeline(&self.rectangle_renderer.render_pipeline);
         // these buffers are how we pass data to the gpu
@@ -656,6 +704,7 @@ impl DrawingSharedData<'_> {
             // main_color: inner_color.0.map(|c| f32::from(c) / f32::from(u8::MAX)),
             main_color: round_rect.main_color,
             border_color: round_rect.border_color,
+            clip: clip.into(),
         }];
 
         let instance_buffer = self
@@ -698,7 +747,7 @@ impl DrawingSharedData<'_> {
         display_area_px: DisplayAreaPx,
     ) {
         let mut text_buffer =
-            glyphon::Buffer::new(self.font_system, Metrics::new(FONT_SIZE_F, FONT_SIZE_F));
+            glyphon::Buffer::new(self.font_system, Metrics::new(font_size(), font_size()));
         text_buffer.set_rich_text(
             self.font_system,
             text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
@@ -822,7 +871,12 @@ impl DrawingSharedData<'_> {
         });
         self.render_pass.set_bind_group(1, Some(&bind_group), &[]);
     }
-    fn draw_char_grid(&mut self, char_grid: &CharGrid, display_area_px: DisplayAreaPx) {
+    fn draw_char_grid(
+        &mut self,
+        char_grid: &CharGrid,
+        display_area_px: DisplayAreaPx,
+        clip: Option<Clip>,
+    ) {
         // NOTE: rn, the area is just auto-computed from the bounds,
         // TODO: let apps customize bounds
 
@@ -862,6 +916,7 @@ impl DrawingSharedData<'_> {
                     display_area_px.size().height as f32,
                 ],
                 grid_size: [width, height],
+                clip: clip.into(),
             }];
 
             let instance_buffer =
@@ -1051,7 +1106,12 @@ impl DrawingSharedData<'_> {
         */
     }
 
-    fn draw_texture(&mut self, texture_view: &TextureView, display_area_px: DisplayAreaPx) {
+    fn draw_texture(
+        &mut self,
+        texture_view: &TextureView,
+        display_area_px: DisplayAreaPx,
+        clip: Option<Clip>,
+    ) {
         self.render_pass
             .set_pipeline(&self.image_renderer.render_pipeline);
 
@@ -1090,7 +1150,7 @@ impl DrawingSharedData<'_> {
         self.render_pass
             .set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-        ImageInstance::set_instance_buffer(self, display_area_px);
+        ImageInstance::set_instance_buffer(self, display_area_px, clip);
 
         self.render_pass.draw(0..Vertex::VERTICES.len() as _, 0..1); // 1 bc we only draw 1 image at a time (which I am not happy about)
 
@@ -1198,27 +1258,29 @@ impl DrawingSharedData<'_> {
         &mut self,
         element: &UIPrimitiveElement,
         display_area_px: DisplayAreaPx,
+        clip: Option<Clip>,
     ) {
         match element {
             UIPrimitiveElement::RoundRect(round_rect) => {
-                self.draw_rect(round_rect, display_area_px);
+                self.draw_rect(round_rect, display_area_px, clip);
             }
+            // REVIEW: text isn't clipped
             UIPrimitiveElement::Text(items) => {
                 self.draw_text_with_glyphon(items, display_area_px);
             }
             UIPrimitiveElement::CharGrid(char_grid) => {
-                self.draw_char_grid(char_grid, display_area_px);
+                self.draw_char_grid(char_grid, display_area_px, clip);
             }
             UIPrimitiveElement::Texture(texture_view) => {
-                self.draw_texture(texture_view, display_area_px);
+                self.draw_texture(texture_view, display_area_px, clip);
             }
         }
     }
 
     /// TODO: chunk consecutive elements of same type
     fn draw_primitive_scene(&mut self, scene: &PrimitiveScene) {
-        for (element, display_area_px) in &scene.elements {
-            self.draw_primitive_element(element, *display_area_px);
+        for (element, display_area_px, clip) in &scene.elements {
+            self.draw_primitive_element(element, *display_area_px, *clip);
         }
     }
 }

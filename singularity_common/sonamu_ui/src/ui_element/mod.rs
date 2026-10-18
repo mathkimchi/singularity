@@ -22,6 +22,13 @@ pub struct RoundRect {
     pub border_color: [f32; 4],
 }
 
+/// A rounded rect that a primitive is cut to, eg the inside of a rounded border
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Clip {
+    pub area: DisplayAreaPx,
+    pub radius: f32,
+}
+
 /// Areas of nodes that set a cursor, parents before children
 #[derive(Debug, Clone, Default)]
 pub struct CursorAreas(pub Vec<(Cursor, DisplayAreaPx)>);
@@ -54,7 +61,7 @@ pub enum UIPrimitiveElement {
 
 #[derive(Debug, Clone)]
 pub struct PrimitiveScene {
-    pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx)>,
+    pub elements: Vec<(UIPrimitiveElement, DisplayAreaPx, Option<Clip>)>,
     pub cursors: CursorAreas,
     /// Where each subsurface was laid out, so whoever provides them knows
     pub subsurface_areas: Vec<(u64, DisplayAreaPx)>,
@@ -77,6 +84,7 @@ impl PrimitiveScene {
         self.elements.push((
             primitive_element,
             container_area.map_onto_px_size(screen_size),
+            None,
         ));
     }
 
@@ -211,11 +219,13 @@ impl PrimitiveScene {
     }
 
     /// Parents are added before children, so children draw on top.
+    /// Primitives are cut to `clip`; a rounded border cuts its children to its inside.
     fn add_taffy_node(
         &mut self,
         taffy: &mut taffy::TaffyTree<NodeContext>,
         node_id: taffy::NodeId,
         parent_location: taffy::Point<f32>,
+        clip: Option<Clip>,
     ) {
         let layout = *taffy.layout(node_id).unwrap();
         let location = taffy::Point {
@@ -237,13 +247,16 @@ impl PrimitiveScene {
             self.cursors.0.push((cursor, area));
         }
         let primitive = match element {
-            UIElement::Bordered(border_color) => Some(UIPrimitiveElement::RoundRect(RoundRect {
-                corner_radius: 1.0,
+            UIElement::Bordered { color, radius } => {
                 // REVIEW: assumes the same border width on every side
-                border_width: layout.border.left,
-                main_color: Color::TRANSPARENT.to_rgba_f32_array(),
-                border_color: border_color.to_rgba_f32_array(),
-            })),
+                let width = layout.border.left;
+                Some(UIPrimitiveElement::RoundRect(RoundRect {
+                    corner_radius: radius,
+                    border_width: width,
+                    main_color: Color::TRANSPARENT.to_rgba_f32_array(),
+                    border_color: color.to_rgba_f32_array(),
+                }))
+            }
             UIElement::Backgrounded(bg_color) => Some(UIPrimitiveElement::RoundRect(RoundRect {
                 corner_radius: 0.0,
                 border_width: 0.0,
@@ -261,12 +274,28 @@ impl PrimitiveScene {
             }
             UIElement::Nothing => None,
         };
+        let child_clip = match &primitive {
+            Some(UIPrimitiveElement::RoundRect(rect)) if rect.corner_radius > 0.0 => {
+                let width = rect.border_width as u32;
+                let DisplayAreaPx([[left, top], [right, bot]]) = area;
+                Some(Clip {
+                    area: DisplayAreaPx::new(
+                        left + width,
+                        top + width,
+                        right.saturating_sub(width),
+                        bot.saturating_sub(width),
+                    ),
+                    radius: (rect.corner_radius - rect.border_width).max(0.0),
+                })
+            }
+            _ => clip,
+        };
         if let Some(primitive) = primitive {
-            self.elements.push((primitive, area));
+            self.elements.push((primitive, area, clip));
         }
 
         for child_id in taffy.children(node_id).unwrap() {
-            self.add_taffy_node(taffy, child_id, location);
+            self.add_taffy_node(taffy, child_id, location, child_clip);
         }
     }
 
@@ -312,14 +341,18 @@ impl PrimitiveScene {
             .unwrap();
 
         let mut scene = Self::new_empty();
-        scene.add_taffy_node(&mut taffy, root, taffy::Point { x: 0.0, y: 0.0 });
+        scene.add_taffy_node(&mut taffy, root, taffy::Point { x: 0.0, y: 0.0 }, None);
         scene
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UIElement {
-    Bordered(Color),
+    /// With `radius > 0`, children are cut to the rounded inside
+    Bordered {
+        color: Color,
+        radius: f32,
+    },
     /// TODO: better name
     Backgrounded(Color),
 
@@ -402,7 +435,7 @@ impl UITree {
     #[must_use]
     pub fn bordered(self, border: Color) -> Self {
         Self::new_styled(
-            UIElement::Bordered(border),
+            UIElement::border(border),
             Style {
                 border: Length::uniform_rect(Length::Px(1.0)),
                 ..Style::full_size()
@@ -455,6 +488,12 @@ impl From<String> for UITree {
 }
 
 impl UIElement {
+    /// A square-cornered border
+    #[must_use]
+    pub const fn border(color: Color) -> Self {
+        Self::Bordered { color, radius: 0.0 }
+    }
+
     /// For background, you must draw a rectangle
     #[must_use]
     pub fn glyphon_attr(fg: Color) -> glyphon::AttrsOwned {
