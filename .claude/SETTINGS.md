@@ -6,7 +6,7 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 
 - Config dir: `$XDG_CONFIG_HOME/sonamu` (default `~/.config/sonamu`). The repo's `examples/config` is the reference config; the dev machine symlinks `~/.config/sonamu -> examples/config`.
 - If `settings` in the config dir is executable, sonamu runs it and parses its stdout as JSON. Otherwise it reads `settings.json`.
-- `examples/config/settings` is a python script that builds the palette and border colors from DankMaterialShell (`~/.cache/DankMaterialShell/dms-colors.json`, current `mode`) and radius from `cornerRadius` in `~/.config/DankMaterialShell/settings.json`, and watches both. Font size is 24 px times DMS's global `fontScale` (default 1.0; `barConfigs[].fontScale` is bar-only). Gap and border width are fixed in the script (DMS only has per-compositor ones, eg `niriLayoutGapsOverride`, hidden outside niri).
+- `examples/config/settings` is a python script that builds the palette and border colors from DankMaterialShell (`~/.cache/DankMaterialShell/dms-colors.json`, current `mode`) and radius from `cornerRadius` in `~/.config/DankMaterialShell/settings.json`, and watches both. Font size is 24 px times the first bar's `barConfigs[0].fontScale` (the scale the user changes in DMS; the global top-level `fontScale` isn't in the file, so it stays the 1.0 default). Gap and border width are fixed in the script (DMS only has per-compositor ones, eg `niriLayoutGapsOverride`, hidden outside niri).
 - The program can be anything; the intended Rust form is a small binary depending on a `sonamu_settings` crate that builds `Settings` and prints it as JSON.
 - Not a dylib: JSON over a pipe has no ABI coupling and a crashing/hanging program can't take down the compositor.
 
