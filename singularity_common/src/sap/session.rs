@@ -49,9 +49,12 @@ pub struct SavedWl {
     pub title: String,
 }
 impl SavedWl {
-    /// A url at the end of the title after ` | ` (eg qutebrowser with `window.title_format = '{current_title} | {current_url}'`)
+    /// A url at the start of the title before ` | ` (eg firefox with `extras/firefox`),
+    /// else at the end after ` | ` (eg qutebrowser with `window.title_format = '{current_title} | {current_url}'`)
     pub fn url(&self) -> Option<&str> {
-        let (_, url) = self.title.rsplit_once(" | ")?;
-        url.contains("://").then_some(url)
+        let is_url = |s: &&str| s.contains("://") && !s.contains(' ');
+        let (start, _) = self.title.split_once(" | ")?;
+        let (_, end) = self.title.rsplit_once(" | ")?;
+        Some(start).filter(is_url).or(Some(end).filter(is_url))
     }
 }

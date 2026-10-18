@@ -1,0 +1,4 @@
+/* One tab per window, so no tab bar */
+#TabsToolbar {
+  visibility: collapse !important;
+}

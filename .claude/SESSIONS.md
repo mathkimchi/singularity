@@ -34,7 +34,8 @@ Sonamu owns the session; apps' own session restore should be off.
     - firefox with a url: `firefox --new-window url`.
     - Anything else: the saved argv. A `/nix/store/...` program is replaced by its name, minus a `.foo-wrapped` wrapper
       prefix/suffix, since the store path may be garbage collected.
-  - The url comes from the title, after its last ` | ` (`SavedWl::url`), so the browser has to put it there.
+  - The url comes from the title (`SavedWl::url`): before its first ` | ` (firefox, via `extras/firefox`), else after
+    its last ` | ` (qutebrowser), with no spaces. So the browser has to put it there.
 
 ## Decisions
 
@@ -56,16 +57,15 @@ Sonamu owns the session; apps' own session restore should be off.
 
 User-facing setup (incl. NixOS / Home Manager) is in `docs/persistent_apps.md`.
 
-- **Browser: qutebrowser**, in `config.py`:
-  ```python
-  c.tabs.tabs_are_windows = True          # one page per window
-  c.new_instance_open_target = 'window'
-  c.window.title_format = '{perc}{current_title} | {current_url}'   # Sonamu reads the url from here
-  c.auto_save.session = False             # Sonamu restores the windows
-  c.session.lazy_restore = False
-  ```
-  Firefox works without urls (it's restored as a blank window) unless its title has ` | url` (needs an extension).
-  Firefox also wants `browser.link.open_newwindow = 2` and its session restore off.
+- **Browser: Firefox** (#73, replaced qutebrowser as `BROWSER`), with the extension in `extras/firefox`
+  (WebExtension MV3): moves every new tab next to others into its own window (`windows.create({ tabId })`), and sets
+  the window's `titlePreface` to `<url> | ` (Firefox only allows a prefix). `userChrome.css` hides the tab bar.
+  Prefs: `browser.link.open_newwindow = 2`, `.restriction = 0`, `browser.startup.page = 0`,
+  `browser.sessionstore.resume_from_crash = false`, `toolkit.legacyUserProfileCustomizations.stylesheets = true`.
+  Signed as unlisted on AMO by the user and attached to a GitHub release `firefox-ext-v<version>` (not committed,
+  it's a zip); users install it by hand
+  (incl. Nix users). Signing steps in `extras/firefox/README.md`.
+  qutebrowser still restores (`tabs_are_windows`, `title_format = '{current_title} | {current_url}'`), not documented.
 - **Terminal: foot**, one process per window (`foot`, not `foot --server`/`footclient`), so pid matching works and the
   shell's cwd is known. Have the prompt put `$PWD` in the title so a `cd` republishes the cwd. To keep processes alive
   across restarts, run the shell in `shpool`/`dtach`/`abduco` (eg `foot -e shpool attach main`): the argv is saved as is.
@@ -78,7 +78,7 @@ User-facing setup (incl. NixOS / Home Manager) is in `docs/persistent_apps.md`.
 - Alacritty inside a project (hand-written session): restored and claimed inside the project.
 - Headless: Super+P on a wl tile, saved as a project, restored as a project with its placeholder kept saved.
 - `singularity_common/tests/session_test.rs`: `SavedWl::url`.
-- Not tested: qutebrowser and firefox (not installed), foot, the TTY backend.
+- Not tested: qutebrowser, foot, the TTY backend, the firefox extension (not loaded yet).
 
 ## Issues found / limits
 
@@ -86,6 +86,8 @@ User-facing setup (incl. NixOS / Home Manager) is in `docs/persistent_apps.md`.
   first window's cwd, and two awaiting tiles of the same app may get each other's windows (urls swapped).
 - Plucking or wrapping a tile while it is still "Starting ..." drops its `awaiting` (`DetachedTree` has no field for it):
   the placeholder stays, and the window opens at the focus instead.
+- Firefox's add-on install prompt (a doorhanger, `xdg_popup`) doesn't show under Sonamu, so the extension is installed
+  from another compositor (#77).
 - Every toplevel is a tile, so dialogs are saved and restored as windows too (no `xdg_toplevel.parent` check).
 - A wl tile's saved cwd only updates when it publishes (eg a title change).
 - A placeholder for a client that never opens a window stays "Starting ..." forever (Ctrl+W drops it). No timeout.

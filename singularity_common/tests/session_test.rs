@@ -15,6 +15,10 @@ fn url_from_title() {
         with_title("A | B | https://example.com/?q=a").url(),
         Some("https://example.com/?q=a")
     );
+    assert_eq!(
+        with_title("https://example.com/a | A | B — Mozilla Firefox").url(),
+        Some("https://example.com/a")
+    );
     assert_eq!(with_title("bash | ~/code").url(), None);
     assert_eq!(with_title("https://example.com").url(), None);
 }
