@@ -403,17 +403,16 @@ impl RootNodeApplet {
             Some(TreeviewAction::StartDrag(path)) => {
                 self.send_request(StandardRequest::RequestPluck(path));
             }
-            Some(TreeviewAction::Drop(path)) => {
-                let path = path.unwrap_or_else(|| self.holder.tree.get_focus_path());
+            Some(TreeviewAction::Drop(target)) => {
+                let (path, position) = target.unwrap_or_else(|| {
+                    (self.holder.tree.get_focus_path(), SpawnPosition::AppendChild)
+                });
                 self.last_drop = path
                     .0
                     .first()
                     .and_then(|node_path| self.holder.tree.node_at(node_path))
                     .map(|id| (path.clone(), id));
-                self.send_request(StandardRequest::RequestPlace(
-                    path,
-                    SpawnPosition::AppendChild,
-                ));
+                self.send_request(StandardRequest::RequestPlace(path, position));
             }
             None => {}
         }
