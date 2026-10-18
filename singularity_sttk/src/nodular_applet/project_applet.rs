@@ -3,6 +3,7 @@
 
 use crate::{
     command_hub::{BG, CommandHubApplet},
+    standard_keybinds::{BROWSER, TERMINAL},
     nodular_applet::{
         Answer, AppletContext, EmbeddedId, NodeRequest, NodularAppletInitializer, StandardApplet,
         WrapInitializer,
@@ -29,11 +30,17 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 /// Its name until it is renamed: its inner tree root's label
 const LABEL: &str = "Project";
 
-/// The overview's rows: the name, a hint, its contents, then `+ new`
+/// The overview's rows: the name, a hint, its contents, then `NEW_ROWS`
 const ROW_HEIGHT: f32 = FONT_SIZE_F + 14.0;
 const PAD: f32 = 16.0;
 /// Rows before its contents
 const CONTENTS_ROW: usize = 2;
+/// Rows after its contents that add to it: label, key, and the program to start (`None`: a command hub)
+const NEW_ROWS: [(&str, char, Option<&str>); 3] = [
+    ("+ command hub  (n)", 'n', None),
+    ("+ terminal  (t)", 't', Some(TERMINAL)),
+    ("+ browser  (b)", 'b', Some(BROWSER)),
+];
 const TEXT: Color = Color::LIGHT_GRAY;
 const HINT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
 const BTN_LEFT: u32 = 0x110;
@@ -45,7 +52,7 @@ const BTN_LEFT: u32 = 0x110;
 /// Closing it (`CloseRequest`, eg Ctrl+W on its node) gives its contents back to its node, which they replace.
 ///
 /// While focus is at its inner root, it shows an overview instead of its panes: its name (`r` renames it),
-/// its contents (click to select) and `+ new` (`n`, a command hub in it).
+/// its contents (click to select) and rows that add to it (`NEW_ROWS`: a command hub, terminal or browser).
 pub struct ProjectApplet {
     holder: NodeHolder,
     hook: AppletContext,
@@ -133,15 +140,23 @@ impl ProjectApplet {
         !self.dissolved && self.holder.tree.focused_node() == self.holder.tree.root()
     }
 
-    /// A command hub in it, focused inside
-    fn add_new(&mut self) {
+    /// What `NEW_ROWS[index]` adds: a command hub in it, focused inside, or a program, whose window lands in it
+    /// (focus is at its root)
+    fn add_new(&mut self, index: usize) {
         let root = self.holder.tree.root();
-        if let Some(id) = self
-            .holder
-            .tree
-            .add_child(root, CommandHubApplet::get_boxed_initiator())
-        {
-            self.holder.tree.focus(id, true);
+        match NEW_ROWS[index].2 {
+            Some(program) => {
+                self.holder.handle_node_request(root, NodeRequest::Run(program));
+            }
+            None => {
+                if let Some(id) = self
+                    .holder
+                    .tree
+                    .add_child(root, CommandHubApplet::get_boxed_initiator())
+                {
+                    self.holder.tree.focus(id, true);
+                }
+            }
         }
     }
 
@@ -170,7 +185,12 @@ impl ProjectApplet {
                         let id = self.holder.tree.children(root)[row - CONTENTS_ROW];
                         self.holder.tree.focus(id, false);
                     }
-                    Some(row) if row == CONTENTS_ROW + contents => self.add_new(),
+                    Some(row) if row >= CONTENTS_ROW + contents => {
+                        let index = row - CONTENTS_ROW - contents;
+                        if index < NEW_ROWS.len() {
+                            self.add_new(index);
+                        }
+                    }
                     Some(_) => {}
                 }
             }
@@ -199,8 +219,12 @@ impl ProjectApplet {
                     (None, KeySymbol::Char('r')) if modifiers == KeyModifiers::NONE => {
                         self.renaming = Some(String::new());
                     }
-                    (None, KeySymbol::Char('n')) if modifiers == KeyModifiers::NONE => {
-                        self.add_new();
+                    (None, KeySymbol::Char(key_char))
+                        if modifiers == KeyModifiers::NONE
+                            && let Some(index) =
+                                NEW_ROWS.iter().position(|&(_, key, _)| key == key_char) =>
+                    {
+                        self.add_new(index);
                     }
                     _ => return Some(ui_event),
                 }
@@ -216,7 +240,7 @@ impl ProjectApplet {
         let tree = &self.holder.tree;
         let (title, hint) = match &self.renaming {
             Some(name) => (format!("{name}▏"), "Enter: save, Esc: cancel"),
-            None => (self.name.clone(), "r: rename, n: new, 1-9: select"),
+            None => (self.name.clone(), "r: rename, 1-9: select"),
         };
         let contents = (1..)
             .zip(tree.children(tree.root()))
@@ -224,7 +248,7 @@ impl ProjectApplet {
         let rows = [(title, TEXT), (hint.to_string(), HINT)]
             .into_iter()
             .chain(contents)
-            .chain([("+ new".to_string(), TEXT)]);
+            .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), TEXT)));
         let rows = (0..)
             .zip(rows)
             .map(|(index, (text, color))| {

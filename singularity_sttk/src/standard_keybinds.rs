@@ -12,6 +12,11 @@ use crate::{
     nodular_applet::{AppletContext, NodeRequest, project_applet::ProjectApplet},
 };
 
+/// Started by Super+T (and a project's `+ terminal`)
+pub const TERMINAL: &str = "foot";
+/// Started by Super+N (and a project's `+ browser`)
+pub const BROWSER: &str = "qutebrowser";
+
 /// Handle the standard keybinds like:
 /// - `Ctrl+Shift+Q` - Quit
 /// - `Super+W` - Close tab
@@ -76,8 +81,8 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         ..
     } = &ui_event
         && let Some(program) = match key.to_char() {
-            Some('t') => Some("foot"),
-            Some('n') => Some("qutebrowser"),
+            Some('t') => Some(TERMINAL),
+            Some('n') => Some(BROWSER),
             _ => None,
         }
     {
