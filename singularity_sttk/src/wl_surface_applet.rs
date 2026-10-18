@@ -7,7 +7,7 @@ use crate::{
 use singularity_common::{
     sap::{
         packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId},
-        session::SavedApplet,
+        session::{SavedApplet, title_without_url},
     },
     utils::tree::world_tree::WorldTree,
 };
@@ -102,7 +102,7 @@ impl StandardApplet for WlSurfaceApplet {
         WorldTree::Base(if self.title.is_empty() {
             "Wl Surface".to_string()
         } else {
-            self.title.clone()
+            title_without_url(&self.title).to_string()
         })
     }
 

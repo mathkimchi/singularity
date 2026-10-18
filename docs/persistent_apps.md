@@ -11,52 +11,80 @@ The session is saved every 2 seconds (if it changed) and before quitting, to `~/
 To turn sessions off, set it to nothing (`SONAMU_SESSION=`). To start fresh, delete the file.
 A file that can't be read is moved to `session.json.bad`.
 
-The recommended apps are qutebrowser and foot: Super+T starts foot and Super+N starts qutebrowser.
+The recommended apps are Firefox and foot: Super+T starts foot and Super+N starts Firefox.
 
-## qutebrowser
+## Firefox
 
-Sonamu organizes the pages, so qutebrowser should open one page per window, and put each page's url in its title,
-where Sonamu reads it from (after the last ` | `). On restore, each window is reopened with
-`qutebrowser --target window <url>`.
+Sonamu organizes the pages, so Firefox should open one page per window, and put each page's url in its title,
+where Sonamu reads it from (before the first ` | `). Sonamu's extension does both. On restore, each window is
+reopened with `firefox --new-window <url>`.
 
-| Setting | Value | Why |
+### The extension
+
+Download
+[sonamu.xpi](https://github.com/mathkimchi/singularity/releases/download/firefox-ext-v0.1.0/sonamu.xpi),
+then in Firefox, open `about:addons`, click the gear, then Install Add-on From File. It's signed, so release Firefox
+takes it. Firefox's install prompt doesn't show under Sonamu yet, so install it while running Firefox in another
+compositor (it stays installed in your profile). (To change it, see
+[extras/firefox/README.md](../extras/firefox/README.md).)
+
+To save private windows' urls too, allow it in private windows (`about:addons` → Sonamu → Run in Private Windows).
+
+### Settings
+
+| Setting (`about:config`) | Value | Why |
 | --- | --- | --- |
-| `tabs.tabs_are_windows` | `True` | One page per window |
-| `new_instance_open_target` | `'window'` | Links and restores open new windows, not tabs |
-| `window.title_format` | `'{perc}{current_title} \| {current_url}'` | Sonamu saves the url from the title |
-| `auto_save.session` | `False` | Sonamu restores the windows |
+| `browser.link.open_newwindow` | `2` | Links open new windows, not tabs |
+| `browser.link.open_newwindow.restriction` | `0` | Even links that ask for a popup size |
+| `browser.startup.page` | `0` | Sonamu restores the windows, so Firefox starts blank |
+| `browser.sessionstore.resume_from_crash` | `false` | Not even after a crash. Quitting Sonamu ends Firefox without a clean shutdown, so without this every window comes back twice (turning off "Open previous windows and tabs" in Settings isn't enough) |
+| `toolkit.legacyUserProfileCustomizations.stylesheets` | `true` | Load `userChrome.css`, which hides the tab bar |
+
+The tab bar is hidden by `extras/firefox/userChrome.css`, copied to `chrome/userChrome.css` in your profile folder
+(`about:support` → Profile Folder).
 
 ### NixOS with Home Manager
 
+Install the extension by hand as above, then:
+
 ```nix
-programs.qutebrowser = {
+programs.firefox = {
   enable = true;
-  settings = {
-    tabs.tabs_are_windows = true;
-    new_instance_open_target = "window";
-    window.title_format = "{perc}{current_title} | {current_url}";
-    auto_save.session = false;
+  profiles.default = {
+    settings = {
+      "browser.link.open_newwindow" = 2;
+      "browser.link.open_newwindow.restriction" = 0;
+      "browser.startup.page" = 0;
+      "browser.sessionstore.resume_from_crash" = false;
+      "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
+    };
+    userChrome = ''
+      #TabsToolbar { visibility: collapse !important; }
+    '';
   };
 };
 ```
 
 ### Without Home Manager
 
-Install it (on NixOS, `environment.systemPackages = [ pkgs.qutebrowser ];`), then add to
-`~/.config/qutebrowser/config.py`:
+Install it (on NixOS, `programs.firefox.enable = true;`) and the extension, then add to `user.js` in your profile
+folder:
 
-```python
-config.load_autoconfig(False)
-c.tabs.tabs_are_windows = True
-c.new_instance_open_target = 'window'
-c.window.title_format = '{perc}{current_title} | {current_url}'
-c.auto_save.session = False
+```js
+user_pref("browser.link.open_newwindow", 2);
+user_pref("browser.link.open_newwindow.restriction", 0);
+user_pref("browser.startup.page", 0);
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 ```
+
+and copy `userChrome.css` as above.
 
 ### Limits
 
-All qutebrowser windows come from one process, so Sonamu matches restored windows to their spots by app id,
+All Firefox windows come from one process, so Sonamu matches restored windows to their spots by app id,
 in the order they open. Two windows may come back in each other's spots.
+Pages without a url in their title (eg a private window without the extension) come back blank.
 
 ## foot
 
@@ -118,11 +146,9 @@ The session survives Sonamu restarting, not a reboot.
 - Apps started from a `/nix/store/...` path are restored by name (eg `foot`), since the store path can be garbage
   collected after an update. Nix's `.foo-wrapped` binaries are restored through their wrapper `foo`.
   So keep the apps on your `PATH`, eg in `home.packages` or `environment.systemPackages`.
-- Apps that run through an interpreter (eg qutebrowser through Python) can't be restored from their command line.
-  Sonamu restores qutebrowser and firefox by their app id instead.
+- Firefox and qutebrowser are restored by their app id, not their command line.
 
 ## Other apps
 
 Any Wayland app is restored by its command line and working directory. Apps that open every window from one process
-(eg `kitty -1`, firefox) share one working directory, and are matched back by app id.
-Firefox comes back as a blank window unless its title ends with ` | <url>` (it needs an extension for that).
+(eg `kitty -1`, Firefox) share one working directory, and are matched back by app id.

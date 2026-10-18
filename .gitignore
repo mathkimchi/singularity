@@ -21,3 +21,8 @@ target/
 .vscode
 
 .direnv/
+
+# Signed Firefox extension builds (attached to releases)
+extras/firefox/web-ext-artifacts/
+*.xpi
+*.zip

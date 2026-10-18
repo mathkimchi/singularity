@@ -35,7 +35,7 @@ const BINDS: &[(&str, &str)] = &[
     ("Ctrl+Alt+F1..F12", "switch VT (on a TTY)"),
     ("", "Inside an applet (green border)"),
     ("Super+W", "close it; its children move up"),
-    ("Super+T / Super+N", "start foot / qutebrowser"),
+    ("Super+T / Super+N", "start foot / firefox"),
     ("Ctrl+Shift++", "add a command hub as its child"),
     ("Ctrl+Shift+|", "split side by side with a new command hub"),
     ("Ctrl+Shift+_", "split stacked with a new command hub"),

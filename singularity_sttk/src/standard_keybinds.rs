@@ -15,12 +15,12 @@ use crate::{
 /// Started by Super+T (and a project's `+ terminal`)
 pub const TERMINAL: &str = "foot";
 /// Started by Super+N (and a project's `+ browser`)
-pub const BROWSER: &str = "qutebrowser";
+pub const BROWSER: &str = "firefox";
 
 /// Handle the standard keybinds like:
 /// - `Ctrl+Shift+Q` - Quit
 /// - `Super+W` - Close tab
-/// - `Super+T` / `Super+N` - Start foot / qutebrowser
+/// - `Super+T` / `Super+N` - Start foot / firefox
 /// - `Ctrl+Shift+Plus` - Add child
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Super+P` - Put the node in a project
@@ -86,7 +86,7 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
             _ => None,
         }
     {
-        // Super+T / Super+N -> start foot / qutebrowser
+        // Super+T / Super+N -> start foot / firefox
         Some(NodeRequest::Run(program))
     } else if let UIEvent::Key {
         symbol: Some(key),
