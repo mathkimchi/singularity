@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+# Builds sonamu settings from DankMaterialShell's generated colors and settings.
+import json
+from pathlib import Path
+
+colors_path = Path.home() / ".cache/DankMaterialShell/dms-colors.json"
+dms_settings_path = Path.home() / ".config/DankMaterialShell/settings.json"
+
+dms_colors = json.loads(colors_path.read_text())
+dms_settings = json.loads(dms_settings_path.read_text())
+
+colors = dms_colors["colors"][dms_colors["mode"]]
+
+print(json.dumps({
+    "palette": {
+        "bg": colors["background"],
+        "fg": colors["on_surface"],
+        "accent": colors["primary"],
+        "inactive": colors["outline"],
+    },
+    "border": {
+        "width": 1.0,
+        "focused": colors["primary"],
+        "unfocused": colors["outline_variant"],
+    },
+    "gap": 8.0,
+    "radius": dms_settings.get("cornerRadius", 12),
+    "font_size": 16.0,
+    "watch": [str(colors_path), str(dms_settings_path)],
+}, indent=2))

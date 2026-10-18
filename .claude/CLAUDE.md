@@ -24,6 +24,7 @@ DEVLOG.md is 10k+ lines, read it with tail.
 - Client state the holder reads (surface, treeview) uses `SharedState`/`StatePublisher`: the client publishes and sends `Damage(kind)`, the holder reads and sends `DamageAck(kind)`. At most one unread publish at a time.
 - An applet owns its inner tree directly; it changes its children only by requests to its node. See `.claude/CLIENT_HANDLE_REFACTOR.md`.
 - Sessions: applets publish `StandardApplet::save` with their treeview; the root saves the tree every 2 s and restores it on start (wl clients by command line, matched back by pid/app id). See `.claude/SESSIONS.md`.
+- Settings (#63): JSON, or JSON printed by an executable settings program, live-reloaded. See `.claude/SETTINGS.md`.
 - World tree, paths ("inside" a node), focus, selectors, and who owns what (incl. projects, which are plain applets holding a `NodeTree`): `.claude/WORLD_TREE.md`.
 
 # Rules
