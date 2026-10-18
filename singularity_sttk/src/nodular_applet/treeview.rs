@@ -43,8 +43,6 @@ const GUIDE: Color = with_opacity(Color([11, 13, 17, 0]));
 const INNER_BOX_BG: Color = with_opacity(Color([3, 3, 5, 0]));
 const INNER_BOX_BORDER: Color = GUIDE;
 const TEXT: Color = with_opacity(Color::LIGHT_GRAY);
-/// Elements inside an applet's inner tree
-const INNER_TEXT: Color = with_opacity(Color([0x8A, 0x93, 0xA6, 0]));
 const DRAGGED_TEXT: Color = with_opacity(Color([0x55, 0x5A, 0x64, 0]));
 /// Focus is on the node itself (traversal keys move it)
 const MARKER_FOCUSING: Color = with_opacity(Color::LIGHT_YELLOW);
@@ -56,7 +54,7 @@ pub struct TreeviewRow {
     pub path: WorldTreePath,
     depth: usize,
     label: String,
-    /// Inside an applet's inner tree, rather than a node (or the view root's parent); drawn dimmer
+    /// Inside an applet's inner tree, rather than a node (or the view root's parent)
     inner: bool,
 }
 
@@ -362,8 +360,6 @@ impl TreeviewPointer {
             let text_top = (ROW_HEIGHT - FONT_SIZE_F) / 2.0;
             let text_color = if is_dragged {
                 DRAGGED_TEXT
-            } else if row.inner {
-                INNER_TEXT
             } else {
                 TEXT
             };
