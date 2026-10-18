@@ -293,6 +293,7 @@ impl NodeHolder {
             request @ NodeRequest::Split { .. } if self.project && id == self.tree.root() => {
                 return Some(request);
             }
+            NodeRequest::SwapSibling(shift) => self.tree.swap_sibling(id, shift),
             NodeRequest::Split { axis, new_pane } => self.tree.split(id, axis, new_pane),
             // it is a project already
             NodeRequest::Wrap(_) if self.project && id == self.tree.root() => {}

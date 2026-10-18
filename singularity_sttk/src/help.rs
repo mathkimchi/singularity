@@ -36,6 +36,7 @@ const BINDS: &[(&str, &str)] = &[
     ("", "Inside an applet (green border)"),
     ("Super+W", "close it; its children move up"),
     ("Super+T / Super+N", "start foot / firefox"),
+    ("Alt+Shift+W / S", "swap with the previous / next sibling"),
     ("Ctrl+Shift++", "add a command hub as its child"),
     ("Ctrl+Shift+|", "split side by side with a new command hub"),
     ("Ctrl+Shift+_", "split stacked with a new command hub"),

@@ -25,6 +25,7 @@ pub const BROWSER: &str = "firefox";
 /// - `Ctrl+Shift+|` / `Ctrl+Shift+_` - Split side by side / stacked
 /// - `Super+P` - Put the node in a project
 /// - `Alt+<traversal key>` - traversal
+/// - `Alt+Shift+W` / `Alt+Shift+S` - swap with the previous / next sibling
 /// - Touchpad 4 fingers up / down - out of / into a layer (`Alt+q` / `e`);
 ///   3 fingers up / down - prev / next node (`Alt+Shift+Tab` / `Alt+Tab`)
 ///
@@ -130,6 +131,24 @@ pub fn standard_keybind_request(ui_event: &UIEvent) -> Option<NodeRequest> {
         Some(NodeRequest::ChangeFocus(
             WorldTreeTraversalOperation::PrevLayer,
         ))
+    } else if let UIEvent::Key {
+        symbol: Some(key),
+        modifiers,
+        pressed: true,
+        ..
+    } = &ui_event
+        && modifiers.alt
+        && modifiers.shift
+        && !modifiers.ctrl
+        && !modifiers.logo
+        && let Some(shift) = match key.to_char() {
+            Some('W') => Some(-1),
+            Some('S') => Some(1),
+            _ => None,
+        }
+    {
+        // Alt+Shift+W / Alt+Shift+S -> swap with the previous / next sibling
+        Some(NodeRequest::SwapSibling(shift))
     } else if let UIEvent::Key {
         symbol: Some(key),
         modifiers,
