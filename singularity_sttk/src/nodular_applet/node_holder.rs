@@ -105,6 +105,11 @@ impl NodeHolder {
         self.tree.focus_path(path);
     }
 
+    /// Collapses or expands what `path` points at: the node, or something inside its applet
+    pub fn toggle_collapsed(&mut self, path: &WorldTreePath) {
+        self.tree.toggle_collapsed_path(path);
+    }
+
     /// Plucks at `path` (`None`: at the focus) and answers with `Plucked`.
     /// `path[0]` is the node, the rest is inside its applet.
     pub fn start_pluck(&mut self, path: Option<&WorldTreePath>) {

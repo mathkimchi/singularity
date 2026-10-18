@@ -321,6 +321,7 @@ impl RootNodeApplet {
                 self.holder.start_place(path.as_ref(), tree);
             }
             StandardEvent::Focus(path) => self.holder.focus(&path),
+            StandardEvent::ToggleCollapsed(path) => self.holder.toggle_collapsed(&path),
             StandardEvent::Capturing(_) => {}
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
@@ -398,14 +399,7 @@ impl RootNodeApplet {
         }
         match response.action {
             Some(TreeviewAction::Focus(path)) => self.holder.focus(&path),
-            // TODO: nodes inside projects, whose `NodeTree` the root can't reach
-            Some(TreeviewAction::ToggleCollapsed(path)) => {
-                if let [node_path] = &*path.0
-                    && let Some(id) = self.holder.tree.node_at(node_path)
-                {
-                    self.holder.tree.toggle_collapsed(id);
-                }
-            }
+            Some(TreeviewAction::ToggleCollapsed(path)) => self.holder.toggle_collapsed(&path),
             Some(TreeviewAction::StartDrag(path)) => {
                 self.send_request(StandardRequest::RequestPluck(path));
             }

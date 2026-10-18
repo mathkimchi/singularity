@@ -127,6 +127,8 @@ pub enum StandardEvent {
     Place(Option<WorldTreePath>, DetachedTree),
     /// Focus the element at this path of the client's treeview (eg it was clicked in the root's treeview)
     Focus(WorldTreePath),
+    /// Collapse or expand the element at this path of the client's treeview (eg its `▾` was clicked in the root's treeview)
+    ToggleCollapsed(WorldTreePath),
     /// A wl client started (`true`) or stopped capturing the screen (eg recording). Only the root gets these.
     Capturing(bool),
 }

@@ -926,6 +926,20 @@ impl NodeTree {
         }
     }
 
+    /// Collapses or expands what `path` of the treeview points at: the node itself if the path ends at it,
+    /// otherwise something inside its main, which is asked to do it
+    pub fn toggle_collapsed_path(&mut self, path: &WorldTreePath) {
+        let Some(id) = path.0.first().and_then(|path| self.node_at(path)) else {
+            return;
+        };
+        let inner = path.0.get(1..).unwrap_or_default();
+        if inner.is_empty() {
+            self.toggle_collapsed(id);
+        } else {
+            self.send_event(id, StandardEvent::ToggleCollapsed(WorldTreePath(inner.into())));
+        }
+    }
+
     /// Whether focus is inside the node's applet
     pub fn is_inner(&self, id: NodeId) -> bool {
         self.nodes
