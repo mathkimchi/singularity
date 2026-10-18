@@ -35,7 +35,11 @@ Sonamu owns the session; apps' own session restore should be off.
     - Anything else: the saved argv. A `/nix/store/...` program is replaced by its name, minus a `.foo-wrapped` wrapper
       prefix/suffix, since the store path may be garbage collected.
   - The url comes from the title (`SavedWl::url`): before its first ` | ` (firefox, via `extras/firefox`), else after
-    its last ` | ` (qutebrowser), with no spaces. So the browser has to put it there.
+    its last ` | ` (qutebrowser), with no spaces; `about:` pages count, so they're hidden and restored too.
+    So the browser has to put it there.
+    Tiles and "Starting …" placeholders show the title without it (`title_without_url`).
+  - Quitting Sonamu kills Firefox uncleanly, so with `browser.sessionstore.resume_from_crash` on, Firefox restores
+    its own windows on top of Sonamu's: duplicates, which then get saved as new tiles.
 
 ## Decisions
 

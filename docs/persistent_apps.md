@@ -37,7 +37,7 @@ To save private windows' urls too, allow it in private windows (`about:addons` â
 | `browser.link.open_newwindow` | `2` | Links open new windows, not tabs |
 | `browser.link.open_newwindow.restriction` | `0` | Even links that ask for a popup size |
 | `browser.startup.page` | `0` | Sonamu restores the windows, so Firefox starts blank |
-| `browser.sessionstore.resume_from_crash` | `false` | Not even after a crash |
+| `browser.sessionstore.resume_from_crash` | `false` | Not even after a crash. Quitting Sonamu ends Firefox without a clean shutdown, so without this every window comes back twice (turning off "Open previous windows and tabs" in Settings isn't enough) |
 | `toolkit.legacyUserProfileCustomizations.stylesheets` | `true` | Load `userChrome.css`, which hides the tab bar |
 
 The tab bar is hidden by `extras/firefox/userChrome.css`, copied to `chrome/userChrome.css` in your profile folder
@@ -84,7 +84,7 @@ and copy `userChrome.css` as above.
 
 All Firefox windows come from one process, so Sonamu matches restored windows to their spots by app id,
 in the order they open. Two windows may come back in each other's spots.
-Pages without a url in their title (eg a new tab, or a private window without the extension) come back blank.
+Pages without a url in their title (eg a private window without the extension) come back blank.
 
 ## foot
 

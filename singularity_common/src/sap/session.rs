@@ -49,12 +49,24 @@ pub struct SavedWl {
     pub title: String,
 }
 impl SavedWl {
-    /// A url at the start of the title before ` | ` (eg firefox with `extras/firefox`),
-    /// else at the end after ` | ` (eg qutebrowser with `window.title_format = '{current_title} | {current_url}'`)
     pub fn url(&self) -> Option<&str> {
-        let is_url = |s: &&str| s.contains("://") && !s.contains(' ');
-        let (start, _) = self.title.split_once(" | ")?;
-        let (_, end) = self.title.rsplit_once(" | ")?;
-        Some(start).filter(is_url).or(Some(end).filter(is_url))
+        split_title_url(&self.title).map(|(url, _)| url)
     }
+}
+
+/// A url and the rest of the title: at the start before ` | ` (eg firefox with `extras/firefox`),
+/// else at the end after ` | ` (eg qutebrowser with `window.title_format = '{current_title} | {current_url}'`)
+pub fn split_title_url(title: &str) -> Option<(&str, &str)> {
+    let is_url = |s: &str| (s.contains("://") || s.starts_with("about:")) && !s.contains(' ');
+    let (start, rest) = title.split_once(" | ")?;
+    if is_url(start) {
+        return Some((start, rest));
+    }
+    let (rest, end) = title.rsplit_once(" | ")?;
+    is_url(end).then_some((end, rest))
+}
+
+/// The title as shown to the user, without its url
+pub fn title_without_url(title: &str) -> &str {
+    split_title_url(title).map_or(title, |(_, rest)| rest)
 }

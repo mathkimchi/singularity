@@ -10,7 +10,7 @@ use crate::{
 use singularity_common::{
     sap::{
         packets::{AwaitedWl, StandardEvent},
-        session::{SavedApplet, SavedWl, Session},
+        session::{SavedApplet, SavedWl, Session, title_without_url},
     },
     utils::tree::world_tree::WorldTree,
 };
@@ -123,7 +123,7 @@ pub fn restore(saved: SavedApplet) -> (NodularAppletInitializer, Option<AwaitedW
 
 fn wl_label(wl: &SavedWl) -> String {
     if !wl.title.is_empty() {
-        wl.title.clone()
+        title_without_url(&wl.title).to_string()
     } else if let Some(app_id) = &wl.app_id {
         app_id.clone()
     } else {
