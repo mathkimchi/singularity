@@ -209,13 +209,14 @@ enum DropZone {
 }
 
 /// Where a drop on `row` goes: the path of the parent, and the position among its children.
-/// Only nodes of the tree have siblings, so anything else (eg an applet's inner tree) is appended to.
+/// Only the nodes of a tree have siblings (in the root's tree or in an applet's inner tree),
+/// so anything else (eg an applet's elements, or an inner root) is appended to.
 fn drop_target(row: &TreeviewRow, zone: DropZone) -> (WorldTreePath, SpawnPosition) {
     let append = || (row.path.clone(), SpawnPosition::AppendChild);
-    let [node] = &*row.path.0 else {
+    let Some((node, outer)) = row.path.0.split_last().filter(|_| !row.inner) else {
         return append();
     };
-    let Some((&index, parent)) = node.0.split_last().filter(|_| !row.inner) else {
+    let Some((&index, parent)) = node.0.split_last() else {
         return append();
     };
     let child_index = match zone {
@@ -223,8 +224,10 @@ fn drop_target(row: &TreeviewRow, zone: DropZone) -> (WorldTreePath, SpawnPositi
         DropZone::Top => index,
         DropZone::Bottom => index + 1,
     };
+    let mut path = outer.to_vec();
+    path.push(TreeNodePath(parent.to_vec()));
     (
-        WorldTreePath(Box::new([TreeNodePath(parent.to_vec())])),
+        WorldTreePath(path.into_boxed_slice()),
         SpawnPosition::InsertChild { child_index },
     )
 }
