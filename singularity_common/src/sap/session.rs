@@ -22,6 +22,9 @@ pub struct SavedTree {
     pub layout: Layout,
     #[serde(default)]
     pub children: Vec<Self>,
+    /// A container's name; only a project's inner root has one (the project's name)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 /// How to make a node's main again

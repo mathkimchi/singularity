@@ -6,9 +6,9 @@ Sonamu owns the session; apps' own session restore should be off.
 ## How it works
 
 - **Saved form** (`singularity_common/src/sap/session.rs`): `Session { tree: SavedTree, focus }`.
-  `SavedTree { main: Option<SavedApplet>, layout, children }`.
+  `SavedTree { main: Option<SavedApplet>, layout, children, label }` (`label`: only a project's inner root, its name).
   `SavedApplet` is one of `Spawner { name, args }` (made again by the registered applet spawner, like the command hub does),
-  `Project(SavedTree)`, or `Wl(SavedWl { argv, cwd, app_id, title })`.
+  `Project(Box<SavedTree>)`, or `Wl(SavedWl { argv, cwd, app_id, title })`.
 - **Publishing**: every applet publishes `StandardApplet::save()` as `Treeview::saved`, so a holder reads it
   synchronously like the treeview. `None` (the default, eg the help) leaves the node out, its children taking its place.
   A split left with one pane is left out too. A project saves its whole `NodeTree` (`NodeTree::save`).

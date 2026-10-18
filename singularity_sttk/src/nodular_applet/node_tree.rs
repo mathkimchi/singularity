@@ -378,6 +378,7 @@ impl NodeTree {
                 main: None,
                 layout: Layout::Single,
                 children: saved,
+                label: None,
             },
         }
     }
@@ -404,6 +405,7 @@ impl NodeTree {
             main,
             layout: node.layout,
             children,
+            label: None,
         }]
     }
 
@@ -879,8 +881,12 @@ impl NodeTree {
         Some((self.path_of(parent)?, self.label(parent)))
     }
 
+    pub fn children(&self, id: NodeId) -> &[NodeId] {
+        &self.nodes[id].children
+    }
+
     /// Its applet's treeview label (or its layout's)
-    fn label(&self, id: NodeId) -> String {
+    pub fn label(&self, id: NodeId) -> String {
         self.applet_treeview(id).get_root_value().clone()
     }
 

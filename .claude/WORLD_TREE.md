@@ -85,7 +85,10 @@ published treeviews.
   by `NodeRequest`s (AddChild, Close, Split, Wrap, ...) to the holder.
 - A **project** is an ordinary `StandardApplet` (`ProjectApplet`). **Nothing above it knows it is a project**: its node
   just sees an applet with an inner world. Its inner world is a full `NodeTree`, whose root is a container node
-  (no main, labeled `Project`), and the project node still has its own children in the outer world.
+  (no main, labeled with the project's name, `Project` until renamed), and the project node still has its own children
+  in the outer world.
+  - While focus is at its inner root, it shows an overview instead of its panes (`.claude/PROJECT_UI.md`): its name
+    (`r` or click renames it), its contents (click selects one) and `+ new` (`n`, a command hub in it).
   - Made by `NodeRequest::Wrap(ProjectApplet::wrapper())` (Super+P, hub `project`): the holder replaces the node's
     subtree with a node whose applet is made from it.
   - Undone by closing it: on `CloseRequest` (Ctrl+W on its node, or on its inner root) it detaches its contents and

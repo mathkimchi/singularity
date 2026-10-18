@@ -3,7 +3,7 @@
 use crate::{
     nodular_applet::{
         AppletContext, AppletSpawner, AppletSpawnerTrait, NodeRequest, NodularAppletInitializer,
-        StandardApplet, project_applet::ProjectApplet,
+        StandardApplet, project_applet::ProjectApplet, treeview::with_opacity,
     },
     standard_keybinds::handle_standard_keybinds,
 };
@@ -52,8 +52,8 @@ const PROMPT: &str = "> ";
 // Char grid colors are drawn as linear (like rects, see `nodular_applet/treeview.rs`), so these are darker than they look:
 // they show as about #0f1115, #262a33, #5fd787, #c8ccd4, #8a93a6, #ff6b6b, #e5c07b, #dadada.
 // The help applet uses them too.
-pub(crate) const BG: Color = Color([1, 1, 2, 0xFF]);
-pub(crate) const BAR_BG: Color = Color([5, 6, 8, 0xFF]);
+pub(crate) const BG: Color = with_opacity(Color([1, 1, 2, 0]));
+pub(crate) const BAR_BG: Color = with_opacity(Color([5, 6, 8, 0]));
 pub(crate) const ACCENT: Color = Color([29, 173, 62, 0xFF]);
 pub(crate) const OUTPUT: Color = Color([147, 154, 168, 0xFF]);
 pub(crate) const DIM: Color = Color([65, 74, 97, 0xFF]);

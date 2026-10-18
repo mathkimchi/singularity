@@ -28,7 +28,8 @@ const SCROLL_STEP: usize = 3;
 /// The alpha of everything in the treeview (about 80%), so what is behind it shows through
 const OPACITY: u8 = 0xCC;
 
-const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
+/// Also for the command hub's and project's backgrounds
+pub(crate) const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
     Color([r, g, b, OPACITY])
 }
 
