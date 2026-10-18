@@ -36,6 +36,41 @@ impl Color {
         self.0.map(|c| f32::from(c) / f32::from(u8::MAX))
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseColorError(String);
+impl std::fmt::Display for ParseColorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid color {:?}, expected #rrggbb or #rrggbbaa", self.0)
+    }
+}
+impl std::error::Error for ParseColorError {}
+
+impl std::str::FromStr for Color {
+    type Err = ParseColorError;
+
+    /// `#rrggbb` or `#rrggbbaa`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let err = || ParseColorError(s.to_string());
+        let hex = s.strip_prefix('#').ok_or_else(err)?;
+        if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(err());
+        }
+        let value = u32::from_str_radix(hex, 16).map_err(|_| err())?;
+        match hex.len() {
+            6 => Ok(Self(((value << 8) | 0xFF).to_be_bytes())),
+            8 => Ok(Self(value.to_be_bytes())),
+            _ => Err(err()),
+        }
+    }
+}
+impl<'de> serde::Deserialize<'de> for Color {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
 #[cfg(feature = "wayland_backend")]
 impl From<Color> for raqote::Color {
     fn from(value: Color) -> Self {

@@ -249,6 +249,17 @@ impl RootNodeApplet {
                     )
                     .unwrap();
 
+                let (settings_tx, settings_rx) = calloop::channel::channel();
+                singularity_common::settings::subscribe(settings_tx);
+                event_loop
+                    .handle()
+                    .insert_source(settings_rx, |event, &mut (), root: &mut RootNodeApplet| {
+                        if let calloop::channel::Event::Msg(()) = event {
+                            root.surface.damage();
+                        }
+                    })
+                    .unwrap();
+
                 let mut root = RootNodeApplet::new(
                     self.root_initializer,
                     self.applet_spawner_registry,

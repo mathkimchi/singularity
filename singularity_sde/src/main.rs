@@ -30,6 +30,7 @@ use tracing_subscriber::EnvFilter;
 
 fn main() {
     init_logging();
+    singularity_common::settings::load_and_watch();
 
     AppletRunner::run(RootNodeApplet::get_initializer(
         CommandHubApplet::get_boxed_initiator(),

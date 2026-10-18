@@ -409,6 +409,16 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 }
             })
             .unwrap();
+        let (settings_tx, settings_rx) = calloop::channel::channel();
+        singularity_common::settings::subscribe(settings_tx);
+        event_loop
+            .handle()
+            .insert_source(settings_rx, |event, &mut (), state| {
+                if let calloop::channel::Event::Msg(()) = event {
+                    state.surface.damage();
+                }
+            })
+            .unwrap();
         let (wake_tx, wake_rx) = calloop::channel::channel();
         event_loop
             .handle()

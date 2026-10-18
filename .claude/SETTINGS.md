@@ -20,8 +20,18 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 
 - Watch the settings file/program and every `watch` path (`notify`). On change: re-run/re-read.
 - Program gets a timeout. On spawn failure, timeout, non-zero exit or parse error: keep the previous settings and log.
-- Also a "reload settings" command.
+- Also a "reload settings" command (`settings::reload()` exists; no command wired yet).
 - Settings live in a global in `singularity_common` readable from every applet thread; a settings-changed event is broadcast so applets redraw.
+
+## Implemented
+
+- `singularity_common::settings`: `Settings` (palette, border, gap, radius, font_size), `load(dir)`, `config_dir()` (`$SONAMU_CONFIG` overrides), global `get()`/`reload()`/`subscribe()`. `load_and_watch()` (called in `singularity_sde` main) loads once, then a `notify` thread reloads on changes. Nothing reads `get()` yet.
+- Watching goes through parent dirs (non-recursive), so atomically replaced files are seen. Watched: `settings`, `settings.json` (only while there is no program), and `watch` paths (relative ones resolve against the config dir). Changes are debounced 100 ms.
+- Loop detection: after a program run, any `watch` path that changed during the run (+100 ms) is assumed written by the program; it's logged and ignored until restart. Changes to other watched paths in that window cause another reload.
+- Broadcast: on an actual change (`!=`), each `subscribe`d calloop sender is pinged; dead ones are dropped. `AppletClient` and the root applet subscribe and damage their surface. No applet hook yet; applets that cache settings would need one.
+- `Color` parses/deserializes `#rrggbb`/`#rrggbbaa`.
+- Defaults match the current hardcoded colors (border focused = yellow, unfocused = green).
+- Known gap: if the program leaves a background child holding stdout open, reading blocks after it exits (timeout only covers the program itself).
 
 ## Palette roles
 
