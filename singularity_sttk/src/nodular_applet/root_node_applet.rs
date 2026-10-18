@@ -17,7 +17,7 @@ use calloop::{
 };
 use singularity_common::{
     sap::{
-        packets::{StandardEvent, StandardRequest, StateKind, Treeview},
+        packets::{SpawnPosition, StandardEvent, StandardRequest, StateKind, Treeview},
         raw_client_initializer::RawClientInitializer,
         session::Session,
         shared_state::{SharedState, StatePublisher},
@@ -316,9 +316,9 @@ impl RootNodeApplet {
                 self.holder.set_wl_surface_title(surface_id, title);
             }
             StandardEvent::Pluck(path) => self.holder.start_pluck(path.as_ref()),
-            StandardEvent::Place(path, tree) => {
+            StandardEvent::Place(path, position, tree) => {
                 let path = path.map(|path| self.redirect_drop(path));
-                self.holder.start_place(path.as_ref(), tree);
+                self.holder.start_place(path.as_ref(), position, tree);
             }
             StandardEvent::Focus(path) => self.holder.focus(&path),
             StandardEvent::ToggleCollapsed(path) => self.holder.toggle_collapsed(&path),
@@ -410,7 +410,10 @@ impl RootNodeApplet {
                     .first()
                     .and_then(|node_path| self.holder.tree.node_at(node_path))
                     .map(|id| (path.clone(), id));
-                self.send_request(StandardRequest::RequestPlace(path));
+                self.send_request(StandardRequest::RequestPlace(
+                    path,
+                    SpawnPosition::AppendChild,
+                ));
             }
             None => {}
         }

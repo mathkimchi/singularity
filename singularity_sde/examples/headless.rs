@@ -1,7 +1,7 @@
 //! THROWAWAY headless harness: drives the root like sar would.
 use singularity_common::sap::{
     detached::DetachedTree,
-    packets::{StandardEvent, StandardRequest, StateKind, Treeview},
+    packets::{SpawnPosition, StandardEvent, StandardRequest, StateKind, Treeview},
     shared_state::SharedState,
 };
 use singularity_common::utils::tree::world_tree::WorldTree;
@@ -156,7 +156,7 @@ fn main() {
             }
             "place" => {
                 let tree = server.plucked.take().expect("nothing plucked");
-                server.events.send(StandardEvent::Place(None, tree)).unwrap();
+                server.events.send(StandardEvent::Place(None, SpawnPosition::AppendChild, tree)).unwrap();
             }
             s if s.starts_with("click") => {
                 let xy: Vec<f64> = s[6..].split(',').map(|v| v.parse().unwrap()).collect();
@@ -184,7 +184,7 @@ fn main() {
                     let tree = server.plucked.take().expect("nothing plucked");
                     server
                         .events
-                        .send(StandardEvent::Place(Some(path), tree))
+                        .send(StandardEvent::Place(Some(path), SpawnPosition::AppendChild, tree))
                         .unwrap();
                 }
             }

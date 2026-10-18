@@ -14,7 +14,7 @@ use crate::{
 use singularity_common::{
     sap::{
         detached::{DetachedClient, DetachedTree, Layout},
-        packets::{AwaitedWl, NewWlSurface, StandardEvent, StandardRequest},
+        packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest},
         session::{SavedApplet, SavedTree},
     },
     utils::tree::world_tree::{WorldTree, WorldTreePath},
@@ -369,12 +369,13 @@ impl StandardApplet for ProjectApplet {
     fn place(
         &mut self,
         path: &WorldTreePath,
+        position: SpawnPosition,
         tree: DetachedTree,
     ) -> Answer<Result<(), DetachedTree>> {
         if self.dissolved {
             return Answer::Now(Err(tree));
         }
-        self.holder.start_place(Some(path), tree);
+        self.holder.start_place(Some(path), position, tree);
         Answer::Later
     }
 

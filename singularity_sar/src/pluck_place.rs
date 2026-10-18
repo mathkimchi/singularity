@@ -2,7 +2,10 @@
 
 use crate::runner::AppletRunner;
 use singularity_common::{
-    sap::{detached::DetachedTree, packets::StandardEvent},
+    sap::{
+        detached::DetachedTree,
+        packets::{SpawnPosition, StandardEvent},
+    },
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use sonamu_ui::{
@@ -19,7 +22,7 @@ pub(crate) enum PluckPlace {
     /// Waiting for `Plucked`
     Plucking {
         /// A drag can be dropped before the pluck arrives
-        queued_place: Option<WorldTreePath>,
+        queued_place: Option<(WorldTreePath, SpawnPosition)>,
     },
     /// Waiting for `Placed`
     Placing,
@@ -37,7 +40,7 @@ impl AppletRunner {
             return;
         }
         if let Some(plucked) = self.plucked.take() {
-            self.place(None, plucked);
+            self.place(None, SpawnPosition::AppendChild, plucked);
         } else {
             self.pluck(None);
         }
@@ -50,21 +53,26 @@ impl AppletRunner {
         }
     }
 
-    fn place(&mut self, path: Option<WorldTreePath>, plucked: DetachedTree) {
+    fn place(
+        &mut self,
+        path: Option<WorldTreePath>,
+        position: SpawnPosition,
+        plucked: DetachedTree,
+    ) {
         self.pluck_place = PluckPlace::Placing;
         self.root_client
-            .send_event(StandardEvent::Place(path, plucked));
+            .send_event(StandardEvent::Place(path, position, plucked));
         self.needs_redraw = true;
     }
 
     /// `RequestPlace` from the root (eg a treeview drop)
-    pub(crate) fn request_place(&mut self, path: WorldTreePath) {
+    pub(crate) fn request_place(&mut self, path: WorldTreePath, position: SpawnPosition) {
         match &mut self.pluck_place {
-            PluckPlace::Plucking { queued_place } => *queued_place = Some(path),
+            PluckPlace::Plucking { queued_place } => *queued_place = Some((path, position)),
             PluckPlace::Placing => {}
             PluckPlace::Idle => {
                 if let Some(plucked) = self.plucked.take() {
-                    self.place(Some(path), plucked);
+                    self.place(Some(path), position, plucked);
                 }
             }
         }
@@ -77,10 +85,10 @@ impl AppletRunner {
             return;
         };
         self.plucked = plucked;
-        if let Some(path) = queued_place
+        if let Some((path, position)) = queued_place
             && let Some(plucked) = self.plucked.take()
         {
-            self.place(Some(path), plucked);
+            self.place(Some(path), position, plucked);
         }
         self.needs_redraw = true;
     }

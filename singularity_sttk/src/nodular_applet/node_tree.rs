@@ -9,7 +9,7 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree, Layout},
-        packets::{AwaitedWl, NewWlSurface, StandardEvent, WlSurfaceId},
+        packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, WlSurfaceId},
         session::SavedTree,
     },
     utils::tree::{
@@ -698,7 +698,7 @@ impl NodeTree {
     /// unless it would leave the tree without a root.
     pub fn unwrap(&mut self, id: NodeId, tree: DetachedTree) {
         let Some(node) = self.nodes.get(id) else {
-            self.place(self.root, tree);
+            self.place(self.root, SpawnPosition::AppendChild, tree);
             return;
         };
         let parent = node.parent;
@@ -741,8 +741,13 @@ impl NodeTree {
         }
     }
 
-    /// Adds the tree as the parent's last child (the root's if the parent is gone) and focuses it
-    pub fn place(&mut self, parent: NodeId, tree: DetachedTree) -> NodeId {
+    /// Adds the tree as the parent's child at `position` (the root's if the parent is gone) and focuses it
+    pub fn place(
+        &mut self,
+        parent: NodeId,
+        position: SpawnPosition,
+        tree: DetachedTree,
+    ) -> NodeId {
         // eg it closed while its applet was being asked to place
         let parent = if self.nodes.contains_key(parent) {
             parent
@@ -750,7 +755,13 @@ impl NodeTree {
             self.root
         };
         let id = self.attach_subtree(Some(parent), tree);
-        self.nodes[parent].children.push(id);
+        let children = &mut self.nodes[parent].children;
+        match position {
+            SpawnPosition::InsertChild { child_index } if child_index < children.len() => {
+                children.insert(child_index, id);
+            }
+            _ => children.push(id),
+        }
         self.focus_node(id);
         self.nodes[id].focus = FocusIndex::Focusing;
         self.damaged = true;

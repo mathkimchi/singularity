@@ -10,7 +10,7 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{DetachedClient, DetachedTree},
-        packets::{NewWlSurface, StandardEvent, StandardRequest, WlSurfaceId},
+        packets::{NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, WlSurfaceId},
     },
     utils::tree::world_tree::WorldTreePath,
 };
@@ -164,7 +164,12 @@ impl NodeHolder {
 
     /// Places at the deepest node along `path[0]` (`None`: at the focus),
     /// asking its applet first if the path goes into it
-    pub fn start_place(&mut self, path: Option<&WorldTreePath>, mut tree: DetachedTree) {
+    pub fn start_place(
+        &mut self,
+        path: Option<&WorldTreePath>,
+        position: SpawnPosition,
+        mut tree: DetachedTree,
+    ) {
         let path = path.cloned().unwrap_or_else(|| self.tree.get_focus_path());
         let (id, exact) = path
             .0
@@ -174,20 +179,20 @@ impl NodeHolder {
             });
 
         if exact && path.0.len() > 1 {
-            match self
-                .tree
-                .try_send_event(id, StandardEvent::Place(Some(inner_path(&path)), tree))
-            {
+            match self.tree.try_send_event(
+                id,
+                StandardEvent::Place(Some(inner_path(&path)), position, tree),
+            ) {
                 Ok(()) => {
                     self.pending = Some(Pending::Place(id));
                     return;
                 }
                 // no running applet (eg a split), so the node takes it
-                Err(StandardEvent::Place(_, given_back)) => tree = given_back,
+                Err(StandardEvent::Place(_, _, given_back)) => tree = given_back,
                 Err(_) => unreachable!("the event is given back as is"),
             }
         }
-        self.tree.place(id, tree);
+        self.tree.place(id, position, tree);
         self.send(StandardRequest::Placed(None));
     }
 
@@ -265,7 +270,7 @@ impl NodeHolder {
                 self.pending = None;
                 // the applet couldn't, so it becomes the node's child
                 if let Some(tree) = given_back {
-                    self.tree.place(id, tree);
+                    self.tree.place(id, SpawnPosition::AppendChild, tree);
                 }
                 self.send(StandardRequest::Placed(None));
             }
@@ -275,9 +280,9 @@ impl NodeHolder {
                     self.send(StandardRequest::RequestPluck(path));
                 }
             }
-            NodeRequest::Standard(StandardRequest::RequestPlace(path)) => {
+            NodeRequest::Standard(StandardRequest::RequestPlace(path, position)) => {
                 if let Some(path) = self.full_path(id, path) {
-                    self.send(StandardRequest::RequestPlace(path));
+                    self.send(StandardRequest::RequestPlace(path, position));
                 }
             }
             NodeRequest::AddChild(initializer) => {
