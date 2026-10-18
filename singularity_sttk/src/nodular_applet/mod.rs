@@ -184,6 +184,8 @@ pub enum NodeRequest {
     ChangeFocus(WorldTreeTraversalOperation),
     /// Closes the applet's node; its children move to the parent
     Close,
+    /// Swaps the applet's node (with its subtree) with the sibling this many places over (-1: previous)
+    SwapSibling(isize),
     /// Replaces the applet's node with a split showing it and a new applet next to it
     Split {
         axis: Axis,

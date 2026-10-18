@@ -646,6 +646,34 @@ impl NodeTree {
         self.nodes[new].focus = FocusIndex::Inner;
     }
 
+    /// Swaps the node with the sibling `shift` places over; does nothing if there is none
+    pub fn swap_sibling(&mut self, id: NodeId, shift: isize) {
+        let Some(parent_id) = self.nodes.get(id).and_then(|node| node.parent) else {
+            return;
+        };
+        let index = self.child_index(parent_id, id);
+        let Some(other) = index
+            .checked_add_signed(shift)
+            .filter(|&other| other < self.nodes[parent_id].children.len())
+        else {
+            return;
+        };
+        let parent = &mut self.nodes[parent_id];
+        parent.children.swap(index, other);
+        // focus and last child follow their nodes
+        for slot in [&mut parent.last_child].into_iter().chain(match &mut parent.focus {
+            FocusIndex::Child(focused) => Some(focused),
+            _ => None,
+        }) {
+            if *slot == index {
+                *slot = other;
+            } else if *slot == other {
+                *slot = index;
+            }
+        }
+        self.damaged = true;
+    }
+
     /// A split left with one pane is replaced by that pane
     fn collapse_split(&mut self, id: NodeId) {
         let node = &self.nodes[id];
