@@ -302,7 +302,8 @@ impl StandardApplet for ProjectApplet {
             | StandardEvent::WlSurfaceRegistered(_)
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
-            | StandardEvent::Focus(_) => {}
+            | StandardEvent::Focus(_)
+            | StandardEvent::ToggleCollapsed(_) => {}
             // only the root gets these
             StandardEvent::Capturing(_) => {}
         }
@@ -347,6 +348,12 @@ impl StandardApplet for ProjectApplet {
     fn focus(&mut self, path: &WorldTreePath) {
         if !self.dissolved {
             self.holder.focus(path);
+        }
+    }
+
+    fn toggle_collapsed(&mut self, path: &WorldTreePath) {
+        if !self.dissolved {
+            self.holder.toggle_collapsed(path);
         }
     }
 

@@ -80,6 +80,9 @@ pub trait StandardApplet {
     /// or `e` went into this applet (`[[]]`, its inner root)
     fn focus(&mut self, _path: &WorldTreePath) {}
 
+    /// Collapses or expands the element at `path` (in the inner tree) in the treeview, eg its `▾` was clicked
+    fn toggle_collapsed(&mut self, _path: &WorldTreePath) {}
+
     /// Takes the closest pluckable element at `path` (in the inner tree) out of the applet.
     /// `Now(None)` makes its node pluck itself, with the applet and its children.
     /// `Later`: the applet answers itself with `StandardRequest::Plucked` (eg after asking an applet inside it).
@@ -357,6 +360,9 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 }
                 calloop::channel::Event::Msg(StandardEvent::Focus(path)) => {
                     state.applet.focus(&path);
+                }
+                calloop::channel::Event::Msg(StandardEvent::ToggleCollapsed(path)) => {
+                    state.applet.toggle_collapsed(&path);
                 }
                 calloop::channel::Event::Msg(StandardEvent::CloseRequest) => {
                     if state.applet.close_requested() {
