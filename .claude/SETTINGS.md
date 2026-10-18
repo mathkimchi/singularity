@@ -6,7 +6,7 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 
 - Config dir: `$XDG_CONFIG_HOME/sonamu` (default `~/.config/sonamu`). The repo's `examples/config` is the reference config; the dev machine symlinks `~/.config/sonamu -> examples/config`.
 - If `settings` in the config dir is executable, sonamu runs it and parses its stdout as JSON. Otherwise it reads `settings.json`.
-- `examples/config/settings` is a python script that builds the palette and border colors from DankMaterialShell (`~/.cache/DankMaterialShell/dms-colors.json`, current `mode`) and radius from `cornerRadius` in `~/.config/DankMaterialShell/settings.json`, and watches both. Font size is 24 px times the first bar's `barConfigs[0].fontScale` (the scale the user changes in DMS; the global top-level `fontScale` isn't in the file, so it stays the 1.0 default). Gap and border width are fixed in the script (DMS only has per-compositor ones, eg `niriLayoutGapsOverride`, hidden outside niri).
+- `examples/config/settings` is a python script that builds the palette and border colors from DankMaterialShell (`~/.cache/DankMaterialShell/dms-colors.json`, current `mode`) and radius from `cornerRadius` in `~/.config/DankMaterialShell/settings.json`, and watches both. Font size is 24 px times the first bar's `barConfigs[0].fontScale` (the scale the user changes in DMS; the global top-level `fontScale` isn't in the file, so it stays the 1.0 default). Border width is DMS's "Focused Border" (workspace appearance): `workspaceFocusedBorderThickness` (default 2) if `workspaceFocusedBorderEnabled`, else 0. Gap is fixed in the script (DMS only has per-compositor ones, eg `niriLayoutGapsOverride`, hidden outside niri).
 - The program can be anything; the intended Rust form is a small binary depending on a `sonamu_settings` crate that builds `Settings` and prints it as JSON.
 - Not a dylib: JSON over a pipe has no ABI coupling and a crashing/hanging program can't take down the compositor.
 
@@ -44,7 +44,8 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 - `gap`: around the tiled area and between split siblings (`NodeTree::push_panes`). Nested trees (projects) add their own.
 - `radius`: pane corners; the pane's content (rects, char grids, wl textures, but not glyphon text) is clipped to the rounded inside.
 - `font_size`: physical px (Sonamu's UI isn't scaled). Mirrored into `sonamu_ui::ui_element::font_size()` on load, since `sonamu_ui` can't depend on `singularity_common`; used by glyphon text, char grid cell size (width = size / 1.933, ceil), and row heights in treeview, project overview, file manager and the pluck ghost.
-- A lone pane (`BORDER_LONE_PANE` false) has no border, gap or radius.
+- `always_frame` (default true): a pane alone in its tree also gets border, gap and radius, and the treeview is framed like a pane (gap left/top/bottom, the panes' gap on its right; `border.unfocused`; mouse coords shifted by gap + border in `RootNodeApplet::handle_mouse`). False: a lone pane fills its tree and the treeview is flush. The treeview's border is `border.treeview` (DMS `secondary` in the example config).
+- A pane holding a project is never framed (no border, no radius) and grows by `gap` on every side: the project's own tree frames its panes and adds its own outer gap, so leaf content gets exactly one frame and one gap at any nesting depth. Detected by `NodeTree::is_project` (the applet's treeview `saved` is `SavedApplet::Project`). A project node's focus then only shows in the treeview.
 - Not themed yet: command hub/help, file manager, editors etc. keep their own constants.
 
 ## Rendering changes

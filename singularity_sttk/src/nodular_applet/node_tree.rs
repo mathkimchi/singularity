@@ -219,8 +219,10 @@ pub struct NodeTree {
 struct Pane {
     node: NodeId,
     rect: [u32; 4],
-    /// From the settings; 0 when it is the only pane, unless `BORDER_LONE_PANE`
+    /// From the settings; 0 when unframed
     border: u32,
+    /// Has a border and rounded corners: not the only pane (unless `always_frame`), and not a project
+    framed: bool,
 }
 impl Pane {
     /// Inside the border
@@ -237,8 +239,6 @@ impl Pane {
     }
 }
 
-/// Whether a pane alone in its tree gets a border, gap and rounded corners
-const BORDER_LONE_PANE: bool = false;
 
 impl NodeTree {
     pub fn new(
@@ -935,6 +935,13 @@ impl NodeTree {
         &self.nodes[id].children
     }
 
+    /// Its main is a project (holds a tree of its own)
+    fn is_project(&self, id: NodeId) -> bool {
+        self.nodes[id].main.as_ref().is_some_and(|main| {
+            matches!(main.get_treeview().saved, Some(SavedApplet::Project(_)))
+        })
+    }
+
     /// Its applet's treeview label (or its layout's)
     pub fn label(&self, id: NodeId) -> String {
         self.applet_treeview(id).get_root_value().clone()
@@ -1314,9 +1321,24 @@ impl NodeTree {
             [gap, border],
             &mut panes,
         );
-        if let (false, [pane]) = (BORDER_LONE_PANE, panes.as_mut_slice()) {
+        if let (false, [pane]) = (settings.always_frame, panes.as_mut_slice()) {
             pane.rect = [0, 0, size.width, size.height];
             pane.border = 0;
+            pane.framed = false;
+        }
+        for pane in panes.iter_mut().filter(|pane| pane.framed) {
+            if self.is_project(pane.node) {
+                // its own tree frames its panes, with its own gap around them, so it takes this gap back
+                let [x, y, width, height] = pane.rect;
+                pane.rect = [
+                    x.saturating_sub(gap),
+                    y.saturating_sub(gap),
+                    width + 2 * gap,
+                    height + 2 * gap,
+                ];
+                pane.border = 0;
+                pane.framed = false;
+            }
         }
         for pane in &panes {
             self.resize(pane.node, pane.inner_size());
@@ -1339,6 +1361,7 @@ impl NodeTree {
                 node: id,
                 rect,
                 border,
+                framed: true,
             });
             return;
         };
@@ -1366,10 +1389,6 @@ impl NodeTree {
     pub fn get_window(&self) -> UITree {
         let focused = self.focused_node();
         let settings = settings::get();
-        let radius = match self.panes.as_slice() {
-            [_] if !BORDER_LONE_PANE => 0.0,
-            _ => settings.radius,
-        };
         let panes = self
             .panes
             .iter()
@@ -1388,7 +1407,7 @@ impl NodeTree {
                 UITree::new_styled(
                     UIElement::Bordered {
                         color: border,
-                        radius,
+                        radius: if pane.framed { settings.radius } else { 0.0 },
                     },
                     Style {
                         border: Length::uniform_rect(Length::Px(pane.border as f32)),

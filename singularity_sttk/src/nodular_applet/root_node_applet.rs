@@ -22,12 +22,12 @@ use singularity_common::{
         session::Session,
         shared_state::{SharedState, StatePublisher},
     },
-    settings,
+    settings::{self, Settings},
     utils::tree::world_tree::WorldTreePath,
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
-    ui_element::{TrackSize, UITree},
+    ui_element::{Length, Style, TrackSize, UIElement, UITree},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, UIEvent},
 };
 use std::{
@@ -397,14 +397,17 @@ impl RootNodeApplet {
         } else {
             Vec::new()
         };
-        let response = self
-            .treeview_pointer
-            .handle_mouse(
-                &mouse_event,
-                in_treeview,
-                &rows,
-                self.latest_size.height as f32,
-            );
+        // in the treeview's coords, inside its frame
+        let [gap, border] = treeview_frame(&settings::get());
+        let inset = gap + border;
+        let mut treeview_event = mouse_event;
+        treeview_event.position = treeview_event.position.map(|coord| coord - f64::from(inset));
+        let response = self.treeview_pointer.handle_mouse(
+            &treeview_event,
+            in_treeview,
+            &rows,
+            self.latest_size.height.saturating_sub(2 * inset) as f32,
+        );
 
         if response.damaged {
             self.surface.damage();
@@ -490,14 +493,41 @@ impl RootNodeApplet {
         [treeview_width, treeview_height]: [u32; 2],
     ) -> UITree {
         let rows = view_rows(tree);
+        let settings = settings::get();
+        let [gap, border] = treeview_frame(&settings);
         let treeview = treeview_pointer.render(
             &rows,
-            [treeview_width as f32, treeview_height as f32],
+            [
+                treeview_width.saturating_sub(gap + 2 * border) as f32,
+                treeview_height.saturating_sub(2 * (gap + border)) as f32,
+            ],
             &tree.get_focus_path(),
         );
+        // the panes' gap is on its right
+        let treeview = if settings.always_frame {
+            UITree::new_container(vec![UITree::new_styled(
+                UIElement::Bordered {
+                    color: settings.border.treeview,
+                    radius: settings.radius,
+                },
+                Style {
+                    border: Length::uniform_rect(Length::Px(border as f32)),
+                    ..Style::absolute(
+                        [gap as f32, gap as f32],
+                        [
+                            treeview_width.saturating_sub(gap) as f32,
+                            treeview_height.saturating_sub(2 * gap) as f32,
+                        ],
+                    )
+                },
+                vec![treeview],
+            )])
+        } else {
+            treeview
+        };
 
         UITree::new_container_styled(
-            sonamu_ui::ui_element::Style {
+            Style {
                 display: sonamu_ui::ui_element::Display::Grid,
                 // in px, like the applets' sizes
                 grid_template_columns: vec![
@@ -505,10 +535,22 @@ impl RootNodeApplet {
                     TrackSize::Fr(1.0),
                 ],
                 grid_template_rows: vec![TrackSize::Fr(1.0)],
-                ..sonamu_ui::ui_element::Style::full_size()
+                ..Style::full_size()
             },
             vec![treeview, tree.get_window()],
         )
+    }
+}
+
+/// The treeview's gap and border width: framed like a pane with `always_frame`
+fn treeview_frame(settings: &Settings) -> [u32; 2] {
+    if settings.always_frame {
+        [
+            settings.gap.round() as u32,
+            settings.border.width.round() as u32,
+        ]
+    } else {
+        [0, 0]
     }
 }
 

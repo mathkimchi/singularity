@@ -22,9 +22,13 @@ print(json.dumps({
         "inactive": colors["outline"],
     },
     "border": {
-        "width": 1.0,
+        # DMS's "Focused Border" (workspace appearance)
+        "width": dms_settings.get("workspaceFocusedBorderThickness", 2)
+        if dms_settings.get("workspaceFocusedBorderEnabled", False)
+        else 0,
         "focused": colors["primary"],
         "unfocused": colors["outline_variant"],
+        "treeview": colors["secondary"],
     },
     "gap": 8.0,
     "radius": dms_settings.get("cornerRadius", 12),

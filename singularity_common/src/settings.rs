@@ -29,6 +29,8 @@ pub struct Settings {
     pub gap: f32,
     /// Of pane corners, in px
     pub radius: f32,
+    /// Border, gap and radius also on a pane alone in its tree, and on the treeview
+    pub always_frame: bool,
     /// Text height in px (Sonamu's own UI isn't scaled)
     pub font_size: f32,
 }
@@ -39,6 +41,7 @@ impl Default for Settings {
             border: Border::default(),
             gap: 0.0,
             radius: 0.0,
+            always_frame: true,
             font_size: 46.0,
         }
     }
@@ -75,6 +78,8 @@ pub struct Border {
     /// Focus is inside the pane's applet (keys go to it); also its treeview marker
     pub focused: Color,
     pub unfocused: Color,
+    /// Of the treeview, when framed (`always_frame`)
+    pub treeview: Color,
 }
 impl Default for Border {
     fn default() -> Self {
@@ -82,6 +87,7 @@ impl Default for Border {
             width: 1.0,
             focused: Color::LIGHT_GREEN,
             unfocused: Color([0x3B, 0x40, 0x49, 0xFF]),
+            treeview: Color([0x3B, 0x40, 0x49, 0xFF]),
         }
     }
 }
