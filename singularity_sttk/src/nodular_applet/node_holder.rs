@@ -103,6 +103,7 @@ impl NodeHolder {
 
     pub fn focus(&mut self, path: &WorldTreePath) {
         self.tree.focus_path(path);
+        self.tree.wake_focused();
     }
 
     /// Collapses or expands what `path` points at: the node, or something inside its applet
@@ -154,6 +155,7 @@ impl NodeHolder {
     /// Returns what the holder's own node should do instead, like `handle_node_request`.
     pub fn handle_ui_event(&mut self, event: StandardEvent) -> Option<NodeRequest> {
         self.tree.handle_event(event);
+        self.tree.wake_focused();
         let (id, request) = self.tree.take_keybind_request()?;
         if matches!(request, NodeRequest::Close) && self.tree.has_main(id) {
             self.tree.send_event(id, StandardEvent::CloseRequest);
@@ -233,6 +235,10 @@ impl NodeHolder {
 
     /// Tells the holder's node if focus moved onto or off a wl surface. Run after each batch of events.
     pub fn update_wl_focus(&mut self) {
+        // projects only get events while focused, and wake in those
+        if !self.project {
+            self.tree.wake_focused();
+        }
         let focused_wl_surface = self.tree.focused_wl_surface();
         if focused_wl_surface != self.focused_wl_surface {
             self.focused_wl_surface = focused_wl_surface;
