@@ -9,9 +9,9 @@ use crate::{
     },
     winit_backend::WgpuData,
 };
-use glyphon::{AttrsOwned, Metrics, TextRenderer};
+use glyphon::{AttrsOwned, Family, FontSystem, Metrics, TextRenderer, fontdb};
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig};
-use std::{iter, sync::mpsc};
+use std::{collections::HashMap, iter, sync::mpsc};
 use wgpu::{
     BindGroup, BindGroupLayout, Device, MultisampleState, PipelineCompilationOptions,
     RenderPipeline, SurfaceConfiguration, TextureView, include_wgsl, util::DeviceExt as _,
@@ -665,16 +665,89 @@ pub(super) struct DrawingSharedData<'a> {
     /// Just one large triangle
     vertex_buffer: &'a wgpu::Buffer,
 
-    font_system: &'a mut glyphon::FontSystem,
+    font_system: &'a mut FontSystem,
     swash_cache: &'a mut glyphon::SwashCache,
     viewport: &'a mut glyphon::Viewport,
     atlas: &'a mut glyphon::TextAtlas,
+    text_cache: &'a mut TextCache,
     // text_renderer: &'a mut glyphon::TextRenderer,
     // text_buffer: &'a mut glyphon::Buffer,
     device: &'a Device,
     queue: &'a wgpu::Queue,
     // surface: &'a wgpu::Surface<'static>,
     _surface_config: &'a SurfaceConfiguration,
+}
+
+/// Text and font size (bits)
+type TextKey = (Vec<(String, AttrsOwned)>, u32);
+
+/// Text shaped in earlier frames, since shaping every frame took most of the frame (#98)
+pub(super) struct TextCache {
+    /// The bool is whether this frame drew it
+    buffers: HashMap<TextKey, (glyphon::Buffer, bool)>,
+    /// The font `Family::Monospace` resolves to. Asked by name, since cosmic-text
+    /// checks every system font for each monospace word otherwise.
+    monospace: Option<String>,
+}
+impl TextCache {
+    pub(super) fn new(font_system: &FontSystem) -> Self {
+        let db = font_system.db();
+        let monospace = db
+            .query(&fontdb::Query {
+                families: &[Family::Monospace],
+                ..Default::default()
+            })
+            .and_then(|id| db.face(id))
+            .and_then(|face| face.families.first())
+            .map(|(name, _)| name.clone());
+        log::info!("Monospace font: {monospace:?}");
+        Self {
+            buffers: HashMap::new(),
+            monospace,
+        }
+    }
+
+    /// Shapes `text`, or reuses it from an earlier frame
+    fn get(
+        &mut self,
+        font_system: &mut FontSystem,
+        text: &[(String, AttrsOwned)],
+    ) -> &glyphon::Buffer {
+        let size = font_size();
+        let monospace = self.monospace.as_deref();
+        fn with_monospace<'a>(
+            attrs: glyphon::Attrs<'a>,
+            monospace: Option<&'a str>,
+        ) -> glyphon::Attrs<'a> {
+            match (attrs.family, monospace) {
+                (Family::Monospace, Some(name)) => attrs.family(Family::Name(name)),
+                _ => attrs,
+            }
+        }
+        let (buffer, drawn) = self
+            .buffers
+            .entry((text.to_vec(), size.to_bits()))
+            .or_insert_with(|| {
+                let mut buffer = glyphon::Buffer::new(font_system, Metrics::new(size, size));
+                buffer.set_rich_text(
+                    font_system,
+                    text.iter()
+                        .map(|(s, attr)| (s.as_str(), with_monospace(attr.as_attrs(), monospace))),
+                    &with_monospace(glyphon::Attrs::new().family(Family::Monospace), monospace),
+                    glyphon::Shaping::Advanced,
+                    None,
+                );
+                buffer.shape_until_scroll(font_system, false);
+                (buffer, false)
+            });
+        *drawn = true;
+        buffer
+    }
+
+    /// Forgets the text this frame didn't draw
+    fn end_frame(&mut self) {
+        self.buffers.retain(|_, (_, drawn)| std::mem::take(drawn));
+    }
 }
 impl DrawingSharedData<'_> {
     fn draw_rect(
@@ -746,17 +819,7 @@ impl DrawingSharedData<'_> {
         text: &[(String, AttrsOwned)],
         display_area_px: DisplayAreaPx,
     ) {
-        let mut text_buffer =
-            glyphon::Buffer::new(self.font_system, Metrics::new(font_size(), font_size()));
-        text_buffer.set_rich_text(
-            self.font_system,
-            text.iter().map(|(s, attr)| (s.as_str(), attr.as_attrs())),
-            &glyphon::Attrs::new().family(glyphon::Family::Monospace),
-            glyphon::Shaping::Advanced,
-            None,
-        );
-
-        text_buffer.shape_until_scroll(self.font_system, false);
+        let text_buffer = self.text_cache.get(self.font_system, text);
 
         let mut text_renderer =
             TextRenderer::new(self.atlas, self.device, MultisampleState::default(), None);
@@ -769,7 +832,7 @@ impl DrawingSharedData<'_> {
                 self.atlas,
                 self.viewport,
                 [glyphon::TextArea {
-                    buffer: &text_buffer,
+                    buffer: text_buffer,
                     left: display_area_px.0[0][0] as f32,
                     top: display_area_px.0[0][1] as f32,
                     scale: 1.0,
@@ -1389,6 +1452,7 @@ impl UIDisplay {
             swash_cache,
             viewport,
             atlas,
+            text_cache,
             // text_renderer,
             // text_buffer,
             rectangle_renderer,
@@ -1476,6 +1540,7 @@ impl UIDisplay {
                 // surface,
                 viewport,
                 atlas,
+                text_cache,
                 device,
                 queue,
                 _surface_config: surface_config,
@@ -1485,6 +1550,7 @@ impl UIDisplay {
 
             drawing_shared_data.draw_primitive_scene(content);
         }
+        text_cache.end_frame();
 
         let copy = capture
             .then(|| FrameCopy::start(device, &mut encoder, &output.texture))
