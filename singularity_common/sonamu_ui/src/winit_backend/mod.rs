@@ -43,6 +43,7 @@ struct WgpuData {
     swash_cache: SwashCache,
     viewport: glyphon::Viewport,
     atlas: TextAtlas,
+    text_cache: rendering::TextCache,
     // text_renderer: glyphon::TextRenderer,
     // text_buffer: glyphon::Buffer,
 
@@ -98,6 +99,7 @@ impl WgpuData {
 
         // Set up text renderer
         let font_system = FontSystem::new();
+        let text_cache = rendering::TextCache::new(&font_system);
         let swash_cache = SwashCache::new();
         let cache = glyphon::Cache::new(&device);
         let viewport = glyphon::Viewport::new(&device, &cache);
@@ -170,6 +172,7 @@ impl WgpuData {
             swash_cache,
             viewport,
             atlas,
+            text_cache,
             // text_renderer,
             // text_buffer,
             rectangle_renderer,
