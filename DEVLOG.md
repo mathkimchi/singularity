@@ -10478,3 +10478,21 @@ Then, Claude sees an issue, implements it, then makes a PR.
 
 I'm going to do this with [Github Actions](https://code.claude.com/docs/en/github-actions),
 which lets me just `@claude` in GitHub issues and apparently it does stuff on the cloud.
+
+2026-10-18 09:54PM
+
+I haven't been documenting in DEVLOG ever since I started vibecoding Sonamu.
+
+Well, this is going to be the first commit to the repo where it's named Sonamu.
+
+I'm daily driving Sonamu, I am going to tag this as the MVP,
+and I just pushed the 100th thing to the repo.
+
+I would usually take thiis time to get philosophical,
+but I haven't much time because of work.
+I think that is emblematic of my life now.
+But it's a sacrifice I'm willing to make,
+trading the small things for the big.
+
+I have been feeling that I am destined to make a new path for myself,
+grant me courage.
