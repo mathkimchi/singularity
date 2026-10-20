@@ -958,7 +958,11 @@ impl NodeTree {
         let Some(main) = &node.main else {
             return WorldTree::Base(node.layout.label().to_string());
         };
-        let mut treeview = main.get_treeview().tree;
+        let published = main.get_treeview();
+        let mut treeview = published.tree;
+        if let Some(icon) = icon(published.saved.as_ref()) {
+            root_label_mut(&mut treeview).insert_str(0, &format!("{icon} "));
+        }
         if node.inactive {
             root_label_mut(&mut treeview).insert_str(0, INACTIVE_MARK);
         }
@@ -1508,6 +1512,56 @@ pub fn root_label_mut(treeview: &mut WorldTree<String>) -> &mut String {
         WorldTree::Base(label) => label,
         WorldTree::World(node) => root_label_mut(node.get_value_mut()),
     }
+}
+
+/// Icons of wl clients whose app id contains one of the names
+const WL_ICONS: [(&[&str], char); 4] = [
+    (
+        &[
+            "foot",
+            "alacritty",
+            "kitty",
+            "wezterm",
+            "ghostty",
+            "konsole",
+            "term",
+        ],
+        '\u{f120}',
+    ),
+    (
+        &[
+            "firefox",
+            "chrom",
+            "qutebrowser",
+            "brave",
+            "librewolf",
+            "zen",
+        ],
+        '\u{f0ac}',
+    ),
+    (&["dolphin", "nautilus", "thunar", "nemo"], '\u{f07b}'),
+    (&["okular", "zathura", "evince"], '\u{f1c1}'),
+];
+
+/// A Nerd Font icon for the applet, by how it is saved (`None`: no icon, eg the help)
+fn icon(saved: Option<&SavedApplet>) -> Option<char> {
+    Some(match saved? {
+        SavedApplet::Project(_) => '\u{f0b1}',
+        SavedApplet::Spawner { name, .. } => match name.as_str() {
+            "command_hub" => '\u{f054}',
+            "file_manager" => '\u{f07b}',
+            "code_editor" => '\u{f121}',
+            "image_viewer" => '\u{f03e}',
+            _ => '\u{f2d0}',
+        },
+        SavedApplet::Wl(wl) => {
+            let app_id = wl.app_id.as_deref().unwrap_or_default().to_lowercase();
+            WL_ICONS
+                .iter()
+                .find(|(names, _)| names.iter().any(|name| app_id.contains(name)))
+                .map_or('\u{f2d0}', |&(_, icon)| icon)
+        }
+    })
 }
 
 fn has_inner_elements(treeview: &WorldTree<String>) -> bool {

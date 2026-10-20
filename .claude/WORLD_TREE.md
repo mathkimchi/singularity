@@ -139,7 +139,9 @@ Every client publishes, through its treeview `SharedState`:
 
 The holder above stitches these in:
 
-- Its treeview puts each node's published tree in as that node's value.
+- Its treeview puts each node's published tree in as that node's value, its label prefixed with a Nerd Font icon
+  picked from the published `saved` (applet kind, or a wl client's app id; `icon` in `node_tree.rs`).
+  Applets can't draw images, so there are no real app icons or favicons.
 - Its focus path appends the published focus.
 - The root always shows the treeview panel (`TREEVIEW_ALWAYS_SHOWN`); with it off, only while
   `NodeTree::is_traversing` is true.
