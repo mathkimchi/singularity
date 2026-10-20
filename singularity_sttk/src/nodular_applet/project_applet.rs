@@ -3,13 +3,13 @@
 
 use crate::{
     command_hub::{BG, CommandHubApplet},
-    standard_keybinds::{BROWSER, TERMINAL},
     nodular_applet::{
         Answer, AppletContext, EmbeddedId, NodeRequest, NodularAppletInitializer, StandardApplet,
         WrapInitializer,
         node_holder::NodeHolder,
         node_tree::{AttachClient, NodeId, NodeTree, SpawnClient, root_label_mut},
     },
+    standard_keybinds::{BROWSER, TERMINAL},
 };
 use singularity_common::{
     sap::{
@@ -66,6 +66,8 @@ pub struct ProjectApplet {
     name: String,
     /// The new name being typed (empty keeps the old one)
     renaming: Option<String>,
+    /// The new directory being typed (empty clears it)
+    setting_directory: Option<String>,
 }
 impl ProjectApplet {
     /// Makes a project holding a subtree (`NodeRequest::Wrap`), under its inner root
@@ -135,6 +137,7 @@ impl ProjectApplet {
             dissolved: false,
             name: LABEL.to_string(),
             renaming: None,
+            setting_directory: None,
         }
     }
 
@@ -149,7 +152,8 @@ impl ProjectApplet {
         let root = self.holder.tree.root();
         match NEW_ROWS[index].2 {
             Some(program) => {
-                self.holder.handle_node_request(root, NodeRequest::Run(program));
+                self.holder
+                    .handle_node_request(root, NodeRequest::Run(program));
             }
             None => {
                 if let Some(id) = self
@@ -205,7 +209,27 @@ impl ProjectApplet {
                 pressed: true,
                 ..
             } if !(modifiers.ctrl || modifiers.alt || modifiers.logo) => {
+                if let Some(path) = &mut self.setting_directory {
+                    match key {
+                        KeySymbol::Enter => {
+                            let path = path.trim();
+                            self.holder.directory = (!path.is_empty()).then(|| path.into());
+                            self.setting_directory = None;
+                        }
+                        KeySymbol::Escape => self.setting_directory = None,
+                        KeySymbol::Backspace => {
+                            path.pop();
+                        }
+                        KeySymbol::Char(key_char) if !key_char.is_control() => path.push(key_char),
+                        _ => return Some(ui_event),
+                    }
+                    self.hook.damage_window();
+                    return None;
+                }
                 match (&mut self.renaming, key) {
+                    (None, KeySymbol::Char('d')) if modifiers == KeyModifiers::NONE => {
+                        self.setting_directory = Some(String::new());
+                    }
                     (Some(_), KeySymbol::Enter) => {
                         let name = self.renaming.take().unwrap_or_default();
                         if !name.trim().is_empty() {
@@ -241,15 +265,28 @@ impl ProjectApplet {
 
     fn get_overview(&self, width: f32) -> UITree {
         let tree = &self.holder.tree;
-        let (title, hint) = match &self.renaming {
-            Some(name) => (format!("{name}▏"), "Enter: save, Esc: cancel"),
-            None => (self.name.clone(), "r: rename, 1-9: select"),
+        let (title, hint) = match (&self.renaming, &self.setting_directory) {
+            (Some(name), _) => (format!("{name}▏"), "Enter: save, Esc: cancel".to_string()),
+            (_, Some(path)) => (
+                format!("dir: {path}▏"),
+                "Enter: save (empty clears), Esc: cancel".to_string(),
+            ),
+            _ => {
+                let directory = self.holder.directory.as_ref().map_or_else(
+                    || "none".to_string(),
+                    |directory| directory.display().to_string(),
+                );
+                (
+                    self.name.clone(),
+                    format!("r: rename, d: directory ({directory}), 1-9: select"),
+                )
+            }
         };
         let text = settings::get().palette.fg;
         let contents = (1..)
             .zip(tree.children(tree.root()))
             .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), text));
-        let rows = [(title, text), (hint.to_string(), HINT)]
+        let rows = [(title, text), (hint, HINT)]
             .into_iter()
             .chain(contents)
             .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), text)));

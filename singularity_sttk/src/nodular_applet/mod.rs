@@ -6,7 +6,10 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree},
-        packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, StateKind, Treeview},
+        packets::{
+            AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, StateKind,
+            Treeview,
+        },
         raw_client_initializer::RawClientInitializer,
         session::SavedApplet,
         shared_state::{SharedState, StatePublisher},
