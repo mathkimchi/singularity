@@ -163,7 +163,7 @@ The holder converts them:
   `get_focus_path`).
 - `NodeAction(path, action)` (`NodeHolder::node_action`) does something to the node at the path, passed down the same
   way to the holder owning it (`StandardApplet::node_action`; a project's holder, or the file manager for its
-  documents). The treeview's `×` button on each row (not the root, not `‹` rows) sends `NodeAction::Close`,
+  documents). The treeview's `×` button, shown on the hovered row (not the root, not `‹` rows), sends `NodeAction::Close`,
   which asks the node's main to close like Ctrl+W.
 - A right click in the treeview opens a menu (#103, `Menu` in `treeview.rs`). On a node's row: New child ›,
   New sibling below ›, Make project (Wrap, like Super+P), Deactivate, Close, Close with children (asks every node

@@ -77,7 +77,7 @@ pub struct TreeviewRow {
     label: String,
     /// Inside an applet's inner tree, rather than a node (or the view root's parent)
     inner: bool,
-    /// Has a close button: not the root, nor a `‹` row
+    /// Has a close button (shown while hovered): not the root, nor a `‹` row
     closable: bool,
 }
 
@@ -666,6 +666,8 @@ impl TreeviewPointer {
 
             let text_left = LEFT_PAD + row.depth as f32 * INDENT;
             let text_top = (row_height() - font_size()) / 2.0;
+            // like a browser tab's, only on the hovered row
+            let shows_close = row.closable && is_hovered && dragging.is_none();
             let text_color = with_opacity(if is_dragged {
                 DRAGGED_TEXT
             } else if is_inactive(row) {
@@ -683,13 +685,14 @@ impl TreeviewPointer {
                 Style::absolute(
                     [text_left, text_top],
                     [
-                        (width - text_left - close_width()).max(0.0),
+                        (width - text_left - if shows_close { close_width() } else { 0.0 })
+                            .max(0.0),
                         row_height() - text_top,
                     ],
                 ),
             ));
-            if row.closable {
-                let color = if is_hovered && self.hovered_close {
+            if shows_close {
+                let color = if self.hovered_close {
                     settings.palette.fg
                 } else {
                     settings.palette.inactive
