@@ -818,6 +818,7 @@ impl DrawingSharedData<'_> {
         &mut self,
         text: &[(String, AttrsOwned)],
         display_area_px: DisplayAreaPx,
+        scale: f32,
     ) {
         let text_buffer = self.text_cache.get(self.font_system, text);
 
@@ -835,7 +836,7 @@ impl DrawingSharedData<'_> {
                     buffer: text_buffer,
                     left: display_area_px.0[0][0] as f32,
                     top: display_area_px.0[0][1] as f32,
-                    scale: 1.0,
+                    scale,
                     bounds: Self::display_area_to_text_bounds(display_area_px),
                     default_color: glyphon::Color::rgb(255, 255, 255),
                     custom_glyphs: &[],
@@ -1328,8 +1329,8 @@ impl DrawingSharedData<'_> {
                 self.draw_rect(round_rect, display_area_px, clip);
             }
             // REVIEW: text isn't clipped
-            UIPrimitiveElement::Text(items) => {
-                self.draw_text_with_glyphon(items, display_area_px);
+            UIPrimitiveElement::Text(items, scale) => {
+                self.draw_text_with_glyphon(items, display_area_px, *scale);
             }
             UIPrimitiveElement::CharGrid(char_grid) => {
                 self.draw_char_grid(char_grid, display_area_px, clip);

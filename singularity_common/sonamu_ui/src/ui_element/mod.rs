@@ -46,6 +46,26 @@ impl CursorAreas {
     }
 }
 
+/// Where laid out positions are drawn: `position * scale + offset`
+#[derive(Debug, Clone, Copy)]
+struct Transform {
+    scale: f32,
+    offset: [f32; 2],
+}
+impl Transform {
+    const IDENTITY: Self = Self {
+        scale: 1.0,
+        offset: [0.0, 0.0],
+    };
+
+    fn apply(self, [x, y]: [f32; 2]) -> [f32; 2] {
+        [
+            x * self.scale + self.offset[0],
+            y * self.scale + self.offset[1],
+        ]
+    }
+}
+
 /// What each taffy node holds while laying out
 type NodeContext = (UIElement, Option<Cursor>);
 
@@ -53,7 +73,8 @@ type NodeContext = (UIElement, Option<Cursor>);
 #[derive(Debug, Clone)]
 pub enum UIPrimitiveElement {
     RoundRect(RoundRect),
-    Text(Vec<(String, glyphon::AttrsOwned)>),
+    /// And how much it is scaled (`UIElement::Scaled`)
+    Text(Vec<(String, glyphon::AttrsOwned)>, f32),
     CharGrid(CharGrid),
     /// Just general holder
     Texture(TextureView),
@@ -220,23 +241,26 @@ impl PrimitiveScene {
 
     /// Parents are added before children, so children draw on top.
     /// Primitives are cut to `clip`; a rounded border cuts its children to its inside.
+    /// Laid out positions are drawn at `transform` of them (scaled by `UIElement::Scaled`).
     fn add_taffy_node(
         &mut self,
         taffy: &mut taffy::TaffyTree<NodeContext>,
         node_id: taffy::NodeId,
         parent_location: taffy::Point<f32>,
         clip: Option<Clip>,
+        transform: Transform,
     ) {
         let layout = *taffy.layout(node_id).unwrap();
         let location = taffy::Point {
             x: parent_location.x + layout.location.x,
             y: parent_location.y + layout.location.y,
         };
+        let [left, top] = transform.apply([location.x, location.y]);
         let area = DisplayAreaPx::new(
-            location.x as u32,
-            location.y as u32,
-            (location.x + layout.size.width) as u32,
-            (location.y + layout.size.height) as u32,
+            left as u32,
+            top as u32,
+            (left + layout.size.width * transform.scale) as u32,
+            (top + layout.size.height * transform.scale) as u32,
         );
 
         let (element, cursor) = std::mem::replace(
@@ -246,12 +270,16 @@ impl PrimitiveScene {
         if let Some(cursor) = cursor {
             self.cursors.0.push((cursor, area));
         }
+        let element_scale = match element {
+            UIElement::Scaled(scale) => Some(scale),
+            _ => None,
+        };
         let primitive = match element {
             UIElement::Bordered { color, radius } => {
                 // REVIEW: assumes the same border width on every side
-                let width = layout.border.left;
+                let width = layout.border.left * transform.scale;
                 Some(UIPrimitiveElement::RoundRect(RoundRect {
-                    corner_radius: radius,
+                    corner_radius: radius * transform.scale,
                     border_width: width,
                     main_color: Color::TRANSPARENT.to_rgba_f32_array(),
                     border_color: color.to_rgba_f32_array(),
@@ -264,7 +292,7 @@ impl PrimitiveScene {
                 // shouldn't matter
                 border_color: [0.; 4],
             })),
-            UIElement::Text(text) => Some(UIPrimitiveElement::Text(text)),
+            UIElement::Text(text) => Some(UIPrimitiveElement::Text(text, transform.scale)),
             UIElement::CharGrid(char_grid) => Some(UIPrimitiveElement::CharGrid(char_grid)),
             UIElement::Texture(texture_view) => Some(UIPrimitiveElement::Texture(texture_view)),
             // already resolved into a child in `build_taffy_tree`
@@ -272,7 +300,18 @@ impl PrimitiveScene {
                 self.subsurface_areas.push((surface_id, area));
                 None
             }
-            UIElement::Nothing => None,
+            UIElement::Scaled(_) | UIElement::Nothing => None,
+        };
+        let child_transform = match element_scale {
+            // scaled around its own top-left, which stays where it is drawn
+            Some(scale) => {
+                let scale = transform.scale * scale;
+                Transform {
+                    scale,
+                    offset: [left - location.x * scale, top - location.y * scale],
+                }
+            }
+            None => transform,
         };
         let child_clip = match &primitive {
             Some(UIPrimitiveElement::RoundRect(rect)) if rect.corner_radius > 0.0 => {
@@ -295,7 +334,7 @@ impl PrimitiveScene {
         }
 
         for child_id in taffy.children(node_id).unwrap() {
-            self.add_taffy_node(taffy, child_id, location, child_clip);
+            self.add_taffy_node(taffy, child_id, location, child_clip, child_transform);
         }
     }
 
@@ -341,7 +380,13 @@ impl PrimitiveScene {
             .unwrap();
 
         let mut scene = Self::new_empty();
-        scene.add_taffy_node(&mut taffy, root, taffy::Point { x: 0.0, y: 0.0 }, None);
+        scene.add_taffy_node(
+            &mut taffy,
+            root,
+            taffy::Point { x: 0.0, y: 0.0 },
+            None,
+            Transform::IDENTITY,
+        );
         scene
     }
 }
@@ -368,6 +413,10 @@ pub enum UIElement {
 
     /// Reference to an embedded UI element
     Subsurface(u64),
+
+    /// Draws its children this many times as big, from its top-left (eg a preview of an applet at 0.2).
+    /// They are laid out as usual, so give them their full size, and it the scaled size.
+    Scaled(f32),
 
     Nothing,
 }

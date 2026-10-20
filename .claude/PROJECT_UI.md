@@ -10,6 +10,14 @@
   `1  <label>` per child of the inner root, then `NEW_ROWS` (command hub `n`, project `p`, terminal `t`, browser `b`). Rows are a fixed height so the project hit-tests clicks itself.
 - `p` (#81) adds an empty project (`ProjectApplet::empty`, no contents, this project's directory) to the inner
   root and focuses inside it, so its own overview shows, ready to rename and fill.
+- Previews (#82): below the rows, a card per child of the inner root (`CARD_WIDTH` wide, the project's own shape, wrapping
+  into columns), each showing what that child shows (`NodeTree::preview`: its displayed node's surface, a split's first
+  pane) scaled down to fit with `UIElement::Scaled`, over its number and label. They update live, since a child's
+  `Damage` damages the project's window. A click on one selects that child, like its row. Hidden while setting the
+  directory (its options take those rows). The children keep their last pane size, or the tree's size if never shown.
+- `UIElement::Scaled(f)` (sonamu_ui): its children are laid out at full size, then drawn `f` times as big from its
+  top-left (rects incl. border and radius, text via glyphon's `TextArea::scale`, char grids, textures and wl
+  subsurfaces). Text still isn't clipped, so the preview is fitted inside its card instead of cut to it.
 - Keys there, taken before the project's selector: `r` (no modifiers) starts renaming; `n` adds a command hub to the
   inner root and focuses inside it (unlike Ctrl+Shift++, which doesn't focus it); `t`/`b` start `TERMINAL`/`BROWSER`
   (`standard_keybinds`, shared with Super+T/N) with `NodeRequest::Run`, and since focus is at the inner root, the

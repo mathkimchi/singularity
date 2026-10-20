@@ -25,7 +25,7 @@ use singularity_common::{
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
-    ui_element::{Style, UIElement, UITree, font_size},
+    ui_element::{Cursor, CursorIcon, Length, Style, UIElement, UITree, font_size},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
 };
 use std::{
@@ -48,6 +48,8 @@ const DIRECTORY_ROW: usize = 1;
 const CONTENTS_ROW: usize = 3;
 /// Most directory options shown
 const MAX_OPTIONS: usize = 20;
+/// Of each of its contents' previews, below the rows
+const CARD_WIDTH: f32 = 320.0;
 /// What a `NEW_ROWS` row adds
 #[derive(Clone, Copy)]
 enum New {
@@ -219,6 +221,7 @@ pub struct ProjectApplet {
     renaming: Option<String>,
     /// The new directory being typed (empty clears it)
     setting_directory: Option<DirectoryInput>,
+    size: DisplayContainerSize,
 }
 impl ProjectApplet {
     /// Makes a project holding a subtree (`NodeRequest::Wrap`), under its inner root,
@@ -313,7 +316,94 @@ impl ProjectApplet {
             name: LABEL.to_string(),
             renaming: None,
             setting_directory: None,
+            // until it gets one
+            size: DisplayContainerSize::new(800, 600),
         }
+    }
+
+    /// Where the overview shows a preview card of each of its contents (`[x, y, width, height]`), below the rows.
+    /// None while setting the directory, whose options take those rows.
+    fn card_rects(&self) -> Vec<[f32; 4]> {
+        if self.setting_directory.is_some() {
+            return Vec::new();
+        }
+        let tree = &self.holder.tree;
+        let count = tree.children(tree.root()).len();
+        let rows = CONTENTS_ROW + count + NEW_ROWS.len();
+        let top = PAD + rows as f32 * row_height() + PAD;
+        let width = self.size.width as f32;
+        let card_width = CARD_WIDTH.min(width - 2.0 * PAD).max(1.0);
+        // the project's own shape, which its panes have, and a caption
+        let card_height = card_width * self.size.height as f32 / width.max(1.0) + row_height();
+        // non-negative, since it is at least 1
+        #[allow(clippy::cast_sign_loss)]
+        let columns = ((width - PAD) / (card_width + PAD)).floor().max(1.0) as usize;
+        (0..count)
+            .map(|index| {
+                let (row, column) = (index / columns, index % columns);
+                [
+                    PAD + column as f32 * (card_width + PAD),
+                    top + row as f32 * (card_height + PAD),
+                    card_width,
+                    card_height,
+                ]
+            })
+            .collect()
+    }
+
+    /// Its contents' preview cards: what each shows, scaled down to fit, over its number and label
+    fn get_cards(&self) -> Vec<UITree> {
+        let tree = &self.holder.tree;
+        let settings = settings::get();
+        (1..)
+            .zip(self.card_rects())
+            .zip(tree.children(tree.root()))
+            .map(|((number, [x, y, width, height]), &id)| {
+                let preview_height = height - row_height();
+                let mut parts = Vec::new();
+                if let Some((surface, size)) = tree.preview(id) {
+                    let [applet_width, applet_height] =
+                        [size.width, size.height].map(|length| length.max(1) as f32);
+                    let scale = (width / applet_width).min(preview_height / applet_height);
+                    parts.push(UITree::new_styled(
+                        UIElement::Scaled(scale),
+                        Style::absolute(
+                            [(width - applet_width * scale) / 2.0, 0.0],
+                            [applet_width * scale, applet_height * scale],
+                        ),
+                        vec![UITree::new_container_styled(
+                            Style::absolute([0.0, 0.0], [applet_width, applet_height]),
+                            vec![surface],
+                        )],
+                    ));
+                }
+                parts.push(UITree::leaf_styled(
+                    UIElement::Text(vec![(
+                        format!("{number}  {}", tree.label(id)),
+                        UIElement::glyphon_attr(settings.palette.fg),
+                    )]),
+                    Style::absolute(
+                        [
+                            PAD / 2.0,
+                            preview_height + (row_height() - font_size()) / 2.0,
+                        ],
+                        [(width - PAD / 2.0).max(0.0), font_size()],
+                    ),
+                ));
+                UITree::new_styled(
+                    UIElement::Bordered {
+                        color: settings.border.unfocused,
+                        radius: settings.radius,
+                    },
+                    Style {
+                        border: Length::uniform_rect(Length::Px(1.0)),
+                        ..Style::absolute([x, y], [width, height])
+                    },
+                    parts,
+                )
+                .with_cursor(Some(Cursor::Named(CursorIcon::Pointer)))
+            })
+            .collect()
     }
 
     /// Starts typing a new directory, from the current one (the runner's if it has none)
@@ -390,7 +480,7 @@ impl ProjectApplet {
     fn handle_overview_event(&mut self, ui_event: UIEvent) -> Option<UIEvent> {
         match ui_event {
             UIEvent::Mouse(MouseEvent {
-                position: [_, y],
+                position: [x, y],
                 kind:
                     MouseEventKind::Button {
                         button: BTN_LEFT,
@@ -399,6 +489,21 @@ impl ProjectApplet {
                 ..
             }) => {
                 let root = self.holder.tree.root();
+                let [x, y] = [x, y].map(|coord| coord as f32);
+                let card = self
+                    .card_rects()
+                    .iter()
+                    .position(|&[left, top, width, height]| {
+                        (left..left + width).contains(&x) && (top..top + height).contains(&y)
+                    });
+                if let Some(index) = card {
+                    let id = self.holder.tree.children(root)[index];
+                    self.holder.tree.focus(id, false);
+                    self.hook.damage_window();
+                    self.hook.damage_treeview();
+                    return None;
+                }
+                let y = f64::from(y);
                 let contents = self.holder.tree.children(root).len();
                 // non-negative, since `y >= PAD`
                 #[allow(clippy::cast_sign_loss)]
@@ -554,6 +659,7 @@ impl ProjectApplet {
                     ),
                 )
             })
+            .chain(self.get_cards())
             .collect();
         UITree::new_styled(UIElement::Backgrounded(BG), Style::full_size(), rows)
     }
@@ -562,6 +668,9 @@ impl StandardApplet for ProjectApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
         if self.dissolved {
             return;
+        }
+        if let StandardEvent::UIEvent(UIEvent::WindowResized(size)) = standard_event {
+            self.size = size;
         }
         let standard_event = match standard_event {
             StandardEvent::UIEvent(ui_event) if self.at_root() => {

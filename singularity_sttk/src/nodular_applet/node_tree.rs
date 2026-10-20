@@ -1420,6 +1420,17 @@ impl NodeTree {
         }
     }
 
+    /// What the node shows on its own (for a split, its first pane) and the size it is drawn at, eg for a preview.
+    /// `None` if that has no running applet or no size yet.
+    pub fn preview(&self, id: NodeId) -> Option<(UITree, DisplayContainerSize)> {
+        let mut id = self.displayed_node(id);
+        while matches!(self.nodes[id].layout, Layout::Split(_)) {
+            id = self.displayed_node(*self.nodes[id].children.first()?);
+        }
+        let node = &self.nodes[id];
+        Some((node.main.as_ref()?.get_surface(), node.size?))
+    }
+
     /// Works out what is on screen, and resizes the shown applets to their panes
     pub fn update_layout(&mut self) {
         let Some(size) = self.latest_size else {
