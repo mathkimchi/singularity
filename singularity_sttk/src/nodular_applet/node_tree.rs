@@ -391,6 +391,7 @@ impl NodeTree {
                 children: saved,
                 label: None,
                 directory: None,
+                icon: None,
             },
         }
     }
@@ -419,6 +420,7 @@ impl NodeTree {
             children,
             label: None,
             directory: None,
+            icon: None,
         }]
     }
 
@@ -1658,10 +1660,16 @@ const WL_ICONS: [(&[&str], char); 4] = [
     (&["okular", "zathura", "evince"], '\u{f1c1}'),
 ];
 
-/// A Nerd Font icon for the applet, by how it is saved (`None`: no icon, eg the help)
-fn icon(saved: Option<&SavedApplet>) -> Option<char> {
-    Some(match saved? {
-        SavedApplet::Project(_) => '\u{f0b1}',
+/// A project's icon until one is picked
+pub(crate) const PROJECT_ICON: char = '\u{f0b1}';
+
+/// A Nerd Font icon for the applet, by how it is saved (`None`: no icon, eg the help).
+/// A project's is the one it picked, if any.
+fn icon(saved: Option<&SavedApplet>) -> Option<String> {
+    let icon = match saved? {
+        SavedApplet::Project(contents) => {
+            return contents.icon.clone().or(Some(PROJECT_ICON.to_string()));
+        }
         SavedApplet::Spawner { name, .. } => match name.as_str() {
             "command_hub" => '\u{f054}',
             "file_manager" => '\u{f07b}',
@@ -1676,7 +1684,8 @@ fn icon(saved: Option<&SavedApplet>) -> Option<char> {
                 .find(|(names, _)| names.iter().any(|name| app_id.contains(name)))
                 .map_or('\u{f2d0}', |&(_, icon)| icon)
         }
-    })
+    };
+    Some(icon.to_string())
 }
 
 fn has_inner_elements(treeview: &WorldTree<String>) -> bool {

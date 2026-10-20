@@ -28,6 +28,9 @@ pub struct SavedTree {
     /// A project's working directory for programs started inside; only a project's inner root has one
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub directory: Option<PathBuf>,
+    /// A project's icon in the treeview (`None`: the default); only a project's inner root has one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 /// How to make a node's main again

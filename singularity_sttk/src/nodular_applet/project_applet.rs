@@ -7,7 +7,7 @@ use crate::{
         Answer, AppletContext, EmbeddedId, NodeRequest, NodularAppletInitializer, StandardApplet,
         WrapInitializer,
         node_holder::NodeHolder,
-        node_tree::{AttachClient, NodeId, NodeTree, SpawnClient, root_label_mut},
+        node_tree::{AttachClient, NodeId, NodeTree, PROJECT_ICON, SpawnClient, root_label_mut},
     },
     standard_keybinds::{BROWSER, TERMINAL},
 };
@@ -38,14 +38,38 @@ use std::{
 /// Its name until it is renamed: its inner tree root's label
 const LABEL: &str = "Project";
 
-/// The overview's rows: the name, its directory, a hint, its contents, then `NEW_ROWS`
+/// The overview's rows: the name, its directory, its icon, a hint, its contents, then `NEW_ROWS`
 fn row_height() -> f32 {
     font_size() + 14.0
 }
 const PAD: f32 = 16.0;
 const DIRECTORY_ROW: usize = 1;
-/// Rows before its contents (or the directory options, while setting the directory)
-const CONTENTS_ROW: usize = 3;
+const ICON_ROW: usize = 2;
+/// Rows before its contents (or the directory or icon options, while setting one)
+const CONTENTS_ROW: usize = 4;
+/// The icons the picker lists (any typed character works too)
+const ICONS: [(char, &str); 20] = [
+    (PROJECT_ICON, "briefcase"),
+    ('\u{f07b}', "folder"),
+    ('\u{f121}', "code"),
+    ('\u{f120}', "terminal"),
+    ('\u{f0ac}', "globe"),
+    ('\u{f02d}', "book"),
+    ('\u{f040}', "pencil"),
+    ('\u{f19d}', "school"),
+    ('\u{f0c3}', "flask"),
+    ('\u{f135}', "rocket"),
+    ('\u{f013}', "cog"),
+    ('\u{f015}', "home"),
+    ('\u{f073}', "calendar"),
+    ('\u{f11b}', "game"),
+    ('\u{f001}', "music"),
+    ('\u{f030}', "camera"),
+    ('\u{f005}', "star"),
+    ('\u{f004}', "heart"),
+    ('\u{f024}', "flag"),
+    ('\u{f06c}', "leaf"),
+];
 /// Most directory options shown
 const MAX_OPTIONS: usize = 20;
 /// Of each of its contents' previews, below the rows
@@ -221,6 +245,10 @@ pub struct ProjectApplet {
     renaming: Option<String>,
     /// The new directory being typed (empty clears it)
     setting_directory: Option<DirectoryInput>,
+    /// Its treeview icon (`None`: `PROJECT_ICON`)
+    icon: Option<String>,
+    /// Picking an icon: the index in `ICONS` selected with the arrows
+    picking_icon: Option<usize>,
     size: DisplayContainerSize,
 }
 impl ProjectApplet {
@@ -241,10 +269,12 @@ impl ProjectApplet {
         Box::new(move |hook| {
             let name = contents.label.take().unwrap_or_else(|| LABEL.to_string());
             let directory = contents.directory.take();
+            let icon = contents.icon.take();
             let mut project = Self::with_tree(hook, |spawn_client, attach_client| {
                 NodeTree::restore(contents, spawn_client, attach_client)
             });
             project.name = name;
+            project.icon = icon;
             project.holder.directory = directory;
             Box::new(project) as Box<dyn StandardApplet>
         })
@@ -316,6 +346,8 @@ impl ProjectApplet {
             name: LABEL.to_string(),
             renaming: None,
             setting_directory: None,
+            icon: None,
+            picking_icon: None,
             // until it gets one
             size: DisplayContainerSize::new(800, 600),
         }
@@ -324,7 +356,7 @@ impl ProjectApplet {
     /// Where the overview shows a preview card of each of its contents (`[x, y, width, height]`), below the rows.
     /// None while setting the directory, whose options take those rows.
     fn card_rects(&self) -> Vec<[f32; 4]> {
-        if self.setting_directory.is_some() {
+        if self.setting_directory.is_some() || self.picking_icon.is_some() {
             return Vec::new();
         }
         let tree = &self.holder.tree;
@@ -416,7 +448,56 @@ impl ProjectApplet {
             .map(|directory| tilde(&directory))
             .unwrap_or_default();
         self.renaming = None;
+        self.picking_icon = None;
         self.setting_directory = Some(DirectoryInput::new(directory));
+    }
+
+    /// Starts picking an icon, at the current one if it is listed
+    fn start_picking_icon(&mut self) {
+        let current = self.icon.as_deref().and_then(|icon| icon.chars().next());
+        self.renaming = None;
+        self.setting_directory = None;
+        self.picking_icon = Some(
+            ICONS
+                .iter()
+                .position(|&(icon, _)| Some(icon) == current)
+                .unwrap_or(0),
+        );
+    }
+
+    /// Sets the icon (`None`: the default) and stops picking
+    fn set_icon(&mut self, icon: Option<String>) {
+        self.icon = icon;
+        self.picking_icon = None;
+    }
+
+    /// A key while picking an icon; whether it took it
+    fn handle_icon_key(&mut self, key: KeySymbol) -> bool {
+        let Some(selected) = self.picking_icon else {
+            return false;
+        };
+        match key {
+            KeySymbol::Enter => self.set_icon(Some(ICONS[selected].0.to_string())),
+            KeySymbol::Escape => self.picking_icon = None,
+            KeySymbol::Backspace => self.set_icon(None),
+            KeySymbol::ArrowKeyDown => self.picking_icon = Some((selected + 1) % ICONS.len()),
+            KeySymbol::ArrowKeyUp => {
+                self.picking_icon = Some((selected + ICONS.len() - 1) % ICONS.len());
+            }
+            // any character, eg an emoji
+            KeySymbol::Char(key_char) if !key_char.is_control() => {
+                self.set_icon(Some(key_char.to_string()));
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Its icon as shown
+    fn shown_icon(&self) -> String {
+        self.icon
+            .clone()
+            .unwrap_or_else(|| PROJECT_ICON.to_string())
     }
 
     /// Focus is on its inner root (the project itself), so it shows the overview
@@ -511,6 +592,11 @@ impl ProjectApplet {
                     .then(|| ((y - f64::from(PAD)) / f64::from(row_height())) as usize);
                 match row {
                     None => {}
+                    Some(row) if row >= CONTENTS_ROW && self.picking_icon.is_some() => {
+                        if let Some(&(icon, _)) = ICONS.get(row - CONTENTS_ROW) {
+                            self.set_icon(Some(icon.to_string()));
+                        }
+                    }
                     Some(row) if row >= CONTENTS_ROW && self.setting_directory.is_some() => {
                         if let Some(input) = &mut self.setting_directory
                             && let Some(option) = input.options.get(row - CONTENTS_ROW).cloned()
@@ -520,9 +606,11 @@ impl ProjectApplet {
                     }
                     Some(0) => {
                         self.setting_directory = None;
+                        self.picking_icon = None;
                         self.renaming = Some(String::new());
                     }
                     Some(DIRECTORY_ROW) => self.start_setting_directory(),
+                    Some(ICON_ROW) => self.start_picking_icon(),
                     Some(row) if (CONTENTS_ROW..CONTENTS_ROW + contents).contains(&row) => {
                         let id = self.holder.tree.children(root)[row - CONTENTS_ROW];
                         self.holder.tree.focus(id, false);
@@ -551,6 +639,15 @@ impl ProjectApplet {
                     self.hook.damage_window();
                     return None;
                 }
+                if self.picking_icon.is_some() {
+                    if !self.handle_icon_key(key) {
+                        return Some(ui_event);
+                    }
+                    // the treeview shows it
+                    self.hook.damage_window();
+                    self.hook.damage_treeview();
+                    return None;
+                }
                 match (&mut self.renaming, key) {
                     (None, KeySymbol::Char('d')) if modifiers == KeyModifiers::NONE => {
                         self.start_setting_directory();
@@ -570,6 +667,9 @@ impl ProjectApplet {
                     }
                     (None, KeySymbol::Char('r')) if modifiers == KeyModifiers::NONE => {
                         self.renaming = Some(String::new());
+                    }
+                    (None, KeySymbol::Char('i')) if modifiers == KeyModifiers::NONE => {
+                        self.start_picking_icon();
                     }
                     (None, KeySymbol::Char(key_char))
                         if modifiers == KeyModifiers::NONE
@@ -592,9 +692,21 @@ impl ProjectApplet {
         let tree = &self.holder.tree;
         let text = settings::get().palette.fg;
         let title = match &self.renaming {
-            Some(name) => format!("{name}▏"),
-            None => self.name.clone(),
+            Some(name) => format!("{}  {name}▏", self.shown_icon()),
+            None => format!("{}  {}", self.shown_icon(), self.name),
         };
+        let icon_row = (
+            format!(
+                "icon: {}{}",
+                self.shown_icon(),
+                if self.icon.is_none() {
+                    " (default)"
+                } else {
+                    ""
+                }
+            ),
+            HINT,
+        );
         let (directory, hint) = match (&self.renaming, &self.setting_directory) {
             (_, Some(input)) => (
                 (format!("directory: {}▏", input.path), text),
@@ -620,13 +732,31 @@ impl ProjectApplet {
                 ),
                 if renaming.is_some() {
                     ("Enter: save, Esc: cancel", HINT)
+                } else if self.picking_icon.is_some() {
+                    (
+                        "Up/Down + Enter or click: pick, type: that character, Backspace: default, Esc: cancel",
+                        HINT,
+                    )
                 } else {
-                    ("r: rename, d: set directory, 1-9: select", HINT)
+                    (
+                        "r: rename, d: set directory, i: set icon, 1-9: select",
+                        HINT,
+                    )
                 },
             ),
         };
-        let below: Vec<(String, Color)> = match &self.setting_directory {
-            Some(input) => input
+        let below: Vec<(String, Color)> = match (&self.setting_directory, self.picking_icon) {
+            (_, Some(selected)) => (0..)
+                .zip(ICONS)
+                .map(|(index, (icon, name))| {
+                    if index == selected {
+                        (format!("› {icon}  {name}"), settings::get().palette.accent)
+                    } else {
+                        (format!("  {icon}  {name}"), text)
+                    }
+                })
+                .collect(),
+            (Some(input), None) => input
                 .options
                 .iter()
                 .take(MAX_OPTIONS)
@@ -639,15 +769,20 @@ impl ProjectApplet {
                     }
                 })
                 .collect(),
-            None => (1..)
+            (None, None) => (1..)
                 .zip(tree.children(tree.root()))
                 .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), text))
                 .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), text)))
                 .collect(),
         };
-        let rows = [(title, text), directory, (hint.0.to_string(), hint.1)]
-            .into_iter()
-            .chain(below);
+        let rows = [
+            (title, text),
+            directory,
+            icon_row,
+            (hint.0.to_string(), hint.1),
+        ]
+        .into_iter()
+        .chain(below);
         let rows = (0..)
             .zip(rows)
             .map(|(index, (text, color))| {
@@ -808,6 +943,7 @@ impl StandardApplet for ProjectApplet {
             let mut contents = self.holder.tree.save();
             contents.label = Some(self.name.clone());
             contents.directory.clone_from(&self.holder.directory);
+            contents.icon.clone_from(&self.icon);
             SavedApplet::Project(Box::new(contents))
         })
     }
