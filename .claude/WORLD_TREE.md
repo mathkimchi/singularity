@@ -143,8 +143,10 @@ The holder above stitches these in:
   picked from the published `saved` (applet kind, or a wl client's app id; `icon` in `node_tree.rs`).
   Applets can't draw images, so there are no real app icons or favicons.
 - Its focus path appends the published focus.
-- The root always shows the treeview panel (`TREEVIEW_ALWAYS_SHOWN`); with it off, only while
-  `NodeTree::is_traversing` is true.
+- The root shows the treeview per the `treeview` setting (#106): `position` left / right (a column, the panes get the
+  rest of the width) or floating (default: centered over the panes, which keep their size; always framed), and
+  `pinned` (always shown) or not (default: only while `NodeTree::is_traversing`, or a treeview drag or menu is open).
+  Floating is never pinned. See `treeview_area`, `applet_area` and `treeview_frame` in `root_node_applet.rs`.
 - When focus is inside an inner world that has elements, the treeview shows only that (deepest such) world, under a
   `‹ holder` row that focuses the holding node (`inner_layer_rows`). Else it shows the view root's subtree (Super+V).
   Expanded inner worlds are drawn in a box; the panel scrolls with the wheel and follows focus.

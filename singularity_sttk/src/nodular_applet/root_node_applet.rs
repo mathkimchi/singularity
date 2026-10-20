@@ -20,12 +20,12 @@ use singularity_common::{
         session::Session,
         shared_state::{SharedState, StatePublisher},
     },
-    settings::{self, Settings},
+    settings::{self, Settings, TreeviewPosition},
     utils::tree::{tree_node_path::TreeNodePath, world_tree::WorldTreePath},
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
-    ui_element::{Length, Style, TrackSize, UIElement, UITree},
+    ui_element::{Length, Style, UIElement, UITree},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, UIEvent},
 };
 use std::{
@@ -50,8 +50,10 @@ pub struct RootNodeApplet {
     last_drop: Option<(WorldTreePath, NodeId)>,
     /// The help Super+? opened, to close it on the next one
     help: Option<OpenHelp>,
-    /// See `TREEVIEW_ALWAYS_SHOWN`
+    /// Pinned in the settings, or traversing (see `update_treeview_visibility`)
     treeview_shown: bool,
+    /// The applets' area's left edge and width, as last sent to them
+    applet_area: [u32; 2],
     /// Where the session is saved, if anywhere
     session_path: Option<PathBuf>,
     /// The last one written, so unchanged ones aren't written again
@@ -66,39 +68,71 @@ struct OpenHelp {
     parent_inner: bool,
 }
 impl RootNodeApplet {
-    /// Of the width
+    /// Of the width, beside the panes
     const TREEVIEW_PERCENT: u32 = 20;
+    /// Of the width and height, floating
+    const FLOATING_PERCENT: [u32; 2] = [40, 70];
     /// How often the session is saved (if it changed), besides before quitting
     const SAVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-    /// Always show the treeview. Otherwise only while traversing (focus is on a node or inner element, not inside
-    /// an applet), and the applets get the full width the rest of the time.
-    const TREEVIEW_ALWAYS_SHOWN: bool = true;
 
-    /// 0 while hidden
-    fn treeview_width(&self) -> u32 {
-        if self.treeview_shown {
-            self.latest_size.width * Self::TREEVIEW_PERCENT / 100
-        } else {
-            0
+    /// Where the treeview is drawn (`[x, y, width, height]`, frame included), and how;
+    /// `None` while hidden
+    fn treeview_area(&self, settings: &Settings) -> Option<([u32; 4], TreeviewPosition)> {
+        if !self.treeview_shown {
+            return None;
+        }
+        let DisplayContainerSize { width, height } = self.latest_size;
+        let position = settings.treeview.position;
+        let column = width * Self::TREEVIEW_PERCENT / 100;
+        let area = match position {
+            TreeviewPosition::Left => [0, 0, column, height],
+            TreeviewPosition::Right => [width - column, 0, column, height],
+            TreeviewPosition::Floating => {
+                let [w, h] = [
+                    width * Self::FLOATING_PERCENT[0] / 100,
+                    height * Self::FLOATING_PERCENT[1] / 100,
+                ];
+                [(width - w) / 2, (height - h) / 2, w, h]
+            }
+        };
+        Some((area, position))
+    }
+
+    /// The applets' area's left edge and width: beside a treeview column, else everything
+    fn applet_area(&self, settings: &Settings) -> [u32; 2] {
+        match self.treeview_area(settings) {
+            Some(([x, _, width, _], TreeviewPosition::Left)) => {
+                [x + width, self.latest_size.width - width]
+            }
+            Some(([_, _, width, _], TreeviewPosition::Right)) => {
+                [0, self.latest_size.width - width]
+            }
+            Some((_, TreeviewPosition::Floating)) | None => [0, self.latest_size.width],
         }
     }
 
-    /// Right of the treeview
     fn inner_applet_size(&self) -> DisplayContainerSize {
         DisplayContainerSize::new(
-            self.latest_size.width - self.treeview_width(),
+            self.applet_area(&settings::get())[1],
             self.latest_size.height,
         )
     }
 
-    /// Shows or hides the treeview, resizing the applets
+    /// Shows the treeview if pinned or traversing, else hides it, resizing the applets if their area changed
+    /// (also when the treeview settings did)
     fn update_treeview_visibility(&mut self) {
-        let shown = Self::TREEVIEW_ALWAYS_SHOWN
+        let settings = settings::get();
+        let shown = settings.treeview.is_pinned()
             || self.holder.tree.is_traversing()
-            // eg a drag that started there
+            // eg a drag or menu that started there
             || self.treeview_pointer.is_pressed();
         if shown != self.treeview_shown {
             self.treeview_shown = shown;
+            self.surface.damage();
+        }
+        let applet_area = self.applet_area(&settings);
+        if applet_area != self.applet_area {
+            self.applet_area = applet_area;
             self.surface.damage();
             self.holder
                 .tree
@@ -110,14 +144,28 @@ impl RootNodeApplet {
 
     /// Publishes the window if damaged and the runner read the last one
     fn flush_surface(&mut self) {
-        let treeview_size = [self.treeview_width(), self.latest_size.height];
+        let settings = settings::get();
+        let treeview_area = self.treeview_area(&settings);
+        let applet_area = self.applet_area(&settings);
+        let height = self.latest_size.height;
         let Self {
             holder,
             treeview_pointer,
             ..
         } = self;
         self.surface.flush(
-            || Self::get_window(&holder.tree, treeview_pointer, treeview_size),
+            || {
+                let [left, width] = applet_area.map(|length| length as f32);
+                let tree = UITree::new_container_styled(
+                    Style::absolute([left, 0.0], [width, height as f32]),
+                    vec![holder.tree.get_window()],
+                );
+                let mut window = vec![tree];
+                if let Some(area) = treeview_area {
+                    window.push(Self::get_treeview(&holder.tree, treeview_pointer, area));
+                }
+                UITree::new_container(window)
+            },
             &self.request_sender,
         );
     }
@@ -196,6 +244,7 @@ impl RootNodeApplet {
             help: None,
             // the root node starts focused
             treeview_shown: true,
+            applet_area: [0, 800],
             session_path,
             saved_session,
         }
@@ -387,31 +436,35 @@ impl RootNodeApplet {
     }
 
     fn handle_mouse(&mut self, mut mouse_event: MouseEvent) {
-        // 0 while the treeview is hidden
-        let left = self.treeview_width();
-        let in_treeview = mouse_event.position[0] < f64::from(left);
+        let settings = settings::get();
+        let treeview_area = self.treeview_area(&settings);
         // a hidden treeview has no rows to hit
-        let (rows, general) = if self.treeview_shown {
+        let (rows, general) = if treeview_area.is_some() {
             view_rows(&self.holder.tree)
         } else {
             (Vec::new(), WorldTreePath::new_into())
         };
         // in the treeview's coords, inside its frame
-        let [gap, border] = treeview_frame(&settings::get());
-        let inset = gap + border;
+        let ([x, y, width, height], border) = treeview_area
+            .map_or(([0; 4], 0), |(area, position)| {
+                treeview_frame(&settings, area, position)
+            });
+        let [x, y, width, height] = [x, y, width, height].map(f64::from);
+        let [pointer_x, pointer_y] = mouse_event.position;
+        let in_treeview = treeview_area.is_some()
+            && (x..x + width).contains(&pointer_x)
+            && (y..y + height).contains(&pointer_y);
         let mut treeview_event = mouse_event;
-        treeview_event.position = treeview_event
-            .position
-            .map(|coord| coord - f64::from(inset));
+        treeview_event.position = [
+            pointer_x - x - f64::from(border),
+            pointer_y - y - f64::from(border),
+        ];
         let response = self.treeview_pointer.handle_mouse(
             &treeview_event,
             in_treeview,
             &rows,
             &general,
-            [
-                left.saturating_sub(gap + 2 * border) as f32,
-                self.latest_size.height.saturating_sub(2 * inset) as f32,
-            ],
+            [width, height].map(|length| (length - f64::from(2 * border)).max(0.0) as f32),
         );
 
         if response.damaged {
@@ -445,7 +498,7 @@ impl RootNodeApplet {
         }
 
         // remap window coords -> tree coords
-        mouse_event.position[0] -= f64::from(left);
+        mouse_event.position[0] -= f64::from(self.applet_area(&settings)[0]);
         self.holder
             .tree
             .handle_event(StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)));
@@ -483,83 +536,68 @@ impl RootNodeApplet {
         }
     }
 
-    fn get_window(
+    /// The treeview at `area`, framed like a pane with `always_frame` (a floating one always is)
+    fn get_treeview(
         tree: &NodeTree,
         treeview_pointer: &mut TreeviewPointer,
-        // width 0 while hidden
-        treeview_size: [u32; 2],
-    ) -> UITree {
-        if treeview_size[0] == 0 {
-            tree.get_window()
-        } else {
-            Self::get_window_with_treeview(tree, treeview_pointer, treeview_size)
-        }
-    }
-
-    fn get_window_with_treeview(
-        tree: &NodeTree,
-        treeview_pointer: &mut TreeviewPointer,
-        [treeview_width, treeview_height]: [u32; 2],
+        (area, position): ([u32; 4], TreeviewPosition),
     ) -> UITree {
         let (rows, _) = view_rows(tree);
         let settings = settings::get();
-        let [gap, border] = treeview_frame(&settings);
+        let ([x, y, width, height], border) = treeview_frame(&settings, area, position);
         let treeview = treeview_pointer.render(
             &rows,
             [
-                treeview_width.saturating_sub(gap + 2 * border) as f32,
-                treeview_height.saturating_sub(2 * (gap + border)) as f32,
+                width.saturating_sub(2 * border) as f32,
+                height.saturating_sub(2 * border) as f32,
             ],
             &tree.get_focus_path(),
         );
-        // the panes' gap is on its right
-        let treeview = if settings.always_frame {
-            UITree::new_container(vec![UITree::new_styled(
-                UIElement::Bordered {
-                    color: settings.border.treeview,
-                    radius: settings.radius,
-                },
-                Style {
-                    border: Length::uniform_rect(Length::Px(border as f32)),
-                    ..Style::absolute(
-                        [gap as f32, gap as f32],
-                        [
-                            treeview_width.saturating_sub(gap) as f32,
-                            treeview_height.saturating_sub(2 * gap) as f32,
-                        ],
-                    )
-                },
-                vec![treeview],
-            )])
-        } else {
-            treeview
-        };
-
-        UITree::new_container_styled(
-            Style {
-                display: sonamu_ui::ui_element::Display::Grid,
-                // in px, like the applets' sizes
-                grid_template_columns: vec![
-                    TrackSize::Px(treeview_width as f32),
-                    TrackSize::Fr(1.0),
-                ],
-                grid_template_rows: vec![TrackSize::Fr(1.0)],
-                ..Style::full_size()
+        UITree::new_styled(
+            UIElement::Bordered {
+                color: settings.border.treeview,
+                radius: if border > 0 { settings.radius } else { 0.0 },
             },
-            vec![treeview, tree.get_window()],
+            Style {
+                border: Length::uniform_rect(Length::Px(border as f32)),
+                ..Style::absolute([x as f32, y as f32], [width as f32, height as f32])
+            },
+            vec![treeview],
         )
     }
 }
 
-/// The treeview's gap and border width: framed like a pane with `always_frame`
-fn treeview_frame(settings: &Settings) -> [u32; 2] {
-    if settings.always_frame {
-        [
-            settings.gap.round() as u32,
-            settings.border.width.round() as u32,
-        ]
-    } else {
-        [0, 0]
+/// The treeview's frame (`[x, y, width, height]`, border included) in its `area`, and its border width.
+/// Framed like a pane with `always_frame`: in a column the panes' gap is on the side facing them, so it gets the
+/// other gaps. A floating one is always framed, as it is over the panes.
+fn treeview_frame(
+    settings: &Settings,
+    [x, y, width, height]: [u32; 4],
+    position: TreeviewPosition,
+) -> ([u32; 4], u32) {
+    let gap = settings.gap.round() as u32;
+    let border = settings.border.width.round() as u32;
+    match position {
+        TreeviewPosition::Floating => ([x, y, width, height], border.max(1)),
+        _ if !settings.always_frame => ([x, y, width, height], 0),
+        TreeviewPosition::Left => (
+            [
+                x + gap,
+                y + gap,
+                width.saturating_sub(gap),
+                height.saturating_sub(2 * gap),
+            ],
+            border,
+        ),
+        TreeviewPosition::Right => (
+            [
+                x,
+                y + gap,
+                width.saturating_sub(gap),
+                height.saturating_sub(2 * gap),
+            ],
+            border,
+        ),
     }
 }
 

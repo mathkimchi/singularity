@@ -34,5 +34,7 @@ print(json.dumps({
     "radius": dms_settings.get("cornerRadius", 12),
     # physical px; Sonamu's own UI isn't scaled
     "font_size": 24.0 * bar.get("fontScale", 1.0),
+    # floating over the middle of the panes, only while focus is on a node
+    "treeview": {"position": "floating", "pinned": False},
     "watch": [str(colors_path), str(dms_settings_path)],
 }, indent=2))

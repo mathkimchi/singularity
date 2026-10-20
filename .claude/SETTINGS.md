@@ -45,6 +45,9 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 - `radius`: pane corners; the pane's content (rects, char grids, wl textures, but not glyphon text) is clipped to the rounded inside.
 - `font_size`: physical px (Sonamu's UI isn't scaled). Mirrored into `sonamu_ui::ui_element::font_size()` on load, since `sonamu_ui` can't depend on `singularity_common`; used by glyphon text, char grid cell size (width = size / 1.933, ceil), and row heights in treeview, project overview, file manager and the pluck ghost.
 - `always_frame` (default true): a pane alone in its tree also gets border, gap and radius, and the treeview is framed like a pane (gap left/top/bottom, the panes' gap on its right; `border.unfocused`; mouse coords shifted by gap + border in `RootNodeApplet::handle_mouse`). False: a lone pane fills its tree and the treeview is flush. The treeview's border is `border.treeview` (DMS `secondary` in the example config).
+- `treeview.position` (`left`, `right`, `floating`; default `floating`) and `treeview.pinned` (default false): where the
+  root's treeview is and whether it always shows, or only while traversing. A floating one is 40% x 70% of the
+  window, centered over the panes, and never pinned. The example config sets both to the defaults.
 - A pane holding a project is never framed (no border, no radius) and grows by `gap` on every side: the project's own tree frames its panes and adds its own outer gap, so leaf content gets exactly one frame and one gap at any nesting depth. Detected by `NodeTree::is_project` (the applet's treeview `saved` is `SavedApplet::Project`). A project node's focus then only shows in the treeview.
 - Not themed yet: command hub/help, file manager, editors etc. keep their own constants.
 

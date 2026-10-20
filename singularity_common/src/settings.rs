@@ -33,6 +33,7 @@ pub struct Settings {
     pub always_frame: bool,
     /// Text height in px (Sonamu's own UI isn't scaled)
     pub font_size: f32,
+    pub treeview: TreeviewSettings,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -43,7 +44,34 @@ impl Default for Settings {
             radius: 0.0,
             always_frame: true,
             font_size: 46.0,
+            treeview: TreeviewSettings::default(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct TreeviewSettings {
+    pub position: TreeviewPosition,
+    /// Always shown; otherwise only while focus is on a node (traversing). A floating one is never pinned.
+    pub pinned: bool,
+}
+
+/// Where the root's treeview is
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TreeviewPosition {
+    /// A column left of the panes, which get the rest of the width
+    Left,
+    Right,
+    /// Over the middle of the panes, which keep their size
+    #[default]
+    Floating,
+}
+impl TreeviewSettings {
+    /// Whether it is always shown
+    pub fn is_pinned(&self) -> bool {
+        self.pinned && self.position != TreeviewPosition::Floating
     }
 }
 
@@ -239,7 +267,10 @@ fn reload_from(dir: &Path) -> Option<Vec<PathBuf>> {
             Some(watch.into_iter().map(|path| dir.join(path)).collect())
         }
         Err(err) => {
-            log::warn!("Keeping previous settings, could not load from {}: {err}", dir.display());
+            log::warn!(
+                "Keeping previous settings, could not load from {}: {err}",
+                dir.display()
+            );
             None
         }
     }
@@ -368,7 +399,11 @@ impl Watcher {
     fn sync(&mut self, extra: Vec<PathBuf>) {
         self.extra = extra.into_iter().collect();
         let dirs: HashSet<PathBuf> = std::iter::once(self.dir.clone())
-            .chain(self.extra.iter().filter_map(|path| path.parent().map(Path::to_path_buf)))
+            .chain(
+                self.extra
+                    .iter()
+                    .filter_map(|path| path.parent().map(Path::to_path_buf)),
+            )
             .collect();
         for dir in self.dirs.difference(&dirs) {
             let _ = self.watcher.unwatch(dir);

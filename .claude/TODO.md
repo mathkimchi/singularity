@@ -12,7 +12,7 @@ Decisions and details: `.claude/FM_SPLITS_UDEV.md`. Delete a line when done.
 - [x] Redo the command hub (looks, history recall, Tab completion, `$` on a worker thread, no Ctrl+letters typed)
 - [x] Wl clients open under the focused node
 - [x] Help applet on Super+?
-- [x] Treeview only while traversing (`TREEVIEW_ONLY_WHILE_TRAVERSING`)
+- [x] Treeview only while traversing (now the `treeview.pinned` setting, #106)
 - [x] Projects and a movable view root (Super+P, Super+V, hub `project`)
 - [x] Projects hold their contents as an inner tree (`ProjectApplet`); see `.claude/PROJECTS.md`
 - [ ] Make the treeview look nice
