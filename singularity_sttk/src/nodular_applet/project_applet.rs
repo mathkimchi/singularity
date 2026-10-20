@@ -48,11 +48,20 @@ const DIRECTORY_ROW: usize = 1;
 const CONTENTS_ROW: usize = 3;
 /// Most directory options shown
 const MAX_OPTIONS: usize = 20;
-/// Rows after its contents that add to it: label, key, and the program to start (`None`: a command hub)
-const NEW_ROWS: [(&str, char, Option<&str>); 3] = [
-    ("+ command hub  (n)", 'n', None),
-    ("+ terminal  (t)", 't', Some(TERMINAL)),
-    ("+ browser  (b)", 'b', Some(BROWSER)),
+/// What a `NEW_ROWS` row adds
+#[derive(Clone, Copy)]
+enum New {
+    CommandHub,
+    /// An empty project, in this one's directory
+    Project,
+    Program(&'static str),
+}
+/// Rows after its contents that add to it: label, key, and what it adds
+const NEW_ROWS: [(&str, char, New); 4] = [
+    ("+ command hub  (n)", 'n', New::CommandHub),
+    ("+ project  (p)", 'p', New::Project),
+    ("+ terminal  (t)", 't', New::Program(TERMINAL)),
+    ("+ browser  (b)", 'b', New::Program(BROWSER)),
 ];
 // Other text is the settings' `palette.fg`
 const HINT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
@@ -197,7 +206,7 @@ impl DirectoryInput {
 /// Closing it (`CloseRequest`, eg Ctrl+W on its node) gives its contents back to its node, which they replace.
 ///
 /// While focus is at its inner root, it shows an overview instead of its panes: its name (`r` renames it), its directory (`d` sets it),
-/// its contents (click to select) and rows that add to it (`NEW_ROWS`: a command hub, terminal or browser).
+/// its contents (click to select) and rows that add to it (`NEW_ROWS`: a command hub, project, terminal or browser).
 pub struct ProjectApplet {
     holder: NodeHolder,
     hook: AppletContext,
@@ -233,6 +242,23 @@ impl ProjectApplet {
                 NodeTree::restore(contents, spawn_client, attach_client)
             });
             project.name = name;
+            project.holder.directory = directory;
+            Box::new(project) as Box<dyn StandardApplet>
+        })
+    }
+
+    /// Makes a project with nothing in it, in `directory`
+    pub fn empty(directory: Option<PathBuf>) -> NodularAppletInitializer {
+        Box::new(move |hook| {
+            let contents = DetachedTree {
+                main: None,
+                layout: Layout::Single,
+                wl_surface: None,
+                children: Vec::new(),
+            };
+            let mut project = Self::with_tree(hook, |spawn_client, attach_client| {
+                NodeTree::from_detached(contents, spawn_client, attach_client)
+            });
             project.holder.directory = directory;
             Box::new(project) as Box<dyn StandardApplet>
         })
@@ -308,24 +334,21 @@ impl ProjectApplet {
         !self.dissolved && self.holder.tree.focused_node() == self.holder.tree.root()
     }
 
-    /// What `NEW_ROWS[index]` adds: a command hub in it, focused inside, or a program, whose window lands in it
-    /// (focus is at its root)
+    /// What `NEW_ROWS[index]` adds: a command hub or project in it, focused inside,
+    /// or a program, whose window lands in it (focus is at its root)
     fn add_new(&mut self, index: usize) {
         let root = self.holder.tree.root();
-        match NEW_ROWS[index].2 {
-            Some(program) => {
+        let initializer = match NEW_ROWS[index].2 {
+            New::Program(program) => {
                 self.holder
                     .handle_node_request(root, NodeRequest::Run(program));
+                return;
             }
-            None => {
-                if let Some(id) = self
-                    .holder
-                    .tree
-                    .add_child(root, CommandHubApplet::get_boxed_initiator())
-                {
-                    self.holder.tree.focus(id, true);
-                }
-            }
+            New::CommandHub => CommandHubApplet::get_boxed_initiator(),
+            New::Project => Self::empty(self.holder.directory.clone()),
+        };
+        if let Some(id) = self.holder.tree.add_child(root, initializer) {
+            self.holder.tree.focus(id, true);
         }
     }
 

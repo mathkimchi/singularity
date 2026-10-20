@@ -7,7 +7,9 @@
   focused project node (not inside it) shows it too. The project can't tell whether its outer node is `Focusing`
   (`FocusChanged` is never sent), so it doesn't key off that.
 - It replaces the panes there (they were the last child's pane before). Rows, from the top: name, directory, key hint,
-  `1  <label>` per child of the inner root, then `NEW_ROWS` (command hub `n`, terminal `t`, browser `b`). Rows are a fixed height so the project hit-tests clicks itself.
+  `1  <label>` per child of the inner root, then `NEW_ROWS` (command hub `n`, project `p`, terminal `t`, browser `b`). Rows are a fixed height so the project hit-tests clicks itself.
+- `p` (#81) adds an empty project (`ProjectApplet::empty`, no contents, this project's directory) to the inner
+  root and focuses inside it, so its own overview shows, ready to rename and fill.
 - Keys there, taken before the project's selector: `r` (no modifiers) starts renaming; `n` adds a command hub to the
   inner root and focuses inside it (unlike Ctrl+Shift++, which doesn't focus it); `t`/`b` start `TERMINAL`/`BROWSER`
   (`standard_keybinds`, shared with Super+T/N) with `NodeRequest::Run`, and since focus is at the inner root, the
