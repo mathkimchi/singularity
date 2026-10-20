@@ -25,11 +25,30 @@ pub enum SpawnPosition {
     InsertChild { child_index: usize },
 }
 
-/// Something done to a node from the treeview (eg its close button)
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Something done to a node from the treeview (eg its close button, or its right-click menu)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NodeAction {
     /// Asks its applet to close, like Ctrl+W on it; its children take its place
     Close,
+    /// Asks it and everything under it to close
+    CloseWithChildren,
+    /// Stops its wl client, leaving its tile inactive until it is focused again (like a restored one)
+    Deactivate,
+    /// Wraps it and everything under it in a project, like Super+P on it
+    MakeProject,
+    /// Adds an applet as its last child, or as its next sibling if `sibling`
+    Spawn { applet: NewApplet, sibling: bool },
+}
+
+/// What `NodeAction::Spawn` can add
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NewApplet {
+    CommandHub,
+    FileManager,
+    /// An empty one
+    Project,
+    Terminal,
+    Browser,
 }
 
 /// A client's inner tree and where focus is in it, published as `StateKind::Treeview`

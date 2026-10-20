@@ -165,5 +165,16 @@ The holder converts them:
   way to the holder owning it (`StandardApplet::node_action`; a project's holder, or the file manager for its
   documents). The treeview's `×` button on each row (not the root, not `‹` rows) sends `NodeAction::Close`,
   which asks the node's main to close like Ctrl+W.
+- A right click in the treeview opens a menu (#103, `Menu` in `treeview.rs`). On a node's row: New child ›,
+  New sibling below ›, Make project (Wrap, like Super+P), Deactivate, Close, Close with children (asks every node
+  in the subtree, parents first). On the root's row only the first and Make project; on empty space or a `‹` row,
+  the applet list for the shown world's root (the view root, or the inner root of the applet whose inner world is
+  shown). New › lists command hub, terminal, browser, file manager (in the holder's directory) and an empty
+  project, all as `NodeAction::Spawn`. Native ones are added there and focused inside; for a program, the holder
+  keeps `wl_target` and the next new wl surface it gets goes there. A spawn passed into an applet focuses inside
+  it, so that surface is passed in too. A click elsewhere closes the menu.
+  - Deactivate (`NodeTree::deactivate`) only works on a live wl tile: it asks the client to close its toplevel
+    (forgetting the surface, so the node stays) and puts the restored-session stand-in in its place, inactive and
+    `hibernated`, so it starts again when focused. Focus on it moves to its parent, else it would wake right away.
 - `Focus(path)` puts focus *at* the path: a path ending on an element selects it (the applet's selector),
   a longer one goes inside it.

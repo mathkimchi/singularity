@@ -21,7 +21,7 @@ use singularity_common::{
         shared_state::{SharedState, StatePublisher},
     },
     settings::{self, Settings},
-    utils::tree::world_tree::WorldTreePath,
+    utils::tree::{tree_node_path::TreeNodePath, world_tree::WorldTreePath},
 };
 use sonamu_ui::{
     display_units::DisplayContainerSize,
@@ -163,7 +163,7 @@ impl RootNodeApplet {
         let applet_spawners = Arc::new(RwLock::new(applet_spawner_registry));
         let (spawn_client, attach_client) = client_spawners(
             event_loop,
-            applet_spawners,
+            Arc::clone(&applet_spawners),
             |root: &mut Self, id, request| {
                 root.handle_node_request(id, request);
             },
@@ -186,7 +186,7 @@ impl RootNodeApplet {
         };
 
         Self {
-            holder: NodeHolder::new(tree, send, false),
+            holder: NodeHolder::new(tree, send, false, applet_spawners),
             surface: StatePublisher::new(surface),
             request_sender,
             // Just making stuff up
@@ -391,10 +391,10 @@ impl RootNodeApplet {
         let left = self.treeview_width();
         let in_treeview = mouse_event.position[0] < f64::from(left);
         // a hidden treeview has no rows to hit
-        let rows = if self.treeview_shown {
+        let (rows, general) = if self.treeview_shown {
             view_rows(&self.holder.tree)
         } else {
-            Vec::new()
+            (Vec::new(), WorldTreePath::new_into())
         };
         // in the treeview's coords, inside its frame
         let [gap, border] = treeview_frame(&settings::get());
@@ -407,6 +407,7 @@ impl RootNodeApplet {
             &treeview_event,
             in_treeview,
             &rows,
+            &general,
             [
                 left.saturating_sub(gap + 2 * border) as f32,
                 self.latest_size.height.saturating_sub(2 * inset) as f32,
@@ -500,7 +501,7 @@ impl RootNodeApplet {
         treeview_pointer: &mut TreeviewPointer,
         [treeview_width, treeview_height]: [u32; 2],
     ) -> UITree {
-        let rows = view_rows(tree);
+        let (rows, _) = view_rows(tree);
         let settings = settings::get();
         let [gap, border] = treeview_frame(&settings);
         let treeview = treeview_pointer.render(
@@ -562,15 +563,18 @@ fn treeview_frame(settings: &Settings) -> [u32; 2] {
     }
 }
 
-/// The treeview's rows: the inner tree focus is inside, else the view root's subtree
-fn view_rows(tree: &NodeTree) -> Vec<TreeviewRow> {
-    inner_layer_rows(&tree.get_treeview(), &tree.get_focus_path()).unwrap_or_else(|| {
-        treeview_rows(
-            &tree.get_view_treeview(),
-            &tree.view_root_path(),
-            tree.view_parent(),
-        )
-    })
+/// The treeview's rows: the inner tree focus is inside, else the view root's subtree.
+/// Also where its menu adds things when opened on no row: that inner tree's root, else the view root.
+fn view_rows(tree: &NodeTree) -> (Vec<TreeviewRow>, WorldTreePath) {
+    if let Some(rows) = inner_layer_rows(&tree.get_treeview(), &tree.get_focus_path()) {
+        // the first row is the node holding it
+        let mut general = rows[0].path.0.to_vec();
+        general.push(TreeNodePath::new_root());
+        return (rows, WorldTreePath(general.into_boxed_slice()));
+    }
+    let base = tree.view_root_path();
+    let rows = treeview_rows(&tree.get_view_treeview(), &base, tree.view_parent());
+    (rows, WorldTreePath(Box::new([base])))
 }
 
 /// The part of the path inside the node's applet

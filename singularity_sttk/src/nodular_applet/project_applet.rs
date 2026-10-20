@@ -306,7 +306,7 @@ impl ProjectApplet {
             Box::new(move |request: StandardRequest| hook.request(request.into()))
         };
         Self {
-            holder: NodeHolder::new(tree, send, true),
+            holder: NodeHolder::new(tree, send, true, hook.applet_spawners.clone()),
             hook,
             nodes,
             dissolved: false,

@@ -552,6 +552,10 @@ impl NodeTree {
         }
     }
 
+    pub fn contains_node(&self, id: NodeId) -> bool {
+        self.nodes.contains_key(id)
+    }
+
     /// The node at `path` of the node tree
     pub fn node_at(&self, path: &TreeNodePath) -> Option<NodeId> {
         let mut id = self.root;
@@ -846,19 +850,119 @@ impl NodeTree {
         parent: NodeId,
         initializer: NodularAppletInitializer,
     ) -> Option<NodeId> {
+        self.add_child_at(parent, SpawnPosition::AppendChild, initializer)
+    }
+
+    /// Like `add_child`, at `position` among the parent's children
+    pub fn add_child_at(
+        &mut self,
+        parent: NodeId,
+        position: SpawnPosition,
+        initializer: NodularAppletInitializer,
+    ) -> Option<NodeId> {
         if !self.nodes.contains_key(parent) {
             return None;
         }
         let id = self.insert_node(Some(parent), initializer);
-        self.nodes[parent].children.push(id);
+        let children = &mut self.nodes[parent].children;
+        match position {
+            SpawnPosition::InsertChild { child_index } if child_index < children.len() => {
+                children.insert(child_index, id);
+                // focus and last child stay on their nodes
+                let parent = &mut self.nodes[parent];
+                if let FocusIndex::Child(focused) = &mut parent.focus
+                    && *focused >= child_index
+                {
+                    *focused += 1;
+                }
+                if parent.last_child >= child_index {
+                    parent.last_child += 1;
+                }
+            }
+            _ => children.push(id),
+        }
         self.damaged = true;
         Some(id)
     }
 
+    /// Where something added at the node goes: as its last child, or if `sibling`, right after it
+    /// (as the root has no siblings, it gets a child instead)
+    pub fn spawn_target(&self, id: NodeId, sibling: bool) -> (NodeId, SpawnPosition) {
+        match self.nodes[id].parent.filter(|_| sibling) {
+            Some(parent) => (
+                parent,
+                SpawnPosition::InsertChild {
+                    child_index: self.child_index(parent, id) + 1,
+                },
+            ),
+            None => (id, SpawnPosition::AppendChild),
+        }
+    }
+
+    /// The node and its descendants, parents first
+    pub fn subtree(&self, id: NodeId) -> Vec<NodeId> {
+        let mut ids = vec![id];
+        let mut index = 0;
+        while let Some(&next) = ids.get(index) {
+            ids.extend(&self.nodes[next].children);
+            index += 1;
+        }
+        ids
+    }
+
+    /// Stops the wl client the node shows (asking it to close its toplevel), leaving the node inactive like a
+    /// restored one, until it is focused. Does nothing if it shows none. Focus on it moves to its parent,
+    /// or it would wake right away.
+    pub fn deactivate(&mut self, id: NodeId) {
+        if !self.wl_surfaces.values().any(|&node_id| node_id == id) {
+            return;
+        }
+        let Some(SavedApplet::Wl(wl)) = self.nodes[id]
+            .main
+            .as_ref()
+            .and_then(|main| main.get_treeview().saved)
+        else {
+            return;
+        };
+        // its toplevel's destruction no longer closes the node
+        self.wl_surfaces.retain(|_, node_id| *node_id != id);
+        // a wl tile asks its client, without asking its node to close
+        self.send_event(id, StandardEvent::CloseRequest);
+        let stand_in = (self.spawn_client)(id, session::restore(SavedApplet::Wl(wl.clone())));
+        let node = &mut self.nodes[id];
+        node.main = Some(stand_in);
+        node.hibernated = Some(wl);
+        node.inactive = true;
+        node.inner_wl_focus = None;
+        // so the new applet gets its size
+        node.size = None;
+        self.send_initial_size(id);
+        if self.focused_node() == id
+            && let Some(parent) = self.nodes[id].parent
+        {
+            self.focus(parent, false);
+        }
+        self.damaged = true;
+    }
+
     /// Adds a tile for the surface as the parent's last child, and focuses inside it (so it's shown and gets keys)
     pub fn add_wl_surface(&mut self, parent: NodeId, surface: NewWlSurface) {
+        self.add_wl_surface_at(parent, SpawnPosition::AppendChild, surface);
+    }
+
+    /// Like `add_wl_surface`, at `position` among the parent's children
+    pub fn add_wl_surface_at(
+        &mut self,
+        parent: NodeId,
+        position: SpawnPosition,
+        surface: NewWlSurface,
+    ) {
         let surface_id = surface.surface_id;
-        if let Some(id) = self.add_child(parent, WlSurfaceApplet::get_boxed_initiator(surface)) {
+        if let Some(id) = self.add_child_at(
+            parent,
+            position,
+            WlSurfaceApplet::get_boxed_initiator(surface),
+        ) {
             self.wl_surfaces.insert(surface_id, id);
             self.focus(id, true);
         }

@@ -1,9 +1,14 @@
 //! What the root and projects share: holding a `NodeTree` of clients, and pluck and place, node requests
 //! and wl surfaces on top of it.
 
-use crate::nodular_applet::{
-    AppletClient, AppletSpawnerRegistry, NodeRequest, WrapInitializer,
-    node_tree::{AttachClient, NodeId, NodeTree, SpawnClient},
+use crate::{
+    command_hub::CommandHubApplet,
+    nodular_applet::{
+        AppletClient, AppletSpawnerRegistry, NodeRequest, WrapInitializer,
+        node_tree::{AttachClient, NodeId, NodeTree, SpawnClient},
+        project_applet::ProjectApplet,
+    },
+    standard_keybinds::{BROWSER, TERMINAL},
 };
 use calloop::LoopHandle;
 use singularity_common::{
@@ -11,7 +16,8 @@ use singularity_common::{
         client_handle::ClientHandle,
         detached::{DetachedClient, DetachedTree},
         packets::{
-            NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest, WlSurfaceId,
+            NewApplet, NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest,
+            WlSurfaceId,
         },
     },
     utils::tree::world_tree::WorldTreePath,
@@ -65,6 +71,10 @@ pub struct NodeHolder {
     project: bool,
     /// The working directory of programs started in this tree (`NodeRequest::Run`); the runner's if `None`
     pub directory: Option<std::path::PathBuf>,
+    /// For `NodeAction::Spawn` (eg a file manager)
+    applet_spawners: AppletSpawnerRegistry,
+    /// Where the next new wl surface goes, for a program `NodeAction::Spawn` started
+    wl_target: Option<(NodeId, SpawnPosition)>,
 
     /// At most one at a time, since the holder's node sends one at a time
     pending: Option<Pending>,
@@ -80,12 +90,19 @@ pub struct NodeHolder {
     pub quit: bool,
 }
 impl NodeHolder {
-    pub fn new(tree: NodeTree, send: Box<dyn Fn(StandardRequest)>, project: bool) -> Self {
+    pub fn new(
+        tree: NodeTree,
+        send: Box<dyn Fn(StandardRequest)>,
+        project: bool,
+        applet_spawners: AppletSpawnerRegistry,
+    ) -> Self {
         Self {
             tree,
             send,
             project,
             directory: None,
+            applet_spawners,
+            wl_target: None,
             pending: None,
             to_pluck: None,
             to_wrap: None,
@@ -189,13 +206,86 @@ impl NodeHolder {
             return;
         };
         if path.0.len() > 1 {
+            // so a spawned program's window is passed in there
+            if matches!(action, NodeAction::Spawn { .. }) {
+                self.tree.focus(id, true);
+            }
             self.tree
                 .send_event(id, StandardEvent::NodeAction(inner_path(path), action));
             return;
         }
         match action {
             NodeAction::Close => self.request_close(id),
+            NodeAction::CloseWithChildren => {
+                for id in self.tree.subtree(id) {
+                    // a node without a main closes right away, so a later one may be gone
+                    if self.tree.contains_node(id) {
+                        self.request_close(id);
+                    }
+                }
+            }
+            NodeAction::Deactivate => self.tree.deactivate(id),
+            NodeAction::MakeProject => {
+                self.handle_node_request(id, NodeRequest::Wrap(ProjectApplet::wrapper()));
+            }
+            NodeAction::Spawn { applet, sibling } => self.spawn(id, applet, sibling),
         }
+    }
+
+    /// Adds the applet under the node or after it, focused inside.
+    /// A program's window goes there when it arrives.
+    fn spawn(&mut self, id: NodeId, applet: NewApplet, sibling: bool) {
+        let (parent, position) = self.tree.spawn_target(id, sibling);
+        let initializer = match applet {
+            NewApplet::Terminal | NewApplet::Browser => {
+                let program = if applet == NewApplet::Terminal {
+                    TERMINAL
+                } else {
+                    BROWSER
+                };
+                if self.run(program) {
+                    self.wl_target = Some((parent, position));
+                }
+                return;
+            }
+            NewApplet::CommandHub => CommandHubApplet::get_boxed_initiator(),
+            NewApplet::Project => ProjectApplet::empty(self.directory.clone()),
+            NewApplet::FileManager => {
+                let directory = self
+                    .directory
+                    .as_ref()
+                    .map(|directory| directory.to_string_lossy().into_owned());
+                let args: Vec<&str> = directory.as_deref().into_iter().collect();
+                let spawner = self
+                    .applet_spawners
+                    .read()
+                    .unwrap()
+                    .get("file_manager")
+                    .cloned();
+                let Some(initializer) =
+                    spawner.and_then(|spawner| spawner.create_initializer(&args))
+                else {
+                    log::warn!("No file manager to spawn");
+                    return;
+                };
+                initializer
+            }
+        };
+        if let Some(new) = self.tree.add_child_at(parent, position, initializer) {
+            self.tree.focus(new, true);
+        }
+    }
+
+    /// Starts the program in the tree's directory without waiting for it; whether it started
+    fn run(&self, program: &str) -> bool {
+        let mut command = crate::command_hub::program_command(program, &[]);
+        if let Some(directory) = &self.directory {
+            command.current_dir(directory);
+        }
+        command
+            .spawn()
+            .inspect_err(|err| log::warn!("Failed to start {program}: {err}"))
+            .is_ok()
     }
 
     /// Places at the deepest node along `path[0]` (`None`: at the focus),
@@ -238,6 +328,14 @@ impl NodeHolder {
         let Err(surface) = self.tree.claim_wl_surface(surface) else {
             return;
         };
+        if let Some((parent, position)) = self
+            .wl_target
+            .take()
+            .filter(|&(parent, _)| self.tree.contains_node(parent))
+        {
+            self.tree.add_wl_surface_at(parent, position, surface);
+            return;
+        }
         let id = self.tree.focused_node();
         if self.tree.is_inner(id) {
             self.tree
@@ -345,13 +443,7 @@ impl NodeHolder {
             NodeRequest::Wrap(wrapper) => self.to_wrap = Some((id, wrapper)),
             NodeRequest::Unwrap(tree) => self.tree.unwrap(id, tree),
             NodeRequest::Run(program) => {
-                let mut command = crate::command_hub::program_command(program, &[]);
-                if let Some(directory) = &self.directory {
-                    command.current_dir(directory);
-                }
-                if let Err(err) = command.spawn() {
-                    log::warn!("Failed to start {program}: {err}");
-                }
+                self.run(program);
             }
             NodeRequest::AddWlSurface(surface) => self.tree.add_wl_surface(id, surface),
         }
