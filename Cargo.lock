@@ -2838,19 +2838,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "singularity_sde"
-version = "0.1.0"
-dependencies = [
- "calloop",
- "singularity_common",
- "singularity_sar",
- "singularity_standard_tabs",
- "singularity_sttk",
- "sonamu_ui",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "singularity_sporg"
 version = "0.1.0"
 dependencies = [
@@ -3049,6 +3036,19 @@ checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
 dependencies = [
  "borsh",
  "serde_core",
+]
+
+[[package]]
+name = "sonamu_sde"
+version = "0.1.0"
+dependencies = [
+ "calloop",
+ "singularity_common",
+ "singularity_sar",
+ "singularity_standard_tabs",
+ "singularity_sttk",
+ "sonamu_ui",
+ "tracing-subscriber",
 ]
 
 [[package]]

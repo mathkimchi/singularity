@@ -1,5 +1,5 @@
 [package]
-name = "singularity_sde"
+name = "sonamu_sde"
 version = "0.1.0"
 edition = "2024"
 

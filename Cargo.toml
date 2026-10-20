@@ -5,7 +5,7 @@ members = [
     "singularity_common/singularity_macros",
 
     "singularity_sporg",
-    "singularity_sde",
+    "sonamu_sde",
     "singularity_sttk",
     "singularity_standard_tabs",
     # "singularity_standard_tabs/*", # TODO: make the asterisk work
