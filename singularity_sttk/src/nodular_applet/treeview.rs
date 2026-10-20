@@ -407,7 +407,11 @@ impl TreeviewPointer {
                 } else {
                     settings.palette.accent
                 };
-                parts.push(rect(with_opacity(marker), [0.0, 0.0], [MARKER_WIDTH, row_height()]));
+                parts.push(rect(
+                    with_opacity(marker),
+                    [0.0, 0.0],
+                    [MARKER_WIDTH, row_height()],
+                ));
             }
 
             let text_left = LEFT_PAD + row.depth as f32 * INDENT;

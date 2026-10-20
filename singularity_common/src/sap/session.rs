@@ -25,6 +25,9 @@ pub struct SavedTree {
     /// A container's name; only a project's inner root has one (the project's name)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// A project's working directory for programs started inside; only a project's inner root has one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory: Option<PathBuf>,
 }
 
 /// How to make a node's main again

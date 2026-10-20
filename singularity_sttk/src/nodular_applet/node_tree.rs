@@ -6,13 +6,13 @@ use crate::{
     wl_surface_applet::WlSurfaceApplet,
 };
 use singularity_common::{
-    settings,
     sap::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree, Layout},
         packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, WlSurfaceId},
         session::{SavedApplet, SavedTree, SavedWl},
     },
+    settings,
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
         tree_node_path::{TreeNodePath, TreeTraverseOperation},
@@ -100,9 +100,10 @@ impl Node {
                     (None, Some(operation))
                 }
                 // a split has no main to go into, so into its first pane
-                WorldTreeTraversalOperation::NextLayer if self.main.is_none() => {
-                    ((!self.children.is_empty()).then_some(FocusIndex::Child(0)), None)
-                }
+                WorldTreeTraversalOperation::NextLayer if self.main.is_none() => (
+                    (!self.children.is_empty()).then_some(FocusIndex::Child(0)),
+                    None,
+                ),
                 WorldTreeTraversalOperation::NextLayer => (Some(FocusIndex::Inner), None),
                 // TODO: no key makes these (`q`/`e` are the layer keys)
                 WorldTreeTraversalOperation::Layerwise(
@@ -238,7 +239,6 @@ impl Pane {
         (left..left + width).contains(&x) && (top..top + height).contains(&y)
     }
 }
-
 
 impl NodeTree {
     pub fn new(
@@ -390,6 +390,7 @@ impl NodeTree {
                 layout: Layout::Single,
                 children: saved,
                 label: None,
+                directory: None,
             },
         }
     }
@@ -417,6 +418,7 @@ impl NodeTree {
             layout: node.layout,
             children,
             label: None,
+            directory: None,
         }]
     }
 
@@ -668,10 +670,13 @@ impl NodeTree {
         let parent = &mut self.nodes[parent_id];
         parent.children.swap(index, other);
         // focus and last child follow their nodes
-        for slot in [&mut parent.last_child].into_iter().chain(match &mut parent.focus {
-            FocusIndex::Child(focused) => Some(focused),
-            _ => None,
-        }) {
+        for slot in [&mut parent.last_child]
+            .into_iter()
+            .chain(match &mut parent.focus {
+                FocusIndex::Child(focused) => Some(focused),
+                _ => None,
+            })
+        {
             if *slot == index {
                 *slot = other;
             } else if *slot == other {
@@ -777,12 +782,7 @@ impl NodeTree {
     }
 
     /// Adds the tree as the parent's child at `position` (the root's if the parent is gone) and focuses it
-    pub fn place(
-        &mut self,
-        parent: NodeId,
-        position: SpawnPosition,
-        tree: DetachedTree,
-    ) -> NodeId {
+    pub fn place(&mut self, parent: NodeId, position: SpawnPosition, tree: DetachedTree) -> NodeId {
         // eg it closed while its applet was being asked to place
         let parent = if self.nodes.contains_key(parent) {
             parent
@@ -937,9 +937,10 @@ impl NodeTree {
 
     /// Its main is a project (holds a tree of its own)
     fn is_project(&self, id: NodeId) -> bool {
-        self.nodes[id].main.as_ref().is_some_and(|main| {
-            matches!(main.get_treeview().saved, Some(SavedApplet::Project(_)))
-        })
+        self.nodes[id]
+            .main
+            .as_ref()
+            .is_some_and(|main| matches!(main.get_treeview().saved, Some(SavedApplet::Project(_))))
     }
 
     /// Its applet's treeview label (or its layout's)
@@ -1019,7 +1020,10 @@ impl NodeTree {
         if inner.is_empty() {
             self.toggle_collapsed(id);
         } else {
-            self.send_event(id, StandardEvent::ToggleCollapsed(WorldTreePath(inner.into())));
+            self.send_event(
+                id,
+                StandardEvent::ToggleCollapsed(WorldTreePath(inner.into())),
+            );
         }
     }
 
@@ -1283,7 +1287,10 @@ impl NodeTree {
         }
         mouse_event.position[0] -= f64::from(pane.rect[0] + pane.border);
         mouse_event.position[1] -= f64::from(pane.rect[1] + pane.border);
-        self.send_event(pane.node, StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)));
+        self.send_event(
+            pane.node,
+            StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)),
+        );
     }
 
     /// The node `id` shows: following focused children, but stopping at splits, which show every pane
@@ -1353,7 +1360,13 @@ impl NodeTree {
     }
 
     /// Splits leave `gap` between their children
-    fn push_panes(&self, id: NodeId, rect: [u32; 4], [gap, border]: [u32; 2], panes: &mut Vec<Pane>) {
+    fn push_panes(
+        &self,
+        id: NodeId,
+        rect: [u32; 4],
+        [gap, border]: [u32; 2],
+        panes: &mut Vec<Pane>,
+    ) {
         let id = self.displayed_node(id);
         let node = &self.nodes[id];
         let Layout::Split(axis) = node.layout else {

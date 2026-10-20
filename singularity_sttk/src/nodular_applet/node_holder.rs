@@ -61,6 +61,8 @@ pub struct NodeHolder {
     send: Box<dyn Fn(StandardRequest)>,
     /// Its tree is a project's contents, whose root (a container) stands for the project itself
     project: bool,
+    /// The working directory of programs started in this tree (`NodeRequest::Run`); the runner's if `None`
+    pub directory: Option<std::path::PathBuf>,
 
     /// At most one at a time, since the holder's node sends one at a time
     pending: Option<Pending>,
@@ -81,6 +83,7 @@ impl NodeHolder {
             tree,
             send,
             project,
+            directory: None,
             pending: None,
             to_pluck: None,
             to_wrap: None,
@@ -311,7 +314,11 @@ impl NodeHolder {
             NodeRequest::Wrap(wrapper) => self.to_wrap = Some((id, wrapper)),
             NodeRequest::Unwrap(tree) => self.tree.unwrap(id, tree),
             NodeRequest::Run(program) => {
-                if let Err(err) = crate::command_hub::program_command(program, &[]).spawn() {
+                let mut command = crate::command_hub::program_command(program, &[]);
+                if let Some(directory) = &self.directory {
+                    command.current_dir(directory);
+                }
+                if let Err(err) = command.spawn() {
                     log::warn!("Failed to start {program}: {err}");
                 }
             }

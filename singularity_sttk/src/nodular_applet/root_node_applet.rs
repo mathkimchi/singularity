@@ -4,9 +4,7 @@ use crate::{
         AppletSpawner, NodeRequest, NodularAppletInitializer,
         node_holder::{NodeHolder, client_spawners},
         node_tree::{NodeId, NodeTree},
-        treeview::{
-            TreeviewAction, TreeviewPointer, TreeviewRow, inner_layer_rows, treeview_rows,
-        },
+        treeview::{TreeviewAction, TreeviewPointer, TreeviewRow, inner_layer_rows, treeview_rows},
     },
     session,
 };
@@ -401,7 +399,9 @@ impl RootNodeApplet {
         let [gap, border] = treeview_frame(&settings::get());
         let inset = gap + border;
         let mut treeview_event = mouse_event;
-        treeview_event.position = treeview_event.position.map(|coord| coord - f64::from(inset));
+        treeview_event.position = treeview_event
+            .position
+            .map(|coord| coord - f64::from(inset));
         let response = self.treeview_pointer.handle_mouse(
             &treeview_event,
             in_treeview,
@@ -420,7 +420,10 @@ impl RootNodeApplet {
             }
             Some(TreeviewAction::Drop(target)) => {
                 let (path, position) = target.unwrap_or_else(|| {
-                    (self.holder.tree.get_focus_path(), SpawnPosition::AppendChild)
+                    (
+                        self.holder.tree.get_focus_path(),
+                        SpawnPosition::AppendChild,
+                    )
                 });
                 self.last_drop = path
                     .0
