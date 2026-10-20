@@ -4,7 +4,7 @@
 
 use super::node_tree::INACTIVE_MARK;
 use singularity_common::{
-    sap::packets::SpawnPosition,
+    sap::packets::{NodeAction, SpawnPosition},
     settings,
     utils::tree::{
         tree_node_path::{TraversableTree, TreeNodePath},
@@ -27,6 +27,10 @@ const MARKER_WIDTH: f32 = 6.0;
 /// The clickable width of a row's `▾`/`▸`, from the start of its label
 fn triangle_width() -> f32 {
     font_size()
+}
+/// The width of a row's close button, at its right end
+fn close_width() -> f32 {
+    row_height()
 }
 /// How far the pointer moves while pressed before it's a drag
 const DRAG_THRESHOLD: f64 = 12.0;
@@ -62,6 +66,8 @@ pub struct TreeviewRow {
     label: String,
     /// Inside an applet's inner tree, rather than a node (or the view root's parent)
     inner: bool,
+    /// Has a close button: not the root, nor a `‹` row
+    closable: bool,
 }
 
 /// One row per node of the tree, and per element of each applet's inner tree, in DFS order.
@@ -86,6 +92,7 @@ pub fn treeview_rows(
                 depth: 0,
                 label: format!("‹ {label}"),
                 inner: true,
+                closable: false,
             },
         );
     }
@@ -113,6 +120,7 @@ pub fn inner_layer_rows(
             path: holder.clone(),
             depth: 0,
             inner: true,
+            closable: false,
         }];
         push_rows(world, &holder.0, 0, true, layer, &mut rows);
         Some(rows)
@@ -138,6 +146,7 @@ fn push_rows(
         }
         let value = &root[&path];
         let row_depth = depth + path.depth();
+        let closable = !(prefix.is_empty() && path.is_root());
         let mut full_path = prefix.to_vec();
         full_path.push(path);
         rows.push(TreeviewRow {
@@ -145,6 +154,7 @@ fn push_rows(
             depth: row_depth,
             label: value.get_root_value().clone(),
             inner: prefix.len() > layer,
+            closable,
         });
         push_rows(value, &full_path, row_depth, true, layer, rows);
     }
@@ -190,6 +200,8 @@ fn rect(color: Color, position: [f32; 2], size: [f32; 2]) -> UITree {
 #[derive(Default)]
 pub struct TreeviewPointer {
     hovered: Option<usize>,
+    /// The pointer is on the hovered row's close button
+    hovered_close: bool,
     /// Where in the hovered row the pointer is
     zone: DropZone,
     press: Option<Press>,
@@ -238,6 +250,8 @@ struct Press {
     dragging: bool,
     /// On the row's `▾`/`▸`, so a click collapses or expands it instead of focusing it
     on_triangle: bool,
+    /// On the row's close button, so a click closes it
+    on_close: bool,
 }
 
 pub enum TreeviewAction {
@@ -248,6 +262,8 @@ pub enum TreeviewAction {
     StartDrag(WorldTreePath),
     /// Place at this path, or at the focus if dropped outside the treeview
     Drop(Option<(WorldTreePath, SpawnPosition)>),
+    /// Do this to the node at this path (eg its close button was clicked)
+    Node(WorldTreePath, NodeAction),
 }
 
 pub struct TreeviewResponse {
@@ -270,9 +286,9 @@ impl TreeviewPointer {
         event: &MouseEvent,
         in_treeview: bool,
         rows: &[TreeviewRow],
-        height: f32,
+        [width, height]: [f32; 2],
     ) -> TreeviewResponse {
-        let [_, y] = event.position;
+        let [x, y] = event.position;
         // non-negative, since `y >= TOP_PAD`
         #[allow(clippy::cast_sign_loss)]
         let row = (in_treeview && y >= f64::from(TOP_PAD))
@@ -287,7 +303,10 @@ impl TreeviewPointer {
         } else {
             DropZone::Bottom
         };
+        let on_close =
+            row.is_some_and(|index| rows[index].closable && x >= f64::from(width - close_width()));
         let mut damaged = std::mem::replace(&mut self.hovered, row) != row;
+        damaged |= std::mem::replace(&mut self.hovered_close, on_close) != on_close;
         damaged |= std::mem::replace(&mut self.zone, zone) != zone;
         let mut action = None;
         let consumed = in_treeview || self.press.is_some();
@@ -317,6 +336,7 @@ impl TreeviewPointer {
                         on_triangle: has_triangle(row)
                             && (text_left..text_left + f64::from(triangle_width()))
                                 .contains(&event.position[0]),
+                        on_close,
                     });
                 }
             }
@@ -333,7 +353,9 @@ impl TreeviewPointer {
                         // a click: pressed and released on the same row
                         let target = row.map(|index| rows[index].path.clone());
                         target.filter(|target| *target == press.path).map(|target| {
-                            if press.on_triangle {
+                            if press.on_close {
+                                TreeviewAction::Node(target, NodeAction::Close)
+                            } else if press.on_triangle {
                                 TreeviewAction::ToggleCollapsed(target)
                             } else {
                                 TreeviewAction::Focus(target)
@@ -432,9 +454,35 @@ impl TreeviewPointer {
                 UIElement::Text(vec![(label, UIElement::glyphon_attr(text_color))]),
                 Style::absolute(
                     [text_left, text_top],
-                    [(width - text_left).max(0.0), row_height() - text_top],
+                    [
+                        (width - text_left - close_width()).max(0.0),
+                        row_height() - text_top,
+                    ],
                 ),
             ));
+            if row.closable {
+                let color = if is_hovered && self.hovered_close {
+                    settings.palette.fg
+                } else {
+                    settings.palette.inactive
+                };
+                parts.push(
+                    UITree::leaf_styled(
+                        UIElement::Text(vec![(
+                            "×".to_string(),
+                            UIElement::glyphon_attr(with_opacity(color)),
+                        )]),
+                        Style::absolute(
+                            [
+                                width - close_width() + (close_width() - font_size()) / 2.0,
+                                text_top,
+                            ],
+                            [close_width(), row_height() - text_top],
+                        ),
+                    )
+                    .with_cursor(Some(Cursor::Named(CursorIcon::Pointer))),
+                );
+            }
             if has_triangle(row) {
                 parts.push(
                     UITree::leaf_styled(

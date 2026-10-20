@@ -332,6 +332,7 @@ impl RootNodeApplet {
             }
             StandardEvent::Focus(path) => self.holder.focus(&path),
             StandardEvent::ToggleCollapsed(path) => self.holder.toggle_collapsed(&path),
+            StandardEvent::NodeAction(path, action) => self.holder.node_action(&path, action),
             StandardEvent::Capturing(_) => {}
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
@@ -406,7 +407,10 @@ impl RootNodeApplet {
             &treeview_event,
             in_treeview,
             &rows,
-            self.latest_size.height.saturating_sub(2 * inset) as f32,
+            [
+                left.saturating_sub(gap + 2 * border) as f32,
+                self.latest_size.height.saturating_sub(2 * inset) as f32,
+            ],
         );
 
         if response.damaged {
@@ -415,6 +419,7 @@ impl RootNodeApplet {
         match response.action {
             Some(TreeviewAction::Focus(path)) => self.holder.focus(&path),
             Some(TreeviewAction::ToggleCollapsed(path)) => self.holder.toggle_collapsed(&path),
+            Some(TreeviewAction::Node(path, action)) => self.holder.node_action(&path, action),
             Some(TreeviewAction::StartDrag(path)) => {
                 self.send_request(StandardRequest::RequestPluck(path));
             }

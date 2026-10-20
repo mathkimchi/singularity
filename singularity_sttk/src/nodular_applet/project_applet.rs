@@ -14,7 +14,9 @@ use crate::{
 use singularity_common::{
     sap::{
         detached::{DetachedClient, DetachedTree, Layout},
-        packets::{AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest},
+        packets::{
+            AwaitedWl, NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest,
+        },
         session::{SavedApplet, SavedTree},
     },
     settings,
@@ -572,7 +574,8 @@ impl StandardApplet for ProjectApplet {
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
             | StandardEvent::Focus(_)
-            | StandardEvent::ToggleCollapsed(_) => {}
+            | StandardEvent::ToggleCollapsed(_)
+            | StandardEvent::NodeAction(..) => {}
             // only the root gets these
             StandardEvent::Capturing(_) => {}
         }
@@ -623,6 +626,12 @@ impl StandardApplet for ProjectApplet {
     fn toggle_collapsed(&mut self, path: &WorldTreePath) {
         if !self.dissolved {
             self.holder.toggle_collapsed(path);
+        }
+    }
+
+    fn node_action(&mut self, path: &WorldTreePath, action: NodeAction) {
+        if !self.dissolved {
+            self.holder.node_action(path, action);
         }
     }
 

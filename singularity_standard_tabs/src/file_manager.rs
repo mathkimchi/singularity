@@ -6,7 +6,7 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::DetachedTree,
-        packets::{SpawnPosition, StandardEvent, StandardRequest},
+        packets::{NodeAction, SpawnPosition, StandardEvent, StandardRequest},
     },
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
@@ -764,6 +764,21 @@ impl StandardApplet for FileManagerApplet {
         }
         self.hook.damage_window();
         self.hook.damage_treeview();
+    }
+
+    /// Closes a document (`[[i]]`), like Ctrl+W on it in its selector
+    fn node_action(&mut self, path: &WorldTreePath, action: NodeAction) {
+        if action == NodeAction::Close
+            && let [TreeNodePath(index)] = &*path.0
+            && let &[index] = index.as_slice()
+            && index < self.documents.len()
+        {
+            self.remove_document(index);
+            if self.selecting.is_some() {
+                self.set_selecting(Some(Selected::Root));
+            }
+            self.hook.damage_window();
+        }
     }
 
     /// A document (with everything inside it); the root plucks the file manager itself

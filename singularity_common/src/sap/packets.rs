@@ -25,6 +25,13 @@ pub enum SpawnPosition {
     InsertChild { child_index: usize },
 }
 
+/// Something done to a node from the treeview (eg its close button)
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NodeAction {
+    /// Asks its applet to close, like Ctrl+W on it; its children take its place
+    Close,
+}
+
 /// A client's inner tree and where focus is in it, published as `StateKind::Treeview`
 #[derive(Clone)]
 pub struct Treeview {
@@ -138,6 +145,8 @@ pub enum StandardEvent {
     Focus(WorldTreePath),
     /// Collapse or expand the element at this path of the client's treeview (eg its `▾` was clicked in the root's treeview)
     ToggleCollapsed(WorldTreePath),
+    /// Do this to the element at this path of the client's treeview (eg its close button was clicked in the root's treeview)
+    NodeAction(WorldTreePath, NodeAction),
     /// A wl client started (`true`) or stopped capturing the screen (eg recording). Only the root gets these.
     Capturing(bool),
 }

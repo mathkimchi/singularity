@@ -7,8 +7,8 @@ use singularity_common::{
         client_handle::ClientHandle,
         detached::{Axis, DetachedClient, DetachedTree},
         packets::{
-            AwaitedWl, NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, StateKind,
-            Treeview,
+            AwaitedWl, NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest,
+            StateKind, Treeview,
         },
         raw_client_initializer::RawClientInitializer,
         session::SavedApplet,
@@ -85,6 +85,9 @@ pub trait StandardApplet {
 
     /// Collapses or expands the element at `path` (in the inner tree) in the treeview, eg its `▾` was clicked
     fn toggle_collapsed(&mut self, _path: &WorldTreePath) {}
+
+    /// Does the action to the element at `path` (in the inner tree), eg its close button was clicked
+    fn node_action(&mut self, _path: &WorldTreePath, _action: NodeAction) {}
 
     /// Takes the closest pluckable element at `path` (in the inner tree) out of the applet.
     /// `Now(None)` makes its node pluck itself, with the applet and its children.
@@ -372,6 +375,9 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 }
                 calloop::channel::Event::Msg(StandardEvent::ToggleCollapsed(path)) => {
                     state.applet.toggle_collapsed(&path);
+                }
+                calloop::channel::Event::Msg(StandardEvent::NodeAction(path, action)) => {
+                    state.applet.node_action(&path, action);
                 }
                 calloop::channel::Event::Msg(StandardEvent::CloseRequest) => {
                     if state.applet.close_requested() {

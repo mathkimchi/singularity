@@ -10,7 +10,9 @@ use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::{DetachedClient, DetachedTree},
-        packets::{NewWlSurface, SpawnPosition, StandardEvent, StandardRequest, WlSurfaceId},
+        packets::{
+            NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest, WlSurfaceId,
+        },
     },
     utils::tree::world_tree::WorldTreePath,
 };
@@ -161,11 +163,39 @@ impl NodeHolder {
         self.tree.handle_event(event);
         self.tree.wake_focused();
         let (id, request) = self.tree.take_keybind_request()?;
-        if matches!(request, NodeRequest::Close) && self.tree.has_main(id) {
-            self.tree.send_event(id, StandardEvent::CloseRequest);
+        if matches!(request, NodeRequest::Close) {
+            self.request_close(id);
             return None;
         }
         self.handle_node_request(id, request)
+    }
+
+    /// Asks the node's applet to close (eg a wl client may refuse); a node without one closes now
+    fn request_close(&mut self, id: NodeId) {
+        if self.tree.has_main(id) {
+            self.tree.send_event(id, StandardEvent::CloseRequest);
+        } else {
+            self.handle_node_request(id, NodeRequest::Close);
+        }
+    }
+
+    /// Does the action to the node at `path[0]`, or passes it on to its applet if the path goes into it
+    pub fn node_action(&mut self, path: &WorldTreePath, action: NodeAction) {
+        let Some(id) = path
+            .0
+            .first()
+            .and_then(|node_path| self.tree.node_at(node_path))
+        else {
+            return;
+        };
+        if path.0.len() > 1 {
+            self.tree
+                .send_event(id, StandardEvent::NodeAction(inner_path(path), action));
+            return;
+        }
+        match action {
+            NodeAction::Close => self.request_close(id),
+        }
     }
 
     /// Places at the deepest node along `path[0]` (`None`: at the focus),

@@ -518,6 +518,7 @@ impl StandardApplet for CommandHubApplet {
             StandardEvent::DamageAck(_)
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
+            | StandardEvent::NodeAction(..)
             | StandardEvent::Focus(_)
             | StandardEvent::ToggleCollapsed(_) => {}
             // doesn't show wl surfaces (only the root gets these)

@@ -161,5 +161,9 @@ The holder converts them:
 - Going down, it takes the first component to find its node and passes the rest (`inner_path`) to that node's main
   as `Pluck`, `Place` or `Focus`. `Pluck(None)`/`Place(None)` mean "at your focus" (`AppletClient` uses the applet's
   `get_focus_path`).
+- `NodeAction(path, action)` (`NodeHolder::node_action`) does something to the node at the path, passed down the same
+  way to the holder owning it (`StandardApplet::node_action`; a project's holder, or the file manager for its
+  documents). The treeview's `×` button on each row (not the root, not `‹` rows) sends `NodeAction::Close`,
+  which asks the node's main to close like Ctrl+W.
 - `Focus(path)` puts focus *at* the path: a path ending on an element selects it (the applet's selector),
   a longer one goes inside it.
