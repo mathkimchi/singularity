@@ -207,8 +207,10 @@ pub enum NodeRequest {
     AddWlSurface(NewWlSurface),
 }
 
-/// Makes an applet from a detached subtree (`NodeRequest::Wrap`)
-pub type WrapInitializer = Box<dyn FnOnce(DetachedTree) -> NodularAppletInitializer + Send>;
+/// Makes an applet from a detached subtree (`NodeRequest::Wrap`) and the directory of the tree it is in
+/// (`NodeHolder::directory`)
+pub type WrapInitializer =
+    Box<dyn FnOnce(DetachedTree, Option<std::path::PathBuf>) -> NodularAppletInitializer + Send>;
 impl From<StandardRequest> for NodeRequest {
     fn from(request: StandardRequest) -> Self {
         Self::Standard(request)

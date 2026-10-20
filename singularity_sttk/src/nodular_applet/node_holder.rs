@@ -149,7 +149,8 @@ impl NodeHolder {
             self.send(StandardRequest::Plucked(plucked));
         }
         if let Some((id, wrapper)) = self.to_wrap.take() {
-            self.tree.wrap(id, wrapper);
+            let directory = self.directory.clone();
+            self.tree.wrap(id, |subtree| wrapper(subtree, directory));
         }
     }
 

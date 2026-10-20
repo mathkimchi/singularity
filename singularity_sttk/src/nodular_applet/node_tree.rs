@@ -1,6 +1,6 @@
 use crate::{
     creatable_applet::CreatableNodularApplet,
-    nodular_applet::{NodeRequest, NodularAppletInitializer, WrapInitializer},
+    nodular_applet::{NodeRequest, NodularAppletInitializer},
     session,
     standard_keybinds::standard_keybind_request,
     wl_surface_applet::WlSurfaceApplet,
@@ -716,7 +716,11 @@ impl NodeTree {
 
     /// Replaces the node and its descendants with a node whose applet is made from them (eg a project).
     /// The new node takes its place, focused itself.
-    pub fn wrap(&mut self, id: NodeId, wrapper: WrapInitializer) {
+    pub fn wrap(
+        &mut self,
+        id: NodeId,
+        wrapper: impl FnOnce(DetachedTree) -> NodularAppletInitializer,
+    ) {
         let Some(node) = self.nodes.get(id) else {
             return;
         };

@@ -26,18 +26,26 @@ use sonamu_ui::{
     ui_element::{Style, UIElement, UITree, font_size},
     ui_event::{KeyModifiers, KeySymbol, MouseEvent, MouseEventKind, UIEvent},
 };
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 /// Its name until it is renamed: its inner tree root's label
 const LABEL: &str = "Project";
 
-/// The overview's rows: the name, a hint, its contents, then `NEW_ROWS`
+/// The overview's rows: the name, its directory, a hint, its contents, then `NEW_ROWS`
 fn row_height() -> f32 {
     font_size() + 14.0
 }
 const PAD: f32 = 16.0;
-/// Rows before its contents
-const CONTENTS_ROW: usize = 2;
+const DIRECTORY_ROW: usize = 1;
+/// Rows before its contents (or the directory options, while setting the directory)
+const CONTENTS_ROW: usize = 3;
+/// Most directory options shown
+const MAX_OPTIONS: usize = 20;
 /// Rows after its contents that add to it: label, key, and the program to start (`None`: a command hub)
 const NEW_ROWS: [(&str, char, Option<&str>); 3] = [
     ("+ command hub  (n)", 'n', None),
@@ -46,7 +54,139 @@ const NEW_ROWS: [(&str, char, Option<&str>); 3] = [
 ];
 // Other text is the settings' `palette.fg`
 const HINT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
+const ERROR: Color = Color([0xE0, 0x6C, 0x75, 0xFF]);
 const BTN_LEFT: u32 = 0x110;
+
+/// The home directory, which paths show as `~`
+fn home() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+/// The path, with the home directory as `~`
+fn tilde(path: &Path) -> String {
+    match home().and_then(|home| path.strip_prefix(home).ok().map(Path::to_path_buf)) {
+        Some(rest) if rest.as_os_str().is_empty() => "~".to_string(),
+        Some(rest) => format!("~/{}", rest.display()),
+        None => path.display().to_string(),
+    }
+}
+
+/// The typed path with `~` expanded; `None` if it is relative
+fn expand(path: &str) -> Option<PathBuf> {
+    if path == "~" {
+        home()
+    } else if let Some(rest) = path.strip_prefix("~/") {
+        home().map(|home| home.join(rest))
+    } else {
+        path.starts_with('/').then(|| PathBuf::from(path))
+    }
+}
+
+/// A directory path being typed (absolute or from `~`), with the directories it could complete to
+struct DirectoryInput {
+    path: String,
+    /// Paths, as typed, of the directories in `path`'s parent whose names start with its last part
+    options: Vec<String>,
+    /// The last Enter was on a path that isn't a directory
+    invalid: bool,
+    /// The option picked with the arrows, which Tab fills in
+    selected: Option<usize>,
+}
+impl DirectoryInput {
+    fn new(path: String) -> Self {
+        let mut input = Self {
+            path: String::new(),
+            options: Vec::new(),
+            invalid: false,
+            selected: None,
+        };
+        input.set(path);
+        input
+    }
+
+    fn set(&mut self, path: String) {
+        self.options = path
+            .rsplit_once('/')
+            .and_then(|(parent, prefix)| {
+                // only the root's parent is empty
+                let parent = if parent.is_empty() { "/" } else { parent };
+                let join = if parent == "/" { "" } else { "/" };
+                let entries = std::fs::read_dir(expand(parent)?).ok()?;
+                let mut options: Vec<String> = entries
+                    .flatten()
+                    .filter(|entry| entry.path().is_dir())
+                    .filter_map(|entry| entry.file_name().into_string().ok())
+                    // hidden ones only once a `.` is typed
+                    .filter(|name| {
+                        name.starts_with(prefix)
+                            && (prefix.starts_with('.') || !name.starts_with('.'))
+                    })
+                    .map(|name| format!("{parent}{join}{name}"))
+                    .collect();
+                options.sort();
+                Some(options)
+            })
+            .unwrap_or_default();
+        self.path = path;
+        self.invalid = false;
+        self.selected = None;
+    }
+
+    /// Moves the arrow selection through the shown options, down if `down`; wraps around
+    fn select(&mut self, down: bool) {
+        let shown = self.options.len().min(MAX_OPTIONS);
+        if shown == 0 {
+            return;
+        }
+        self.selected = Some(match (self.selected, down) {
+            (None, true) => 0,
+            (None, false) => shown - 1,
+            (Some(index), true) => (index + 1) % shown,
+            (Some(index), false) => (index + shown - 1) % shown,
+        });
+    }
+
+    /// Fills in the selected option, else completes to the options' longest common prefix,
+    /// or into the only option once it is reached
+    fn complete(&mut self) {
+        if let Some(option) = self.selected.and_then(|index| self.options.get(index)) {
+            self.set(option.clone());
+            return;
+        }
+        let Some((first, rest)) = self.options.split_first() else {
+            return;
+        };
+        if rest.is_empty() && *first == self.path {
+            self.set(format!("{first}/"));
+            return;
+        }
+        let common = rest.iter().fold(first.as_str(), |common, option| {
+            let len = common
+                .char_indices()
+                .zip(option.chars())
+                .take_while(|((_, a), b)| a == b)
+                .last()
+                .map_or(0, |((index, a), _)| index + a.len_utf8());
+            &common[..len]
+        });
+        if common.len() > self.path.len() {
+            self.set(common.to_string());
+        }
+    }
+
+    /// The directory to save (`Ok(None)` clears it), or `Err` if the path isn't an absolute directory
+    fn parse(&self) -> Result<Option<PathBuf>, ()> {
+        let path = self.path.trim();
+        if path.is_empty() {
+            return Ok(None);
+        }
+        expand(path)
+            .and_then(|path| std::fs::canonicalize(path).ok())
+            .filter(|path| path.is_dir())
+            .map(Some)
+            .ok_or(())
+    }
+}
 
 /// Shows its contents' panes; the root's treeview shows its contents as its node's inner tree.
 /// Its inner tree's root is a container (no main), so focus inside the project at its root (`[[project], []]`)
@@ -54,7 +194,7 @@ const BTN_LEFT: u32 = 0x110;
 ///
 /// Closing it (`CloseRequest`, eg Ctrl+W on its node) gives its contents back to its node, which they replace.
 ///
-/// While focus is at its inner root, it shows an overview instead of its panes: its name (`r` renames it),
+/// While focus is at its inner root, it shows an overview instead of its panes: its name (`r` renames it), its directory (`d` sets it),
 /// its contents (click to select) and rows that add to it (`NEW_ROWS`: a command hub, terminal or browser).
 pub struct ProjectApplet {
     holder: NodeHolder,
@@ -67,13 +207,18 @@ pub struct ProjectApplet {
     /// The new name being typed (empty keeps the old one)
     renaming: Option<String>,
     /// The new directory being typed (empty clears it)
-    setting_directory: Option<String>,
+    setting_directory: Option<DirectoryInput>,
 }
 impl ProjectApplet {
-    /// Makes a project holding a subtree (`NodeRequest::Wrap`), under its inner root
+    /// Makes a project holding a subtree (`NodeRequest::Wrap`), under its inner root,
+    /// in the directory of the tree it is made in
     pub fn wrapper() -> WrapInitializer {
-        Box::new(|subtree| {
-            Box::new(move |hook| Box::new(Self::new(subtree, hook)) as Box<dyn StandardApplet>)
+        Box::new(|subtree, directory| {
+            Box::new(move |hook| {
+                let mut project = Self::new(subtree, hook);
+                project.holder.directory = directory;
+                Box::new(project) as Box<dyn StandardApplet>
+            })
         })
     }
 
@@ -143,6 +288,19 @@ impl ProjectApplet {
         }
     }
 
+    /// Starts typing a new directory, from the current one (the runner's if it has none)
+    fn start_setting_directory(&mut self) {
+        let directory = self
+            .holder
+            .directory
+            .clone()
+            .or_else(|| std::env::current_dir().ok())
+            .map(|directory| tilde(&directory))
+            .unwrap_or_default();
+        self.renaming = None;
+        self.setting_directory = Some(DirectoryInput::new(directory));
+    }
+
     /// Focus is on its inner root (the project itself), so it shows the overview
     fn at_root(&self) -> bool {
         !self.dissolved && self.holder.tree.focused_node() == self.holder.tree.root()
@@ -169,6 +327,40 @@ impl ProjectApplet {
         }
     }
 
+    /// A key while setting the directory; whether it took it
+    fn handle_directory_key(&mut self, key: KeySymbol, modifiers: KeyModifiers) -> bool {
+        let Some(input) = &mut self.setting_directory else {
+            return false;
+        };
+        match key {
+            KeySymbol::Enter => match input.parse() {
+                Ok(directory) => {
+                    self.holder.directory = directory;
+                    self.setting_directory = None;
+                    // republish, so the session saves it
+                    self.hook.damage_treeview();
+                }
+                Err(()) => input.invalid = true,
+            },
+            KeySymbol::Escape => self.setting_directory = None,
+            KeySymbol::Backspace => {
+                let mut path = input.path.clone();
+                path.pop();
+                input.set(path);
+            }
+            KeySymbol::Char('\t') if modifiers == KeyModifiers::NONE => input.complete(),
+            KeySymbol::ArrowKeyDown => input.select(true),
+            KeySymbol::ArrowKeyUp => input.select(false),
+            KeySymbol::Char(key_char) if !key_char.is_control() => {
+                let mut path = input.path.clone();
+                path.push(key_char);
+                input.set(path);
+            }
+            _ => return false,
+        }
+        true
+    }
+
     /// The overview's keys and clicks; gives back what it doesn't take
     fn handle_overview_event(&mut self, ui_event: UIEvent) -> Option<UIEvent> {
         match ui_event {
@@ -189,7 +381,18 @@ impl ProjectApplet {
                     .then(|| ((y - f64::from(PAD)) / f64::from(row_height())) as usize);
                 match row {
                     None => {}
-                    Some(0) => self.renaming = Some(String::new()),
+                    Some(row) if row >= CONTENTS_ROW && self.setting_directory.is_some() => {
+                        if let Some(input) = &mut self.setting_directory
+                            && let Some(option) = input.options.get(row - CONTENTS_ROW).cloned()
+                        {
+                            input.set(option);
+                        }
+                    }
+                    Some(0) => {
+                        self.setting_directory = None;
+                        self.renaming = Some(String::new());
+                    }
+                    Some(DIRECTORY_ROW) => self.start_setting_directory(),
                     Some(row) if (CONTENTS_ROW..CONTENTS_ROW + contents).contains(&row) => {
                         let id = self.holder.tree.children(root)[row - CONTENTS_ROW];
                         self.holder.tree.focus(id, false);
@@ -211,28 +414,16 @@ impl ProjectApplet {
                 pressed: true,
                 ..
             } if !(modifiers.ctrl || modifiers.alt || modifiers.logo) => {
-                if let Some(path) = &mut self.setting_directory {
-                    match key {
-                        KeySymbol::Enter => {
-                            let path = path.trim();
-                            self.holder.directory = (!path.is_empty()).then(|| path.into());
-                            self.setting_directory = None;
-                            // republish, so the session saves it
-                            self.hook.damage_treeview();
-                        }
-                        KeySymbol::Escape => self.setting_directory = None,
-                        KeySymbol::Backspace => {
-                            path.pop();
-                        }
-                        KeySymbol::Char(key_char) if !key_char.is_control() => path.push(key_char),
-                        _ => return Some(ui_event),
+                if self.setting_directory.is_some() {
+                    if !self.handle_directory_key(key, modifiers) {
+                        return Some(ui_event);
                     }
                     self.hook.damage_window();
                     return None;
                 }
                 match (&mut self.renaming, key) {
                     (None, KeySymbol::Char('d')) if modifiers == KeyModifiers::NONE => {
-                        self.setting_directory = Some(String::new());
+                        self.start_setting_directory();
                     }
                     (Some(_), KeySymbol::Enter) => {
                         let name = self.renaming.take().unwrap_or_default();
@@ -269,31 +460,64 @@ impl ProjectApplet {
 
     fn get_overview(&self, width: f32) -> UITree {
         let tree = &self.holder.tree;
-        let (title, hint) = match (&self.renaming, &self.setting_directory) {
-            (Some(name), _) => (format!("{name}▏"), "Enter: save, Esc: cancel".to_string()),
-            (_, Some(path)) => (
-                format!("dir: {path}▏"),
-                "Enter: save (empty clears), Esc: cancel".to_string(),
-            ),
-            _ => {
-                let directory = self.holder.directory.as_ref().map_or_else(
-                    || "none".to_string(),
-                    |directory| directory.display().to_string(),
-                );
-                (
-                    self.name.clone(),
-                    format!("r: rename, d: directory ({directory}), 1-9: select"),
-                )
-            }
-        };
         let text = settings::get().palette.fg;
-        let contents = (1..)
-            .zip(tree.children(tree.root()))
-            .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), text));
-        let rows = [(title, text), (hint, HINT)]
+        let title = match &self.renaming {
+            Some(name) => format!("{name}▏"),
+            None => self.name.clone(),
+        };
+        let (directory, hint) = match (&self.renaming, &self.setting_directory) {
+            (_, Some(input)) => (
+                (format!("directory: {}▏", input.path), text),
+                if input.invalid {
+                    ("Not a directory", ERROR)
+                } else {
+                    (
+                        "Up/Down + Tab or click: complete, Enter: save (empty clears), Esc: cancel",
+                        HINT,
+                    )
+                },
+            ),
+            (renaming, None) => (
+                (
+                    format!(
+                        "directory: {}",
+                        self.holder.directory.as_ref().map_or_else(
+                            || "none (the runner's)".to_string(),
+                            |directory| tilde(directory),
+                        )
+                    ),
+                    HINT,
+                ),
+                if renaming.is_some() {
+                    ("Enter: save, Esc: cancel", HINT)
+                } else {
+                    ("r: rename, d: set directory, 1-9: select", HINT)
+                },
+            ),
+        };
+        let below: Vec<(String, Color)> = match &self.setting_directory {
+            Some(input) => input
+                .options
+                .iter()
+                .take(MAX_OPTIONS)
+                .enumerate()
+                .map(|(index, option)| {
+                    if input.selected == Some(index) {
+                        (format!("› {option}"), settings::get().palette.accent)
+                    } else {
+                        (format!("  {option}"), text)
+                    }
+                })
+                .collect(),
+            None => (1..)
+                .zip(tree.children(tree.root()))
+                .map(|(index, &id)| (format!("{index}  {}", tree.label(id)), text))
+                .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), text)))
+                .collect(),
+        };
+        let rows = [(title, text), directory, (hint.0.to_string(), hint.1)]
             .into_iter()
-            .chain(contents)
-            .chain(NEW_ROWS.map(|(label, _, _)| (label.to_string(), text)));
+            .chain(below);
         let rows = (0..)
             .zip(rows)
             .map(|(index, (text, color))| {
