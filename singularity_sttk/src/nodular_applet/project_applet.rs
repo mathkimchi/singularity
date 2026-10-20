@@ -81,10 +81,12 @@ impl ProjectApplet {
     pub fn restorer(mut contents: SavedTree) -> NodularAppletInitializer {
         Box::new(move |hook| {
             let name = contents.label.take().unwrap_or_else(|| LABEL.to_string());
+            let directory = contents.directory.take();
             let mut project = Self::with_tree(hook, |spawn_client, attach_client| {
                 NodeTree::restore(contents, spawn_client, attach_client)
             });
             project.name = name;
+            project.holder.directory = directory;
             Box::new(project) as Box<dyn StandardApplet>
         })
     }
@@ -215,6 +217,8 @@ impl ProjectApplet {
                             let path = path.trim();
                             self.holder.directory = (!path.is_empty()).then(|| path.into());
                             self.setting_directory = None;
+                            // republish, so the session saves it
+                            self.hook.damage_treeview();
                         }
                         KeySymbol::Escape => self.setting_directory = None,
                         KeySymbol::Backspace => {
@@ -438,6 +442,7 @@ impl StandardApplet for ProjectApplet {
         (!self.dissolved).then(|| {
             let mut contents = self.holder.tree.save();
             contents.label = Some(self.name.clone());
+            contents.directory.clone_from(&self.holder.directory);
             SavedApplet::Project(Box::new(contents))
         })
     }

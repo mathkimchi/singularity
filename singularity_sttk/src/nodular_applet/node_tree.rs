@@ -390,6 +390,7 @@ impl NodeTree {
                 layout: Layout::Single,
                 children: saved,
                 label: None,
+                directory: None,
             },
         }
     }
@@ -417,6 +418,7 @@ impl NodeTree {
             layout: node.layout,
             children,
             label: None,
+            directory: None,
         }]
     }
 
