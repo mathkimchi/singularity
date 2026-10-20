@@ -79,6 +79,8 @@ pub struct TreeviewRow {
     inner: bool,
     /// Has a close button (shown while hovered): not the root, nor a `‹` row
     closable: bool,
+    /// The holder's `‹` row of an inner tree: its name selects that tree's root (this path), its `‹` goes out to the holder
+    inner_root: Option<WorldTreePath>,
 }
 
 /// One row per node of the tree, and per element of each applet's inner tree, in DFS order.
@@ -104,6 +106,7 @@ pub fn treeview_rows(
                 label: format!("‹ {label}"),
                 inner: true,
                 closable: false,
+                inner_root: None,
             },
         );
     }
@@ -126,12 +129,15 @@ pub fn inner_layer_rows(
         // eg a terminal's label, or a collapsed node
         root.safe_get(&TreeNodePath(vec![0]))?;
         let label = world.get_root_value().trim_start_matches("▾ ");
+        let mut inner_root = holder.0.to_vec();
+        inner_root.push(TreeNodePath::new_root());
         let mut rows = vec![TreeviewRow {
             label: format!("‹ {label}"),
             path: holder.clone(),
             depth: 0,
             inner: true,
             closable: false,
+            inner_root: Some(WorldTreePath(inner_root.into_boxed_slice())),
         }];
         push_rows(world, &holder.0, 0, true, layer, &mut rows);
         Some(rows)
@@ -166,6 +172,7 @@ fn push_rows(
             label: value.get_root_value().clone(),
             inner: prefix.len() > layer,
             closable,
+            inner_root: None,
         });
         push_rows(value, &full_path, row_depth, true, layer, rows);
     }
@@ -400,7 +407,7 @@ struct Press {
     path: WorldTreePath,
     position: [f64; 2],
     dragging: bool,
-    /// On the row's `▾`/`▸`, so a click collapses or expands it instead of focusing it
+    /// On the row's `▾`/`▸` (a click collapses or expands it instead of focusing it), or a `‹` row's `‹`
     on_triangle: bool,
     /// On the row's close button, so a click closes it
     on_close: bool,
@@ -561,7 +568,7 @@ impl TreeviewPointer {
                         path: row.path.clone(),
                         position: event.position,
                         dragging: false,
-                        on_triangle: has_triangle(row)
+                        on_triangle: (has_triangle(row) || row.inner_root.is_some())
                             && (text_left..text_left + f64::from(triangle_width()))
                                 .contains(&event.position[0]),
                         on_close,
@@ -579,14 +586,20 @@ impl TreeviewPointer {
                         ))
                     } else {
                         // a click: pressed and released on the same row
-                        let target = row.map(|index| rows[index].path.clone());
-                        target.filter(|target| *target == press.path).map(|target| {
-                            if press.on_close {
-                                TreeviewAction::Node(target, NodeAction::Close)
-                            } else if press.on_triangle {
-                                TreeviewAction::ToggleCollapsed(target)
-                            } else {
-                                TreeviewAction::Focus(target)
+                        let row = row.map(|index| &rows[index]);
+                        row.filter(|row| row.path == press.path).map(|row| {
+                            let target = row.path.clone();
+                            match &row.inner_root {
+                                _ if press.on_close => {
+                                    TreeviewAction::Node(target, NodeAction::Close)
+                                }
+                                // its `‹`: out to the holder
+                                Some(_) if press.on_triangle => TreeviewAction::Focus(target),
+                                Some(inner_root) => TreeviewAction::Focus(inner_root.clone()),
+                                None if press.on_triangle => {
+                                    TreeviewAction::ToggleCollapsed(target)
+                                }
+                                None => TreeviewAction::Focus(target),
                             }
                         })
                     };
@@ -714,7 +727,7 @@ impl TreeviewPointer {
                     .with_cursor(Some(Cursor::Named(CursorIcon::Pointer))),
                 );
             }
-            if has_triangle(row) {
+            if has_triangle(row) || row.inner_root.is_some() {
                 parts.push(
                     UITree::leaf_styled(
                         UIElement::Nothing,

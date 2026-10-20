@@ -148,7 +148,8 @@ The holder above stitches these in:
   `pinned` (always shown) or not (default: only while `NodeTree::is_traversing`, or a treeview drag or menu is open).
   Floating is never pinned. See `treeview_area`, `applet_area` and `treeview_frame` in `root_node_applet.rs`.
 - When focus is inside an inner world that has elements, the treeview shows only that (deepest such) world, under a
-  `‹ holder` row that focuses the holding node (`inner_layer_rows`). Else it shows the view root's subtree (Super+V).
+  `‹ holder` row (`inner_layer_rows`): a click on its `‹` focuses the holding node (out), on its name the inner
+  world's root (eg a project's overview; `TreeviewRow::inner_root`). Else it shows the view root's subtree (Super+V).
   Expanded inner worlds are drawn in a box; the panel scrolls with the wheel and follows focus.
 - `is_traversing` follows `Inner` nodes down into
   their mains' `traversing`, since a path inside a project can still be a selection (eg `[[p], []]`).
