@@ -11,6 +11,8 @@ use singularity_common::{
         world_tree::{WorldTree, WorldTreePath},
     },
 };
+use std::time::{Duration, Instant};
+
 use sonamu_ui::{
     color::Color,
     ui_element::{Cursor, CursorIcon, Length, Style, UIElement, UITree, font_size},
@@ -62,6 +64,8 @@ const EDGE_ZONE: f32 = 0.25;
 const INSERT_LINE_HEIGHT: f32 = 3.0;
 const MENU_BG: Color = Color([0x20, 0x22, 0x2A, 0xF0]);
 const MENU_PAD: f32 = 12.0;
+/// Two clicks on a row within this are a double click (sets the view layer)
+const DOUBLE_CLICK: Duration = Duration::from_millis(400);
 /// What the menu's `New` items list, and their labels
 const NEW_APPLETS: [(NewApplet, &str); 5] = [
     (NewApplet::CommandHub, "Command hub"),
@@ -224,6 +228,8 @@ pub struct TreeviewPointer {
     followed: Option<WorldTreePath>,
     /// Opened by a right click
     menu: Option<Menu>,
+    /// The last click on a row's name, to tell a double click
+    last_click: Option<(WorldTreePath, Instant)>,
 }
 
 /// A right-click menu: actions on a row's node, or what can be added
@@ -591,14 +597,24 @@ impl TreeviewPointer {
                     } else {
                         // a click: pressed and released on the same row
                         let row = row.map(|index| &rows[index]);
+                        let last_click = self.last_click.take();
                         row.filter(|row| row.path == press.path).map(|row| {
                             let target = row.path.clone();
+                            let double = last_click.is_some_and(|(path, time)| {
+                                path == target && time.elapsed() < DOUBLE_CLICK
+                            });
+                            if !press.on_close && !press.on_triangle && !double {
+                                self.last_click = Some((target.clone(), Instant::now()));
+                            }
                             match &row.inner_root {
                                 _ if press.on_close => {
                                     TreeviewAction::Node(target, NodeAction::Close)
                                 }
                                 // its `‹`: out to the holder
                                 Some(_) if press.on_triangle => TreeviewAction::Focus(target),
+                                None if double && !press.on_triangle => {
+                                    TreeviewAction::SetViewLayer(target)
+                                }
                                 Some(inner_root) => TreeviewAction::Focus(inner_root.clone()),
                                 None if press.on_triangle => {
                                     TreeviewAction::ToggleCollapsed(target)

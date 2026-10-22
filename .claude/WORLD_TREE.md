@@ -149,7 +149,7 @@ The holder above stitches these in:
   Floating is never pinned. See `treeview_area`, `applet_area` and `treeview_frame` in `root_node_applet.rs`.
 - The treeview shows the **view layer**'s world (`RootNodeApplet::view_layer`, the holder's path; `None` is the
   outermost), chosen by the user: Alt+R sets it to the world focus is in, a row's right click › Set as view layer to
-  the world that row is in. Focus going out of it (or its holder going away) moves it out to the next world focus is
+  the world that row is in, as does a double click on it. Focus going out of it (or its holder going away) moves it out to the next world focus is
   inside (`update_view_layer`). An inner view layer is shown under a `‹ holder` row (`inner_layer_rows`): a click on its `‹` focuses the holding node (out), on its name the inner
   world's root (eg a project's overview; `TreeviewRow::inner_root`). Else it shows the view root's subtree (Super+V).
   Expanded inner worlds are drawn in a box; the panel scrolls with the wheel and follows focus.
