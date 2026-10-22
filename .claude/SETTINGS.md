@@ -49,6 +49,7 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
   root's treeview is and whether it always shows, or only while traversing. A floating one is 40% x 70% of the
   window, centered over the panes, and never pinned. The example config sets both to the defaults.
 - A pane holding a project is never framed (no border, no radius) and grows by `gap` on every side: the project's own tree frames its panes and adds its own outer gap, so leaf content gets exactly one frame and one gap at any nesting depth. Detected by `NodeTree::is_project` (the applet's treeview `saved` is `SavedApplet::Project`). A project node's focus then only shows in the treeview.
+- `keybinds` (#114): `[{"mods": ["logo"], "key": "t", "command": "foot"}]`; `key` is a char (case-insensitive) or an evdev code. Checked in `AppletRunner::handle_ui_event` after layer surfaces and Alt+P; mods must match exactly; runs `sh -c`. Only in the settings the compositor actually loads (with an executable `settings`, `settings.json` is ignored), and one bad entry fails the whole parse (previous settings kept, error logged). The example config binds volume and mute (wpctl), brightness (brightnessctl) and Print (`dms screenshot`, grim in a comment).
 - Not themed yet: command hub/help, file manager, editors etc. keep their own constants.
 
 ## Rendering changes
