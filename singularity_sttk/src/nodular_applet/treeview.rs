@@ -113,35 +113,30 @@ pub fn treeview_rows(
     rows
 }
 
-/// When focus is inside an applet's inner tree (eg `[[2], [0]]`), the rows of the deepest one it is in,
-/// under a first row for the node holding it (focusing it goes back out).
+/// The rows of the inner tree of the node at `holder` (eg `[[2]]`),
+/// under a first row for that node (focusing it goes back out).
 /// `treeview` is the whole tree.
 pub fn inner_layer_rows(
     treeview: &WorldTree<String>,
-    focus_path: &WorldTreePath,
+    holder: &WorldTreePath,
 ) -> Option<Vec<TreeviewRow>> {
-    (1..focus_path.0.len()).rev().find_map(|layer| {
-        let holder = WorldTreePath(focus_path.0[..layer].into());
-        let world = treeview.safe_get(&holder)?;
-        let WorldTree::World(root) = world else {
-            return None;
-        };
-        // eg a terminal's label, or a collapsed node
-        root.safe_get(&TreeNodePath(vec![0]))?;
-        let label = world.get_root_value().trim_start_matches("▾ ");
-        let mut inner_root = holder.0.to_vec();
-        inner_root.push(TreeNodePath::new_root());
-        let mut rows = vec![TreeviewRow {
-            label: format!("‹ {label}"),
-            path: holder.clone(),
-            depth: 0,
-            inner: true,
-            closable: false,
-            inner_root: Some(WorldTreePath(inner_root.into_boxed_slice())),
-        }];
-        push_rows(world, &holder.0, 0, true, layer, &mut rows);
-        Some(rows)
-    })
+    let world = treeview.safe_get(holder)?;
+    if !matches!(world, WorldTree::World(_)) {
+        return None;
+    }
+    let label = world.get_root_value().trim_start_matches("▾ ");
+    let mut inner_root = holder.0.to_vec();
+    inner_root.push(TreeNodePath::new_root());
+    let mut rows = vec![TreeviewRow {
+        label: format!("‹ {label}"),
+        path: holder.clone(),
+        depth: 0,
+        inner: true,
+        closable: false,
+        inner_root: Some(WorldTreePath(inner_root.into_boxed_slice())),
+    }];
+    push_rows(world, &holder.0, 0, true, holder.0.len(), &mut rows);
+    Some(rows)
 }
 
 /// `skip_root`: the world's root is already the row above (an applet's inner tree root is the applet itself).
@@ -250,6 +245,7 @@ impl Menu {
                     items.push(MenuItem::New { sibling: true });
                 }
                 items.push(MenuItem::Action(NodeAction::MakeProject));
+                items.push(MenuItem::ViewLayer);
                 if row.closable {
                     items.extend(
                         [
@@ -343,6 +339,8 @@ enum MenuItem {
         sibling: bool,
     },
     Action(NodeAction),
+    /// Shows the tree the row is in
+    ViewLayer,
 }
 impl MenuItem {
     fn label(self) -> String {
@@ -353,6 +351,7 @@ impl MenuItem {
             Self::Action(NodeAction::CloseWithChildren) => "Close with children",
             Self::Action(NodeAction::Deactivate) => "Deactivate",
             Self::Action(NodeAction::MakeProject) => "Make project",
+            Self::ViewLayer => "Set as view layer",
             Self::Action(NodeAction::Spawn { applet, .. }) => NEW_APPLETS
                 .iter()
                 .find(|(new, _)| *new == applet)
@@ -423,6 +422,8 @@ pub enum TreeviewAction {
     Drop(Option<(WorldTreePath, SpawnPosition)>),
     /// Do this to the node at this path (eg its close button was clicked)
     Node(WorldTreePath, NodeAction),
+    /// Show the tree the node at this path is in
+    SetViewLayer(WorldTreePath),
 }
 
 pub struct TreeviewResponse {
@@ -485,6 +486,9 @@ impl TreeviewPointer {
                     }
                     Some(MenuItem::Action(action)) => {
                         Some(TreeviewAction::Node(menu.target.clone(), action))
+                    }
+                    Some(MenuItem::ViewLayer) => {
+                        Some(TreeviewAction::SetViewLayer(menu.target.clone()))
                     }
                     // a click elsewhere closes it
                     None => None,

@@ -30,6 +30,10 @@ const BINDS: &[(&str, &str)] = &[
         "Super+V",
         "view only the focused node's subtree; on the view root, view everything",
     ),
+    (
+        "Alt+R",
+        "show the tree focus is in in the treeview (the view layer); going out of it shows the outer one",
+    ),
     ("Ctrl+Shift+Q", "quit Sonamu"),
     ("Ctrl+Alt+Backspace", "quit (on a TTY)"),
     ("Ctrl+Alt+F1..F12", "switch VT (on a TTY)"),

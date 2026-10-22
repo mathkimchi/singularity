@@ -147,8 +147,10 @@ The holder above stitches these in:
   rest of the width) or floating (default: centered over the panes, which keep their size; always framed), and
   `pinned` (always shown) or not (default: only while `NodeTree::is_traversing`, or a treeview drag or menu is open).
   Floating is never pinned. See `treeview_area`, `applet_area` and `treeview_frame` in `root_node_applet.rs`.
-- When focus is inside an inner world that has elements, the treeview shows only that (deepest such) world, under a
-  `‹ holder` row (`inner_layer_rows`): a click on its `‹` focuses the holding node (out), on its name the inner
+- The treeview shows the **view layer**'s world (`RootNodeApplet::view_layer`, the holder's path; `None` is the
+  outermost), chosen by the user: Alt+R sets it to the world focus is in, a row's right click › Set as view layer to
+  the world that row is in. Focus going out of it (or its holder going away) moves it out to the next world focus is
+  inside (`update_view_layer`). An inner view layer is shown under a `‹ holder` row (`inner_layer_rows`): a click on its `‹` focuses the holding node (out), on its name the inner
   world's root (eg a project's overview; `TreeviewRow::inner_root`). Else it shows the view root's subtree (Super+V).
   Expanded inner worlds are drawn in a box; the panel scrolls with the wheel and follows focus.
 - `is_traversing` follows `Inner` nodes down into
@@ -169,8 +171,8 @@ The holder converts them:
   documents). The treeview's `×` button, shown on the hovered row (not the root, not `‹` rows), sends `NodeAction::Close`,
   which asks the node's main to close like Ctrl+W.
 - A right click in the treeview opens a menu (#103, `Menu` in `treeview.rs`). On a node's row: New child ›,
-  New sibling below ›, Make project (Wrap, like Super+P), Deactivate, Close, Close with children (asks every node
-  in the subtree, parents first). On the root's row only the first and Make project; on empty space or a `‹` row,
+  New sibling below ›, Make project (Wrap, like Super+P), Set as view layer, Deactivate, Close, Close with children (asks every node
+  in the subtree, parents first). On the root's row only the first, Make project and Set as view layer; on empty space or a `‹` row,
   the applet list for the shown world's root (the view root, or the inner root of the applet whose inner world is
   shown). New › lists command hub, terminal, browser, file manager (in the holder's directory) and an empty
   project, all as `NodeAction::Spawn`. Native ones are added there and focused inside; for a program, the holder
