@@ -34,6 +34,8 @@ pub struct Settings {
     /// Text height in px (Sonamu's own UI isn't scaled)
     pub font_size: f32,
     pub treeview: TreeviewSettings,
+    /// Global shortcuts that run a shell command
+    pub keybinds: Vec<Keybind>,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -45,6 +47,55 @@ impl Default for Settings {
             always_frame: true,
             font_size: 46.0,
             treeview: TreeviewSettings::default(),
+            keybinds: Vec::new(),
+        }
+    }
+}
+
+/// Runs `command` with `sh -c` when `key` is pressed with exactly `mods` held.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Keybind {
+    /// Any of `ctrl`, `alt`, `shift`, `logo`
+    #[serde(default)]
+    pub mods: Vec<String>,
+    pub key: Key,
+    pub command: String,
+}
+
+/// A character (case-insensitive), or an evdev code for keys without one (eg 115 is volume up)
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum Key {
+    Code(u32),
+    Char(char),
+}
+
+impl Keybind {
+    pub fn matches(
+        &self,
+        symbol: Option<char>,
+        raw_keycode: u32,
+        [ctrl, alt, shift, logo]: [bool; 4],
+    ) -> bool {
+        let has = |name: &str| self.mods.iter().any(|m| m.eq_ignore_ascii_case(name));
+        has("ctrl") == ctrl
+            && has("alt") == alt
+            && has("shift") == shift
+            && has("logo") == logo
+            && match self.key {
+                Key::Code(code) => code == raw_keycode,
+                Key::Char(c) => symbol.is_some_and(|s| s.to_lowercase().eq(c.to_lowercase())),
+            }
+    }
+
+    /// Runs the command without waiting for it.
+    pub fn run(&self) {
+        match Command::new("sh").arg("-c").arg(&self.command).spawn() {
+            Ok(mut child) => {
+                // reap it
+                thread::spawn(move || child.wait());
+            }
+            Err(err) => eprintln!("keybind `{}` failed: {err}", self.command),
         }
     }
 }

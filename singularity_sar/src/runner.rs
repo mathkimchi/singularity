@@ -238,6 +238,35 @@ impl AppletRunner {
             return;
         }
 
+        // keybinds from the settings
+        if let UIEvent::Key {
+            symbol,
+            modifiers,
+            raw_keycode,
+            pressed: true,
+        } = event
+        {
+            let symbol = match symbol {
+                Some(KeySymbol::Char(c)) => Some(c),
+                _ => None,
+            };
+            let mods = [
+                modifiers.ctrl,
+                modifiers.alt,
+                modifiers.shift,
+                modifiers.logo,
+            ];
+            let settings = singularity_common::settings::get();
+            if let Some(keybind) = settings
+                .keybinds
+                .iter()
+                .find(|keybind| keybind.matches(symbol, raw_keycode, mods))
+            {
+                keybind.run();
+                return;
+            }
+        }
+
         self.root_client.send_event(StandardEvent::UIEvent(event));
     }
 
