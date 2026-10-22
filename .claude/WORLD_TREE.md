@@ -55,7 +55,8 @@ Keys (`WorldTreeTraversalOperation`):
 - The standard keybinds (Ctrl+W, Ctrl+Shift++, splits, Super+P) act on the selected node.
   Ctrl+W asks its main to close (`CloseRequest`, see below) rather than closing it.
   A selected project is a node like any other, so Ctrl+Shift++ on it gives it a child. Inside it at its inner root,
-  Ctrl+Shift++ adds to the project's contents instead.
+  Ctrl+Shift++ adds to the project's contents instead, and a split splits what it shows, inside it
+  (`NodeTree::split_content`).
 
 An applet with an inner world can have its own selector over it, with the same keys (the project via its `NodeTree`,
 the file manager by hand over its root and documents). While it does, it publishes `traversing: true`.
