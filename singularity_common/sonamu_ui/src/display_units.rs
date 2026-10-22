@@ -188,6 +188,15 @@ impl DisplayAreaPx {
         Self([[left, top], [right, bot]])
     }
 
+    /// The part in both; zero-sized if they don't overlap
+    #[must_use]
+    pub fn intersection(self, other: Self) -> Self {
+        let [[l1, t1], [r1, b1]] = self.0;
+        let [[l2, t2], [r2, b2]] = other.0;
+        let (left, top) = (l1.max(l2), t1.max(t2));
+        Self::new(left, top, r1.min(r2).max(left), b1.min(b2).max(top))
+    }
+
     // /// Similar to `DisplayArea::map_onto`
     // #[must_use]
     // pub fn find_subsize(&self, inner_size: DisplaySize) -> Self {

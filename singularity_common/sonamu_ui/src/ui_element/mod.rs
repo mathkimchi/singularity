@@ -315,20 +315,35 @@ impl PrimitiveScene {
             }
             None => transform,
         };
+        let style = taffy.style(node_id).unwrap();
+        // a node with an explicit size is a box: its children can't draw outside it
+        let is_box = !style.size.width.is_auto() && !style.size.height.is_auto();
         let child_clip = match &primitive {
             Some(UIPrimitiveElement::RoundRect(rect)) if rect.corner_radius > 0.0 => {
                 let width = rect.border_width as u32;
                 let DisplayAreaPx([[left, top], [right, bot]]) = area;
+                let inside = DisplayAreaPx::new(
+                    left + width,
+                    top + width,
+                    right.saturating_sub(width),
+                    bot.saturating_sub(width),
+                );
                 Some(Clip {
-                    area: DisplayAreaPx::new(
-                        left + width,
-                        top + width,
-                        right.saturating_sub(width),
-                        bot.saturating_sub(width),
-                    ),
+                    area: clip.map_or(inside, |clip| clip.area.intersection(inside)),
                     radius: (rect.corner_radius - rect.border_width).max(0.0),
                 })
             }
+            _ if is_box => Some(match clip {
+                Some(clip) => {
+                    let inside = clip.area.intersection(area);
+                    Clip {
+                        area: inside,
+                        // the rounded corners are only still the edge if nothing cut them off
+                        radius: if inside == clip.area { clip.radius } else { 0.0 },
+                    }
+                }
+                None => Clip { area, radius: 0.0 },
+            }),
             _ => clip,
         };
         if let Some(primitive) = primitive {
