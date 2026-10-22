@@ -432,9 +432,9 @@ impl NodeHolder {
             NodeRequest::Close => {
                 self.tree.close(id);
             }
-            // the project splits what it shows, inside it
-            NodeRequest::Split { axis, new_pane } if self.project && id == self.tree.root() => {
-                self.tree.split_content(id, axis, new_pane);
+            // the project's node splits, likewise
+            request @ NodeRequest::Split { .. } if self.project && id == self.tree.root() => {
+                return Some(request);
             }
             NodeRequest::SwapSibling(shift) => self.tree.swap_sibling(id, shift),
             NodeRequest::Split { axis, new_pane } => self.tree.split(id, axis, new_pane),

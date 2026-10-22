@@ -661,23 +661,6 @@ impl NodeTree {
         self.nodes[new].focus = FocusIndex::Inner;
     }
 
-    /// Splits the container's shown child (eg a project's inner root's), or if it has none, adds the new applet,
-    /// which gets focus
-    pub fn split_content(&mut self, id: NodeId, axis: Axis, initializer: NodularAppletInitializer) {
-        let Some(node) = self.nodes.get(id) else {
-            return;
-        };
-        if let Some(&child) = node
-            .children
-            .get(node.last_child.min(node.children.len().saturating_sub(1)))
-        {
-            self.split(child, axis, initializer);
-        } else if let Some(new) = self.add_child(id, initializer) {
-            self.focus_node(new);
-            self.nodes[new].focus = FocusIndex::Inner;
-        }
-    }
-
     /// Swaps the node with the sibling `shift` places over; does nothing if there is none
     pub fn swap_sibling(&mut self, id: NodeId, shift: isize) {
         let Some(parent_id) = self.nodes.get(id).and_then(|node| node.parent) else {
