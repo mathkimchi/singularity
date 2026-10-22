@@ -355,7 +355,18 @@ impl NodeTree {
     }
 
     /// Makes the saved node and its descendants under `parent` (not added to its children)
-    fn restore_subtree(&mut self, parent: Option<NodeId>, saved: SavedTree) -> NodeId {
+    fn restore_subtree(&mut self, parent: Option<NodeId>, mut saved: SavedTree) -> NodeId {
+        // a split saved before splits were applets: one now, holding its panes
+        if parent.is_some() && saved.main.is_none() && matches!(saved.layout, Layout::Split(_)) {
+            saved = SavedTree {
+                main: Some(SavedApplet::Split(Box::new(saved))),
+                layout: Layout::Single,
+                children: Vec::new(),
+                label: None,
+                directory: None,
+                icon: None,
+            };
+        }
         let hibernated = match &saved.main {
             Some(SavedApplet::Wl(wl)) => Some(wl.clone()),
             _ => None,
@@ -638,29 +649,6 @@ impl NodeTree {
         false
     }
 
-    /// Replaces the node with a split showing it and a new applet, which gets focus
-    pub fn split(&mut self, id: NodeId, axis: Axis, initializer: NodularAppletInitializer) {
-        let Some(node) = self.nodes.get(id) else {
-            return;
-        };
-        let parent = node.parent;
-        let split = self.nodes.insert(Node {
-            children: vec![id],
-            focus: FocusIndex::Child(0),
-            ..Node::new(None, Layout::Split(axis), parent)
-        });
-        self.replace_child(parent, id, split);
-        if self.view_root == id {
-            self.view_root = split;
-        }
-        self.nodes[id].parent = Some(split);
-
-        let new = self.insert_node(Some(split), initializer);
-        self.nodes[split].children.push(new);
-        self.focus_node(new);
-        self.nodes[new].focus = FocusIndex::Inner;
-    }
-
     /// Swaps the node with the sibling `shift` places over; does nothing if there is none
     pub fn swap_sibling(&mut self, id: NodeId, shift: isize) {
         let Some(parent_id) = self.nodes.get(id).and_then(|node| node.parent) else {
@@ -721,15 +709,13 @@ impl NodeTree {
     }
 
     /// Replaces the node and its descendants with a node whose applet is made from them (eg a project).
-    /// The new node takes its place, focused itself.
+    /// The new node takes its place, focused itself. Returns it.
     pub fn wrap(
         &mut self,
         id: NodeId,
         wrapper: impl FnOnce(DetachedTree) -> NodularAppletInitializer,
-    ) {
-        let Some(node) = self.nodes.get(id) else {
-            return;
-        };
+    ) -> Option<NodeId> {
+        let node = self.nodes.get(id)?;
         let parent = node.parent;
         let had_view_root = self.contains(id, self.view_root);
         let subtree = self.detach_subtree(id);
@@ -739,6 +725,7 @@ impl NodeTree {
             self.view_root = new;
         }
         self.damaged = true;
+        Some(new)
     }
 
     /// Replaces the node with `tree` (eg a project's contents); the node's children move under the tree's root.
@@ -1045,12 +1032,21 @@ impl NodeTree {
         &self.nodes[id].children
     }
 
-    /// Its main is a project (holds a tree of its own)
-    fn is_project(&self, id: NodeId) -> bool {
-        self.nodes[id]
-            .main
-            .as_ref()
-            .is_some_and(|main| matches!(main.get_treeview().saved, Some(SavedApplet::Project(_))))
+    /// Its main is a project or split (holds a tree of its own, which frames its panes)
+    fn holds_tree(&self, id: NodeId) -> bool {
+        self.nodes[id].main.as_ref().is_some_and(|main| {
+            matches!(
+                main.get_treeview().saved,
+                Some(SavedApplet::Project(_) | SavedApplet::Split(_))
+            )
+        })
+    }
+
+    /// Whether the node is a split (eg a `SplitApplet`'s inner root)
+    pub fn is_split(&self, id: NodeId) -> bool {
+        self.nodes
+            .get(id)
+            .is_some_and(|node| matches!(node.layout, Layout::Split(_)))
     }
 
     /// Its applet's treeview label (or its layout's)
@@ -1459,7 +1455,7 @@ impl NodeTree {
             pane.framed = false;
         }
         for pane in panes.iter_mut().filter(|pane| pane.framed) {
-            if self.is_project(pane.node) {
+            if self.holds_tree(pane.node) {
                 // its own tree frames its panes, with its own gap around them, so it takes this gap back
                 let [x, y, width, height] = pane.rect;
                 pane.rect = [
@@ -1670,6 +1666,7 @@ fn icon(saved: Option<&SavedApplet>) -> Option<String> {
         SavedApplet::Project(contents) => {
             return contents.icon.clone().or(Some(PROJECT_ICON.to_string()));
         }
+        SavedApplet::Split(_) => return None,
         SavedApplet::Spawner { name, .. } => match name.as_str() {
             "command_hub" => '\u{f054}',
             "file_manager" => '\u{f07b}',

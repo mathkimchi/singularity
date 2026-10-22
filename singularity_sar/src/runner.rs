@@ -96,7 +96,10 @@ impl AppletRunner {
         let on_tty = match std::env::var("SONAMU_BACKEND").as_deref() {
             Ok("tty") => true,
             Ok("winit") => false,
-            _ => std::env::var_os("WAYLAND_DISPLAY").is_none() && std::env::var_os("DISPLAY").is_none(),
+            _ => {
+                std::env::var_os("WAYLAND_DISPLAY").is_none()
+                    && std::env::var_os("DISPLAY").is_none()
+            }
         };
         let mut event_loop = EventLoop::try_new().unwrap();
 
@@ -310,23 +313,19 @@ impl AppletRunner {
         ));
         layers.extend(self.plucked_ghost());
         let content = UITree::new_container(layers);
-        let scene = PrimitiveScene::from_ui_tree(
-            content,
-            self.window_size,
-            |surface_id| {
-                // NOTE: currently only handles subsurfaces being the wl surfaces
-                let wl_surface_id = WlSurfaceId::from_u64(surface_id);
-                self.smithay_state
-                    .get_wl_surface_as_element(
-                        wl_surface_id,
-                        &self.ui_handle.device,
-                        &self.ui_handle.queue,
-                    )
-                    .unwrap_or_else(|| {
-                        UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED))
-                    })
-            },
-        );
+        let scene = PrimitiveScene::from_ui_tree(content, self.window_size, |surface_id| {
+            // NOTE: currently only handles subsurfaces being the wl surfaces
+            let wl_surface_id = WlSurfaceId::from_u64(surface_id);
+            self.smithay_state
+                .get_wl_surface_as_element(
+                    wl_surface_id,
+                    &self.ui_handle.device,
+                    &self.ui_handle.queue,
+                )
+                .unwrap_or_else(|| {
+                    UITree::leaf(UIElement::Backgrounded(sonamu_ui::color::Color::RED))
+                })
+        });
         self.smithay_state.set_tile_areas(
             scene
                 .subsurface_areas

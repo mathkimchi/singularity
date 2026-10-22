@@ -35,7 +35,10 @@ fn main() {
 
     let mut registry = BTreeMap::new();
     registry.insert("code_editor".into(), CodeEditorApplet::get_applet_spawner());
-    registry.insert("file_manager".into(), FileManagerApplet::get_applet_spawner());
+    registry.insert(
+        "file_manager".into(),
+        FileManagerApplet::get_applet_spawner(),
+    );
     registry.insert("command_hub".into(), CommandHubApplet::get_applet_spawner());
     let root_kind = std::env::args().nth(1).unwrap_or_default();
     let root_init = if root_kind == "hub" {
@@ -47,7 +50,10 @@ fn main() {
     let init = RootNodeApplet::get_initializer(root_init, registry, session);
 
     let surface = SharedState::new(StateKind::Surface, UITree::leaf(UIElement::Nothing));
-    let treeview = SharedState::new(StateKind::Treeview, Treeview::new(WorldTree::new_base(String::new())));
+    let treeview = SharedState::new(
+        StateKind::Treeview,
+        Treeview::new(WorldTree::new_base(String::new())),
+    );
     let (ev_tx, ev_rx) = calloop::channel::channel();
     let (req_tx, req_rx) = calloop::channel::channel::<StandardRequest>();
     {
@@ -65,13 +71,16 @@ fn main() {
             match request {
                 StandardRequest::Damage(StateKind::Surface) => {
                     let _ = server.surface.get();
-                    let _ = server.events.send(StandardEvent::DamageAck(StateKind::Surface));
+                    let _ = server
+                        .events
+                        .send(StandardEvent::DamageAck(StateKind::Surface));
                 }
                 StandardRequest::Plucked(tree) => {
                     server.log.push(format!(
                         "Plucked({})",
-                        tree.as_ref()
-                            .map_or("None".into(), |t| t.peek_treeview().outer_world_to_string(None))
+                        tree.as_ref().map_or("None".into(), |t| t
+                            .peek_treeview()
+                            .outer_world_to_string(None))
                     ));
                     server.plucked = tree;
                 }
@@ -107,7 +116,10 @@ fn main() {
         server.log.clear();
     };
 
-    send(&server, UIEvent::WindowResized(DisplayContainerSize::new(2000, 1200)));
+    send(
+        &server,
+        UIEvent::WindowResized(DisplayContainerSize::new(2000, 1200)),
+    );
     pump(&mut event_loop, &mut server);
     show(&mut server, "start");
 
@@ -156,7 +168,10 @@ fn main() {
             }
             "place" => {
                 let tree = server.plucked.take().expect("nothing plucked");
-                server.events.send(StandardEvent::Place(None, SpawnPosition::AppendChild, tree)).unwrap();
+                server
+                    .events
+                    .send(StandardEvent::Place(None, SpawnPosition::AppendChild, tree))
+                    .unwrap();
             }
             s if s.starts_with("click") => {
                 let xy: Vec<f64> = s[6..].split(',').map(|v| v.parse().unwrap()).collect();
@@ -179,17 +194,32 @@ fn main() {
                 let raw = &s[7..];
                 let path = parse_path(raw);
                 if s.starts_with("rpluck") {
-                    server.events.send(StandardEvent::Pluck(Some(path))).unwrap();
+                    server
+                        .events
+                        .send(StandardEvent::Pluck(Some(path)))
+                        .unwrap();
                 } else {
                     let tree = server.plucked.take().expect("nothing plucked");
                     server
                         .events
-                        .send(StandardEvent::Place(Some(path), SpawnPosition::AppendChild, tree))
+                        .send(StandardEvent::Place(
+                            Some(path),
+                            SpawnPosition::AppendChild,
+                            tree,
+                        ))
                         .unwrap();
                 }
             }
             // a name with no symbol (eg `shift`) is a modifier on its own
-            _ => send(&server, UIEvent::Key { symbol, modifiers: mods, raw_keycode: 0, pressed: true }),
+            _ => send(
+                &server,
+                UIEvent::Key {
+                    symbol,
+                    modifiers: mods,
+                    raw_keycode: 0,
+                    pressed: true,
+                },
+            ),
         }
         pump(&mut event_loop, &mut server);
         show(&mut server, &step);

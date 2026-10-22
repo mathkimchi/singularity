@@ -13,12 +13,12 @@ pub use wayland_backend::ui_event;
 #[cfg(feature = "winit_backend")]
 pub mod winit_backend;
 #[cfg(feature = "winit_backend")]
+pub use winit_backend::ui_event;
+#[cfg(feature = "winit_backend")]
 pub use winit_backend::{
     CapturedFrame, DisplayInfo, DisplayNotification, DisplayProxy, DisplayRequest, Gpu, ImeEvent,
     PointerGrab, UIDisplay, drm::run_drm_display,
 };
-#[cfg(feature = "winit_backend")]
-pub use winit_backend::ui_event;
 
 // #[cfg(test)]
 // mod test;

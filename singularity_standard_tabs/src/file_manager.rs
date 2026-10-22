@@ -143,15 +143,18 @@ impl FileManagerApplet {
     }
 
     fn title(&self) -> String {
-        let name = self
-            .root
-            .file_name()
-            .map_or_else(|| self.root.display().to_string(), |name| name.to_string_lossy().into());
+        let name = self.root.file_name().map_or_else(
+            || self.root.display().to_string(),
+            |name| name.to_string_lossy().into(),
+        );
         format!("{name}/")
     }
 
     fn rebuild_entries(&mut self) {
-        let selected = self.entries.get(self.selected).map(|entry| entry.path.clone());
+        let selected = self
+            .entries
+            .get(self.selected)
+            .map(|entry| entry.path.clone());
         self.entries.clear();
         push_entries(&self.root, 0, &self.expanded, &mut self.entries);
         // keep the same file selected
@@ -254,9 +257,11 @@ impl FileManagerApplet {
     }
 
     fn add_document(&mut self, document: Document) {
-        document.handle.send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
-            self.document_size(),
-        )));
+        document
+            .handle
+            .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
+                self.document_size(),
+            )));
         self.documents.push(document);
         self.set_active(Some(self.documents.len() - 1));
         self.set_pane(Pane::Document);
@@ -677,9 +682,11 @@ impl StandardApplet for FileManagerApplet {
                 self.clamp_scroll();
                 let document_size = self.document_size();
                 for document in &self.documents {
-                    document.handle.send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
-                        document_size,
-                    )));
+                    document
+                        .handle
+                        .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
+                            document_size,
+                        )));
                 }
             }
             StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)) => self.handle_mouse(mouse_event),
@@ -821,12 +828,14 @@ impl StandardApplet for FileManagerApplet {
             NodeRequest::Standard(StandardRequest::Damage(_)) => {}
             NodeRequest::Standard(StandardRequest::Quit) => self.hook.quit(),
             // its path is inside its own inner tree, which is child `index` of this one
-            NodeRequest::Standard(StandardRequest::RequestPluck(path)) => self.hook.request(
-                StandardRequest::RequestPluck(document_path(index, path)).into(),
-            ),
-            NodeRequest::Standard(StandardRequest::RequestPlace(path, position)) => self.hook.request(
-                StandardRequest::RequestPlace(document_path(index, path), position).into(),
-            ),
+            NodeRequest::Standard(StandardRequest::RequestPluck(path)) => self
+                .hook
+                .request(StandardRequest::RequestPluck(document_path(index, path)).into()),
+            NodeRequest::Standard(StandardRequest::RequestPlace(path, position)) => {
+                self.hook.request(
+                    StandardRequest::RequestPlace(document_path(index, path), position).into(),
+                )
+            }
             NodeRequest::Standard(_) => return,
             // documents can't hold children, split, be wrapped or hold wl surfaces here, so this node does
             request @ (NodeRequest::AddChild(_)

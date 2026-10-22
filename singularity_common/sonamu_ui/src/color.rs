@@ -41,7 +41,11 @@ impl Color {
 pub struct ParseColorError(String);
 impl std::fmt::Display for ParseColorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid color {:?}, expected #rrggbb or #rrggbbaa", self.0)
+        write!(
+            f,
+            "invalid color {:?}, expected #rrggbb or #rrggbbaa",
+            self.0
+        )
     }
 }
 impl std::error::Error for ParseColorError {}

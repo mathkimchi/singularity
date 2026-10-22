@@ -235,7 +235,9 @@ impl PrimitiveScene {
         let node_id = taffy
             .new_with_children((&style).into(), &child_ids)
             .unwrap();
-        taffy.set_node_context(node_id, Some((node, cursor))).unwrap();
+        taffy
+            .set_node_context(node_id, Some((node, cursor)))
+            .unwrap();
         node_id
     }
 

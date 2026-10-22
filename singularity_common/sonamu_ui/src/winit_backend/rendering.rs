@@ -4,8 +4,7 @@ use super::{CapturedFrame, UIDisplay};
 use crate::{
     display_units::DisplayAreaPx,
     ui_element::{
-        CharGrid, Clip, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
-        font_size,
+        CharGrid, Clip, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement, font_size,
     },
     winit_backend::WgpuData,
 };
@@ -1409,9 +1408,10 @@ impl FrameCopy {
     /// Blocks until the copy is done
     fn finish(self, device: &Device) -> Option<CapturedFrame> {
         let (tx, rx) = mpsc::channel();
-        self.buffer.map_async(wgpu::MapMode::Read, .., move |result| {
-            let _ = tx.send(result);
-        });
+        self.buffer
+            .map_async(wgpu::MapMode::Read, .., move |result| {
+                let _ = tx.send(result);
+            });
         device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
         rx.recv().ok()?.ok()?;
 

@@ -10,9 +10,7 @@ use smithay::{
         input::{Axis, AxisSource, ButtonState, InputTime, KeyState, Keycode},
         renderer::{
             BufferType, buffer_type,
-            utils::{
-                Buffer, RendererSurfaceStateUserData, SurfaceView, on_commit_buffer_handler,
-            },
+            utils::{Buffer, RendererSurfaceStateUserData, SurfaceView, on_commit_buffer_handler},
         },
     },
     desktop::{
@@ -23,17 +21,18 @@ use smithay::{
         Seat, SeatHandler, SeatState,
         dnd::{DnDGrab, DndGrabHandler, DndTarget, GrabType, Source},
         keyboard::FilterResult,
-        tablet::TabletSeatHandler,
         pointer::{
             AxisFrame, ButtonEvent, CursorImageStatus, CursorImageSurfaceData, Focus, MotionEvent,
             PointerHandle, RelativeMotionEvent,
         },
+        tablet::TabletSeatHandler,
     },
     output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
     reexports::wayland_protocols::wp::presentation_time::server::wp_presentation_feedback::Kind as PresentationFeedbackKind,
     reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode,
     reexports::wayland_server::{
-        Client, Display, DisplayHandle, Resource as _, backend::ClientData,
+        Client, Display, DisplayHandle, Resource as _,
+        backend::ClientData,
         protocol::{wl_seat::WlSeat, wl_surface::WlSurface},
     },
     utils::{
@@ -51,17 +50,15 @@ use smithay::{
         fractional_scale::{
             FractionalScaleHandler, FractionalScaleManagerState, with_fractional_scale,
         },
+        idle_inhibit::{IdleInhibitHandler, IdleInhibitManagerState},
+        output::{OutputHandler, OutputManagerState},
         pointer_constraints::{
             PointerConstraint, PointerConstraintsHandler, PointerConstraintsState,
             with_pointer_constraint,
         },
+        presentation::{PresentationFeedbackCachedState, PresentationState, Refresh},
         relative_pointer::RelativePointerManagerState,
-        text_input::{TextInputActivation, TextInputManagerState, TextInputSeat as _},
-        xdg_activation::{
-            XdgActivationHandler, XdgActivationState, XdgActivationToken, XdgActivationTokenData,
-        },
-        idle_inhibit::{IdleInhibitHandler, IdleInhibitManagerState},
-        output::{OutputHandler, OutputManagerState},
+        security_context::SecurityContext,
         selection::{
             SelectionHandler,
             data_device::{
@@ -71,17 +68,19 @@ use smithay::{
                 PrimarySelectionHandler, PrimarySelectionState, set_primary_focus,
             },
         },
-        security_context::SecurityContext,
         shell::wlr_layer::{LayerSurface, WlrLayerShellState},
         shell::xdg::{
-            PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface,
-            XdgShellHandler, XdgShellState, XdgToplevelSurfaceData,
+            PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface, XdgShellHandler,
+            XdgShellState, XdgToplevelSurfaceData,
             decoration::{XdgDecorationHandler, XdgDecorationState},
         },
         shm::{ShmHandler, ShmState},
         socket::ListeningSocketSource,
-        presentation::{PresentationFeedbackCachedState, PresentationState, Refresh},
+        text_input::{TextInputActivation, TextInputManagerState, TextInputSeat as _},
         viewporter::ViewporterState,
+        xdg_activation::{
+            XdgActivationHandler, XdgActivationState, XdgActivationToken, XdgActivationTokenData,
+        },
     },
 };
 use sonamu_ui::{
@@ -209,7 +208,10 @@ impl SmithayState {
     }
 
     /// Where each wl toplevel's tile was laid out in the last redraw
-    pub fn set_tile_areas(&mut self, tile_areas: impl Iterator<Item = (WlSurfaceId, DisplayAreaPx)>) {
+    pub fn set_tile_areas(
+        &mut self,
+        tile_areas: impl Iterator<Item = (WlSurfaceId, DisplayAreaPx)>,
+    ) {
         self.tile_areas.clear();
         self.tile_areas.extend(tile_areas);
     }
@@ -247,14 +249,15 @@ impl SmithayState {
                 .map(Rectangle::from_size)
         };
         // for a layer surface's popup, relative to the layer surface
-        let output_in_layer = self.layer_rect(&root).zip(self.output.current_mode()).map(
-            |(rect, mode)| {
-                Rectangle::new(
-                    Point::default() - rect.loc,
-                    mode.size.to_f64().to_logical(self.scale).to_i32_round(),
-                )
-            },
-        );
+        let output_in_layer =
+            self.layer_rect(&root)
+                .zip(self.output.current_mode())
+                .map(|(rect, mode)| {
+                    Rectangle::new(
+                        Point::default() - rect.loc,
+                        mode.size.to_f64().to_logical(self.scale).to_i32_round(),
+                    )
+                });
         let Some(mut target) = output_in_tile.or(output_in_layer).or_else(tile) else {
             return;
         };
@@ -330,12 +333,8 @@ impl SmithayState {
                 mode.size.h.cast_unsigned(),
             ));
         }
-        self.output.change_current_state(
-            None,
-            None,
-            Some(Scale::Fractional(self.scale)),
-            None,
-        );
+        self.output
+            .change_current_state(None, None, Some(Scale::Fractional(self.scale)), None);
 
         if old_scale != self.scale {
             for toplevel in self.xdg_shell_state.toplevel_surfaces() {
@@ -901,7 +900,8 @@ impl SmithayState {
                         // crop to `src`, kept inside the buffer
                         let left = (src.loc.x.floor() as i32).clamp(0, metadata.width);
                         let top = (src.loc.y.floor() as i32).clamp(0, metadata.height);
-                        let right = ((src.loc.x + src.size.w).ceil() as i32).clamp(left, metadata.width);
+                        let right =
+                            ((src.loc.x + src.size.w).ceil() as i32).clamp(left, metadata.width);
                         let bottom =
                             ((src.loc.y + src.size.h).ceil() as i32).clamp(top, metadata.height);
                         if right == left || bottom == top {
@@ -1013,7 +1013,11 @@ impl Layer {
         let cut = visible.loc - self.location;
         self.view.src = Rectangle::new(
             self.view.src.loc + Point::from((f64::from(cut.x) * sx, f64::from(cut.y) * sy)),
-            (f64::from(visible.size.w) * sx, f64::from(visible.size.h) * sy).into(),
+            (
+                f64::from(visible.size.w) * sx,
+                f64::from(visible.size.h) * sy,
+            )
+                .into(),
         );
         self.view.dst = visible.size;
         self.location = visible.loc;
@@ -1153,14 +1157,18 @@ smithay::delegate_dispatch2!(AppletRunner);
 impl AppletRunner {
     /// Sends to whichever surface has keyboard focus
     fn wl_key_input(&mut self, keycode: u32, key_state: KeyState) {
-        self.smithay_state.seat.get_keyboard().unwrap().input::<(), _>(
-            self,
-            Keycode::new(keycode),
-            key_state,
-            SERIAL_COUNTER.next_serial(),
-            self.smithay_state.now_input_time(),
-            |_, _, _| FilterResult::Forward,
-        );
+        self.smithay_state
+            .seat
+            .get_keyboard()
+            .unwrap()
+            .input::<(), _>(
+                self,
+                Keycode::new(keycode),
+                key_state,
+                SERIAL_COUNTER.next_serial(),
+                self.smithay_state.now_input_time(),
+                |_, _, _| FilterResult::Forward,
+            );
     }
 
     /// Called for every release, even if sonamu focus is elsewhere,
@@ -1605,10 +1613,8 @@ impl PointerConstraintsHandler for AppletRunner {
             return;
         };
         // the pointer focus is in the visible tile; find its toplevel's tile
-        let Some(DisplayAreaPx([[left, top], _])) = state
-            .surfaces
-            .iter()
-            .find_map(|(surface_id, toplevel)| {
+        let Some(DisplayAreaPx([[left, top], _])) =
+            state.surfaces.iter().find_map(|(surface_id, toplevel)| {
                 state
                     .tile_areas
                     .get(&surface_id)

@@ -7,6 +7,7 @@ use crate::{
         AppletClient, AppletSpawnerRegistry, NodeRequest, WrapInitializer,
         node_tree::{AttachClient, NodeId, NodeTree, SpawnClient},
         project_applet::ProjectApplet,
+        split_applet::SplitApplet,
     },
     standard_keybinds::{BROWSER, TERMINAL},
 };
@@ -67,7 +68,7 @@ pub struct NodeHolder {
     pub tree: NodeTree,
     /// Sends to the holder's node
     send: Box<dyn Fn(StandardRequest)>,
-    /// Its tree is a project's contents, whose root (a container) stands for the project itself
+    /// Its tree is a project's contents (or a split's panes), whose root stands for the applet itself
     project: bool,
     /// The working directory of programs started in this tree (`NodeRequest::Run`); the runner's if `None`
     pub directory: Option<std::path::PathBuf>,
@@ -80,8 +81,8 @@ pub struct NodeHolder {
     pending: Option<Pending>,
     /// Plucked after the event batch: detaching a client inside its own request callback panics
     to_pluck: Option<NodeId>,
-    /// Wrapped after the event batch, for the same reason
-    to_wrap: Option<(NodeId, WrapInitializer)>,
+    /// Wrapped after the event batch, for the same reason; then focused inside if true (a split's new pane)
+    to_wrap: Option<(NodeId, WrapInitializer, bool)>,
     /// Last sent with `StandardRequest::WlKeyboardFocus`
     focused_wl_surface: Option<WlSurfaceId>,
     /// A project's root was closed, so the project should give its contents back
@@ -167,9 +168,13 @@ impl NodeHolder {
             let plucked = self.tree.pluck(id);
             self.send(StandardRequest::Plucked(plucked));
         }
-        if let Some((id, wrapper)) = self.to_wrap.take() {
+        if let Some((id, wrapper, inside)) = self.to_wrap.take() {
             let directory = self.directory.clone();
-            self.tree.wrap(id, |subtree| wrapper(subtree, directory));
+            let new = self.tree.wrap(id, |subtree| wrapper(subtree, directory));
+            // a split focuses its new pane
+            if inside && let Some(new) = new {
+                self.tree.focus(new, true);
+            }
         }
     }
 
@@ -437,10 +442,12 @@ impl NodeHolder {
                 return Some(request);
             }
             NodeRequest::SwapSibling(shift) => self.tree.swap_sibling(id, shift),
-            NodeRequest::Split { axis, new_pane } => self.tree.split(id, axis, new_pane),
+            NodeRequest::Split { axis, new_pane } => {
+                self.to_wrap = Some((id, SplitApplet::wrapper(axis, new_pane), true));
+            }
             // it is a project already
             NodeRequest::Wrap(_) if self.project && id == self.tree.root() => {}
-            NodeRequest::Wrap(wrapper) => self.to_wrap = Some((id, wrapper)),
+            NodeRequest::Wrap(wrapper) => self.to_wrap = Some((id, wrapper, false)),
             NodeRequest::Unwrap(tree) => self.tree.unwrap(id, tree),
             NodeRequest::Run(program) => {
                 self.run(program);

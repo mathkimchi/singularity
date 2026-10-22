@@ -4,6 +4,7 @@ use crate::{
     command_hub::program_command,
     nodular_applet::{
         AppletContext, NodularAppletInitializer, StandardApplet, project_applet::ProjectApplet,
+        split_applet::SplitApplet,
     },
     standard_keybinds::standard_keybind_request,
 };
@@ -101,6 +102,7 @@ pub fn restore(saved: SavedApplet) -> NodularAppletInitializer {
             initializer
         }
         SavedApplet::Project(tree) => ProjectApplet::restorer((**tree).clone()),
+        SavedApplet::Split(tree) => SplitApplet::restorer((**tree).clone()),
         SavedApplet::Wl(wl) => {
             let label = format!("{} (inactive)", wl_label(wl));
             RestoringApplet::initializer(saved, label)

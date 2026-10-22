@@ -45,6 +45,13 @@ then polishing these features and the treeview. Decide, implement, and log here.
 
 ## Splits
 
+**Now (2026-10-22): a split is an applet**, `SplitApplet` (`nodular_applet/split_applet.rs`), holding its panes as its
+inner tree like a project holds its contents: its inner root is the split node described below, its children the
+panes. `NodeRequest::Split` wraps the node (`NodeHolder::to_wrap`, its subtree becomes the first pane) and focuses the
+new pane inside. So its row gets `▾`/`▸`, `×`/Ctrl+W close it (its panes take its place), and left with one pane it
+is replaced by that pane (it sends `Unwrap`). Saved as `SavedApplet::Split`; older sessions' split nodes become split
+applets on restore (not a split at the very root). The notes below are from before, and still describe its inner tree.
+
 - **A split is a node with no main** (`Node::main: Option<ClientHandle>`) and `layout: Layout::Split(Axis)`,
   as the ClientHandle refactor notes anticipated ("No `Option` main / layout field yet").
   `Layout` and `Axis` live in `singularity_common::sap::detached`, since `DetachedTree` carries them

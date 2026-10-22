@@ -40,6 +40,8 @@ pub enum SavedApplet {
     Spawner { name: String, args: Vec<String> },
     /// A project holding this tree as its inner tree
     Project(Box<SavedTree>),
+    /// A split holding this tree (its root the split, its children the panes) as its inner tree
+    Split(Box<SavedTree>),
     /// A wl client's toplevel
     Wl(SavedWl),
 }

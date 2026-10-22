@@ -85,8 +85,7 @@ impl winit::application::ApplicationHandler for UIDisplay {
                     }
                 }
                 DisplayRequest::WarpPointer([x, y]) => {
-                    if let Err(err) =
-                        window.set_cursor_position(PhysicalPosition::new(x, y).into())
+                    if let Err(err) = window.set_cursor_position(PhysicalPosition::new(x, y).into())
                     {
                         dbg!("Couldn't warp pointer:", err);
                     }

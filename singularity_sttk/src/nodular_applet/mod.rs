@@ -30,6 +30,7 @@ pub mod node_holder;
 pub mod node_tree;
 pub mod project_applet;
 pub mod root_node_applet;
+pub mod split_applet;
 pub(crate) mod treeview;
 
 // pub struct RootApplet<Applet: BasicApplet> {

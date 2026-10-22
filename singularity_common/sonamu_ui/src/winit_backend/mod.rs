@@ -14,14 +14,13 @@ use crate::{
 use calloop::channel::Sender;
 use glyphon::{FontSystem, SwashCache, TextAtlas};
 use smithay::reexports::winit::{
-    event_loop::EventLoopProxy, platform::wayland::EventLoopBuilderExtWayland as _,
-    window::Window,
+    event_loop::EventLoopProxy, platform::wayland::EventLoopBuilderExtWayland as _, window::Window,
 };
 use sonamu_sync::TrackedEncapsulatedLock;
 use std::sync::{Arc, atomic::AtomicBool};
 use wgpu::{
-    CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureFormat,
-    TextureUsages, util::DeviceExt as _,
+    CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureFormat, TextureUsages,
+    util::DeviceExt as _,
 };
 
 pub mod drm;
@@ -82,8 +81,8 @@ impl WgpuData {
             CompositeAlphaMode::Auto
         };
         // copying out is only needed for screen capture
-        let usage = TextureUsages::RENDER_ATTACHMENT
-            | (capabilities.usages & TextureUsages::COPY_SRC);
+        let usage =
+            TextureUsages::RENDER_ATTACHMENT | (capabilities.usages & TextureUsages::COPY_SRC);
         let surface_config = SurfaceConfiguration {
             usage,
             format: swapchain_format,

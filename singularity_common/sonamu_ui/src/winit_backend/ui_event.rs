@@ -48,7 +48,10 @@ pub struct MouseEvent {
 pub enum MouseEventKind {
     Motion,
     /// `button` is an evdev code (e.g. `BTN_LEFT` = 0x110)
-    Button { button: u32, pressed: bool },
+    Button {
+        button: u32,
+        pressed: bool,
+    },
     /// Positive scrolls down/right (Wayland convention).
     /// `v120` is set for discrete (wheel) scrolling, in 1/120ths of a notch.
     /// `stop` is set per axis when the fingers lift (touchpad), so clients can end the gesture / start kinetic scrolling.

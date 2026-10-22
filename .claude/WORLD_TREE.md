@@ -93,6 +93,9 @@ published treeviews.
     subtree with a node whose applet is made from it.
   - Undone by closing it: on `CloseRequest` (Ctrl+W on its node, or on its inner root) it detaches its contents and
     sends `NodeRequest::Unwrap(contents)`, so they take its place.
+- A **split** is a `SplitApplet` the same way: its inner tree's root is the split (`Layout::Split`, no main) and its
+  children are the panes. Ctrl+Shift+| / _ wraps the node into one (`SplitApplet::wrapper`) with a new pane; closing it
+  gives its panes back, and one left with a single pane is replaced by it. See `.claude/FM_SPLITS_UDEV.md`.
 
 Generic hooks that make this possible (`StandardApplet`, run by `AppletClient`):
 

@@ -75,7 +75,9 @@ fn place_axis(
         requested
     };
     let pos = match (start, end) {
-        (true, true) => bounds_start + margin_start + (bounds_len - margin_start - margin_end - len) / 2,
+        (true, true) => {
+            bounds_start + margin_start + (bounds_len - margin_start - margin_end - len) / 2
+        }
         (true, false) => bounds_start + margin_start,
         (false, true) => bounds_start + bounds_len - len - margin_end,
         (false, false) => bounds_start + (bounds_len - len) / 2,
@@ -84,7 +86,9 @@ fn place_axis(
 }
 
 impl SmithayState {
-    pub(super) fn new_layer_shell_state(display_handle: &super::DisplayHandle) -> WlrLayerShellState {
+    pub(super) fn new_layer_shell_state(
+        display_handle: &super::DisplayHandle,
+    ) -> WlrLayerShellState {
         WlrLayerShellState::new::<AppletRunner>(display_handle)
     }
 
@@ -94,10 +98,7 @@ impl SmithayState {
         let to_px = |logical: i32| (f64::from(logical) * self.scale).round();
         (
             [to_px(usable.loc.x), to_px(usable.loc.y)],
-            DisplayContainerSize::new(
-                to_px(usable.size.w) as u32,
-                to_px(usable.size.h) as u32,
-            ),
+            DisplayContainerSize::new(to_px(usable.size.w) as u32, to_px(usable.size.h) as u32),
         )
     }
 
@@ -133,13 +134,19 @@ impl SmithayState {
                 let (x, w) = place_axis(
                     (bounds.loc.x, bounds.size.w),
                     state.size.w,
-                    (anchor.contains(Anchor::LEFT), anchor.contains(Anchor::RIGHT)),
+                    (
+                        anchor.contains(Anchor::LEFT),
+                        anchor.contains(Anchor::RIGHT),
+                    ),
                     (margin.left, margin.right),
                 );
                 let (y, h) = place_axis(
                     (bounds.loc.y, bounds.size.h),
                     state.size.h,
-                    (anchor.contains(Anchor::TOP), anchor.contains(Anchor::BOTTOM)),
+                    (
+                        anchor.contains(Anchor::TOP),
+                        anchor.contains(Anchor::BOTTOM),
+                    ),
                     (margin.top, margin.bottom),
                 );
 
@@ -192,14 +199,17 @@ impl SmithayState {
         queue: &wgpu::Queue,
     ) -> Vec<UITree> {
         // absolute, or the wrappers would take up places in the flow and push the root's content aside
-        let size = self.output.current_mode().map_or([0.0; 2], |mode| {
-            [mode.size.w as f32, mode.size.h as f32]
-        });
+        let size = self
+            .output
+            .current_mode()
+            .map_or([0.0; 2], |mode| [mode.size.w as f32, mode.size.h as f32]);
         // `layer_placements` is topmost first
         self.layer_placements
             .iter()
             .rev()
-            .filter(|placement| matches!(placement.layer, Layer::Background | Layer::Bottom) == below)
+            .filter(|placement| {
+                matches!(placement.layer, Layer::Background | Layer::Bottom) == below
+            })
             .map(|placement| {
                 let layers = Self::layer_tree_layers(placement);
                 let cursor = self.wl_cursor(&layers);
@@ -245,7 +255,9 @@ impl SmithayState {
                 .rev()
                 .find(|layer| {
                     let local = point - layer.location.to_f64();
-                    Rectangle::new(layer.location, layer.view.dst).to_f64().contains(point)
+                    Rectangle::new(layer.location, layer.view.dst)
+                        .to_f64()
+                        .contains(point)
                         && with_states(&layer.surface, |states| {
                             states
                                 .cached_state
@@ -264,7 +276,9 @@ impl SmithayState {
     fn takes_keyboard(&self, root: &WlSurface) -> bool {
         self.layer_placements.iter().any(|placement| {
             placement.surface.wl_surface() == root
-                && placement.surface.with_cached_state(|state| state.keyboard_interactivity)
+                && placement
+                    .surface
+                    .with_cached_state(|state| state.keyboard_interactivity)
                     != KeyboardInteractivity::None
         })
     }
@@ -276,7 +290,9 @@ impl SmithayState {
             .iter()
             .find(|placement| {
                 matches!(placement.layer, Layer::Top | Layer::Overlay)
-                    && placement.surface.with_cached_state(|state| state.keyboard_interactivity)
+                    && placement
+                        .surface
+                        .with_cached_state(|state| state.keyboard_interactivity)
                         == KeyboardInteractivity::Exclusive
             })
             .map(|placement| placement.surface.wl_surface().clone())

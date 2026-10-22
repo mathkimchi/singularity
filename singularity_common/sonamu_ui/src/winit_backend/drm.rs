@@ -21,9 +21,9 @@ use smithay::{
     backend::{
         drm::{DrmDeviceFd, DrmNode},
         input::{
-            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event as _, GestureBeginEvent as _,
-            GestureSwipeUpdateEvent as _, InputEvent, KeyState, KeyboardKeyEvent,
-            PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event as _,
+            GestureBeginEvent as _, GestureSwipeUpdateEvent as _, InputEvent, KeyState,
+            KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
         },
         libinput::{LibinputInputBackend, LibinputSessionInterface},
         session::{Event as SessionEvent, Session, libseat::LibSeatSession},
@@ -145,7 +145,10 @@ pub fn run_drm_display(
 
     event_loop
         .run(None, &mut display, |display| {
-            if !display.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+            if !display
+                .is_running
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
                 display.loop_signal.stop();
                 return;
             }
@@ -194,7 +197,9 @@ impl DrmDisplay {
         let (width, height) = mode.size();
         let size = DisplayContainerSize::new(u32::from(width), u32::from(height));
         let refresh_millihertz = vulkan_refresh_millihertz(&mode);
-        log::info!("Showing on connector {connector:?} at {width}x{height}@{refresh_millihertz}mHz");
+        log::info!(
+            "Showing on connector {connector:?} at {width}x{height}@{refresh_millihertz}mHz"
+        );
 
         // SAFETY: the fd is kept open (`_drm`) until after the surface is dropped (`wgpu_data`);
         // the connector and mode come from the device itself
@@ -225,9 +230,16 @@ impl DrmDisplay {
 
         // keymap from the XKB_DEFAULT_* environment variables, like smithay's seat keyboard
         let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
-        let keymap =
-            xkb::Keymap::new_from_names(&context, "", "", "", "", None, xkb::KEYMAP_COMPILE_NO_FLAGS)
-                .ok_or("can't load the keymap")?;
+        let keymap = xkb::Keymap::new_from_names(
+            &context,
+            "",
+            "",
+            "",
+            "",
+            None,
+            xkb::KEYMAP_COMPILE_NO_FLAGS,
+        )
+        .ok_or("can't load the keymap")?;
 
         let mut libinput = Libinput::new_with_udev(LibinputSessionInterface::from(session.clone()));
         libinput
@@ -331,7 +343,11 @@ impl DrmDisplay {
         let drawn = if cursor == Cursor::Hidden {
             UIDisplay::draw(&mut self.wgpu_data, &self.scene, self.capture)
         } else {
-            if self.cursor_image.as_ref().is_none_or(|(drawn, _)| *drawn != cursor) {
+            if self
+                .cursor_image
+                .as_ref()
+                .is_none_or(|(drawn, _)| *drawn != cursor)
+            {
                 let image = self.load_cursor(&cursor);
                 self.cursor_image = Some((cursor, image));
             }
@@ -340,28 +356,34 @@ impl DrmDisplay {
             // the pointer is clamped to the screen, so non-negative
             #[allow(clippy::cast_sign_loss)]
             let [x, y] = self.pointer.map(|value| value as u32);
-            scene.elements.push(match self.cursor_image.as_ref().and_then(|(_, image)| image.as_ref()) {
-                Some(image) => {
-                    let x = x.saturating_sub(image.hotspot[0]);
-                    let y = y.saturating_sub(image.hotspot[1]);
-                    (
-                        UIPrimitiveElement::Texture(image.texture.clone()),
-                        DisplayAreaPx::new(x, y, x + image.size[0], y + image.size[1]),
+            scene.elements.push(
+                match self
+                    .cursor_image
+                    .as_ref()
+                    .and_then(|(_, image)| image.as_ref())
+                {
+                    Some(image) => {
+                        let x = x.saturating_sub(image.hotspot[0]);
+                        let y = y.saturating_sub(image.hotspot[1]);
+                        (
+                            UIPrimitiveElement::Texture(image.texture.clone()),
+                            DisplayAreaPx::new(x, y, x + image.size[0], y + image.size[1]),
+                            None,
+                        )
+                    }
+                    // a white box with a black outline
+                    None => (
+                        UIPrimitiveElement::RoundRect(RoundRect {
+                            corner_radius: 2.0,
+                            border_width: 1.0,
+                            main_color: [1.0, 1.0, 1.0, 1.0],
+                            border_color: [0.0, 0.0, 0.0, 1.0],
+                        }),
+                        DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
                         None,
-                    )
-                }
-                // a white box with a black outline
-                None => (
-                    UIPrimitiveElement::RoundRect(RoundRect {
-                        corner_radius: 2.0,
-                        border_width: 1.0,
-                        main_color: [1.0, 1.0, 1.0, 1.0],
-                        border_color: [0.0, 0.0, 0.0, 1.0],
-                    }),
-                    DisplayAreaPx::new(x, y, x + CURSOR_SIZE[0], y + CURSOR_SIZE[1]),
-                    None,
-                ),
-            });
+                    ),
+                },
+            );
             UIDisplay::draw(&mut self.wgpu_data, &scene, self.capture)
         };
 
@@ -495,16 +517,15 @@ impl DrmDisplay {
                     .send(DisplayNotification::RelativeMotion([delta.x, delta.y]));
                 if self.pointer_grab != PointerGrab::Locked {
                     let delta = event.delta();
-                    self.pointer =
-                        self.clamp_to_screen([self.pointer[0] + delta.x, self.pointer[1] + delta.y]);
+                    self.pointer = self
+                        .clamp_to_screen([self.pointer[0] + delta.x, self.pointer[1] + delta.y]);
                     self.needs_draw = true;
                     self.send_mouse(MouseEventKind::Motion, event.time().millis());
                 }
             }
             InputEvent::PointerMotionAbsolute { event } => {
-                let position = event.position_transformed(
-                    (self.size.width as i32, self.size.height as i32).into(),
-                );
+                let position = event
+                    .position_transformed((self.size.width as i32, self.size.height as i32).into());
                 self.pointer = self.clamp_to_screen([position.x, position.y]);
                 self.needs_draw = true;
                 self.send_mouse(MouseEventKind::Motion, event.time().millis());
@@ -527,9 +548,8 @@ impl DrmDisplay {
                 let (x, x_v120) = axis_delta(Axis::Horizontal);
                 let (y, y_v120) = axis_delta(Axis::Vertical);
                 // like niri: libinput ends a finger scroll with an explicit 0 on that axis
-                let stop = |axis| {
-                    event.source() == AxisSource::Finger && event.amount(axis) == Some(0.0)
-                };
+                let stop =
+                    |axis| event.source() == AxisSource::Finger && event.amount(axis) == Some(0.0);
                 self.send_mouse(
                     MouseEventKind::Scroll {
                         delta: [x, y],
@@ -608,7 +628,11 @@ impl DrmDisplay {
 
         if pressed && self.keyboard.get_keymap().key_repeats(keycode) {
             self.start_repeat(keycode);
-        } else if !pressed && self.repeat.is_some_and(|(repeating, _)| repeating == keycode) {
+        } else if !pressed
+            && self
+                .repeat
+                .is_some_and(|(repeating, _)| repeating == keycode)
+        {
             self.stop_repeat();
         }
     }
@@ -680,7 +704,9 @@ fn key_symbol(keysym: Keysym) -> Option<KeySymbol> {
 }
 
 /// The first connected connector, at its preferred mode
-fn pick_output(drm: &DrmDeviceFd) -> Result<(connector::Handle, smithay::reexports::drm::control::Mode), String> {
+fn pick_output(
+    drm: &DrmDeviceFd,
+) -> Result<(connector::Handle, smithay::reexports::drm::control::Mode), String> {
     let resources = drm
         .resource_handles()
         .map_err(|err| format!("can't read DRM resources: {err}"))?;
