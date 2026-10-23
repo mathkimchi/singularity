@@ -128,10 +128,11 @@ fn main() {
         match step.as_str() {
             "pluck" => server.events.send(StandardEvent::Pluck(None)).unwrap(),
             "wait" => std::thread::sleep(Duration::from_millis(500)),
-            // a new wl toplevel, with a dummy queue
+            // a new wl toplevel, with a dummy request queue
             "wl" => {
                 let (tx, rx) = calloop::channel::channel();
-                wl_queues.push(rx);
+                let (event_tx, event_rx) = calloop::channel::channel();
+                wl_queues.push((rx, event_tx));
                 server
                     .events
                     .send(StandardEvent::WlSurfaceRegistered(
@@ -139,7 +140,8 @@ fn main() {
                             surface_id: singularity_common::sap::packets::WlSurfaceId::from_u64(
                                 (1 << 32) | wl_queues.len() as u64,
                             ),
-                            wl_event_queue: tx,
+                            wl_request_queue: tx,
+                            wl_event_queue: event_rx,
                             pid: None,
                             app_id: None,
                         },
@@ -147,13 +149,11 @@ fn main() {
                     .unwrap();
             }
             // the last wl toplevel is destroyed
-            "wlx" => server
-                .events
-                .send(StandardEvent::WlSurfaceDestroyed(
-                    singularity_common::sap::packets::WlSurfaceId::from_u64(
-                        (1 << 32) | wl_queues.len() as u64,
-                    ),
-                ))
+            "wlx" => wl_queues
+                .last()
+                .expect("no wl toplevel")
+                .1
+                .send(singularity_common::sap::packets::WlSurfaceEvent::Destroyed)
                 .unwrap(),
             s if s.starts_with("focus:") => server
                 .events

@@ -6,7 +6,7 @@ use crate::{
 };
 use singularity_common::{
     sap::{
-        packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId},
+        packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId, WlSurfaceRequest},
         session::{SavedApplet, title_without_url},
     },
     utils::tree::world_tree::WorldTree,
@@ -23,7 +23,7 @@ use sonamu_ui::{
 /// and closes the node once the surface is destroyed.
 pub struct WlSurfaceApplet {
     surface_id: WlSurfaceId,
-    wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    wl_request_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceRequest)>,
     hook: AppletContext,
     /// The toplevel's title, empty until the client sets one
     title: String,
@@ -33,9 +33,10 @@ pub struct WlSurfaceApplet {
 }
 impl CreatableNodularApplet<NewWlSurface> for WlSurfaceApplet {
     fn new(surface: NewWlSurface, hook: AppletContext) -> Self {
+        hook.listen_wl_surface(surface.wl_event_queue);
         Self {
             surface_id: surface.surface_id,
-            wl_event_queue: surface.wl_event_queue,
+            wl_request_queue: surface.wl_request_queue,
             hook,
             title: String::new(),
             pid: surface.pid,
@@ -45,23 +46,14 @@ impl CreatableNodularApplet<NewWlSurface> for WlSurfaceApplet {
 }
 impl StandardApplet for WlSurfaceApplet {
     fn handle_standard_event(&mut self, standard_event: StandardEvent) {
-        let ui_event = match standard_event {
-            StandardEvent::UIEvent(ui_event) => ui_event,
-            // titles of unregistered surfaces are broadcast to every node, so check the id
-            StandardEvent::WlSurfaceTitle(surface_id, title) => {
-                if surface_id == self.surface_id {
-                    self.title = title;
-                    self.hook.damage_treeview();
-                }
-                return;
-            }
-            _ => return,
+        let StandardEvent::UIEvent(ui_event) = standard_event else {
+            return;
         };
 
         let wl_event = match standard_keybind_request(&ui_event) {
-            // the tile closes once the client destroys its toplevel (`WlSurfaceDestroyed`),
+            // the tile closes once the client destroys its toplevel (`WlSurfaceEvent::Destroyed`),
             // so the client may refuse (eg to ask about unsaved changes)
-            Some(NodeRequest::Close) => WlSurfaceEvent::Close,
+            Some(NodeRequest::Close) => WlSurfaceRequest::Close,
             Some(request) => {
                 self.hook.request(request);
                 return;
@@ -71,26 +63,38 @@ impl StandardApplet for WlSurfaceApplet {
                     raw_keycode,
                     pressed,
                     ..
-                } => WlSurfaceEvent::Key {
+                } => WlSurfaceRequest::Key {
                     // evdev -> xkb
                     keycode: raw_keycode + 8,
                     pressed,
                 },
-                UIEvent::Mouse(mouse_event) => WlSurfaceEvent::Mouse(mouse_event),
-                UIEvent::WindowResized(new_size) => WlSurfaceEvent::Resize(new_size),
+                UIEvent::Mouse(mouse_event) => WlSurfaceRequest::Mouse(mouse_event),
+                UIEvent::WindowResized(new_size) => WlSurfaceRequest::Resize(new_size),
                 // the other swipes aren't forwarded to clients yet
                 UIEvent::Swipe { .. } => return,
             },
         };
         // the compositor may be gone while shutting down
-        let _ = self.wl_event_queue.send((self.surface_id, wl_event));
+        let _ = self.wl_request_queue.send((self.surface_id, wl_event));
+    }
+
+    fn handle_wl_surface_event(&mut self, event: WlSurfaceEvent) {
+        match event {
+            WlSurfaceEvent::Focus => self.hook.request(NodeRequest::FocusSelf),
+            // like an applet closing itself
+            WlSurfaceEvent::Destroyed => self.hook.close(),
+            WlSurfaceEvent::Title(title) => {
+                self.title = title;
+                self.hook.damage_treeview();
+            }
+        }
     }
 
     /// Asks the client; the tile closes once it destroys its toplevel
     fn close_requested(&mut self) -> bool {
         let _ = self
-            .wl_event_queue
-            .send((self.surface_id, WlSurfaceEvent::Close));
+            .wl_request_queue
+            .send((self.surface_id, WlSurfaceRequest::Close));
         false
     }
 

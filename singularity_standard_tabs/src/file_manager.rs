@@ -842,7 +842,8 @@ impl StandardApplet for FileManagerApplet {
             | NodeRequest::Split { .. }
             | NodeRequest::Wrap(_)
             | NodeRequest::Run(_)
-            | NodeRequest::AddWlSurface(_)) => {
+            | NodeRequest::AddWlSurface(_)
+            | NodeRequest::FocusSelf) => {
                 self.hook.request(request);
             }
             // eg Alt+q: out of the document, to it in the selector

@@ -377,17 +377,6 @@ impl RootNodeApplet {
                 // a restored tile, else where the user is working (eg under the command hub that ran it)
                 self.holder.add_wl_surface(surface);
             }
-            // TODO: surfaces inside projects
-            StandardEvent::FocusWlSurface(surface_id) => {
-                self.holder.tree.focus_wl_surface(surface_id);
-            }
-            // its tile closes like an applet closing itself
-            StandardEvent::WlSurfaceDestroyed(surface_id) => {
-                self.holder.close_wl_surface(surface_id);
-            }
-            StandardEvent::WlSurfaceTitle(surface_id, title) => {
-                self.holder.set_wl_surface_title(surface_id, title);
-            }
             StandardEvent::Pluck(path) => self.holder.start_pluck(path.as_ref()),
             StandardEvent::Place(path, position, tree) => {
                 let path = path.map(|path| self.redirect_drop(path));
@@ -542,8 +531,9 @@ impl RootNodeApplet {
         let closes_help = matches!(request, NodeRequest::Close)
             && self.help.as_ref().is_some_and(|help| help.node == id);
         // nothing is above the root
-        if self.holder.handle_node_request(id, request).is_some() {
-            log::warn!("The root holder has no node to pass a request to");
+        match self.holder.handle_node_request(id, request) {
+            None | Some(NodeRequest::FocusSelf) => {}
+            Some(_) => log::warn!("The root holder has no node to pass a request to"),
         }
         if closes_help && let Some(help) = self.help.take() {
             self.help_closed(&help);

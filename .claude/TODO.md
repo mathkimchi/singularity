@@ -56,4 +56,3 @@ Open questions:
 - Granularity: one client per tab; finer structure stays inside the client's treeview.
 - Can native tabs host native child tabs internally, or does the server own all nesting?
 - Thread per client vs a shared loop for native clients.
-- Related, if done before this: rename `wl_event_queue`/`WlSurfaceEvent` to `wl_request_queue`/`WlSurfaceRequest`.

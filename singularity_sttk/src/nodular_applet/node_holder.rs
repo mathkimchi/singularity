@@ -350,26 +350,6 @@ impl NodeHolder {
         }
     }
 
-    /// Closes the surface's tile, here or in whichever main has it inside
-    pub fn close_wl_surface(&mut self, surface_id: WlSurfaceId) {
-        if !self.tree.close_wl_surface(surface_id) {
-            for id in self.tree.with_main() {
-                self.tree
-                    .send_event(id, StandardEvent::WlSurfaceDestroyed(surface_id));
-            }
-        }
-    }
-
-    /// Passes the title to the surface's tile, here or in whichever main has it inside
-    pub fn set_wl_surface_title(&mut self, surface_id: WlSurfaceId, title: String) {
-        if !self.tree.set_wl_surface_title(surface_id, title.clone()) {
-            for id in self.tree.with_main() {
-                self.tree
-                    .send_event(id, StandardEvent::WlSurfaceTitle(surface_id, title.clone()));
-            }
-        }
-    }
-
     /// Tells the holder's node if focus moved onto or off a wl surface. Run after each batch of events.
     pub fn update_wl_focus(&mut self) {
         // projects only get events while focused, and wake in those
@@ -432,6 +412,11 @@ impl NodeHolder {
                 self.tree.add_child(id, initializer);
             }
             NodeRequest::ChangeFocus(operation) => self.tree.change_focus(id, operation),
+            // and the holder's node likewise
+            NodeRequest::FocusSelf => {
+                self.tree.focus(id, true);
+                return Some(NodeRequest::FocusSelf);
+            }
             // the root of a project's inner tree stands for the project, which closes into its contents
             NodeRequest::Close if self.project && id == self.tree.root() => self.dissolve = true,
             NodeRequest::Close => {

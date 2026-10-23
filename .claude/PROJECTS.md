@@ -203,8 +203,8 @@ Issues:
 
 ## Issues / not done
 
-- `FocusWlSurface` (xdg-activation) for a surface inside a project is ignored: the root doesn't know which project has it.
-- A wl surface destroyed while its project is plucked stays as a dead tile (sar's `remove_wl_surface` can't see inside).
+- ~~`FocusWlSurface` inside a project is ignored~~ Fixed: `WlSurfaceEvent::Focus` goes straight to the surface's applet, which sends `NodeRequest::FocusSelf` up through the project.
+- ~~A wl surface destroyed while its project is plucked stays as a dead tile~~ Probably fixed (untested): `WlSurfaceEvent::Destroyed` reaches the applet inside the plucked project, which closes itself.
 - Panes inside an unfocused project still draw focus-colored borders (the project's tree doesn't know it's unfocused).
 - If a project dissolves while a pluck/place is pending inside it, the answer is lost and the holder above stays pending.
 - Alt+q in `Focusing` state is treated as plain `q` (modifiers aren't checked for traversal keys). Existing, but more

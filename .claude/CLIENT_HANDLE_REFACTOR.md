@@ -74,10 +74,12 @@ sttk + SDE + common + sar first, then the standard tabs that are currently compi
   `NodeTree` sees the whole tree, so it handles traversal keys and wl destruction directly,
   and wl tiles send their keybind requests like any applet.
 - **No `CloseWithChildren` request**: applets can't hand over children. `Close` closes the applet's node and the parent adopts its children.
-- ~~**Wl tiles are `NodeMain::Wayland`**~~ Revised: wl tiles are `WlSurfaceApplet`s, each holding its own `wl_event_queue` clone.
-  It uses `standard_keybind_request`, except that Ctrl+W sends `WlSurfaceEvent::Close` instead of closing the tile.
+- ~~**Wl tiles are `NodeMain::Wayland`**~~ Revised: wl tiles are `WlSurfaceApplet`s, each holding its own `wl_request_queue` clone.
+  It uses `standard_keybind_request`, except that Ctrl+W sends `WlSurfaceRequest::Close` instead of closing the tile.
   `AppletContext::request` is now public, and `handle_standard_keybinds` just forwards `standard_keybind_request`'s result.
-  `NodeTree::wl_surfaces` maps each surface to its node for `WlKeyboardFocus`, `FocusWlSurface` and `WlSurfaceDestroyed`.
+  `NodeTree::wl_surfaces` maps each surface to its node for `WlKeyboardFocus` and restoring.
+  Revised again: focus, destroy and title come straight from the compositor as `WlSurfaceEvent`s on the surface's own
+  `wl_event_queue` (`AppletContext::listen_wl_surface`), not as `StandardEvent`s routed down the tree.
   New wl tiles are added as children of the top node, as before.
 - **Every node is displayed at the tree's size** (`NodeTree::latest_size`), not a per-node size (they were always equal).
 - **`RawClientInitializer::init`** takes a new `treeview` argument (separate arguments, not a bundled struct).

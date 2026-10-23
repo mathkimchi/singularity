@@ -92,10 +92,12 @@ pub struct AwaitedWl {
 }
 
 /// A new wl toplevel, registered on its first commit (once it has set its app id)
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct NewWlSurface {
     pub surface_id: WlSurfaceId,
-    pub wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    pub wl_request_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceRequest)>,
+    /// From the compositor to the surface's applet, wherever it is in the tree
+    pub wl_event_queue: calloop::channel::Channel<WlSurfaceEvent>,
     /// Of the client, if known
     pub pid: Option<u32>,
     pub app_id: Option<String>,
@@ -149,14 +151,6 @@ pub enum StandardEvent {
     /// NOTE: ts is kinda niche; dk if it belongs here
     /// Currently doing by surface instead of by wl client
     WlSurfaceRegistered(NewWlSurface),
-    /// Focus whichever applet shows this surface (eg for xdg-activation).
-    /// Sent from the root down; applets that don't contain it ignore it.
-    FocusWlSurface(WlSurfaceId),
-    /// The surface's toplevel is gone (eg the client disconnected); its applet should close.
-    /// Sent from the root down like `FocusWlSurface`.
-    WlSurfaceDestroyed(WlSurfaceId),
-    /// The surface's toplevel title changed. Sent from the root down like `FocusWlSurface`.
-    WlSurfaceTitle(WlSurfaceId, String),
     /// Take out the closest pluckable element at this path of the client's treeview
     /// (`None`: at its focus), and answer with `StandardRequest::Plucked`
     Pluck(Option<WorldTreePath>),
@@ -173,9 +167,20 @@ pub enum StandardEvent {
     Capturing(bool),
 }
 
+/// Compositor to wl surface applet, through `NewWlSurface::wl_event_queue`
+#[derive(Clone, Debug)]
+pub enum WlSurfaceEvent {
+    /// Focus the applet (eg for xdg-activation)
+    Focus,
+    /// The toplevel is gone (eg the client disconnected); the applet should close
+    Destroyed,
+    /// The toplevel's title changed
+    Title(String),
+}
+
 /// Wl surface applet to compositor
 #[derive(Clone, Copy, Debug)]
-pub enum WlSurfaceEvent {
+pub enum WlSurfaceRequest {
     /// `keycode` is an xkb keycode (evdev + 8)
     Key {
         keycode: u32,

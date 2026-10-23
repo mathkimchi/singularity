@@ -1185,23 +1185,6 @@ impl NodeTree {
         true
     }
 
-    /// Closes the node showing the surface; `false` if no node here shows it
-    pub fn close_wl_surface(&mut self, surface_id: WlSurfaceId) -> bool {
-        self.wl_surfaces
-            .get(&surface_id)
-            .copied()
-            .is_some_and(|id| self.close(id))
-    }
-
-    /// Tells the node showing the surface its new title; `false` if no node here shows it
-    pub fn set_wl_surface_title(&mut self, surface_id: WlSurfaceId, title: String) -> bool {
-        let Some(&id) = self.wl_surfaces.get(&surface_id) else {
-            return false;
-        };
-        self.send_event(id, StandardEvent::WlSurfaceTitle(surface_id, title));
-        true
-    }
-
     /// Changes focus from the perspective of the node,
     /// passing the operation on to its ancestors as needed (past the root: `take_escaped`).
     pub fn change_focus(&mut self, id: NodeId, operation: WorldTreeTraversalOperation) {
@@ -1259,15 +1242,6 @@ impl NodeTree {
         let target = order[(position + if forward { 1 } else { len - 1 }) % len];
         self.focus_node(target);
         self.nodes[target].focus = FocusIndex::Focusing;
-    }
-
-    /// Focuses down to the node showing the surface.
-    pub fn focus_wl_surface(&mut self, surface_id: WlSurfaceId) {
-        let Some(&id) = self.wl_surfaces.get(&surface_id) else {
-            return;
-        };
-        self.nodes[id].focus = FocusIndex::Inner;
-        self.focus_node(id);
     }
 
     /// Follows focused children down to the node that is focusing or focused on its main

@@ -52,7 +52,7 @@ Sonamu owns the session; apps' own session restore should be off.
 - `NodeRequest::Standard(Quit)` now sets `NodeHolder::quit`, handled after the batch (projects pass it on, the root saves then
   quits), because the runner may end the process right after `Quit`.
 - `StandardEvent::WlSurfaceRegistered` and `NodeRequest::AddWlSurface` now carry a `NewWlSurface`
-  (`surface_id`, `wl_event_queue`, `pid`, `app_id`), and `take_wl_surface` takes and gives back one.
+  (`surface_id`, `wl_request_queue`, `wl_event_queue`, `pid`, `app_id`), and `take_wl_surface` takes and gives back one.
 - Saved paths (code editor, image viewer, file manager root) are made absolute.
 - Spawner names are hardcoded in each applet's `save` and must match `singularity_sde/src/main.rs`.
 - `headless` example reads `SONAMU_SESSION` too (unset: no session).

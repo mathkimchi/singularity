@@ -8,7 +8,7 @@ use singularity_common::{
         detached::{Axis, DetachedClient, DetachedTree},
         packets::{
             AwaitedWl, NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest,
-            StateKind, Treeview,
+            StateKind, Treeview, WlSurfaceEvent,
         },
         raw_client_initializer::RawClientInitializer,
         session::SavedApplet,
@@ -142,6 +142,9 @@ pub trait StandardApplet {
     /// A request from an applet this applet embedded (`AppletContext::embed`)
     fn handle_embedded_request(&mut self, _id: EmbeddedId, _request: NodeRequest) {}
 
+    /// From the compositor, for a surface the applet listens to (`AppletContext::listen_wl_surface`)
+    fn handle_wl_surface_event(&mut self, _event: WlSurfaceEvent) {}
+
     /// Called on the applet's thread after an `AppletWaker` woke it (eg a worker thread finished)
     fn wake(&mut self) {}
 
@@ -197,6 +200,8 @@ pub enum NodeRequest {
     AddChild(NodularAppletInitializer),
     /// From the perspective of the applet's node
     ChangeFocus(WorldTreeTraversalOperation),
+    /// Focuses inside the applet's node, and its holder's node and so on up to the root
+    FocusSelf,
     /// Closes the applet's node; its children move to the parent
     Close,
     /// Swaps the applet's node (with its subtree) with the sibling this many places over (-1: previous)
@@ -267,6 +272,17 @@ impl AppletContext {
             state.applet.handle_embedded_request(id, request);
         });
         (id, handle)
+    }
+
+    /// Its events go to `StandardApplet::handle_wl_surface_event`
+    pub fn listen_wl_surface(&self, wl_event_queue: calloop::channel::Channel<WlSurfaceEvent>) {
+        self.event_loop
+            .insert_source(wl_event_queue, |event, &mut (), state| {
+                if let calloop::channel::Event::Msg(event) = event {
+                    state.applet.handle_wl_surface_event(event);
+                }
+            })
+            .unwrap();
     }
 
     fn new_embedded_id(&self) -> EmbeddedId {

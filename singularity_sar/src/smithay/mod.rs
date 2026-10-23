@@ -3,8 +3,10 @@ mod layer_shell;
 
 use crate::runner::AppletRunner;
 use calloop::{LoopHandle, PostAction};
-use singularity_common::sap::packets::{NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId};
-use slotmap::SlotMap;
+use singularity_common::sap::packets::{
+    NewWlSurface, StandardEvent, WlSurfaceEvent, WlSurfaceId, WlSurfaceRequest,
+};
+use slotmap::{SecondaryMap, SlotMap};
 use smithay::{
     backend::{
         input::{Axis, AxisSource, ButtonState, InputTime, KeyState, Keycode},
@@ -166,6 +168,8 @@ pub struct SmithayState {
     // _main_client: Option<Client>,
     // surface: Option<WlSurface>,
     surfaces: SlotMap<WlSurfaceId, WlSurface>,
+    /// To the applets of registered surfaces (`NewWlSurface::wl_event_queue`)
+    wl_event_queues: SecondaryMap<WlSurfaceId, calloop::channel::Sender<WlSurfaceEvent>>,
     /// Layer surfaces that have committed (outside `surfaces` and the node tree)
     layer_surfaces: Vec<LayerSurface>,
     /// From the last `arrange_layers`, topmost layer first
@@ -190,9 +194,17 @@ pub struct SmithayState {
     /// events from wl surface applets that need to be sent to their surface
     /// Key events work by first setting key seat's focus to the target surface
     /// Ignores things like timestamp, serial, ...
-    wl_event_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)>,
+    wl_request_queue: calloop::channel::Sender<(WlSurfaceId, WlSurfaceRequest)>,
 }
 impl SmithayState {
+    /// To the surface's applet; does nothing if it isn't registered
+    fn send_wl_event(&self, surface_id: WlSurfaceId, event: WlSurfaceEvent) {
+        if let Some(queue) = self.wl_event_queues.get(surface_id) {
+            // the applet may be gone
+            let _ = queue.send(event);
+        }
+    }
+
     pub fn flush_clients(&mut self) {
         if let Err(err) = self.display_handle.flush_clients() {
             dbg!("Failed to flush clients:", err);
@@ -564,7 +576,7 @@ impl SmithayState {
             )
             .unwrap();
 
-        let wl_event_queue = Self::get_event_queue(event_handle);
+        let wl_request_queue = Self::get_event_queue(event_handle);
 
         Self {
             start_time,
@@ -602,6 +614,7 @@ impl SmithayState {
             output,
             socket_name,
             surfaces: SlotMap::with_key(),
+            wl_event_queues: SecondaryMap::new(),
             unregistered: Vec::new(),
             layer_surfaces: Vec::new(),
             layer_placements: Vec::new(),
@@ -610,19 +623,19 @@ impl SmithayState {
             wl_target: None,
             pointer_on_layer: false,
             layer_buttons_down: 0,
-            wl_event_queue,
+            wl_request_queue,
         }
     }
 
     fn get_event_queue(
         event_handle: &LoopHandle<AppletRunner>,
-    ) -> calloop::channel::Sender<(WlSurfaceId, WlSurfaceEvent)> {
-        let (wl_event_queue_sender, wl_event_queue_reciever) = calloop::channel::channel();
+    ) -> calloop::channel::Sender<(WlSurfaceId, WlSurfaceRequest)> {
+        let (wl_request_queue_sender, wl_request_queue_reciever) = calloop::channel::channel();
 
         event_handle
             .insert_source(
-                wl_event_queue_reciever,
-                |event: calloop::channel::Event<(WlSurfaceId, WlSurfaceEvent)>, &mut (), state| {
+                wl_request_queue_reciever,
+                |event: calloop::channel::Event<(WlSurfaceId, WlSurfaceRequest)>, &mut (), state| {
                     let calloop::channel::Event::Msg((target_surface_id, wl_event)) = event else {
                         return;
                     };
@@ -637,7 +650,7 @@ impl SmithayState {
                     };
 
                     match wl_event {
-                        WlSurfaceEvent::Key {
+                        WlSurfaceRequest::Key {
                             keycode,
                             pressed: true,
                         } => {
@@ -646,17 +659,17 @@ impl SmithayState {
                             state.focus_wl_keyboard_on(target_surface);
                             state.wl_key_input(keycode, KeyState::Pressed);
                         }
-                        WlSurfaceEvent::Key {
+                        WlSurfaceRequest::Key {
                             keycode,
                             pressed: false,
                         } => state.release_wl_key(keycode),
-                        WlSurfaceEvent::Close => {
+                        WlSurfaceRequest::Close => {
                             if let Some(toplevel) = state.smithay_state.toplevel_of(&target_surface)
                             {
                                 toplevel.send_close();
                             }
                         }
-                        WlSurfaceEvent::Resize(new_size) => {
+                        WlSurfaceRequest::Resize(new_size) => {
                             let Some(toplevel) = state.smithay_state.toplevel_of(&target_surface)
                             else {
                                 dbg!("Resize sent to surface with no toplevel");
@@ -669,7 +682,7 @@ impl SmithayState {
                             });
                             toplevel.send_configure();
                         }
-                        WlSurfaceEvent::Mouse(MouseEvent {
+                        WlSurfaceRequest::Mouse(MouseEvent {
                             position,
                             kind,
                             time_msec,
@@ -692,7 +705,7 @@ impl SmithayState {
             )
             .unwrap();
 
-        wl_event_queue_sender
+        wl_request_queue_sender
     }
 
     /// Every surface of the toplevel (root, subsurfaces, then popups, in stacking order)
@@ -1209,18 +1222,20 @@ impl AppletRunner {
             .ok()
             .and_then(|client| client.get_credentials(&state.display_handle).ok())
             .and_then(|credentials| u32::try_from(credentials.pid).ok());
+        let (wl_event_sender, wl_event_queue) = calloop::channel::channel();
+        // set before, when no applet could be told; waits in the queue until the applet listens
+        if let Some(title) = title {
+            let _ = wl_event_sender.send(WlSurfaceEvent::Title(title));
+        }
+        state.wl_event_queues.insert(surface_id, wl_event_sender);
         self.root_client
             .send_event(StandardEvent::WlSurfaceRegistered(NewWlSurface {
                 surface_id,
-                wl_event_queue: state.wl_event_queue.clone(),
+                wl_request_queue: state.wl_request_queue.clone(),
+                wl_event_queue,
                 pid,
                 app_id,
             }));
-        // set before, when the root couldn't be told
-        if let Some(title) = title {
-            self.root_client
-                .send_event(StandardEvent::WlSurfaceTitle(surface_id, title));
-        }
     }
 }
 
@@ -1358,9 +1373,8 @@ impl XdgShellHandler for AppletRunner {
                 .and_then(|data| data.lock().unwrap().title.clone())
         });
         if let Some(title) = title {
-            // a plucked tile has no applet to tell
-            self.root_client
-                .send_event(StandardEvent::WlSurfaceTitle(surface_id, title));
+            self.smithay_state
+                .send_wl_event(surface_id, WlSurfaceEvent::Title(title));
         }
     }
 
@@ -1376,6 +1390,7 @@ impl XdgShellHandler for AppletRunner {
             return;
         };
         self.smithay_state.surfaces.remove(surface_id);
+        let wl_event_queue = self.smithay_state.wl_event_queues.remove(surface_id);
         // the root never heard of it
         if let Some(index) = self
             .smithay_state
@@ -1396,8 +1411,9 @@ impl XdgShellHandler for AppletRunner {
             }
         } else {
             // the owning applet closes its tab
-            self.root_client
-                .send_event(StandardEvent::WlSurfaceDestroyed(surface_id));
+            if let Some(queue) = wl_event_queue {
+                let _ = queue.send(WlSurfaceEvent::Destroyed);
+            }
         }
 
         self.needs_redraw = true;
@@ -1818,8 +1834,8 @@ impl XdgActivationHandler for AppletRunner {
             return;
         };
 
-        self.root_client
-            .send_event(StandardEvent::FocusWlSurface(surface_id));
+        self.smithay_state
+            .send_wl_event(surface_id, WlSurfaceEvent::Focus);
         self.smithay_state.seat.get_keyboard().unwrap().set_focus(
             self,
             Some(surface),
