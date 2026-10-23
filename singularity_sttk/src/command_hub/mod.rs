@@ -7,16 +7,16 @@ use crate::{
     },
     standard_keybinds::handle_standard_keybinds,
 };
-use singularity_common::sap::packets::StandardEvent;
+use singularity_common::{sap::packets::StandardEvent, settings};
 use sonamu_ui::{
     color::Color,
     display_units::DisplayContainerSize,
     ui_element::{CharGrid, UITree},
     ui_event::{KeyModifiers, KeySymbol, MouseEventKind, UIEvent},
 };
-use std::{fmt::Write as _, sync::mpsc};
+use std::{fmt::Write as _, path::PathBuf, sync::mpsc};
 
-const VERBS: [&str; 9] = [
+const VERBS: [&str; 10] = [
     "add_child",
     "run",
     "$",
@@ -26,6 +26,7 @@ const VERBS: [&str; 9] = [
     "clear",
     "help",
     "project",
+    "reload_settings",
 ];
 const TESTS: [&str; 5] = ["image", "wl", "editor", "text_editor", "char"];
 const HELP: &str = "\
@@ -34,6 +35,7 @@ run <program> [args]       start a program without waiting (eg a Wayland client)
 $ <program> [args]         run a program and show its output
 set_title <title>          rename this hub
 project                    put this hub's node (and under it) in a project; Ctrl+W on the project undoes it
+reload_settings            load the settings again
 test <name>                image, wl, editor, text_editor or char
 addition <numbers>         add up numbers
 clear                      clear the history
@@ -109,6 +111,9 @@ pub struct CommandHubApplet {
     job_receiver: mpsc::Receiver<(u64, Output)>,
     next_job: u64,
 
+    /// Where `run` and `$` start programs: the directory of the tree it is in (eg a project's); the runner's if `None`
+    directory: Option<PathBuf>,
+
     size: DisplayContainerSize,
     hook: AppletContext,
 }
@@ -116,6 +121,7 @@ impl CommandHubApplet {
     #[must_use]
     pub fn new(hook: AppletContext) -> Self {
         let (job_sender, job_receiver) = mpsc::channel();
+        hook.get_directory();
         Self {
             title: "Command Hub".to_string(),
             history: Vec::new(),
@@ -128,6 +134,7 @@ impl CommandHubApplet {
             job_sender,
             job_receiver,
             next_job: 0,
+            directory: None,
             size: DisplayContainerSize::new(800, 600),
             hook,
         }
@@ -162,7 +169,7 @@ impl CommandHubApplet {
         let tokens: Vec<_> = command.split_whitespace().collect();
         // runs on a worker thread, so the hub keeps working until it exits
         if let ["$", program, args @ ..] = tokens.as_slice() {
-            let mut process = program_command(program, args);
+            let mut process = self.program_command(program, args);
             let job = self.next_job;
             self.next_job += 1;
             let sender = self.job_sender.clone();
@@ -250,6 +257,12 @@ impl CommandHubApplet {
                 Ok("This node and everything under it are a project now.".to_string())
             }
 
+            // the program may take a while
+            "reload_settings" => {
+                std::thread::spawn(settings::reload);
+                Ok("Reloading.".to_string())
+            }
+
             "clear" => {
                 self.history.clear();
                 Ok(String::new())
@@ -258,7 +271,7 @@ impl CommandHubApplet {
             // Starts a program without waiting for it (eg a wl client), connected to Sonamu
             "run" => {
                 let program = args.first().ok_or("Must specify a program.")?;
-                program_command(program, &args[1..])
+                self.program_command(program, &args[1..])
                     .spawn()
                     .map_err(|err| err.to_string())?;
                 Ok(format!("Started {program}"))
@@ -270,6 +283,15 @@ impl CommandHubApplet {
                 VERBS.join(", ")
             )),
         }
+    }
+
+    /// `program_command`, in the hub's directory
+    fn program_command(&self, program: &str, args: &[&str]) -> std::process::Command {
+        let mut command = program_command(program, args);
+        if let Some(directory) = &self.directory {
+            command.current_dir(directory);
+        }
+        command
     }
 
     fn applet_names(&self) -> Vec<String> {
@@ -510,20 +532,21 @@ impl StandardApplet for CommandHubApplet {
 
                 self.hook.damage_window();
             }
+            StandardEvent::Directory(directory) => self.directory = directory,
             // looks the same either way
             StandardEvent::FocusChanged(_) | StandardEvent::Highlighted(_) => {}
             // nothing to ask about first
             StandardEvent::CloseRequest => self.hook.close(),
             // handled by the applet's client
             StandardEvent::DamageAck(_)
+            | StandardEvent::SettingsChanged(_)
             | StandardEvent::Pluck(_)
             | StandardEvent::Place(..)
             | StandardEvent::NodeAction(..)
             | StandardEvent::Focus(_)
             | StandardEvent::ToggleCollapsed(_) => {}
             // doesn't show wl surfaces (only the root gets these)
-            StandardEvent::WlSurfaceRegistered(_)
-            | StandardEvent::Capturing(_) => {}
+            StandardEvent::WlSurfaceRegistered(_) | StandardEvent::Capturing(_) => {}
         }
     }
 
@@ -638,7 +661,7 @@ fn test_command(test: &str) -> Option<&'static [&'static str]> {
 }
 
 /// A process for `program`, connected to Sonamu if it's a wl client
-pub(crate) fn program_command(program: &str, args: &[&str]) -> std::process::Command {
+pub fn program_command(program: &str, args: &[&str]) -> std::process::Command {
     let mut command = std::process::Command::new(program);
     command.args(args);
     if let Some(socket) = std::env::var_os("SONAMU_WAYLAND_DISPLAY") {

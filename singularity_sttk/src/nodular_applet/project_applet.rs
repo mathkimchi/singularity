@@ -531,7 +531,7 @@ impl ProjectApplet {
         match key {
             KeySymbol::Enter => match input.parse() {
                 Ok(directory) => {
-                    self.holder.directory = directory;
+                    self.holder.set_directory(directory);
                     self.setting_directory = None;
                     // republish, so the session saves it
                     self.hook.damage_treeview();
@@ -824,8 +824,11 @@ impl StandardApplet for ProjectApplet {
                     self.hook.request(request);
                 }
             }
+            // it has its own directory
+            StandardEvent::Directory(_) => {}
             // handled by the applet's client
             StandardEvent::CloseRequest
+            | StandardEvent::SettingsChanged(_)
             | StandardEvent::DamageAck(_)
             | StandardEvent::WlSurfaceRegistered(_)
             | StandardEvent::Pluck(_)

@@ -339,7 +339,11 @@ impl PrimitiveScene {
                     Clip {
                         area: inside,
                         // the rounded corners are only still the edge if nothing cut them off
-                        radius: if inside == clip.area { clip.radius } else { 0.0 },
+                        radius: if inside == clip.area {
+                            clip.radius
+                        } else {
+                            0.0
+                        },
                     }
                 }
                 None => Clip { area, radius: 0.0 },

@@ -1,5 +1,6 @@
 use crate::{
     sap::{detached::DetachedTree, session::SavedApplet},
+    settings::Settings,
     utils::tree::world_tree::{WorldTree, WorldTreePath},
 };
 use slotmap::KeyData;
@@ -120,6 +121,8 @@ pub enum StandardRequest {
     RequestPluck(WorldTreePath),
     /// Asks the server to place what it plucked at this path of the client's treeview
     RequestPlace(WorldTreePath, SpawnPosition),
+    /// Asks for the settings, answered with `StandardEvent::SettingsChanged`
+    GetSettings,
 }
 
 slotmap::new_key_type! {
@@ -165,6 +168,11 @@ pub enum StandardEvent {
     NodeAction(WorldTreePath, NodeAction),
     /// A wl client started (`true`) or stopped capturing the screen (eg recording). Only the root gets these.
     Capturing(bool),
+    /// The settings, when they change or were asked for (`StandardRequest::GetSettings`)
+    SettingsChanged(Settings),
+    /// The working directory of the tree the client is in (`None`: the runner's),
+    /// when it changes or was asked for (eg a project's directory)
+    Directory(Option<std::path::PathBuf>),
 }
 
 /// Compositor to wl surface applet, through `NewWlSurface::wl_event_queue`

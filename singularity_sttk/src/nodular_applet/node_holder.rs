@@ -21,6 +21,7 @@ use singularity_common::{
             WlSurfaceId,
         },
     },
+    settings,
     utils::tree::world_tree::WorldTreePath,
 };
 
@@ -70,7 +71,8 @@ pub struct NodeHolder {
     send: Box<dyn Fn(StandardRequest)>,
     /// Its tree is a project's contents (or a split's panes), whose root stands for the applet itself
     project: bool,
-    /// The working directory of programs started in this tree (`NodeRequest::Run`); the runner's if `None`
+    /// The working directory of programs started in this tree (`NodeRequest::Run`); the runner's if `None`.
+    /// Set with `set_directory`, so the tree's applets hear of it
     pub directory: Option<std::path::PathBuf>,
     /// For `NodeAction::Spawn` (eg a file manager)
     applet_spawners: AppletSpawnerRegistry,
@@ -110,6 +112,18 @@ impl NodeHolder {
             focused_wl_surface: None,
             dissolve: false,
             quit: false,
+        }
+    }
+
+    /// Tells every applet in the tree (`StandardEvent::Directory`)
+    pub fn set_directory(&mut self, directory: Option<std::path::PathBuf>) {
+        if directory == self.directory {
+            return;
+        }
+        self.directory = directory;
+        for id in self.tree.with_main() {
+            self.tree
+                .send_event(id, StandardEvent::Directory(self.directory.clone()));
         }
     }
 
@@ -397,6 +411,9 @@ impl NodeHolder {
                 }
                 self.send(StandardRequest::Placed(None));
             }
+            NodeRequest::Standard(StandardRequest::GetSettings) => self
+                .tree
+                .send_event(id, StandardEvent::SettingsChanged(settings::get())),
             // the applet's path is inside its inner tree
             NodeRequest::Standard(StandardRequest::RequestPluck(path)) => {
                 if let Some(path) = self.full_path(id, path) {
@@ -438,6 +455,9 @@ impl NodeHolder {
                 self.run(program);
             }
             NodeRequest::AddWlSurface(surface) => self.tree.add_wl_surface(id, surface),
+            NodeRequest::GetDirectory => self
+                .tree
+                .send_event(id, StandardEvent::Directory(self.directory.clone())),
         }
         None
     }

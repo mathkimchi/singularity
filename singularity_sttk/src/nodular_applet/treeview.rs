@@ -45,7 +45,7 @@ const SCROLL_STEP: usize = 3;
 const OPACITY: u8 = 0xCC;
 
 /// Also for the command hub's and project's backgrounds
-pub(crate) const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
+pub const fn with_opacity(Color([r, g, b, _]): Color) -> Color {
     Color([r, g, b, OPACITY])
 }
 

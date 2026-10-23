@@ -635,7 +635,9 @@ impl SmithayState {
         event_handle
             .insert_source(
                 wl_request_queue_reciever,
-                |event: calloop::channel::Event<(WlSurfaceId, WlSurfaceRequest)>, &mut (), state| {
+                |event: calloop::channel::Event<(WlSurfaceId, WlSurfaceRequest)>,
+                 &mut (),
+                 state| {
                     let calloop::channel::Event::Msg((target_surface_id, wl_event)) = event else {
                         return;
                     };

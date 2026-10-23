@@ -287,6 +287,9 @@ impl AppletRunner {
             StandardRequest::Placed(given_back) => self.placed(given_back),
             StandardRequest::RequestPluck(path) => self.pluck(Some(path)),
             StandardRequest::RequestPlace(path, position) => self.request_place(path, position),
+            StandardRequest::GetSettings => self.root_client.send_event(
+                StandardEvent::SettingsChanged(singularity_common::settings::get()),
+            ),
         }
     }
 

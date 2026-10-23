@@ -17,7 +17,8 @@ then polishing these features and the treeview. Decide, implement, and log here.
 
 ## File manager (`singularity_standard_tabs/src/file_manager.rs`)
 
-- Spawner `file_manager [dir]` (default: working directory), registered in sde.
+- Spawner `file_manager [dir]` (default: the directory of the tree it is in, which it follows), registered in sde.
+- PDFs open in Okular (`program_command`, so its window becomes a child of the file manager's node) instead of an editor (#95).
   The old file manager (old packet API) was already deleted in the working tree; this is new.
 - Layout: file list (30% of the width) | header (open documents, active one yellow) over the active document.
 - Opened files are `CodeEditorApplet`s embedded with `AppletContext::embed`. Several documents can be open;

@@ -131,8 +131,11 @@ impl StandardApplet for SplitApplet {
                     self.hook.request(request);
                 }
             }
+            // its panes are in its node's tree's directory
+            StandardEvent::Directory(directory) => self.holder.set_directory(directory),
             // handled by the applet's client
             StandardEvent::CloseRequest
+            | StandardEvent::SettingsChanged(_)
             | StandardEvent::DamageAck(_)
             | StandardEvent::WlSurfaceRegistered(_)
             | StandardEvent::Pluck(_)

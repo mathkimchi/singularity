@@ -386,6 +386,10 @@ impl RootNodeApplet {
             StandardEvent::ToggleCollapsed(path) => self.holder.toggle_collapsed(&path),
             StandardEvent::NodeAction(path, action) => self.holder.node_action(&path, action),
             StandardEvent::Capturing(_) => {}
+            // it reads the settings when it draws
+            StandardEvent::SettingsChanged(_) => self.surface.damage(),
+            // its tree is in the runner's directory
+            StandardEvent::Directory(_) => {}
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
                 modifiers: KeyModifiers { logo: true, .. },

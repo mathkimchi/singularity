@@ -1,15 +1,19 @@
 use ropey::Rope;
-use singularity_common::sap::packets::StandardEvent;
+use singularity_common::{
+    sap::packets::StandardEvent,
+    settings::{Palette, Settings},
+};
 use singularity_sttk::{
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
         AppletContext, AppletSpawner, AppletSpawnerTrait, NodularAppletInitializer, StandardApplet,
+        with_opacity,
     },
     standard_keybinds::handle_standard_keybinds,
 };
 use sonamu_ui::{
     color::Color,
-    ui_element::{CharCellStyle, CharGrid},
+    ui_element::{CharCellStyle, CharGrid, Style, UIElement, UITree},
     ui_event::{KeyModifiers, KeySymbol},
 };
 use std::{
@@ -17,6 +21,9 @@ use std::{
     io::{BufReader, BufWriter, Write},
     path::PathBuf,
 };
+
+/// Translucent like the treeview; text is from the settings' palette
+const BG: Color = with_opacity(Color([0x0D, 0x0D, 0x16, 0]));
 
 /// Handles scroll offset
 /// TODO: fold, lines that span multiple rows, in-line embeds like comments or document embeds (for custom note-taking language), horizontal scroll
@@ -71,6 +78,7 @@ pub struct CodeEditorApplet {
     mode: EditorMode,
 
     view_offset: ViewOffset,
+    palette: Palette,
 
     hook: AppletContext,
 }
@@ -107,6 +115,7 @@ where
                 scroll: 0,
                 most_recent_num_rows: None,
             },
+            palette: Palette::default(),
 
             hook,
         }
@@ -313,7 +322,7 @@ impl StandardApplet for CodeEditorApplet {
     fn get_window_standard_applet(
         &self,
         container_size: sonamu_ui::display_units::DisplayContainerSize,
-    ) -> sonamu_ui::ui_element::UITree {
+    ) -> UITree {
         let (width, height) = CharGrid::largest_fittable_size(container_size);
 
         // let line_idx = self.buffer.char_to_line(self.cursor);
@@ -337,6 +346,7 @@ impl StandardApplet for CodeEditorApplet {
                 }
 
                 content.set_char(c, row, col);
+                content.set_fg(self.palette.fg, row, col);
 
                 // // currently scroll is only horizontal
                 // // ^- Erhm actchually, currently, scroll DNE. But the architecture for it only supports horizontal
@@ -350,9 +360,9 @@ impl StandardApplet for CodeEditorApplet {
                     match self.mode {
                         EditorMode::Normal => {
                             let cursor_bg = if self.focused {
-                                Color::ORANGE
+                                self.palette.accent
                             } else {
-                                Color::MEDIUM_GRAY
+                                self.palette.inactive
                             };
                             content
                                 .get_char_mut(row, cursor_col)
@@ -376,11 +386,16 @@ impl StandardApplet for CodeEditorApplet {
         /// I think this is good, but it might be a tad bid disorienting to resize a lot (it feels jiggly)
         const EXPAND_EDITOR_TEXT: bool = true;
 
-        if EXPAND_EDITOR_TEXT {
+        let content = if EXPAND_EDITOR_TEXT {
             content.element().into()
         } else {
             content.contained_element()
-        }
+        };
+        UITree::new_styled(
+            UIElement::Backgrounded(BG),
+            Style::full_size(),
+            vec![content],
+        )
 
         // UIElement::Text(vec![
         //     (
@@ -399,6 +414,10 @@ impl StandardApplet for CodeEditorApplet {
         //         UIElement::glyphon_attr(Color::WHITE),
         //     ),
         // ])
+    }
+
+    fn settings_changed(&mut self, settings: &Settings) {
+        self.palette = settings.palette.clone();
     }
 
     fn get_treeview(&self) -> singularity_common::utils::tree::world_tree::WorldTree<String> {

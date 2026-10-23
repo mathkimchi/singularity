@@ -14,6 +14,7 @@ use singularity_common::{
         session::SavedApplet,
         shared_state::{SharedState, StatePublisher},
     },
+    settings::{self, Settings},
     utils::tree::world_tree::{
         WorldTree, WorldTreePath, world_tree_traversal::WorldTreeTraversalOperation,
     },
@@ -32,6 +33,8 @@ pub mod project_applet;
 pub mod root_node_applet;
 pub mod split_applet;
 pub(crate) mod treeview;
+
+pub use treeview::with_opacity;
 
 // pub struct RootApplet<Applet: BasicApplet> {
 //     inner: Applet,
@@ -148,6 +151,10 @@ pub trait StandardApplet {
     /// Called on the applet's thread after an `AppletWaker` woke it (eg a worker thread finished)
     fn wake(&mut self) {}
 
+    /// The settings, once before the first draw and whenever they change (`StandardEvent::SettingsChanged`);
+    /// the surface is damaged afterwards
+    fn settings_changed(&mut self, _settings: &Settings) {}
+
     /// Called after each batch of events, before the applet's state is published
     fn update(&mut self) {}
 }
@@ -220,6 +227,8 @@ pub enum NodeRequest {
     Run(&'static str),
     /// A wl surface the applet didn't take (`StandardApplet::take_wl_surface`), as a child of its node
     AddWlSurface(NewWlSurface),
+    /// Asks for the working directory of the tree the applet is in, answered with `StandardEvent::Directory`
+    GetDirectory,
 }
 
 /// Makes an applet from a detached subtree (`NodeRequest::Wrap`) and the directory of the tree it is in
@@ -309,6 +318,11 @@ impl AppletContext {
         AppletWaker(self.wake_sender.clone())
     }
 
+    /// Answered with `StandardEvent::Directory`
+    pub fn get_directory(&self) {
+        self.request(NodeRequest::GetDirectory);
+    }
+
     pub fn close(&self) {
         self.request(NodeRequest::Close);
     }
@@ -349,6 +363,13 @@ pub struct AppletState {
     treeview: StatePublisher<Treeview>,
     request_sender: Sender<NodeRequest>,
     loop_signal: LoopSignal,
+}
+
+impl AppletState {
+    fn settings_changed(&mut self, settings: &Settings) {
+        self.applet.settings_changed(settings);
+        self.surface.damage();
+    }
 }
 
 /// Runs a `StandardApplet` as a client of a node
@@ -402,6 +423,9 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                 calloop::channel::Event::Msg(StandardEvent::NodeAction(path, action)) => {
                     state.applet.node_action(&path, action);
                 }
+                calloop::channel::Event::Msg(StandardEvent::SettingsChanged(settings)) => {
+                    state.settings_changed(&settings);
+                }
                 calloop::channel::Event::Msg(StandardEvent::CloseRequest) => {
                     if state.applet.close_requested() {
                         let _ = state.request_sender.send(NodeRequest::Close);
@@ -444,12 +468,12 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
             })
             .unwrap();
         let (settings_tx, settings_rx) = calloop::channel::channel();
-        singularity_common::settings::subscribe(settings_tx);
+        settings::subscribe(settings_tx);
         event_loop
             .handle()
             .insert_source(settings_rx, |event, &mut (), state| {
                 if let calloop::channel::Event::Msg(()) = event {
-                    state.surface.damage();
+                    state.settings_changed(&settings::get());
                 }
             })
             .unwrap();
@@ -480,6 +504,7 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
             request_sender,
             loop_signal: event_loop.get_signal(),
         };
+        state.settings_changed(&settings::get());
 
         // after each batch of events, so multiple damages become one publish
         event_loop

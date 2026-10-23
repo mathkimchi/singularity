@@ -20,16 +20,17 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
 
 - Watch the settings file/program and every `watch` path (`notify`). On change: re-run/re-read.
 - Program gets a timeout. On spawn failure, timeout, non-zero exit or parse error: keep the previous settings and log.
-- Also a "reload settings" command (`settings::reload()` exists; no command wired yet).
+- Also the command hub's `reload_settings` (`settings::reload()` on a thread).
 - Settings live in a global in `singularity_common` readable from every applet thread; a settings-changed event is broadcast so applets redraw.
 
 ## Implemented
 
-- `singularity_common::settings`: `Settings` (palette, border, gap, radius, font_size), `load(dir)`, `config_dir()` (`$SONAMU_CONFIG` overrides), global `get()`/`reload()`/`subscribe()`. `load_and_watch()` (called in `singularity_sde` main) loads once, then a `notify` thread reloads on changes. Applets are in-process threads, so they read `settings::get()` directly when they draw (no request needed; see #94 for an event).
+- `singularity_common::settings`: `Settings` (palette, border, gap, radius, font_size), `load(dir)`, `config_dir()` (`$SONAMU_CONFIG` overrides), global `get()`/`reload()`/`subscribe()`. `load_and_watch()` (called in `singularity_sde` main) loads once, then a `notify` thread reloads on changes. Applets get them through `StandardApplet::settings_changed` (#94); the root and the node tree still read `settings::get()` when they draw.
 - Watching goes through parent dirs (non-recursive), so atomically replaced files are seen. Watched: `settings`, `settings.json` (only while there is no program), and `watch` paths (relative ones resolve against the config dir). Changes are debounced 100 ms.
 - A change during a program run (+100 ms) causes another reload.
 - Loop detection is commented out in `Watcher::run`: it ignored a `watch` path that changed during program runs (first after 1 run, then after 3 in a row), but DMS writes its `settings.json` on theme changes and continuously while a slider is dragged, so it kept ignoring DMS's settings. A program that changes its own `watch` files now reloads forever.
-- Broadcast: on an actual change (`!=`), each `subscribe`d calloop sender is pinged; dead ones are dropped. `AppletClient` and the root applet subscribe and damage their surface. No applet hook yet; applets that cache settings would need one.
+- Broadcast: on an actual change (`!=`), each `subscribe`d calloop sender is pinged; dead ones are dropped. `AppletClient` and the root applet subscribe. `AppletClient` calls `StandardApplet::settings_changed` (default: nothing) once before the first draw and on each change, then damages the surface. Always delivered, no subscribing per applet.
+- `StandardRequest::GetSettings` is answered with `StandardEvent::SettingsChanged(Settings)` by the holder (`NodeHolder`, the runner for the root, the file manager for its documents); `AppletClient` turns that event into `settings_changed` too. Nothing sends it yet, since every applet gets the settings anyway.
 - `Color` parses/deserializes `#rrggbb`/`#rrggbbaa`.
 - Defaults reproduce the old hardcoded look (focus-inside border green, traversal yellow, unfocused #3b4049, black bg, 46 px font).
 - Known gap: if the program leaves a background child holding stdout open, reading blocks after it exits (timeout only covers the program itself).
@@ -50,7 +51,8 @@ Scope for now: cosmetic settings only: palette, border (width, focused/unfocused
   window, centered over the panes, and never pinned. The example config sets both to the defaults.
 - A pane whose applet `frames_itself` (published in `Treeview`; a split, or a project showing its panes, not its overview) is never framed (no border, no radius) and grows by `gap` on every side: its own tree frames its panes and adds its own outer gap, so leaf content gets exactly one frame and one gap at any nesting depth. `NodeTree::update_layout` reads only that flag, never the applet's type. Such a node's focus then only shows in the treeview.
 - `keybinds` (#114): `[{"mods": ["logo"], "key": "t", "command": "foot"}]`; `key` is a char (case-insensitive) or an evdev code. Checked in `AppletRunner::handle_ui_event` after layer surfaces and Alt+P; mods must match exactly; runs `sh -c`. Only in the settings the compositor actually loads (with an executable `settings`, `settings.json` is ignored), and one bad entry fails the whole parse (previous settings kept, error logged). The example config binds volume and mute (wpctl), brightness (brightnessctl) and Print (`dms screenshot`, grim in a comment).
-- Not themed yet: command hub/help, file manager, editors etc. keep their own constants.
+- File manager and code editor (#126): text from `palette` (`fg`, `inactive` for dim text, `accent` for the active/open file and the normal mode cursor), backgrounds made translucent with the treeview's `with_opacity` (a constant 0.8, not a setting). The file manager's directory names stay blue (no palette color for them).
+- Not themed yet: command hub/help and the other applets keep their own constants.
 
 ## Rendering changes
 

@@ -8,6 +8,7 @@ use singularity_common::{
         detached::DetachedTree,
         packets::{NodeAction, SpawnPosition, StandardEvent, StandardRequest},
     },
+    settings::{self, Palette, Settings},
     utils::tree::{
         recursive_tree::RecursiveTreeNode,
         tree_node_path::{TreeNodePath, TreeTraverseOperation},
@@ -15,10 +16,11 @@ use singularity_common::{
     },
 };
 use singularity_sttk::{
+    command_hub::program_command,
     creatable_applet::CreatableNodularApplet,
     nodular_applet::{
         Answer, AppletContext, AppletSpawner, AppletSpawnerTrait, EmbeddedId, NodeRequest,
-        NodularAppletInitializer, StandardApplet,
+        NodularAppletInitializer, StandardApplet, with_opacity,
     },
     standard_keybinds::{handle_standard_keybinds, standard_keybind_request},
 };
@@ -42,14 +44,12 @@ const LEFT_PAD: f32 = 12.0;
 const LIST_SPLIT: f32 = 0.3;
 const BTN_LEFT: u32 = 0x110;
 
-const LIST_BG: Color = Color([0x16, 0x16, 0x1C, 0xFF]);
-const SELECTED_BG: Color = Color([0x1C, 0x3D, 0x2E, 0xFF]);
-const SELECTED_UNFOCUSED_BG: Color = Color([0x26, 0x2A, 0x32, 0xFF]);
-const HEADER_BG: Color = Color([0x0D, 0x0D, 0x16, 0xFF]);
+// Translucent like the treeview; text is from the settings' palette
+const LIST_BG: Color = with_opacity(Color([0x16, 0x16, 0x1C, 0]));
+const SELECTED_BG: Color = with_opacity(Color([0x1C, 0x3D, 0x2E, 0]));
+const SELECTED_UNFOCUSED_BG: Color = with_opacity(Color([0x26, 0x2A, 0x32, 0]));
+const HEADER_BG: Color = with_opacity(Color([0x0D, 0x0D, 0x16, 0]));
 const DIR_TEXT: Color = Color([0x7A, 0xB8, 0xFF, 0xFF]);
-const FILE_TEXT: Color = Color::LIGHT_GRAY;
-const DIM_TEXT: Color = Color([0x8A, 0x93, 0xA6, 0xFF]);
-const ACTIVE_TEXT: Color = Color::LIGHT_YELLOW;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Pane {
@@ -96,6 +96,9 @@ pub struct FileManagerApplet {
     selecting: Option<Selected>,
     /// Shown instead of the header until the next key (eg a file that can't be opened)
     status: Option<String>,
+    /// `root` is the directory of the tree it is in (eg a project's), rather than one it was given
+    follows_directory: bool,
+    palette: Palette,
 
     size: DisplayContainerSize,
     hook: AppletContext,
@@ -113,6 +116,8 @@ impl CreatableNodularApplet<PathBuf> for FileManagerApplet {
             pane: Pane::Files,
             selecting: None,
             status: None,
+            follows_directory: false,
+            palette: Palette::default(),
             // until the node sends a size
             size: DisplayContainerSize::new(800, 600),
             hook,
@@ -122,17 +127,23 @@ impl CreatableNodularApplet<PathBuf> for FileManagerApplet {
     }
 }
 impl FileManagerApplet {
-    /// Args: the root directory (default: the working directory)
+    /// Args: the root directory (default: the directory of the tree it is in, eg a project's)
     #[must_use]
     pub fn get_applet_spawner() -> AppletSpawner {
         struct Spawner;
         impl AppletSpawnerTrait for Spawner {
             fn create_initializer(&self, args: &[&str]) -> Option<NodularAppletInitializer> {
-                let root = match args.first() {
-                    Some(root) => PathBuf::from(root),
-                    None => std::env::current_dir().ok()?,
-                };
-                Some(FileManagerApplet::get_boxed_initiator(root))
+                if let Some(root) = args.first() {
+                    return Some(FileManagerApplet::get_boxed_initiator(PathBuf::from(root)));
+                }
+                // until its node answers
+                let root = std::env::current_dir().ok()?;
+                Some(Box::new(move |hook: AppletContext| {
+                    hook.get_directory();
+                    let mut file_manager = FileManagerApplet::new(root, hook);
+                    file_manager.follows_directory = true;
+                    Box::new(file_manager)
+                }))
             }
 
             fn duplicate(&self) -> AppletSpawner {
@@ -229,8 +240,22 @@ impl FileManagerApplet {
         }
     }
 
-    /// Shows the file's editor, embedding a new one if it isn't open
+    /// Shows the file's editor, embedding a new one if it isn't open. PDFs open in Okular instead.
     fn open(&mut self, file: PathBuf) {
+        if file
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+        {
+            // its window becomes a child of this node
+            match program_command("okular", &[]).arg(&file).spawn() {
+                // reap it
+                Ok(mut child) => {
+                    std::thread::spawn(move || child.wait());
+                }
+                Err(err) => self.status = Some(format!("Can't start okular: {err}")),
+            }
+            return;
+        }
         if let Some(index) = self
             .documents
             .iter()
@@ -580,7 +605,7 @@ impl FileManagerApplet {
             0,
             width,
             HEADER_BG,
-            text(LEFT_PAD, self.title(), DIM_TEXT, width),
+            text(LEFT_PAD, self.title(), self.palette.inactive, width),
         )];
         for (row_index, (index, entry)) in self
             .entries
@@ -616,7 +641,11 @@ impl FileManagerApplet {
                     .any(|document| document.file.as_ref() == Some(&entry.path));
                 (
                     format!("  {name}"),
-                    if is_open { ACTIVE_TEXT } else { FILE_TEXT },
+                    if is_open {
+                        self.palette.accent
+                    } else {
+                        self.palette.fg
+                    },
                 )
             };
             rows.push(row(
@@ -635,7 +664,7 @@ impl FileManagerApplet {
             Some(status) => vec![(status.clone(), UIElement::glyphon_attr(Color::RED))],
             None if self.documents.is_empty() => vec![(
                 "Open a file (Enter or click)".to_string(),
-                UIElement::glyphon_attr(DIM_TEXT),
+                UIElement::glyphon_attr(self.palette.inactive),
             )],
             None => self
                 .documents
@@ -644,9 +673,9 @@ impl FileManagerApplet {
                 .map(|(index, document)| {
                     let name = document.handle.get_treeview().tree.get_root_value().clone();
                     let color = if Some(index) == self.active {
-                        ACTIVE_TEXT
+                        self.palette.accent
                     } else {
-                        DIM_TEXT
+                        self.palette.inactive
                     };
                     (format!(" {name} "), UIElement::glyphon_attr(color))
                 })
@@ -691,9 +720,22 @@ impl StandardApplet for FileManagerApplet {
             }
             StandardEvent::UIEvent(UIEvent::Mouse(mouse_event)) => self.handle_mouse(mouse_event),
             StandardEvent::UIEvent(ui_event @ UIEvent::Key { .. }) => self.handle_key(ui_event),
+            StandardEvent::Directory(directory) if self.follows_directory => {
+                let Some(root) = directory.or_else(|| std::env::current_dir().ok()) else {
+                    return;
+                };
+                self.root = root;
+                self.expanded.clear();
+                self.rebuild_entries();
+                self.hook.damage_treeview();
+            }
             _ => return,
         }
         self.hook.damage_window();
+    }
+
+    fn settings_changed(&mut self, settings: &Settings) {
+        self.palette = settings.palette.clone();
     }
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
@@ -835,6 +877,19 @@ impl StandardApplet for FileManagerApplet {
                 self.hook.request(
                     StandardRequest::RequestPlace(document_path(index, path), position).into(),
                 )
+            }
+            // documents are in the file manager's directory
+            NodeRequest::GetDirectory => {
+                self.documents[index]
+                    .handle
+                    .send_event(StandardEvent::Directory(Some(self.root.clone())));
+                return;
+            }
+            NodeRequest::Standard(StandardRequest::GetSettings) => {
+                self.documents[index]
+                    .handle
+                    .send_event(StandardEvent::SettingsChanged(settings::get()));
+                return;
             }
             NodeRequest::Standard(_) => return,
             // documents can't hold children, split, be wrapped or hold wl surfaces here, so this node does

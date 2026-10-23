@@ -186,3 +186,11 @@ The holder converts them:
     `hibernated`, so it starts again when focused. Focus on it moves to its parent, else it would wake right away.
 - `Focus(path)` puts focus *at* the path: a path ending on an element selects it (the applet's selector),
   a longer one goes inside it.
+
+## Directories (#124)
+
+- A tree's directory is `NodeHolder::directory` (a project's, copied into splits and new projects; the runner's if `None`).
+- Applets ask with `NodeRequest::GetDirectory` (`AppletContext::get_directory`), answered with `StandardEvent::Directory`.
+  `NodeHolder::set_directory` (a project's `d`) sends it to every applet in the tree; a split passes it on to its panes, a nested project ignores it.
+- The command hub starts `run` and `$` there; a file manager spawned without a path follows it.
+- Known gap: an applet placed into another tree keeps the old directory until it asks again.
