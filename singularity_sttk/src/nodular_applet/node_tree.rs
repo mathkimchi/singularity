@@ -1032,16 +1032,6 @@ impl NodeTree {
         &self.nodes[id].children
     }
 
-    /// Its main is a project or split (holds a tree of its own, which frames its panes)
-    fn holds_tree(&self, id: NodeId) -> bool {
-        self.nodes[id].main.as_ref().is_some_and(|main| {
-            matches!(
-                main.get_treeview().saved,
-                Some(SavedApplet::Project(_) | SavedApplet::Split(_))
-            )
-        })
-    }
-
     /// Whether the node is a split (eg a `SplitApplet`'s inner root)
     pub fn is_split(&self, id: NodeId) -> bool {
         self.nodes
@@ -1453,20 +1443,6 @@ impl NodeTree {
             pane.rect = [0, 0, size.width, size.height];
             pane.border = 0;
             pane.framed = false;
-        }
-        for pane in panes.iter_mut().filter(|pane| pane.framed) {
-            if self.holds_tree(pane.node) {
-                // its own tree frames its panes, with its own gap around them, so it takes this gap back
-                let [x, y, width, height] = pane.rect;
-                pane.rect = [
-                    x.saturating_sub(gap),
-                    y.saturating_sub(gap),
-                    width + 2 * gap,
-                    height + 2 * gap,
-                ];
-                pane.border = 0;
-                pane.framed = false;
-            }
         }
         for pane in &panes {
             self.resize(pane.node, pane.inner_size());
