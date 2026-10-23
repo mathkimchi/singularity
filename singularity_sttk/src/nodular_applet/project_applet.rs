@@ -353,6 +353,19 @@ impl ProjectApplet {
         }
     }
 
+    /// The overview's distance from the window's edge: the settings' gap, then its border
+    fn inset() -> [f32; 2] {
+        let settings = settings::get();
+        [settings.gap.round(), settings.border.width.round()]
+    }
+
+    /// The overview's size inside its gap and border
+    fn inner_size(&self) -> [f32; 2] {
+        let [gap, border] = Self::inset();
+        [self.size.width, self.size.height]
+            .map(|length| (length as f32 - 2.0 * (gap + border)).max(0.0))
+    }
+
     /// Where the overview shows a preview card of each of its contents (`[x, y, width, height]`), below the rows.
     /// None while setting the directory, whose options take those rows.
     fn card_rects(&self) -> Vec<[f32; 4]> {
@@ -363,10 +376,10 @@ impl ProjectApplet {
         let count = tree.children(tree.root()).len();
         let rows = CONTENTS_ROW + count + NEW_ROWS.len();
         let top = PAD + rows as f32 * row_height() + PAD;
-        let width = self.size.width as f32;
+        let [width, height] = self.inner_size();
         let card_width = CARD_WIDTH.min(width - 2.0 * PAD).max(1.0);
         // the project's own shape, which its panes have, and a caption
-        let card_height = card_width * self.size.height as f32 / width.max(1.0) + row_height();
+        let card_height = card_width * height / width.max(1.0) + row_height();
         // non-negative, since it is at least 1
         #[allow(clippy::cast_sign_loss)]
         let columns = ((width - PAD) / (card_width + PAD)).floor().max(1.0) as usize;
@@ -570,7 +583,8 @@ impl ProjectApplet {
                 ..
             }) => {
                 let root = self.holder.tree.root();
-                let [x, y] = [x, y].map(|coord| coord as f32);
+                let [gap, border] = Self::inset();
+                let [x, y] = [x, y].map(|coord| coord as f32 - gap - border);
                 let card = self
                     .card_rects()
                     .iter()
@@ -848,12 +862,25 @@ impl StandardApplet for ProjectApplet {
         }
     }
 
-    fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
+    fn get_window_standard_applet(&self, _container_size: DisplayContainerSize) -> UITree {
         if self.dissolved {
             return UITree::leaf(UIElement::Nothing);
         }
         if self.at_root() {
-            return self.get_overview(container_size.width as f32);
+            let [gap, border] = Self::inset();
+            let settings = settings::get();
+            let [width, height] = self.inner_size();
+            return UITree::new_container(vec![UITree::new_styled(
+                UIElement::Bordered {
+                    color: settings.border.focused,
+                    radius: settings.radius,
+                },
+                Style {
+                    border: Length::uniform_rect(Length::Px(border)),
+                    ..Style::absolute([gap, gap], [width + 2.0 * border, height + 2.0 * border])
+                },
+                vec![self.get_overview(width)],
+            )]);
         }
         self.holder.tree.get_window()
     }
