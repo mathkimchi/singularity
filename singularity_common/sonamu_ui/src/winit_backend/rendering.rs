@@ -817,8 +817,13 @@ impl DrawingSharedData<'_> {
         &mut self,
         text: &[(String, AttrsOwned)],
         display_area_px: DisplayAreaPx,
+        clip: Option<Clip>,
         scale: f32,
     ) {
+        // glyphon clips to rectangular bounds only, so rounded clip corners aren't followed
+        let bounds = clip.map_or(display_area_px, |clip| {
+            clip.area.intersection(display_area_px)
+        });
         let text_buffer = self.text_cache.get(self.font_system, text);
 
         let mut text_renderer =
@@ -836,7 +841,7 @@ impl DrawingSharedData<'_> {
                     left: display_area_px.0[0][0] as f32,
                     top: display_area_px.0[0][1] as f32,
                     scale,
-                    bounds: Self::display_area_to_text_bounds(display_area_px),
+                    bounds: Self::display_area_to_text_bounds(bounds),
                     default_color: glyphon::Color::rgb(255, 255, 255),
                     custom_glyphs: &[],
                 }],
@@ -1327,9 +1332,8 @@ impl DrawingSharedData<'_> {
             UIPrimitiveElement::RoundRect(round_rect) => {
                 self.draw_rect(round_rect, display_area_px, clip);
             }
-            // REVIEW: text isn't clipped
             UIPrimitiveElement::Text(items, scale) => {
-                self.draw_text_with_glyphon(items, display_area_px, *scale);
+                self.draw_text_with_glyphon(items, display_area_px, clip, *scale);
             }
             UIPrimitiveElement::CharGrid(char_grid) => {
                 self.draw_char_grid(char_grid, display_area_px, clip);

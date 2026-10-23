@@ -74,6 +74,12 @@ pub trait StandardApplet {
         false
     }
 
+    /// Whether it frames what it shows itself (eg its own tree's panes), so its node isn't framed;
+    /// published with the treeview
+    fn frames_itself(&self) -> bool {
+        false
+    }
+
     /// Whether it gets 3 finger swipes (`is_dfs_swipe`), eg a project, to move through its own tree.
     /// Otherwise they go straight to its node, so they work in any applet.
     fn handles_dfs_swipes(&self) -> bool {
@@ -472,6 +478,7 @@ impl RawClientInitializer<NodeRequest> for AppletClient {
                         tree: state.applet.get_treeview(),
                         focus: state.applet.get_focus_path(),
                         traversing: state.applet.is_traversing(),
+                        frames_itself: state.applet.frames_itself(),
                         saved: state.applet.save(),
                         awaiting_wl: state.applet.awaiting_wl(),
                     },

@@ -22,7 +22,7 @@
   directory (its options take those rows). The children keep their last pane size, or the tree's size if never shown.
 - `UIElement::Scaled(f)` (sonamu_ui): its children are laid out at full size, then drawn `f` times as big from its
   top-left (rects incl. border and radius, text via glyphon's `TextArea::scale`, char grids, textures and wl
-  subsurfaces). Text still isn't clipped, so the preview is fitted inside its card instead of cut to it.
+  subsurfaces). Text is clipped only to a rectangle (glyphon bounds), so the preview is fitted inside its card instead of cut to it.
 - Keys there, taken before the project's selector: `r` (no modifiers) starts renaming; `n` adds a command hub to the
   inner root and focuses inside it (unlike Ctrl+Shift++, which doesn't focus it); `t`/`b` start `TERMINAL`/`BROWSER`
   (`standard_keybinds`, shared with Super+T/N) with `NodeRequest::Run`, and since focus is at the inner root, the

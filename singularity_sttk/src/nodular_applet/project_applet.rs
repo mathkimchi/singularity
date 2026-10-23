@@ -879,6 +879,11 @@ impl StandardApplet for ProjectApplet {
         !self.dissolved && self.holder.tree.is_traversing()
     }
 
+    /// Its panes are framed by its own tree; the overview isn't
+    fn frames_itself(&self) -> bool {
+        !self.dissolved && !self.at_root()
+    }
+
     /// Through its own tree, while focus is in it
     fn handles_dfs_swipes(&self) -> bool {
         !self.dissolved

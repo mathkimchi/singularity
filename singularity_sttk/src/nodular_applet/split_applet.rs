@@ -180,6 +180,10 @@ impl StandardApplet for SplitApplet {
         !self.dissolved && self.holder.tree.is_traversing()
     }
 
+    fn frames_itself(&self) -> bool {
+        !self.dissolved
+    }
+
     /// Through its own tree, while focus is in it
     fn handles_dfs_swipes(&self) -> bool {
         !self.dissolved

@@ -61,6 +61,8 @@ pub struct Treeview {
     /// The client is selecting a node in its tree (eg a project's own treeview selector),
     /// rather than taking input itself
     pub traversing: bool,
+    /// It frames what it shows itself (eg a nested tree framing its own panes), so its holder doesn't frame it
+    pub frames_itself: bool,
     /// How to make the client again on the next start; `None` if it isn't saved (eg the help)
     pub saved: Option<SavedApplet>,
     /// Restored wl clients inside the client whose tiles wait for their toplevel (eg in a project)
@@ -73,6 +75,7 @@ impl Treeview {
             tree,
             focus: WorldTreePath::new_into(),
             traversing: false,
+            frames_itself: false,
             saved: None,
             awaiting_wl: Vec::new(),
         }
