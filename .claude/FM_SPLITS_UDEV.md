@@ -18,7 +18,18 @@ then polishing these features and the treeview. Decide, implement, and log here.
 ## File manager (`singularity_standard_tabs/src/file_manager.rs`)
 
 - Spawner `file_manager [dir]` (default: the directory of the tree it is in, which it follows), registered in sde.
-- PDFs open in Okular (`program_command`, so its window becomes a child of the file manager's node) instead of an editor (#95).
+- PDFs open in Okular (#95), embedded as a document: the file manager publishes the started pid as `awaiting_wl`, so the window
+  is routed to it wherever focus is, and `take_wl_surface` embeds a `WlSurfaceApplet` for it. While it has the keys the file manager
+  reports its surface with `WlKeyboardFocus`. Closing such a document (or the file manager) asks Okular to close; it goes once its window does.
+- Preview: the file under the mouse, else the selected one while the file list has the keys, is shown in the document area by
+  an embedded editor that doesn't take keys (`Preview`, synced in `update`). Enter or a click opens it, keeping that editor.
+  PDFs are previewed by `PdfPreviewApplet` (`pdf_preview.rs`): page 1 rendered with `hayro` on a worker thread to fit its size,
+  re-rendered on resize (newest job wins). ~40 ms a page in release; hayro and its heavy deps are `opt-level = 3` in dev
+  (root `Cargo.toml`), else it's ~1.5 s. With nothing to show, the area has an editor's background.
+- `UIElement::Image(Image)` (`sonamu_ui`): RGBA8 pixels from an applet, which has no GPU device for a `Texture`.
+  `Image` is an `Arc` with a unique id; the renderer's `ImageCache` uploads each id once and frees it after a frame that
+  didn't draw it (like `TextCache`). Stretched over its node, so size the node to the image. The image viewer could use it too.
+- Known gap: there's no pointer-leave event, so the hover preview stays after the pointer leaves the pane until it moves in it again.
   The old file manager (old packet API) was already deleted in the working tree; this is new.
 - Layout: file list (30% of the width) | header (open documents, active one yellow) over the active document.
 - Opened files are `CodeEditorApplet`s embedded with `AppletContext::embed`. Several documents can be open;

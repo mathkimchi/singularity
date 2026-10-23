@@ -4,7 +4,8 @@ use super::{CapturedFrame, UIDisplay};
 use crate::{
     display_units::DisplayAreaPx,
     ui_element::{
-        CharGrid, Clip, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement, font_size,
+        CharGrid, Clip, Image, InternalCharCell, PrimitiveScene, RoundRect, UIPrimitiveElement,
+        font_size,
     },
     winit_backend::WgpuData,
 };
@@ -669,6 +670,7 @@ pub(super) struct DrawingSharedData<'a> {
     viewport: &'a mut glyphon::Viewport,
     atlas: &'a mut glyphon::TextAtlas,
     text_cache: &'a mut TextCache,
+    image_cache: &'a mut ImageCache,
     // text_renderer: &'a mut glyphon::TextRenderer,
     // text_buffer: &'a mut glyphon::Buffer,
     device: &'a Device,
@@ -748,6 +750,56 @@ impl TextCache {
         self.buffers.retain(|_, (_, drawn)| std::mem::take(drawn));
     }
 }
+/// Textures of `UIElement::Image`s, uploaded when first drawn
+#[derive(Default)]
+pub(super) struct ImageCache {
+    /// By image id; the bool is whether this frame drew it
+    textures: HashMap<u64, (TextureView, bool)>,
+}
+impl ImageCache {
+    fn get(&mut self, device: &Device, queue: &wgpu::Queue, image: &Image) -> &TextureView {
+        let (view, drawn) = self.textures.entry(image.id()).or_insert_with(|| {
+            let [width, height] = image.size();
+            let size = wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            };
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                label: Some("image_texture"),
+                view_formats: &[],
+            });
+            queue.write_texture(
+                texture.as_image_copy(),
+                image.rgba(),
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                size,
+            );
+            (
+                texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                false,
+            )
+        });
+        *drawn = true;
+        view
+    }
+
+    /// Frees the images this frame didn't draw
+    fn end_frame(&mut self) {
+        self.textures.retain(|_, (_, drawn)| std::mem::take(drawn));
+    }
+}
+
 impl DrawingSharedData<'_> {
     fn draw_rect(
         &mut self,
@@ -1341,6 +1393,12 @@ impl DrawingSharedData<'_> {
             UIPrimitiveElement::Texture(texture_view) => {
                 self.draw_texture(texture_view, display_area_px, clip);
             }
+            // an empty texture is invalid
+            UIPrimitiveElement::Image(image) if image.size().contains(&0) => {}
+            UIPrimitiveElement::Image(image) => {
+                let view = self.image_cache.get(self.device, self.queue, image).clone();
+                self.draw_texture(&view, display_area_px, clip);
+            }
         }
     }
 
@@ -1458,6 +1516,7 @@ impl UIDisplay {
             viewport,
             atlas,
             text_cache,
+            image_cache,
             // text_renderer,
             // text_buffer,
             rectangle_renderer,
@@ -1546,6 +1605,7 @@ impl UIDisplay {
                 viewport,
                 atlas,
                 text_cache,
+                image_cache,
                 device,
                 queue,
                 _surface_config: surface_config,
@@ -1556,6 +1616,7 @@ impl UIDisplay {
             drawing_shared_data.draw_primitive_scene(content);
         }
         text_cache.end_frame();
+        image_cache.end_frame();
 
         let copy = capture
             .then(|| FrameCopy::start(device, &mut encoder, &output.texture))

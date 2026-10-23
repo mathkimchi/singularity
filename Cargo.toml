@@ -96,3 +96,16 @@ must_use_candidate = "allow"                 # having must_use everywhere is get
 [workspace.lints.rust]
 unused_qualifications = "warn"
 # unused_crate_dependencies = "warn"
+
+# The PDF preview's renderer is ~35x slower unoptimized (1.5 s a page)
+[profile.dev.package]
+hayro = { opt-level = 3 }
+hayro-interpret = { opt-level = 3 }
+hayro-syntax = { opt-level = 3 }
+vello_cpu = { opt-level = 3 }
+vello_common = { opt-level = 3 }
+kurbo = { opt-level = 3 }
+skrifa = { opt-level = 3 }
+read-fonts = { opt-level = 3 }
+fearless_simd = { opt-level = 3 }
+zlib-rs = { opt-level = 3 }

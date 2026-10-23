@@ -89,7 +89,7 @@ sttk + SDE + common + sar first, then the standard tabs that are currently compi
 - **`find_applet_spawner` takes `&str`** (clippy `needless_pass_by_value`; also resolves the old TODO there).
 - **Deleted** `basic_applet.rs`, `caching_applet.rs`, sar's `client_handle.rs` (moved to common),
   and the commented-out `NodularHolderApplet` block in `root_node_applet.rs`, since it referenced removed types.
-- **Scope:** `terminal`, `browser` and `pdf_viewer` were already commented out, so they weren't ported.
+- **Scope:** `terminal`, `browser` and `pdf_viewer` were already commented out, so they weren't ported (`pdf_viewer` was deleted since).
 
 ### Issues found
 

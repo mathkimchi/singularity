@@ -32,6 +32,7 @@ image = { workspace = true }
 
 # things needed for editor
 ropey = { version = "1.6.1" } # TODO:  checkout version 2 whiich is in beta rn
+hayro = "0.8"
 
 # [[bin]]
 # name = "editor"

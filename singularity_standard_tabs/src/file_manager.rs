@@ -1,12 +1,15 @@
 //! A file tree next to the open documents.
 //! Opened files are code editors embedded in the file manager's inner tree, so they can be plucked out of it.
 
-use crate::code_editor::CodeEditorApplet;
+use crate::{code_editor::CodeEditorApplet, pdf_preview::PdfPreviewApplet};
 use singularity_common::{
     sap::{
         client_handle::ClientHandle,
         detached::DetachedTree,
-        packets::{NodeAction, SpawnPosition, StandardEvent, StandardRequest},
+        packets::{
+            AwaitedWl, NewWlSurface, NodeAction, SpawnPosition, StandardEvent, StandardRequest,
+            WlSurfaceId,
+        },
     },
     settings::{self, Palette, Settings},
     utils::tree::{
@@ -23,6 +26,7 @@ use singularity_sttk::{
         NodularAppletInitializer, StandardApplet, with_opacity,
     },
     standard_keybinds::{handle_standard_keybinds, standard_keybind_request},
+    wl_surface_applet::WlSurfaceApplet,
 };
 use sonamu_ui::{
     color::Color,
@@ -33,6 +37,7 @@ use sonamu_ui::{
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
+    sync::mpsc,
 };
 
 fn row_height() -> f32 {
@@ -49,6 +54,8 @@ const LIST_BG: Color = with_opacity(Color([0x16, 0x16, 0x1C, 0]));
 const SELECTED_BG: Color = with_opacity(Color([0x1C, 0x3D, 0x2E, 0]));
 const SELECTED_UNFOCUSED_BG: Color = with_opacity(Color([0x26, 0x2A, 0x32, 0]));
 const HEADER_BG: Color = with_opacity(Color([0x0D, 0x0D, 0x16, 0]));
+/// Behind the documents when none is shown; an editor's background
+const DOCUMENT_BG: Color = HEADER_BG;
 const DIR_TEXT: Color = Color([0x7A, 0xB8, 0xFF, 0xFF]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,6 +85,20 @@ struct Document {
     handle: ClientHandle,
     /// `None` if it was placed here rather than opened
     file: Option<PathBuf>,
+    /// The wl surface it shows (eg Okular's for a PDF)
+    wl: Option<WlSurfaceId>,
+}
+
+/// A file shown in place of the active document until another is (`open` keeps its editor)
+struct Preview {
+    file: PathBuf,
+    /// `None` if it can't be read
+    document: Option<Document>,
+}
+
+fn is_pdf(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
 }
 
 pub struct FileManagerApplet {
@@ -100,11 +121,22 @@ pub struct FileManagerApplet {
     follows_directory: bool,
     palette: Palette,
 
+    /// Of the file under the mouse, else of the one selected while the file list has the keys (`previewed`)
+    preview: Option<Preview>,
+    /// The file list row under the mouse
+    hovered: Option<usize>,
+    /// Okular processes started for these PDFs, whose windows become documents (`take_wl_surface`)
+    starting: Vec<(u32, PathBuf)>,
+    /// Pids of `starting` processes that ended, from the threads waiting on them
+    exited_sender: mpsc::Sender<u32>,
+    exited: mpsc::Receiver<u32>,
+
     size: DisplayContainerSize,
     hook: AppletContext,
 }
 impl CreatableNodularApplet<PathBuf> for FileManagerApplet {
     fn new(root: PathBuf, hook: AppletContext) -> Self {
+        let (exited_sender, exited) = mpsc::channel();
         let mut file_manager = Self {
             root,
             expanded: HashSet::new(),
@@ -118,6 +150,11 @@ impl CreatableNodularApplet<PathBuf> for FileManagerApplet {
             status: None,
             follows_directory: false,
             palette: Palette::default(),
+            preview: None,
+            hovered: None,
+            starting: Vec::new(),
+            exited_sender,
+            exited,
             // until the node sends a size
             size: DisplayContainerSize::new(800, 600),
             hook,
@@ -240,45 +277,149 @@ impl FileManagerApplet {
         }
     }
 
-    /// Shows the file's editor, embedding a new one if it isn't open. PDFs open in Okular instead.
-    fn open(&mut self, file: PathBuf) {
-        if file
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
-        {
-            // its window becomes a child of this node
-            match program_command("okular", &[]).arg(&file).spawn() {
-                // reap it
-                Ok(mut child) => {
-                    std::thread::spawn(move || child.wait());
-                }
-                Err(err) => self.status = Some(format!("Can't start okular: {err}")),
-            }
-            return;
-        }
-        if let Some(index) = self
-            .documents
+    /// The open document showing the file
+    fn document_index(&self, file: &Path) -> Option<usize> {
+        self.documents
             .iter()
-            .position(|document| document.file.as_ref() == Some(&file))
-        {
+            .position(|document| document.file.as_deref() == Some(file))
+    }
+
+    /// Shows the file's document, making one if it isn't open: its preview's editor, a new editor,
+    /// or for a PDF, Okular's window once it arrives
+    fn open(&mut self, file: PathBuf) {
+        if let Some(index) = self.document_index(&file) {
             self.set_active(Some(index));
             self.set_pane(Pane::Document);
             return;
         }
-        // shown in the header rather than as an editor showing the error
-        if let Err(err) = std::fs::read_to_string(&file) {
-            self.status = Some(format!("Can't open: {err}"));
+        if is_pdf(&file) {
+            self.start_okular(file);
             return;
         }
+        let document = match self.preview.take() {
+            Some(Preview {
+                file: previewed,
+                document: Some(document),
+            }) if previewed == file => document,
+            preview => {
+                self.preview = preview;
+                // shown in the header rather than as an editor showing the error
+                if let Err(err) = std::fs::read_to_string(&file) {
+                    self.status = Some(format!("Can't open: {err}"));
+                    return;
+                }
+                let (id, handle) = self
+                    .hook
+                    .embed(CodeEditorApplet::get_boxed_initiator(file.clone()));
+                Document {
+                    id,
+                    handle,
+                    file: Some(file),
+                    wl: None,
+                }
+            }
+        };
+        self.add_document(document);
+    }
 
-        let (id, handle) = self
-            .hook
-            .embed(CodeEditorApplet::get_boxed_initiator(file.clone()));
-        self.add_document(Document {
-            id,
-            handle,
-            file: Some(file),
+    /// Its window becomes a document (`take_wl_surface`)
+    fn start_okular(&mut self, file: PathBuf) {
+        if self.starting.iter().any(|(_, starting)| *starting == file) {
+            return;
+        }
+        match program_command("okular", &[]).arg(&file).spawn() {
+            Ok(mut child) => {
+                let pid = child.id();
+                self.starting.push((pid, file));
+                // published as `awaiting_wl`, so its window comes here wherever focus is
+                self.hook.damage_treeview();
+                self.status = Some("Starting Okular...".to_string());
+                let exited = self.exited_sender.clone();
+                let waker = self.hook.waker();
+                // reaps it
+                std::thread::spawn(move || {
+                    let _ = child.wait();
+                    let _ = exited.send(pid);
+                    waker.wake();
+                });
+            }
+            Err(err) => self.status = Some(format!("Can't start okular: {err}")),
+        }
+    }
+
+    /// Closes the document; a wl client is asked first, and its document goes once its window does
+    fn close_document(&mut self, index: usize) {
+        if self.documents[index].wl.is_some() {
+            self.documents[index]
+                .handle
+                .send_event(StandardEvent::CloseRequest);
+        } else {
+            self.remove_document(index);
+        }
+    }
+
+    /// The file to show in place of the active document: under the mouse, else selected while the file list has
+    /// the keys
+    fn previewed(&self) -> Option<&Path> {
+        let index = self.hovered.or_else(|| {
+            (self.pane == Pane::Files && self.selecting.is_none()).then_some(self.selected)
+        })?;
+        let entry = self.entries.get(index)?;
+        (!entry.is_dir).then_some(entry.path.as_path())
+    }
+
+    /// Embeds an editor (or for a PDF, its first page) for the previewed file, unless it is open
+    fn update_preview(&mut self) {
+        let file = self
+            .previewed()
+            .filter(|file| self.document_index(file).is_none())
+            .map(Path::to_path_buf);
+        if self.preview.as_ref().map(|preview| &preview.file) == file.as_ref() {
+            return;
+        }
+        self.preview = file.map(|file| {
+            // the PDF preview shows its own errors
+            let readable = is_pdf(&file) || std::fs::read_to_string(&file).is_ok();
+            let document = readable.then(|| {
+                let initializer = if is_pdf(&file) {
+                    PdfPreviewApplet::get_boxed_initiator(file.clone())
+                } else {
+                    CodeEditorApplet::get_boxed_initiator(file.clone())
+                };
+                let (id, handle) = self.hook.embed(initializer);
+                handle.send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
+                    self.document_size(),
+                )));
+                // it doesn't take keys
+                handle.send_event(StandardEvent::FocusChanged(false));
+                Document {
+                    id,
+                    handle,
+                    file: Some(file.clone()),
+                    wl: None,
+                }
+            });
+            Preview { file, document }
         });
+        self.hook.damage_window();
+    }
+
+    /// What the document area shows: the previewed file's document, else the active one;
+    /// `Err` shows a note instead
+    fn shown_document(&self) -> Result<&Document, &'static str> {
+        let Some(file) = self.previewed() else {
+            return self.active_document().ok_or("");
+        };
+        if let Some(index) = self.document_index(file) {
+            return Ok(&self.documents[index]);
+        }
+        match &self.preview {
+            Some(Preview {
+                file: previewed,
+                document: Some(document),
+            }) if previewed == file => Ok(document),
+            _ => Err("Can't preview it"),
+        }
     }
 
     fn add_document(&mut self, document: Document) {
@@ -333,13 +474,20 @@ impl FileManagerApplet {
         self.send_document_focus();
     }
 
-    /// Tells the active document whether it has the keys
+    /// Tells the active document whether it has the keys, and the node which wl surface does
     fn send_document_focus(&self) {
+        let has_keys = self.pane == Pane::Document && self.selecting.is_none();
         if let Some(document) = self.active_document() {
-            document.handle.send_event(StandardEvent::FocusChanged(
-                self.pane == Pane::Document && self.selecting.is_none(),
-            ));
+            document
+                .handle
+                .send_event(StandardEvent::FocusChanged(has_keys));
         }
+        let wl = self
+            .active_document()
+            .filter(|_| has_keys)
+            .and_then(|document| document.wl);
+        self.hook
+            .request(StandardRequest::WlKeyboardFocus(wl).into());
         // the focus path changed
         self.hook.damage_treeview();
     }
@@ -372,7 +520,7 @@ impl FileManagerApplet {
         if let Some(request) = standard_keybind_request(&ui_event) {
             match (selected, request) {
                 (Selected::Document(index), NodeRequest::Close) => {
-                    self.remove_document(index);
+                    self.close_document(index);
                     self.set_selecting(Some(Selected::Root));
                 }
                 (_, request) => self.hook.request(request),
@@ -512,6 +660,8 @@ impl FileManagerApplet {
             return;
         };
         self.status = None;
+        // the selected file is previewed again
+        self.hovered = None;
 
         // Ctrl+Tab switches between the file list and the document
         if modifiers == KeyModifiers::CTRL && matches!(key, KeySymbol::Char('\t')) {
@@ -557,6 +707,13 @@ impl FileManagerApplet {
         let list_width = f64::from(self.list_width());
         let [x, y] = mouse_event.position;
 
+        // non-negative, since it's past the header
+        #[allow(clippy::cast_sign_loss)]
+        let row = (x < list_width && y >= f64::from(row_height()))
+            .then(|| ((y / f64::from(row_height())) as usize - 1) + self.scroll)
+            .filter(|&index| index < self.entries.len());
+        self.hovered = row;
+
         if x >= list_width {
             if let MouseEventKind::Button { pressed: true, .. } = mouse_event.kind {
                 self.set_pane(Pane::Document);
@@ -576,11 +733,6 @@ impl FileManagerApplet {
                 pressed: true,
             } => {
                 self.set_pane(Pane::Files);
-                // non-negative, since it's past the header
-                #[allow(clippy::cast_sign_loss)]
-                let row = (y >= f64::from(row_height()))
-                    .then(|| ((y / f64::from(row_height())) as usize - 1) + self.scroll)
-                    .filter(|&index| index < self.entries.len());
                 if let Some(index) = row {
                     self.select(index);
                     self.activate_selected();
@@ -691,10 +843,19 @@ impl FileManagerApplet {
         );
 
         let size = self.document_size();
-        let body = self.active_document().map_or_else(
-            || UITree::leaf(UIElement::Nothing),
-            |document| document.handle.get_surface(),
-        );
+        let body = match self.shown_document() {
+            Ok(document) => document.handle.get_surface(),
+            Err(note) => UITree::new_styled(
+                UIElement::Backgrounded(DOCUMENT_BG),
+                Style::full_size(),
+                vec![text(
+                    LEFT_PAD,
+                    note.to_string(),
+                    self.palette.inactive,
+                    size.width as f32,
+                )],
+            ),
+        };
         let body = UITree::new_styled(
             UIElement::Nothing,
             Style::absolute([0.0, row_height()], [size.width as f32, size.height as f32]),
@@ -710,7 +871,11 @@ impl StandardApplet for FileManagerApplet {
                 self.size = size;
                 self.clamp_scroll();
                 let document_size = self.document_size();
-                for document in &self.documents {
+                let preview = self
+                    .preview
+                    .as_ref()
+                    .and_then(|preview| preview.document.as_ref());
+                for document in self.documents.iter().chain(preview) {
                     document
                         .handle
                         .send_event(StandardEvent::UIEvent(UIEvent::WindowResized(
@@ -736,6 +901,63 @@ impl StandardApplet for FileManagerApplet {
 
     fn settings_changed(&mut self, settings: &Settings) {
         self.palette = settings.palette.clone();
+    }
+
+    fn update(&mut self) {
+        self.update_preview();
+    }
+
+    /// An Okular process ended
+    fn wake(&mut self) {
+        while let Ok(pid) = self.exited.try_recv() {
+            self.starting.retain(|&(starting, _)| starting != pid);
+        }
+        self.hook.damage_treeview();
+    }
+
+    /// Okular's windows, for the PDFs it was started for
+    fn awaiting_wl(&self) -> Vec<AwaitedWl> {
+        self.starting
+            .iter()
+            .map(|&(pid, _)| AwaitedWl { pid, app_id: None })
+            .collect()
+    }
+
+    /// Okular's window for a PDF becomes its document
+    fn take_wl_surface(&mut self, surface: NewWlSurface) -> Result<(), NewWlSurface> {
+        let Some(index) = self
+            .starting
+            .iter()
+            .position(|&(pid, _)| surface.pid == Some(pid))
+        else {
+            return Err(surface);
+        };
+        let (_, file) = self.starting.remove(index);
+        self.status = None;
+        let wl = Some(surface.surface_id);
+        let (id, handle) = self
+            .hook
+            .embed(WlSurfaceApplet::get_boxed_initiator(surface));
+        self.add_document(Document {
+            id,
+            handle,
+            file: Some(file),
+            wl,
+        });
+        self.hook.damage_window();
+        Ok(())
+    }
+
+    /// Asks its wl clients (eg Okular) to close too, since nothing else shows their windows
+    fn close_requested(&mut self) -> bool {
+        for document in self
+            .documents
+            .iter()
+            .filter(|document| document.wl.is_some())
+        {
+            document.handle.send_event(StandardEvent::CloseRequest);
+        }
+        true
     }
 
     fn get_window_standard_applet(&self, container_size: DisplayContainerSize) -> UITree {
@@ -822,7 +1044,7 @@ impl StandardApplet for FileManagerApplet {
             && let &[index] = index.as_slice()
             && index < self.documents.len()
         {
-            self.remove_document(index);
+            self.close_document(index);
             if self.selecting.is_some() {
                 self.set_selecting(Some(Selected::Root));
             }
@@ -838,7 +1060,9 @@ impl StandardApplet for FileManagerApplet {
         };
         let document = self.remove_document(index);
         self.hook.damage_window();
-        Answer::Now(Some(DetachedTree::leaf(document.handle.detach())))
+        let mut tree = DetachedTree::leaf(document.handle.detach());
+        tree.wl_surface = document.wl;
+        Answer::Now(Some(tree))
     }
 
     /// Becomes a document; trees with children or wl surfaces are given back
@@ -857,6 +1081,7 @@ impl StandardApplet for FileManagerApplet {
             id,
             handle,
             file: None,
+            wl: None,
         });
         self.hook.damage_window();
         Answer::Now(Ok(()))
@@ -864,6 +1089,15 @@ impl StandardApplet for FileManagerApplet {
 
     fn handle_embedded_request(&mut self, id: EmbeddedId, request: NodeRequest) {
         let Some(index) = self.documents.iter().position(|document| document.id == id) else {
+            // the preview's surface may have changed
+            if self
+                .preview
+                .as_ref()
+                .and_then(|preview| preview.document.as_ref())
+                .is_some_and(|document| document.id == id)
+            {
+                self.hook.damage_window();
+            }
             return;
         };
         match request {

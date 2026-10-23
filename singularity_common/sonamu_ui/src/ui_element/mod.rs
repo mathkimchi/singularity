@@ -3,7 +3,10 @@ use crate::{
     display_units::{DisplayArea, DisplayAreaPx, DisplayContainerSize},
 };
 pub use smithay::reexports::winit::cursor::CursorIcon;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 use wgpu::TextureView;
 
 mod char_grid;
@@ -20,6 +23,54 @@ pub struct RoundRect {
     /// REVIEW: confirm or deny above
     pub main_color: [f32; 4],
     pub border_color: [f32; 4],
+}
+
+/// Pixels for `UIElement::Image`: sRGB RGBA8, row-major, not premultiplied.
+/// Cheap to clone; the renderer uploads each image once, while it is drawn every frame.
+#[derive(Debug, Clone)]
+pub struct Image(Arc<ImageData>);
+#[derive(Debug)]
+struct ImageData {
+    /// Unique per `Image::new`, so equal images compare without their pixels
+    id: u64,
+    width: u32,
+    height: u32,
+    rgba: Box<[u8]>,
+}
+impl Image {
+    /// `None` if `rgba` isn't `width * height * 4` bytes
+    #[must_use]
+    pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Option<Self> {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        (rgba.len() == width as usize * height as usize * 4).then(|| {
+            Self(Arc::new(ImageData {
+                id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+                width,
+                height,
+                rgba: rgba.into(),
+            }))
+        })
+    }
+
+    #[must_use]
+    pub fn id(&self) -> u64 {
+        self.0.id
+    }
+
+    #[must_use]
+    pub fn size(&self) -> [u32; 2] {
+        [self.0.width, self.0.height]
+    }
+
+    #[must_use]
+    pub fn rgba(&self) -> &[u8] {
+        &self.0.rgba
+    }
+}
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
 }
 
 /// A rounded rect that a primitive is cut to, eg the inside of a rounded border
@@ -78,6 +129,7 @@ pub enum UIPrimitiveElement {
     CharGrid(CharGrid),
     /// Just general holder
     Texture(TextureView),
+    Image(Image),
 }
 
 #[derive(Debug, Clone)]
@@ -297,6 +349,7 @@ impl PrimitiveScene {
             UIElement::Text(text) => Some(UIPrimitiveElement::Text(text, transform.scale)),
             UIElement::CharGrid(char_grid) => Some(UIPrimitiveElement::CharGrid(char_grid)),
             UIElement::Texture(texture_view) => Some(UIPrimitiveElement::Texture(texture_view)),
+            UIElement::Image(image) => Some(UIPrimitiveElement::Image(image)),
             // already resolved into a child in `build_taffy_tree`
             UIElement::Subsurface(surface_id) => {
                 self.subsurface_areas.push((surface_id, area));
@@ -431,6 +484,9 @@ pub enum UIElement {
 
     /// TODO: replace image with this
     Texture(TextureView),
+
+    /// Pixels from an applet, which has no GPU device to make a `Texture`; stretched over the node
+    Image(Image),
 
     /// Reference to an embedded UI element
     Subsurface(u64),

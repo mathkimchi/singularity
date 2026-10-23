@@ -7,7 +7,7 @@ pub mod code_editor;
 // pub mod editor;
 pub mod file_manager;
 pub mod image_viewer;
-pub mod pdf_viewer;
+pub mod pdf_preview;
 // pub mod task_organizer;
 // pub mod time_manager;
 

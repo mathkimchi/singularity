@@ -43,6 +43,7 @@ struct WgpuData {
     viewport: glyphon::Viewport,
     atlas: TextAtlas,
     text_cache: rendering::TextCache,
+    image_cache: rendering::ImageCache,
     // text_renderer: glyphon::TextRenderer,
     // text_buffer: glyphon::Buffer,
 
@@ -172,6 +173,7 @@ impl WgpuData {
             viewport,
             atlas,
             text_cache,
+            image_cache: rendering::ImageCache::default(),
             // text_renderer,
             // text_buffer,
             rectangle_renderer,
