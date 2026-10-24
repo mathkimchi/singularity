@@ -546,7 +546,9 @@ impl StandardApplet for CommandHubApplet {
             | StandardEvent::Focus(_)
             | StandardEvent::ToggleCollapsed(_) => {}
             // doesn't show wl surfaces (only the root gets these)
-            StandardEvent::WlSurfaceRegistered(_) | StandardEvent::Capturing(_) => {}
+            StandardEvent::WlSurfaceRegistered(_)
+            | StandardEvent::Capturing(_)
+            | StandardEvent::Open { .. } => {}
         }
     }
 

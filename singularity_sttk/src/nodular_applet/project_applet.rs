@@ -837,7 +837,7 @@ impl StandardApplet for ProjectApplet {
             | StandardEvent::ToggleCollapsed(_)
             | StandardEvent::NodeAction(..) => {}
             // only the root gets these
-            StandardEvent::Capturing(_) => {}
+            StandardEvent::Capturing(_) | StandardEvent::Open { .. } => {}
         }
     }
 

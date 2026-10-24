@@ -116,3 +116,12 @@ Found, not fixed (not small, or the intended behavior is unclear):
 
 - dms (quickshell) was killed when closing one of two open popouts: smithay's layer-shell pre-commit hook still ran after the layer surface was destroyed, saw the reset (0-size, unanchored) state and posted `InvalidSize`. Fixed upstream (smithay `ed563d9`), which needed smithay master and so winit 0.31: the display's `DisplayRequest`s now go through an mpsc channel, and the proxy only wakes the loop (`proxy_wake_up`, replacing `user_event`).
 - SDE spawns `dms run` itself (`AppletRunner::spawn_shell`). It currently sets `WAYLAND_DEBUG=1` and writes stderr to `dms.log` for debugging. Client disconnect reasons are printed (`ClientState::disconnected`).
+
+## Opening applets from other processes (default file manager)
+
+- A launcher (`sonamu-msg`) asks the runner over a Unix socket; the applet still runs as a thread in the root's tree, so it's saved, focused and themed like any other. Running native applets out of process was rejected: their surface/treeview are in-memory `SharedState`.
+- Socket: `$XDG_RUNTIME_DIR/sonamu-<wl socket>.sock`, path in `SONAMU_SOCKET` (also exported to D-Bus on tty). One message per connection, NUL-terminated fields; no reply. A read blocks the runner's loop for at most 100 ms.
+- The message names an applet by its spawner's registry name (eg `file_manager`), not `NewApplet`, so any registered applet can be opened.
+- It's added as the next sibling of the focused node in the root's tree, focused. Focus inside a project's tree is ignored (it goes beside the project).
+- `sonamu-msg` makes relative args that exist as paths absolute, since the runner's cwd differs. It exits 1 if Sonamu isn't reachable, so xdg-open can fall back.
+- Not done: `org.freedesktop.FileManager1` over D-Bus (browsers' "Show in folder"), `file://` URI args, and selecting a file (`ShowItems`) rather than opening a folder.

@@ -4,7 +4,7 @@
 use crate::{
     command_hub::CommandHubApplet,
     nodular_applet::{
-        AppletClient, AppletSpawnerRegistry, NodeRequest, WrapInitializer,
+        AppletClient, AppletSpawnerRegistry, NodeRequest, NodularAppletInitializer, WrapInitializer,
         node_tree::{AttachClient, NodeId, NodeTree, SpawnClient},
         project_applet::ProjectApplet,
         split_applet::SplitApplet,
@@ -275,16 +275,7 @@ impl NodeHolder {
                     .as_ref()
                     .map(|directory| directory.to_string_lossy().into_owned());
                 let args: Vec<&str> = directory.as_deref().into_iter().collect();
-                let spawner = self
-                    .applet_spawners
-                    .read()
-                    .unwrap()
-                    .get("file_manager")
-                    .cloned();
-                let Some(initializer) =
-                    spawner.and_then(|spawner| spawner.create_initializer(&args))
-                else {
-                    log::warn!("No file manager to spawn");
+                let Some(initializer) = self.initializer("file_manager", &args) else {
                     return;
                 };
                 initializer
@@ -293,6 +284,27 @@ impl NodeHolder {
         if let Some(new) = self.tree.add_child_at(parent, position, initializer) {
             self.tree.focus(new, true);
         }
+    }
+
+    /// Adds the applet registered under `applet` after the focused node, focused inside
+    pub fn open(&mut self, applet: &str, args: &[&str]) {
+        let Some(initializer) = self.initializer(applet, args) else {
+            return;
+        };
+        let (parent, position) = self.tree.spawn_target(self.tree.focused_node(), true);
+        if let Some(new) = self.tree.add_child_at(parent, position, initializer) {
+            self.tree.focus(new, true);
+        }
+    }
+
+    /// From the applet registered under `applet`
+    fn initializer(&self, applet: &str, args: &[&str]) -> Option<NodularAppletInitializer> {
+        let spawner = self.applet_spawners.read().unwrap().get(applet).cloned();
+        let initializer = spawner.and_then(|spawner| spawner.create_initializer(args));
+        if initializer.is_none() {
+            log::warn!("No {applet} to spawn with {args:?}");
+        }
+        initializer
     }
 
     /// Starts the program in the tree's directory without waiting for it; whether it started

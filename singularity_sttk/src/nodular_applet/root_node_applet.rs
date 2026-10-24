@@ -390,6 +390,10 @@ impl RootNodeApplet {
             StandardEvent::SettingsChanged(_) => self.surface.damage(),
             // its tree is in the runner's directory
             StandardEvent::Directory(_) => {}
+            StandardEvent::Open { applet, args } => {
+                let args: Vec<&str> = args.iter().map(String::as_str).collect();
+                self.holder.open(&applet, &args);
+            }
             StandardEvent::UIEvent(UIEvent::Key {
                 symbol: Some(KeySymbol::Char('?')),
                 modifiers: KeyModifiers { logo: true, .. },

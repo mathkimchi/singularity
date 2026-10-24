@@ -1,10 +1,13 @@
-use crate::{pluck_place::PluckPlace, smithay::SmithayState, ui_handle::UIHandle};
+use crate::{msg_socket::MsgSocket, pluck_place::PluckPlace, smithay::SmithayState, ui_handle::UIHandle};
 use calloop::{EventLoop, LoopHandle, LoopSignal};
-use singularity_common::sap::{
-    client_handle::ClientHandle,
-    detached::DetachedTree,
-    packets::{StandardEvent, StandardRequest, StateKind, WlSurfaceId},
-    raw_client_initializer::RawClientInitializer,
+use singularity_common::{
+    msg,
+    sap::{
+        client_handle::ClientHandle,
+        detached::DetachedTree,
+        packets::{StandardEvent, StandardRequest, StateKind, WlSurfaceId},
+        raw_client_initializer::RawClientInitializer,
+    },
 };
 use sonamu_ui::{
     PointerGrab,
@@ -107,9 +110,16 @@ impl AppletRunner {
         // For applets that launch wl clients (they set `WAYLAND_DISPLAY` to it).
         // Not `WAYLAND_DISPLAY` itself: Mesa's Vulkan device selection would connect here
         // before this loop runs, and wait forever (and in a window, winit connects to it).
+        // For `sonamu-msg` (eg as the default file manager), in the clients' env
+        let msg_socket = MsgSocket::bind(msg::socket_path(&smithay_state.socket_name))
+            .inspect_err(|err| eprintln!("Failed to open the message socket: {err}"))
+            .ok();
         // SAFETY: nothing else runs yet (the display, root and applet threads start below)
         unsafe {
             std::env::set_var("SONAMU_WAYLAND_DISPLAY", &smithay_state.socket_name);
+            if let Some(msg_socket) = &msg_socket {
+                std::env::set_var(msg::SOCKET_ENV, msg_socket.path());
+            }
         }
         if on_tty {
             Self::export_session_env(&smithay_state.socket_name);
@@ -123,6 +133,9 @@ impl AppletRunner {
             smithay_state,
             on_tty,
         );
+        if let Some(msg_socket) = msg_socket {
+            msg_socket.insert(&event_loop.handle());
+        }
 
         dbg!("Will run event loop");
 
@@ -151,6 +164,8 @@ impl AppletRunner {
             .arg("--systemd")
             .arg(wayland_display)
             .arg("XDG_CURRENT_DESKTOP=sonamu")
+            // so programs D-Bus starts can reach `sonamu-msg`'s socket
+            .arg(msg::SOCKET_ENV)
             .status();
         if !result.as_ref().is_ok_and(std::process::ExitStatus::success) {
             eprintln!("Failed to export the session env, so portals may not work: {result:?}");

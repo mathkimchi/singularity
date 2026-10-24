@@ -1,0 +1,9 @@
+# Opens folders in Sonamu's file manager.
+# Copy to ~/.local/share/applications/, then: xdg-mime default sonamu-file-manager.desktop inode/directory
+[Desktop Entry]
+Type=Application
+Name=Sonamu File Manager
+Exec=sonamu-msg open file_manager %f
+MimeType=inode/directory;
+NoDisplay=true
+Terminal=false
